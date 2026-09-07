@@ -35,6 +35,9 @@ AUTH_MODE=""
 SETUP_PROJECT=""
 UPDATE_SOURCE=""
 UPDATE_CHANNEL=""
+REPAIR="no"
+PREVIOUS_SOURCE=""
+INSTALL_PAIRS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,6 +56,8 @@ while [ $# -gt 0 ]; do
     --setup-project) shift; SETUP_PROJECT="$1" ;;
     --update-source) shift; UPDATE_SOURCE="$1" ;;
     --update-channel) shift; UPDATE_CHANNEL="$1" ;;
+    --repair) REPAIR="yes" ;;
+    --previous-source) shift; PREVIOUS_SOURCE="$1" ;;
     -h|--help)
       sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -123,6 +128,26 @@ backup_if_exists() {
 
 install_one() {
   local src="$1" dst="$2"
+  if [ "$REPAIR" = yes ]; then
+    case "$(basename "$dst")" in
+      routing.json|nightshift-routing.json|nightshift.toml)
+        [ ! -e "$dst" ] || return 0 ;;
+    esac
+    if [ -L "$dst" ]; then
+      local existing
+      existing="$(readlink "$dst")"
+      if [ "$existing" != "$src" ]; then
+        case "$existing" in
+          "${PREVIOUS_SOURCE:-/__nightshift_no_previous_source__}/"*) ;;
+          *) err "preserving unowned link: $dst"; return 74 ;;
+        esac
+      fi
+    elif [ -e "$dst" ]; then
+      # Routing and project configuration are user-owned data after installation.
+      case "$(basename "$dst")" in routing.json|nightshift-routing.json|nightshift.toml) return 0 ;; esac
+      err "preserving existing non-link: $dst"; return 74
+    fi
+  fi
   backup_if_exists "$dst"
   rm -f "$dst"
   if [ "$MODE" = "symlink" ]; then
@@ -131,10 +156,16 @@ install_one() {
     cp "$src" "$dst"
   fi
   ok "$(basename "$dst")"
+  INSTALL_PAIRS+=("$dst" "$src")
 }
 
 install_tree() {
   local src="$1" dst="$2"
+  if [ "$REPAIR" = yes ]; then
+    mkdir -p "$(dirname "$dst")"
+    install_one "$src" "$dst"
+    return
+  fi
   backup_if_exists "$dst"
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
@@ -144,6 +175,7 @@ install_tree() {
     cp -R "$src" "$dst"
   fi
   ok "$(basename "$dst")"
+  INSTALL_PAIRS+=("$dst" "$src")
 }
 
 want_claude() { [ "$RUNTIME" = "claude" ] || [ "$RUNTIME" = "all" ]; }
@@ -532,10 +564,18 @@ UPDATE_ARGS=()
 NIGHTSHIFT_HOME="$NIGHTSHIFT_TARGET" python3 "$SCRIPT_SRC/nightshift-update.py" \
   --project "$REPO_DIR" --configure "${UPDATE_ARGS[@]}" --install-args \
   --runtime "$RUNTIME" --target "$TARGET" --codex-target "$CODEX_TARGET" \
-  --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE"
+  --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE" --repair
 mkdir -p "$BIN_TARGET"
 install_one "$FACTORY_SRC" "$FACTORY_DST"
 chmod +x "$FACTORY_DST" 2>/dev/null || true
+python3 - "$NIGHTSHIFT_TARGET/install-links.json" "${INSTALL_PAIRS[@]}" <<'PY'
+import json, os, sys, tempfile
+from pathlib import Path
+path = Path(sys.argv[1])
+with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as output:
+    json.dump(dict(zip(sys.argv[2::2], sys.argv[3::2])), output)
+os.replace(output.name, path)
+PY
 if [ -n "$AUTH_MODE" ] || [ ! -e "$FACTORY_CONFIG" ]; then
   backup_if_exists "$FACTORY_CONFIG"
   printf 'NIGHTSHIFT_AUTH=%s\n' "${AUTH_MODE:-subscription}" > "$FACTORY_CONFIG"

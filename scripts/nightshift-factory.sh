@@ -19,6 +19,10 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ "${1:-}" = --sync ]; then
+  shift
+  exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --apply --heal "$@"
+fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
     version|setup|dashboard|--help|-h|"") ;;
