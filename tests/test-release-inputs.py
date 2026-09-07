@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/nightshift-update.py"
@@ -19,6 +20,9 @@ class ReleaseInputs(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
+        environment = patch.dict(os.environ, {"NIGHTSHIFT_HOME": str(self.base / "runtime")})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.remote = self.base / "remote"
         self.local = self.base / "local"
         self.run_git(self.base, "init", "-q", "-b", "main", str(self.remote))
@@ -97,6 +101,26 @@ class ReleaseInputs(unittest.TestCase):
                         "--channel", "branch:main"], env=env, check=True, capture_output=True)
         data = json.loads((self.base / "home/updates.json").read_text())
         self.assertEqual(data, {"source": str(self.remote), "channel": "branch:main"})
+
+    def test_repair_manifest_and_three_attempt_receipt(self):
+        home = self.base / "runtime"
+        home.mkdir()
+        self.assertTrue(updater.needs_repair())
+        source = self.base / "helper"
+        source.write_text("ok")
+        link = self.base / "installed"
+        link.symlink_to(source)
+        (home / "install-links.json").write_text(json.dumps({str(link): str(source)}))
+        self.assertFalse(updater.needs_repair())
+        link.unlink()
+        self.assertTrue(updater.needs_repair())
+        with patch.object(updater.subprocess, "run", side_effect=subprocess.CalledProcessError(74, "installer")) as runner:
+            with self.assertRaises(RuntimeError):
+                updater.refresh_install(self.local, ["--repair"])
+            self.assertEqual(runner.call_count, 3)
+        receipt = json.loads((home / "update-repair.json").read_text())
+        self.assertEqual(receipt["attempts"], 3)
+        self.assertEqual(receipt["status"], "failed")
 
     def test_spec_no_external_cli_and_stable_identity(self):
         path = self.local / "agent idea.md"

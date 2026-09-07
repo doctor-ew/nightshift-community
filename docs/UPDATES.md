@@ -15,6 +15,12 @@ Do not embed access tokens in repository URLs; use Git's credential helper.
 
 `nightshift sync --check` checks without changing source files.
 `nightshift sync --apply` attempts a safe fast-forward.
+`nightshift --sync` applies that update and checks installed adapter links for
+repair. Normal ticket launches also check link health. Repair uses recorded
+install targets, attempts at most three times and writes update-repair.json in
+NIGHTSHIFT_HOME. Custom non-link helpers and unowned links block repair rather
+than being overwritten; custom routing/configuration files are preserved.
+Missing helpers are restored even when the installed revision is already current.
 `nightshift sync --configure --source <url> --channel <channel>` persists settings
 in NIGHTSHIFT_HOME/updates.json. Environment overrides are NIGHTSHIFT_UPDATE_SOURCE
 and NIGHTSHIFT_UPDATE_CHANNEL. Set NIGHTSHIFT_SYNC_CHECK=off to disable launch checks.
