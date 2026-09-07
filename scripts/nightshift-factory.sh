@@ -19,9 +19,18 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
+  case "${1:-}" in
+    version|setup|dashboard|--help|-h|"") ;;
+    *) exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --run "$@" ;;
+  esac
+fi
+if [ "${1:-}" = sync ]; then
+  shift
+  exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
+fi
 SYNC_BRANCH="${NIGHTSHIFT_SYNC_BRANCH:-$(git -C "$SOURCE_DIR" config --get nightshift.syncBranch || true)}"
 SYNC_BRANCH="${SYNC_BRANCH:-main}"
-if [ "${1:-}" = "sync" ]; then shift; exec "$SCRIPT_DIR/nightshift-sync.sh" --project "$SOURCE_DIR" --branch "$SYNC_BRANCH" "$@"; fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
 if [ "${1:-}" = "setup" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-setup.sh" "$@"; fi
 if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-dashboard.sh" --serve "$@"; fi
@@ -161,7 +170,7 @@ if [ "$AUTH_MODE" = subscription ]; then
   echo 'nightshift: paid API mode disabled; no automatic billing fallback.' >&2
 fi
 echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR"); sync branch: $SYNC_BRANCH" >&2
-if [ "${NIGHTSHIFT_SYNC_CHECK:-on}" != off ]; then
+if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${NIGHTSHIFT_SYNC_CHECK:-on}" != off ]; then
   bash "$SCRIPT_DIR/nightshift-sync.sh" --project "$SOURCE_DIR" --branch "$SYNC_BRANCH" --check >&2 ||
     echo 'nightshift: update check unavailable; continuing with the installed build.' >&2
 fi
@@ -169,7 +178,8 @@ fi
 if [ "$MODE" = "batch" ]; then
   REQUEST="\$nightshift batch ${BATCH_ARGS[*]}"
 else
-  REQUEST="\$nightshift ${REF}"
+  QUOTED_REF=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$REF")
+  REQUEST="\$nightshift ${QUOTED_REF}"
 fi
 REQUEST+=" --branch ${BRANCH}"
 if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth api"; fi

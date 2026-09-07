@@ -14,6 +14,8 @@
 #   install.sh --bin-target DIR install the agent-agnostic nightshift launcher there
 #   install.sh --unattended-shell disable Codex and Claude Code permission dialogs
 #   install.sh --auth subscription|api set auth preference (API still requires per-run --auth api)
+#   install.sh --update-source URL explicit repository (default: community)
+#   install.sh --update-channel stable|branch:NAME (default: stable)
 #
 # Idempotent. Backs up overwritten files to <nightshift-target>/.backup/<timestamp>/.
 
@@ -31,6 +33,8 @@ RUNTIME="all"       # codex | claude | local | all
 UNATTENDED_SHELL="no"
 AUTH_MODE=""
 SETUP_PROJECT=""
+UPDATE_SOURCE=""
+UPDATE_CHANNEL=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,8 +51,10 @@ while [ $# -gt 0 ]; do
     --unattended-shell) UNATTENDED_SHELL="yes" ;;
     --auth) shift; AUTH_MODE="$1" ;;
     --setup-project) shift; SETUP_PROJECT="$1" ;;
+    --update-source) shift; UPDATE_SOURCE="$1" ;;
+    --update-channel) shift; UPDATE_CHANNEL="$1" ;;
     -h|--help)
-      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -520,6 +526,13 @@ if want_codex; then
 fi
 
 bold "Installing agent-agnostic launcher"
+UPDATE_ARGS=()
+[ -z "$UPDATE_SOURCE" ] || UPDATE_ARGS+=(--source "$UPDATE_SOURCE")
+[ -z "$UPDATE_CHANNEL" ] || UPDATE_ARGS+=(--channel "$UPDATE_CHANNEL")
+NIGHTSHIFT_HOME="$NIGHTSHIFT_TARGET" python3 "$SCRIPT_SRC/nightshift-update.py" \
+  --project "$REPO_DIR" --configure "${UPDATE_ARGS[@]}" --install-args \
+  --runtime "$RUNTIME" --target "$TARGET" --codex-target "$CODEX_TARGET" \
+  --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE"
 mkdir -p "$BIN_TARGET"
 install_one "$FACTORY_SRC" "$FACTORY_DST"
 chmod +x "$FACTORY_DST" 2>/dev/null || true
