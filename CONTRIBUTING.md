@@ -10,6 +10,10 @@ For public contributions, fork the repository, create a topic branch, and target
 your PR at integration/nightshift. Only maintainers promote reviewed changes to main.
 You do not need collaborator access to propose a fork-based PR once the repo is public.
 
+Follow the [promotion policy](docs/PROMOTION.md): community integration, a live
+shakedown with independent review, community main release, then a separate public
+change port into private integration. Private history never flows into community.
+
 Include the problem, acceptance criteria, tests run, and any limitations.
 Keep patches small. Preserve existing work and historical evidence.
 Use the canonical commands/ workflow for Nightshift engineering stages.
