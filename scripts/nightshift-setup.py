@@ -12,6 +12,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--project', default=os.getcwd())
 parser.add_argument('--read', action='store_true')
 parser.add_argument('--migrate', action='store_true')
+parser.add_argument('--ticket-ref', default='')
+parser.add_argument('--runtime-provider', default='')
+parser.add_argument('--runtime-model', default='')
 args = parser.parse_args()
 project = Path(args.project)
 canonical = project / '.nightshift.toml'
@@ -63,8 +66,41 @@ route_file = section('providers').get('routing_file')
 if route_file and not (project / route_file).is_file():
     fail('CONFIG_INCOMPLETE', 'Configured routing file does not exist; create it or update providers.routing_file', ['providers.routing_file'])
 additions = {}
+customize = True
+if sys.stdin.isatty() and not args.migrate:
+    ref = args.ticket_ref
+    sources = ('spec', 'gh', 'jira', 'monday', 'notion', 'bd', 'beads')
+    inferred = ref.split(':', 1)[0] if ':' in ref else ''
+    if ref and (project / ref).is_file():
+        inferred = 'spec'
+    if inferred in sources:
+        ticket_source = 'beads' if inferred == 'bd' else inferred
+        print(f'Ticket source: {ticket_source} (from input reference)')
+    else:
+        ticket_source = input(f'Ticket source (spec|gh|jira|monday|notion|beads) [{section("ticket_source").get("provider", "spec")}]: ').strip() or section('ticket_source').get('provider', 'spec')
+    if ticket_source not in sources:
+        fail('CONFIG_INVALID', 'Unknown ticket source')
+    additions['ticket_source'] = {'provider': ticket_source}
+    provider = args.runtime_provider or runtime.get('provider', 'codex')
+    model = args.runtime_model or runtime.get('model', '')
+    selection = provider + (':' + model if model else '')
+    if not args.runtime_provider:
+        selection = input(f'Model/runtime (codex|claude|ollama|local, or provider:model) [{selection}]: ').strip() or selection
+        provider, _, model = selection.partition(':')
+    if provider not in ('codex', 'claude', 'ollama', 'local'):
+        fail('CONFIG_INVALID', 'Unknown runtime provider')
+    additions['runtime'] = {'provider': provider, 'model': model}
+    if 'auth' not in runtime:
+        additions['runtime']['auth'] = 'subscription'
+    print('Defaults for missing settings: routing.json; 3 repair attempts per gate; removal and production confirmation required; no production target configured. Existing settings are preserved.')
+    choice = input('Use defaults or customize? [defaults]: ').strip().lower() or 'defaults'
+    if choice not in ('defaults', 'customize'):
+        fail('CONFIG_INVALID', 'Choose defaults or customize')
+    customize = choice == 'customize'
 for table, key, default in missing:
-    answer = input(f'{table}.{key} [{default}]: ').strip()
+    if key in additions.get(table, {}):
+        continue
+    answer = input(f'{table}.{key} [{default}]: ').strip() if customize else ''
     if isinstance(default, bool) and answer and answer not in ('true', 'false'):
         fail('CONFIG_INVALID', f'{table}.{key} requires true or false')
     try:
@@ -74,14 +110,6 @@ for table, key, default in missing:
     if table == 'repair_budgets' and value < 1:
         fail('CONFIG_INVALID', f'{table}.{key} requires a positive integer')
     additions.setdefault(table, {})[key] = value
-if sys.stdin.isatty() and not args.migrate:
-    provider = input(f'Runtime codex/claude/ollama [{runtime.get("provider", "codex")}]: ').strip() or runtime.get('provider', 'codex')
-    if provider not in ('codex', 'claude', 'ollama', 'local'):
-        fail('CONFIG_INVALID', 'Unknown runtime provider')
-    additions.setdefault('runtime', {})['provider'] = provider
-    additions.setdefault('runtime', {})['model'] = input(f'Model [{runtime.get("model", "runtime default")}]: ').strip() or runtime.get('model', '')
-    if 'auth' not in runtime:
-        additions.setdefault('runtime', {})['auth'] = 'subscription'
 
 # Insert missing keys directly into existing tables, preserving every original line.
 lines = original.splitlines(keepends=True)

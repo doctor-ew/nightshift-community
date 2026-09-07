@@ -29,3 +29,17 @@ if PATH="$TMP_ROOT/bin:$PATH" CLAUDE_PROJECT_DIR="$TMP_ROOT/project" "$RESOLVER"
 fi
 
 printf 'PASS: nightshift batch explicit-list resolution\n'
+
+touch "$TMP_ROOT/project/docs/idea coach.md"
+resolved=$(CLAUDE_PROJECT_DIR="$TMP_ROOT/project" "$RESOLVER" --input 'spec:docs/AGENT-SPEC.md')
+assert_eq "$resolved" 'spec:docs/AGENT-SPEC.md'
+resolved=$(CLAUDE_PROJECT_DIR="$TMP_ROOT/project" "$RESOLVER" --input 'docs/idea coach.md')
+assert_eq "$resolved" 'spec:docs/idea coach.md'
+resolved=$(CLAUDE_PROJECT_DIR="$TMP_ROOT/project" "$RESOLVER" --input '"spec:docs/idea coach.md",gh:12')
+assert_eq "$resolved" $'spec:docs/idea coach.md\ngh:12'
+if result=$(CLAUDE_PROJECT_DIR="$TMP_ROOT/project" "$RESOLVER" --input 'gh:12,unresolved'); then
+  fail 'invalid list accepted'
+fi
+assert_eq "$result" ''
+if "$RESOLVER" --input 'spec:'; then fail 'empty spec accepted'; fi
+echo 'PASS: spec references, quoted paths and atomic batch output'
