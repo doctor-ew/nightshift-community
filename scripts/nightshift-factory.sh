@@ -11,6 +11,11 @@
 
 set -euo pipefail
 
+if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
+  echo 'nightshift: recursive factory launch from a role worker is prohibited' >&2
+  exit 64
+fi
+
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [ -L "$SCRIPT_PATH" ]; do
   LINK_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -206,7 +211,9 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 
 Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through commit, ordinary push, and PR creation only. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
-Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') and do not start another Codex process. Those commands would recursively start a second factory. Perform the batch protocol and its per-ticket stages in this session instead."
+Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
+
+Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, including its read-only Codex verifier subprocess for cross-provider adversarial review. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
 SANDBOX="workspace-write"
 if [ "$BRANCH" != "none" ]; then
   # Git creates refs and worktrees under .git; workspace-write intentionally
