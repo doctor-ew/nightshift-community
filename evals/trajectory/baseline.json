@@ -1,0 +1,196 @@
+{
+  "adversarial-route": {
+    "route": {
+      "model": "gpt-5.4",
+      "provider": "codex"
+    },
+    "tool_order": [
+      "provider_dispatch"
+    ]
+  },
+  "deny-production": {
+    "policy_decisions": [
+      {
+        "action": "production-deploy",
+        "decision": "deny",
+        "reason": "production deployment requires a fresh confirmation token"
+      }
+    ],
+    "tool_order": [
+      "policy_check"
+    ]
+  },
+  "deny-removal": {
+    "policy_decisions": [
+      {
+        "action": "permanent-removal",
+        "decision": "deny",
+        "reason": "permanent-removal is denied by factory policy"
+      }
+    ],
+    "tool_order": [
+      "policy_check"
+    ]
+  },
+  "exhausted-failure": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 1,
+        "invocation": "isolation",
+        "worker_execution": "unknown"
+      },
+      {
+        "attempt": 2,
+        "exit_code": 1,
+        "invocation": "isolation",
+        "worker_execution": "unknown"
+      }
+    ],
+    "gate": "review",
+    "next_action_category": "inspect-and-repair",
+    "policy_decisions": [
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      },
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      }
+    ],
+    "repair_budget": 2,
+    "status": "failed",
+    "tool_order": [
+      "policy_check",
+      "isolation_run",
+      "policy_check",
+      "isolation_run"
+    ]
+  },
+  "missing-isolation": {
+    "attempts": [],
+    "gate": "review",
+    "next_action_category": "configure-isolation",
+    "policy_decisions": [],
+    "repair_budget": 1,
+    "status": "blocked",
+    "tool_order": []
+  },
+  "needs-decision": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 1,
+        "invocation": "isolation",
+        "worker_execution": "unknown"
+      },
+      {
+        "attempt": 2,
+        "exit_code": 1,
+        "invocation": "isolation",
+        "worker_execution": "unknown"
+      }
+    ],
+    "gate": "review",
+    "next_action_category": "inspect-and-repair",
+    "policy_decisions": [
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      },
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      }
+    ],
+    "repair_budget": 2,
+    "status": "needs-decision",
+    "tool_order": [
+      "policy_check",
+      "isolation_run",
+      "policy_check",
+      "isolation_run"
+    ]
+  },
+  "repaired-success": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 1,
+        "invocation": "isolation",
+        "worker_execution": "unknown"
+      },
+      {
+        "exit_code": 0,
+        "invocation": "isolation",
+        "repair_after_attempt": 1,
+        "worker_execution": "confirmed"
+      },
+      {
+        "attempt": 2,
+        "exit_code": 0,
+        "invocation": "isolation",
+        "worker_execution": "confirmed"
+      }
+    ],
+    "gate": "review",
+    "next_action_category": "continue",
+    "policy_decisions": [
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      },
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      },
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      }
+    ],
+    "repair_budget": 2,
+    "status": "complete",
+    "tool_order": [
+      "policy_check",
+      "isolation_run",
+      "policy_check",
+      "isolation_run",
+      "policy_check",
+      "isolation_run"
+    ]
+  },
+  "success": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 0,
+        "invocation": "isolation",
+        "worker_execution": "confirmed"
+      }
+    ],
+    "gate": "review",
+    "next_action_category": "continue",
+    "policy_decisions": [
+      {
+        "action": "worktree-command",
+        "decision": "allow",
+        "reason": "normal command inside assigned worktree is unattended"
+      }
+    ],
+    "repair_budget": 1,
+    "status": "complete",
+    "tool_order": [
+      "policy_check",
+      "isolation_run"
+    ]
+  }
+}

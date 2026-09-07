@@ -1,0 +1,25 @@
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Test artifacts
+.scratch/
+test-output/
+*.tmp
+
+# Local backup created by install.sh
+.nightshift-backup/
+
+# Project-local Nightshift runtime state (trackers, locks, caches, and active markers).
+.nightshift/
+# Pre-rename state is retained for compatibility and remains local-only.
+.drew/
+
+# Beads / Dolt files (added by bd init).
+# Granular ignores for the local DB, backups, locks, etc. live in .beads/.gitignore
+# (also tracked) so the rules travel with the .beads/ directory itself.
+.dolt/
+*.db
+.beads-credential-key

@@ -1,0 +1,41 @@
+name: shellcheck
+
+on:
+  push:
+    branches: [main, 'integration/**', 'nightshift/**']
+  pull_request:
+    branches: [main, 'integration/**', 'nightshift/**']
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Verify reproducible local dashboard bundle
+        working-directory: dashboard
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm run build
+          git diff --exit-code -- dist
+      - name: Run offline eval harness
+        run: bash evals/run-tests.sh
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        with:
+          scandir: "./scripts"
+          severity: warning
+          additional_files: "install.sh tests/test-state-dir.sh evals/run-tests.sh"
+      - name: Run behavioral shell regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_script in tests/test-*.sh; do
+            bash "$test_script"
+          done

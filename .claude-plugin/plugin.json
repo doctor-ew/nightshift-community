@@ -1,0 +1,26 @@
+{
+  "name": "nightshift",
+  "version": "0.2.0",
+  "description": "Source-agnostic, beads-backed engineering pipeline for Claude Code: nightshift-product → nightshift-adversarial → nightshift-implement (TDD spec/red locks) → nightshift-review (TDD integrity gate + six lenses) → nightshift-drift → nightshift-preflight → nightshift-deploy. /nightshift-batch runs many tickets autonomously. Ticket sources: gh, jira, monday, notion, bd. PreToolUse scope-freeze hook.",
+  "author": {
+    "name": "Nightshift contributors",
+    "url": "https://github.com/doctor-ew/nightshift-community"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/doctor-ew/nightshift-community",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doctor-ew/nightshift-community"
+  },
+  "keywords": [
+    "spec-driven",
+    "pipeline",
+    "beads",
+    "code-review",
+    "drift-detection",
+    "scope-freeze",
+    "tdd",
+    "batch",
+    "autonomous"
+  ]
+}
