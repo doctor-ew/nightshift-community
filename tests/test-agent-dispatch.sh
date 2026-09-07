@@ -17,6 +17,7 @@ cat > "$TMP/bin/claude" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = auth ]; then printf '%s\n' "${MOCK_AUTH:-{\"loggedIn\":true,\"authMethod\":\"claude.ai\",\"apiProvider\":\"firstParty\"}}"; exit 0; fi
+[ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ] || exit 88
 jq -n --args '$ARGS.positional' -- "$@" > "$MOCK_LOG"
 [ "${MOCK_EXIT:-0}" = 0 ] || exit "$MOCK_EXIT"
 case "${MOCK_MODE:-structured}" in
@@ -31,6 +32,7 @@ cat > "$TMP/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = login ]; then echo 'Logged in using ChatGPT'; exit 0; fi
+[ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ] || exit 88
 if [ "${MOCK_LOCAL_UNAVAILABLE:-false}" = true ] && [[ " $* " == *' --oss '* ]]; then echo 'Ollama connection refused' >&2; exit 1; fi
 jq -n --args '$ARGS.positional' -- "$@" > "$MOCK_LOG"
 LAST=""; SCHEMA=""

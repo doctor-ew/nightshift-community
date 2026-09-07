@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Deterministic provider boundary. Routing/prompt/input are data, never shell code.
 set -euo pipefail
+if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
+  echo 'nightshift: nested role dispatch is prohibited' >&2
+  exit 64
+fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ROLE="${1:-}"; [ "$#" -eq 0 ] || shift
 GEAR=${NIGHTSHIFT_GEAR:-1} INPUT='' OUTPUT='' AUTHOR='' ADV=false PROVIDER='' MODEL='' TMP='' PUBLISH='' CHILD=''
@@ -184,7 +188,7 @@ if [ "${NIGHTSHIFT_TELEMETRY_DIR:-}" != off ]; then
   fi
 fi
 set -m
-"${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
 CHILD=$!
 if wait "$CHILD"; then CHILD=''; else
   provider_exit=$?

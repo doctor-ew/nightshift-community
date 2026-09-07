@@ -42,6 +42,11 @@ assert_contains "$subscription" 'authentication: ChatGPT subscription'
 assert_contains "$subscription" 'OPENAI_API_KEY='
 assert_contains "$subscription" 'inner Nightshift factory worker'
 assert_contains "$subscription" 'Do not run the terminal launcher'
+assert_contains "$subscription" 'Authorized role dispatch is different'
+assert_contains "$subscription" 'Do not launch Codex directly'
+case "$subscription" in *'do not start another Codex process'*) fail 'blanket verifier prohibition returned';; esac
+if NIGHTSHIFT_ROLE_CHILD=1 "$FACTORY" --help >/dev/null 2>&1; then fail 'role child launched factory'; fi
+if NIGHTSHIFT_ROLE_CHILD=1 bash "$REPO_DIR/scripts/nightshift-agent.sh" >/dev/null 2>&1; then fail 'role child nested dispatcher'; fi
 assert_contains "$subscription" 'Do not deploy, merge a PR'
 assert_contains "$subscription" 'Follow ticket dependencies in order'
 set +e
