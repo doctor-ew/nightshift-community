@@ -40,7 +40,7 @@ entrypoints are no longer installed. Historical run evidence remains readable.
 Spec-driven workflows fall apart for two reasons: ticket sources that don't match the spec
 generator, and gradual scope creep during implementation. nightshift addresses both.
 
-- **One pipeline, any ticket source.** Adapter for GitHub, Jira, Monday, Notion, and beads.
+- **One pipeline, any ticket source.** Adapters for GitHub, Jira, Monday, Notion, beads, and local Markdown specifications.
   No project owns the canonical key — beads does, locally.
 - **Beads is local-only.** Upstream ticket (Monday / Jira / GH) stays the SSOT. Beads
   mirrors it via `--external-ref` for the local dev loop. The upstream ticket id
@@ -287,6 +287,7 @@ strategy land on the boundaries the pipeline marks for it.
 | `monday:N` | `monday:1234567890` | `MONDAY_TOKEN` |
 | `notion:<page-id>` | `notion:abc...` | `NOTION_TOKEN` |
 | `bd:bd-abc` or bare `bd-abc` | `bd-a3f8e9` | local beads database |
+| `spec:docs/AGENT-SPEC.md` or `docs/AGENT-SPEC.md` | `spec-<path hash>` | local Markdown requirements |
 
 Beads is auto-tried first for bare references. Add `~/.nightshift/scripts/nightshift-ticket-source.sh`
 to your PATH if you want to call the adapter directly outside of Claude Code.

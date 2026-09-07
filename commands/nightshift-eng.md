@@ -114,8 +114,13 @@ DOCS_DIR="${PROJECT}/docs"
 TASK_KEY=""
 ROUTE_FRESH=0
 
+# Preserve local input location before entering an isolated worktree.
+if [[ "$REF" == spec:* ]] || [ -f "$REF" ]; then
+  REF="spec:$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1].removeprefix("spec:")).resolve(strict=True))' "$REF")" || exit 1
+fi
+
 # (1) Source-prefixed ref → fresh run via nightshift-product
-if echo "$REF" | grep -qE '^(gh|jira|monday|notion|bd):'; then
+if echo "$REF" | grep -qE '^(gh|jira|monday|notion|bd|spec):'; then
   ROUTE_FRESH=1
   # Read-only normalized ticket lookup; do not mirror or write product artifacts yet.
   TICKET_JSON=$(bash ~/.nightshift/scripts/nightshift-ticket-source.sh "$REF") || exit 1

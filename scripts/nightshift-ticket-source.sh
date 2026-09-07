@@ -43,6 +43,10 @@ emit_error() {
 
 # ───────────────────────────── source detection ─────────────────────────────
 
+if [[ "$REF" == spec:* ]] || [ -f "$REF" ]; then
+  exec python3 "$(dirname "$0")/nightshift-spec-source.py" "$REF"
+fi
+
 case "$REF" in
   gh:*)      SOURCE="gh";      RAW="${REF#gh:}" ;;
   jira:*)    SOURCE="jira";    RAW="${REF#jira:}" ;;
