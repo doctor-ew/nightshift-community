@@ -94,6 +94,9 @@ def update(root, data, apply):
 
 
 def refresh_install(root, args):
+    # Older installations did not record the repair flag. Never let that turn
+    # automatic healing into an ordinary overwrite installation.
+    args = [*args, "--repair"] if "--repair" not in args else args
     receipt = config_path().parent / "update-repair.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, 4):
