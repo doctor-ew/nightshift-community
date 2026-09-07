@@ -121,7 +121,7 @@ done
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
 if ! bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT" >/dev/null 2>&1; then
-  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT"
+  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --ticket-ref "$REF" --runtime-provider "$PROVIDER" --runtime-model "$MODEL"
 elif [ ! -e "$PROJECT/.nightshift.toml" ]; then
   bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
 fi

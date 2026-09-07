@@ -1,5 +1,16 @@
 # Configuration
 
+Interactive setup asks the ticket source and model/runtime first. The launcher
+infers an explicit source such as spec: or gh: instead of asking again. The runtime
+choice accepts codex, claude, ollama or local, optionally followed by :model.
+Explicit launcher runtime/model flags are carried into setup.
+
+Then choose defaults or customize. Defaults fill only missing fields: existing
+settings are preserved, repair budgets default to three, confirmation policies
+stay enabled, and the production URL remains an unconfigured placeholder.
+Customization exposes the remaining missing settings individually. Unattended
+incomplete configuration still fails rather than assuming consent to defaults.
+
 Run `nightshift setup --project DIR` in an interactive terminal to fill missing
 fields. Installation can invoke the same wizard with `--setup-project DIR`.
 Canonical configuration is `.nightshift.toml`; existing `nightshift.toml` remains
