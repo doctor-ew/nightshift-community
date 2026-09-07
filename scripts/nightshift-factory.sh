@@ -29,8 +29,6 @@ if [ "${1:-}" = sync ]; then
   shift
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
-SYNC_BRANCH="${NIGHTSHIFT_SYNC_BRANCH:-$(git -C "$SOURCE_DIR" config --get nightshift.syncBranch || true)}"
-SYNC_BRANCH="${SYNC_BRANCH:-main}"
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
 if [ "${1:-}" = "setup" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-setup.sh" "$@"; fi
 if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-dashboard.sh" --serve "$@"; fi
@@ -169,11 +167,7 @@ if [ "$AUTH_MODE" = subscription ]; then
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
   echo 'nightshift: paid API mode disabled; no automatic billing fallback.' >&2
 fi
-echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR"); sync branch: $SYNC_BRANCH" >&2
-if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${NIGHTSHIFT_SYNC_CHECK:-on}" != off ]; then
-  bash "$SCRIPT_DIR/nightshift-sync.sh" --project "$SOURCE_DIR" --branch "$SYNC_BRANCH" --check >&2 ||
-    echo 'nightshift: update check unavailable; continuing with the installed build.' >&2
-fi
+echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR")" >&2
 
 if [ "$MODE" = "batch" ]; then
   REQUEST="\$nightshift batch ${BATCH_ARGS[*]}"
