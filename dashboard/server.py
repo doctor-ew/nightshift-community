@@ -58,6 +58,9 @@ class Handler(BaseHTTPRequestHandler):
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
             self.reply(403, b'Local same-origin access only')
             return
+        if self.path == '/api/identity':
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project}).encode(), 'application/json')
+            return
         if self.path == '/api/state':
             try:
                 self.reply(200, self.server.collect(), 'application/json')
