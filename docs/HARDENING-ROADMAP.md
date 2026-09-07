@@ -1,7 +1,8 @@
 # Hardening roadmap
 
 Prioritized 2026-09-07. Rankings below are engineering estimates, not measured savings.
-Do not modify or restart the active Idea Coach workflow as part of this roadmap.
+Nightshift hardening takes precedence over Coach delivery. Keep the stopped Idea
+Coach workflow and its evidence preserved; do not restart it as part of this roadmap.
 Ship through isolated branches and integration PRs; retain final independent review,
 regression, drift and applicable live evaluation. No paid API fallback. Local models
 and MEX remain optional. Do not update the installed runtime during an active run.
@@ -26,6 +27,14 @@ their ordering reflects expected effort and stale-evidence risk, not a hard depe
 neither #9 nor #10 depends on MEX. Re-rank using observed bottlenecks.
 
 ## Behavioral proof design
+
+Use lightweight BDD within #13, not a separate stage or mandatory framework.
+Maintain one canonical scenario record: acceptance-criterion ID, Given/context,
+When/action, Then/observable outcome, forbidden outcome and evidence reference.
+Write it during specification, challenge it in existing independent review, and
+execute it through the existing test harness. Avoid duplicate scenarios, suites and
+agent calls. Grade model responses semantically, not just by keywords. Measure the
+upfront cost against avoided rework; zero added time is not promised.
 
 Architect: map requirements to observable and forbidden behavior, identify uncertain
 assumptions, and propose counterexamples. Independent reviewer challenges both design
