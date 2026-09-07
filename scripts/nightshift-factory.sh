@@ -40,6 +40,8 @@ if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-das
 PROJECT="$(pwd)"
 PROVIDER=""
 MODEL=""
+DASHBOARD="${NIGHTSHIFT_DASHBOARD:-}"
+DASHBOARD_BROWSER="${NIGHTSHIFT_DASHBOARD_BROWSER:-}"
 REF=""
 MODE="eng"
 BRANCH="auto"
@@ -71,6 +73,8 @@ Options:
   --gear auto|0|1|2|3|4       Role-router gear preference
   --risk low|standard|high    Role-router risk class
   --model MODEL              Override model; required for a deterministic local run
+  --dashboard auto|off       Start/reuse a local dashboard (default: auto)
+  --dashboard-browser once|off  Open only on dashboard start (default: once)
   --auth subscription|api    Authentication (default: subscription; api is a per-run opt-in)
   --branch auto|NAME         Isolated ticket branch (default: auto)
   --push                     Commit verified changes and push the ticket branch
@@ -86,6 +90,8 @@ while [ "$#" -gt 0 ]; do
     --model) shift; MODEL="${1:-}" ;;
     --gear) shift; export NIGHTSHIFT_GEAR="${1:-}" ;;
     --risk) shift; export NIGHTSHIFT_RISK="${1:-}" ;;
+    --dashboard) shift; DASHBOARD="${1:-}" ;;
+    --dashboard-browser) shift; DASHBOARD_BROWSER="${1:-}" ;;
     --auth) shift; AUTH_MODE="${1:-}"; AUTH_EXPLICIT=true ;;
     --branch) shift; BRANCH="${1:-}" ;;
     --push) PUSH="true" ;;
@@ -118,6 +124,10 @@ done
 [ "$MODE" = "batch" ] && [ "${#BATCH_ARGS[@]}" -eq 0 ] && { usage >&2; exit 64; }
 [ "$MODE" = "eng" ] && [ -z "$REF" ] && { usage >&2; exit 64; }
 [ -d "$PROJECT" ] || { echo "Project directory not found: $PROJECT" >&2; exit 66; }
+if [ "$BRANCH" != none ] && ! git -C "$PROJECT" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1; then
+  echo 'nightshift: BASE_MISSING: isolated runs require an initial Git commit. Review and commit the starter files first; no model was started.' >&2
+  exit 66
+fi
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
 if ! bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT" >/dev/null 2>&1; then
@@ -244,6 +254,13 @@ else
   echo "nightshift: authentication: API key billing." >&2
 fi
 
+[ -n "$DASHBOARD" ] || DASHBOARD="$(jq -r '.dashboard.mode // "auto"' <<< "$SETTINGS_JSON")"
+[ -n "$DASHBOARD_BROWSER" ] || DASHBOARD_BROWSER="$(jq -r '.dashboard.browser // "once"' <<< "$SETTINGS_JSON")"
+case "$DASHBOARD" in auto|off) ;; *) echo 'invalid dashboard mode' >&2; exit 64 ;; esac
+case "$DASHBOARD_BROWSER" in once|off) ;; *) echo 'invalid dashboard browser mode' >&2; exit 64 ;; esac
+if [ "$DASHBOARD" = auto ]; then
+  python3 "$SCRIPT_DIR/nightshift-dashboard-start.py" --project "$PROJECT" --browser "$DASHBOARD_BROWSER" || true
+fi
 CHILD_PID=""
 handle_interruption() {
   local signal="$1"

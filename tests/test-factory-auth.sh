@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FACTORY="${REPO_DIR}/scripts/nightshift-factory.sh"
 export NIGHTSHIFT_SYNC_CHECK=off
+export NIGHTSHIFT_DASHBOARD=off
 cd "$REPO_DIR"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-factory-auth.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT
@@ -90,6 +91,11 @@ for auth_status in '{}' 'not-json' '{"loggedIn":false}' '{"loggedIn":true,"authM
 done
 claude_api=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" gh:1 --provider claude --auth api --branch none 2>&1)
 assert_contains "$claude_api" 'ANTHROPIC_API_KEY=present'
+git -C "$TMP_ROOT" init -q -b main
+if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch auto 2>&1); then fail 'unborn repository launched a model'; fi
+assert_contains "$blocked" 'BASE_MISSING'
+case "$blocked" in *'ARGS='*) fail 'baseline check ran after provider execution';; esac
+git -C "$TMP_ROOT" -c user.name=Test -c user.email=test@example.invalid commit -q --allow-empty -m baseline
 claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
 assert_contains "$claude_output" '--print --dangerously-skip-permissions --model sonnet'
