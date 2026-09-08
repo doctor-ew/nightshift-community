@@ -66,6 +66,8 @@ A tests scalar or non-string/blank command is invalid. Root-only mode skips this
 | Path | Change |
 |---|---|
 | install.sh | Modify |
+| tests/test-factory-auth.sh | Modify |
+| tests/test-state-dir.sh | Modify |
 | agents/nightshift-architect.md | Modify |
 | agents/nightshift-engineer.md | Modify |
 | agents/nightshift-run-all-tests.md | Modify |
@@ -159,3 +161,10 @@ the installed policy/helper explicitly. Fix the existing Bash 3.2 empty UPDATE_A
 expansion because it blocks both installed-runtime verification modes. This is a
 compatibility repair, not permission to reinstall an active user runtime.
 Source: install.sh:437-486,561-565 at baseline bd47c2a.
+
+## Fixture amendment — physical temporary roots
+
+Independent diagnosis identified two existing tests comparing logical temporary
+paths against the newly specified physical paths. Canonicalize each TMP_ROOT with
+pwd -P after mktemp; preserve every auth/state assertion. No behavior expectation
+is weakened. The new resolver suite separately exercises physical alias equality.
