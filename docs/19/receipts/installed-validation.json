@@ -1,0 +1,18 @@
+[
+  {
+    "mode": "copy",
+    "install_exit": 0,
+    "audit_exit": 0,
+    "status": "pass",
+    "findings": 0,
+    "coverage": []
+  },
+  {
+    "mode": "symlink",
+    "install_exit": 0,
+    "audit_exit": 0,
+    "status": "pass",
+    "findings": 0,
+    "coverage": []
+  }
+]

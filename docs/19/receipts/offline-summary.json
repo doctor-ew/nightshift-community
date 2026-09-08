@@ -1,0 +1,211 @@
+{
+  "passed": 34,
+  "failed": 0,
+  "total": 34,
+  "suites": [
+    {
+      "suite": "evals/integration/test-runner.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-runner.sh.log"
+    },
+    {
+      "suite": "evals/integration/test-trajectory.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-trajectory.sh.log"
+    },
+    {
+      "suite": "evals/integration/test-worktree-migration.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-worktree-migration.sh.log"
+    },
+    {
+      "suite": "evals/integration/test-worktree-prerequisite.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-worktree-prerequisite.sh.log"
+    },
+    {
+      "suite": "evals/integration/test-worktree-refresh.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-worktree-refresh.sh.log"
+    },
+    {
+      "suite": "evals/integration/test-worktree.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__integration__test-worktree.sh.log"
+    },
+    {
+      "suite": "evals/unit/test-scope-activation.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "evals__unit__test-scope-activation.sh.log"
+    },
+    {
+      "suite": "tests/test-adapter-thinness.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-adapter-thinness.sh.log"
+    },
+    {
+      "suite": "tests/test-agent-dispatch.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-agent-dispatch.sh.log"
+    },
+    {
+      "suite": "tests/test-batch-resolve.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-batch-resolve.sh.log"
+    },
+    {
+      "suite": "tests/test-batch-terminal.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-batch-terminal.sh.log"
+    },
+    {
+      "suite": "tests/test-branding.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-branding.sh.log"
+    },
+    {
+      "suite": "tests/test-controller.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-controller.sh.log"
+    },
+    {
+      "suite": "tests/test-credentials.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-credentials.sh.log"
+    },
+    {
+      "suite": "tests/test-dashboard-live.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-dashboard-live.sh.log"
+    },
+    {
+      "suite": "tests/test-dashboard-start.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-dashboard-start.sh.log"
+    },
+    {
+      "suite": "tests/test-dashboard.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-dashboard.sh.log"
+    },
+    {
+      "suite": "tests/test-factory-auth.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-factory-auth.sh.log"
+    },
+    {
+      "suite": "tests/test-factory-preflight.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-factory-preflight.sh.log"
+    },
+    {
+      "suite": "tests/test-failure-memory.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-failure-memory.sh.log"
+    },
+    {
+      "suite": "tests/test-gear-router.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-gear-router.sh.log"
+    },
+    {
+      "suite": "tests/test-isolate.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-isolate.sh.log"
+    },
+    {
+      "suite": "tests/test-manifest-validate.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-manifest-validate.sh.log"
+    },
+    {
+      "suite": "tests/test-policy.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-policy.sh.log"
+    },
+    {
+      "suite": "tests/test-project-context.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-project-context.sh.log"
+    },
+    {
+      "suite": "tests/test-release-inputs.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-release-inputs.sh.log"
+    },
+    {
+      "suite": "tests/test-retry-budget.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-retry-budget.sh.log"
+    },
+    {
+      "suite": "tests/test-run-metrics.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-run-metrics.sh.log"
+    },
+    {
+      "suite": "tests/test-setup-ux.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-setup-ux.sh.log"
+    },
+    {
+      "suite": "tests/test-setup.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-setup.sh.log"
+    },
+    {
+      "suite": "tests/test-stage-args.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-stage-args.sh.log"
+    },
+    {
+      "suite": "tests/test-state-dir.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-state-dir.sh.log"
+    },
+    {
+      "suite": "tests/test-sync-heal.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-sync-heal.sh.log"
+    },
+    {
+      "suite": "tests/test-version-sync.sh",
+      "status": "PASS",
+      "exit_code": 0,
+      "log": "tests__test-version-sync.sh.log"
+    }
+  ]
+}

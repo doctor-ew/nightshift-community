@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "rule": "legacy-project-context",
+      "path": "scripts/nightshift-project-context.py",
+      "context": "    legacy = os.environ.get('CLAUDE_PROJECT_DIR')",
+      "reason": "The shared context resolver is the designated compatibility ingress for the legacy project variable."
+    },
+    {
+      "rule": "legacy-project-context",
+      "path": "scripts/nightshift-project-context.py",
+      "context": "            print('unset CLAUDE_PROJECT_DIR')",
+      "reason": "The shared resolver clears legacy ingress after exporting neutral context."
+    },
+    {
+      "rule": "legacy-convention",
+      "path": "scripts/nightshift-project-context.py",
+      "context": "        for name in ('AGENTS.md', 'CLAUDE.md'):",
+      "reason": "The shared resolver discovers both applicable convention files in the reviewed order."
+    },
+    {
+      "rule": "legacy-project-context",
+      "path": "scripts/nightshift-preflight-check.sh",
+      "context": "  RESOLVED=\"$(env -u CLAUDE_PROJECT_DIR NIGHTSHIFT_PROJECT_DIR=\"$PROJECT\" bash \"$SCRIPT_DIR/nightshift-batch-resolve.sh\" --input \"$BATCH_INPUT\" 2>/dev/null)\"",
+      "reason": "Preflight clears the legacy variable at the batch boundary; it does not resolve project identity from it."
+    },
+    {
+      "rule": "legacy-convention",
+      "path": "agents/nightshift-run-all-tests.md",
+      "context": "EVERY path in its `conventions` array, including both AGENTS.md and CLAUDE.md when",
+      "reason": "The role requires all convention paths returned by shared discovery."
+    },
+    {
+      "rule": "legacy-convention",
+      "path": "agents/nightshift-run-all-tests.md",
+      "context": "both are present. An automatically loaded CLAUDE.md is not complete discovery.",
+      "reason": "This statement rejects incomplete convention discovery through a single legacy file."
+    },
+    {
+      "rule": "legacy-convention",
+      "path": "agents/nightshift-run-all-tests.md",
+      "context": "If AGENTS.md and CLAUDE.md prescribe different explicit commands, stop: return",
+      "reason": "The role must stop on conflicting explicit convention commands."
+    },
+    {
+      "rule": "provider-executor",
+      "path": "scripts/nightshift-agent.sh",
+      "context": "    CMD=(claude -p --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\");;",
+      "reason": "The existing dispatcher implements the routed provider invocation using the selected role and model."
+    },
+    {
+      "rule": "provider-executor",
+      "path": "scripts/nightshift-agent.sh",
+      "context": "    CMD=(codex exec --json --skip-git-repo-check --sandbox read-only --output-schema \"$TMP/provider.schema.json\" --output-last-message \"$TMP/final\")",
+      "reason": "The existing dispatcher implements the routed provider invocation with its required read-only sandbox."
+    },
+    {
+      "rule": "provider-executor",
+      "path": "scripts/nightshift-factory.sh",
+      "context": "      echo 'nightshift: Claude subscription login required; run claude auth login first. No API fallback.' >&2",
+      "reason": "The factory reports the existing subscription authentication repair instruction without invoking a provider executor."
+    }
+  ]
+}

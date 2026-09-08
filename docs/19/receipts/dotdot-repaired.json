@@ -1,0 +1,1 @@
+{"coverage": [{"inventory": "installed", "path": "claude/commands/nightshift-product.md", "reason": "external"}], "findings": [], "inventories": {"installed": {"discovered": 153, "excluded": 0, "missing": 0, "scanned": 153, "status": "incomplete", "unknown": 0, "unreadable": 1}}, "status": "fail"}

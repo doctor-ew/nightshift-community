@@ -1,0 +1,8 @@
+{
+  "baseline": "20aefa116003134f6464b2673ab11f8a06e9e353",
+  "test_sha256": "74e5a31be277511b8633ac9cea402c74c632f4e11e5f0b14f17a3390087db08e",
+  "meaningful_red": "Existing source scanner incorrectly returns clean for retired branding injected into nested maintained documentation.",
+  "new_entrypoints": "Absent cases are explicitly skipped; not claimed as RED or passing verification.",
+  "independent_test_author": "review_18",
+  "implementation_started": false
+}

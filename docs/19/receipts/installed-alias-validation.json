@@ -1,0 +1,30 @@
+[
+  {
+    "mode": "copy",
+    "install_exit": 0,
+    "audit_exit": 0,
+    "status": "pass",
+    "findings": 0,
+    "coverage": [
+      {
+        "inventory": "source",
+        "path": "scripts/__pycache__",
+        "reason": "excluded"
+      }
+    ]
+  },
+  {
+    "mode": "symlink",
+    "install_exit": 0,
+    "audit_exit": 0,
+    "status": "pass",
+    "findings": 0,
+    "coverage": [
+      {
+        "inventory": "source",
+        "path": "scripts/__pycache__",
+        "reason": "excluded"
+      }
+    ]
+  }
+]
