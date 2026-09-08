@@ -29,6 +29,94 @@
 
 set -euo pipefail
 
+# ───────────────────────────── --derive-id ─────────────────────────────
+# nightshift-ticket-source.sh --derive-id REF --project DIR
+#
+# Cheap identity-only classification for admission checks: reuses this
+# script's own source classification and, for GitHub/Jira/Monday/Notion refs,
+# derives source/source_id/external_ref directly from the ref text — no
+# network fetch, no title/body. Beads and task-key refs still resolve
+# locally (an existing task folder, or an existing docs/*/.bd-id mapping for
+# a bare bead id) since that identity cannot be read off the ref text alone;
+# a missing/ambiguous mapping is a hard failure, never a silent skip. Emits
+# {"source":...,"source_id":...,"external_ref":...} on success; a JSON error
+# blob on stderr and a nonzero exit otherwise. Callers decide the admission
+# reason/exit code for their own contract — this only reports resolvability.
+if [ "${1:-}" = "--derive-id" ]; then
+  shift
+  D_REF="" D_PROJECT=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --project)
+        [ "$#" -ge 2 ] || { jq -cn '{error:"--derive-id: missing value for --project"}' >&2; exit 64; }
+        [ -z "$D_PROJECT" ] || exit 64
+        D_PROJECT="$2"; shift 2 ;;
+      --*) jq -cn --arg m "--derive-id: unknown option: $1" '{error:$m}' >&2; exit 64 ;;
+      *)
+        [ -z "$D_REF" ] || { jq -cn '{error:"--derive-id: only one ref is accepted"}' >&2; exit 64; }
+        D_REF="$1"; shift ;;
+    esac
+  done
+  [ -n "$D_REF" ] || { jq -cn '{error:"--derive-id: missing ref argument"}' >&2; exit 64; }
+  [ -n "$D_PROJECT" ] || { jq -cn '{error:"--derive-id: --project is required"}' >&2; exit 64; }
+  D_PROJECT="$(cd "$D_PROJECT" 2>/dev/null && pwd)" || { jq -cn '{error:"--derive-id: project directory not found"}' >&2; exit 64; }
+
+  derive_error() { jq -cn --arg msg "$1" '{error:$msg}' >&2; exit 1; }
+
+  # Local Markdown specs already have a cheap, network-free, non-fetching
+  # identity derivation; reuse it verbatim rather than re-implementing it.
+  if [[ "$D_REF" == spec:* ]] || [ -f "$D_PROJECT/$D_REF" ] || { [[ "$D_REF" = /* ]] && [ -f "$D_REF" ]; }; then
+    normalizer="$(cd "$(dirname "$0")" && pwd)/nightshift-spec-source.py"
+    (cd "$D_PROJECT" && python3 "$normalizer" "$D_REF") | jq '{source,source_id,external_ref}'
+    exit "${PIPESTATUS[0]}"
+  fi
+
+  case "$D_REF" in
+    gh:*)
+      raw="${D_REF#gh:}"; id="${raw##*#}"
+      [ -n "$id" ] || derive_error "gh ref requires an issue number"
+      jq -cn --arg sid "$id" '{source:"gh",source_id:$sid,external_ref:("gh-"+$sid)}' ;;
+    jira:*)
+      raw="${D_REF#jira:}"
+      [ -n "$raw" ] || derive_error "jira ref requires an issue key"
+      jq -cn --arg sid "$raw" '{source:"jira",source_id:$sid,external_ref:("jira-"+$sid)}' ;;
+    monday:*)
+      raw="${D_REF#monday:}"
+      [ -n "$raw" ] || derive_error "monday ref requires an item id"
+      jq -cn --arg sid "$raw" '{source:"monday",source_id:$sid,external_ref:("monday-"+$sid)}' ;;
+    notion:*)
+      raw="${D_REF#notion:}"
+      [ -n "$raw" ] || derive_error "notion ref requires a page id"
+      jq -cn --arg sid "$raw" '{source:"notion",source_id:$sid,external_ref:("notion-"+$sid)}' ;;
+    bd:*|bd-*)
+      raw="$D_REF"; [[ "$D_REF" == bd:* ]] && raw="${D_REF#bd:}"
+      command -v bd >/dev/null 2>&1 && (cd "$D_PROJECT" && bd show "$raw" --json) >/dev/null 2>&1 || derive_error "bd show failed for $raw; beads unavailable or issue not found"
+      jq -cn --arg sid "$raw" '{source:"bd",source_id:$sid,external_ref:$sid}' ;;
+    *)
+      if [ -f "${D_PROJECT}/docs/${D_REF}/SPEC.md" ]; then
+        # Existing task folder: the folder key is already the canonical identity.
+        jq -cn --arg sid "$D_REF" '{source:"task",source_id:$sid,external_ref:$sid}'
+      elif command -v bd >/dev/null 2>&1 && (cd "$D_PROJECT" && bd show "$D_REF" --json) >/dev/null 2>&1; then
+        mapped=""
+        for f in "${D_PROJECT}"/docs/*/.bd-id; do
+          [ -f "$f" ] || continue
+          if [ "$(cat "$f" 2>/dev/null)" = "$D_REF" ]; then
+            [ -z "$mapped" ] || derive_error 'ambiguous bead mapping'
+            mapped="$(basename "$(dirname "$f")")"
+          fi
+        done
+        if [ -z "$mapped" ]; then
+          derive_error "bead $D_REF exists but no docs/*/.bd-id points to it; run nightshift-product bd:$D_REF or pass the task key directly"
+        fi
+        jq -cn --arg sid "$mapped" --arg bead "$D_REF" '{source:"task",source_id:$sid,external_ref:$sid,bead_id:$bead}'
+      else
+        derive_error "bare ref '$D_REF' did not resolve as a task key or a beads issue; prefix it with gh:/jira:/monday:/notion:/bd: to disambiguate"
+      fi
+      ;;
+  esac
+  exit 0
+fi
+
 REF="${1:-}"
 if [ -z "$REF" ]; then
   jq -n '{error: "nightshift-ticket-source.sh: missing ref argument"}' >&2

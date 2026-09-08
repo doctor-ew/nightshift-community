@@ -29,10 +29,10 @@ canonical() {
   fi
 }
 
-[ "$#" -ge 2 ] || fail 'usage: prepare|finish|migrate TASK --project PATH [--base REF] [--root DIR] [--legacy PATH]'
+[ "$#" -ge 2 ] || fail 'usage: prepare|finish|migrate|refresh|check TASK --project PATH [--base REF] [--root DIR] [--legacy PATH]'
 operation=$1; task=$2; shift 2
 [[ "$task" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]] || fail 'unsafe task identifier'
-case "$operation" in prepare|finish|migrate|refresh) ;; *) fail "unknown operation: $operation" ;; esac
+case "$operation" in prepare|finish|migrate|refresh|check) ;; *) fail "unknown operation: $operation" ;; esac
 project=; base=; root=; legacy=; required=; spec_worktree=; explicit=false
 while [ "$#" -gt 0 ]; do
   [ "$#" -ge 2 ] && [ -n "$2" ] || fail "missing value for $1"
@@ -42,7 +42,7 @@ while [ "$#" -gt 0 ]; do
     --root) [ "$operation" != finish ] && [ -z "$root" ] || fail 'unsupported/duplicate --root'; root=$2 ;;
     --legacy) [ "$operation" = migrate ] && [ -z "$legacy" ] || fail 'unsupported/duplicate --legacy'; legacy=$2 ;;
     --spec-worktree) [ "$operation" = migrate ] && [ -z "$spec_worktree" ] || fail 'unsupported/duplicate --spec-worktree'; spec_worktree=$2 ;;
-    --requires) [ "$operation" = prepare ] && [ -z "$required" ] || fail 'unsupported/duplicate --requires'; required=$2 ;;
+    --requires) { [ "$operation" = prepare ] || [ "$operation" = check ]; } && [ -z "$required" ] || fail 'unsupported/duplicate --requires'; required=$2 ;;
     *) fail "unknown option: $1" ;;
   esac
   shift 2
@@ -62,6 +62,83 @@ if [ -n "$required" ]; then
   required_sha=$(git -C "$project" rev-parse --verify --end-of-options "$required^{commit}") || fail 'invalid prerequisite'
 fi
 metadata="$common/nightshift/worktrees"
+receipt="$metadata/$task.json"
+validate_owned_target() {
+  [ "$(canonical "$target")" = "$target" ] || fail 'receipt worktree path is not canonical'
+  [ -d "$target" ] || fail "missing worktree: $target"
+  actual=$(git -C "$target" rev-parse --git-common-dir) || fail 'invalid worktree'
+  [[ "$actual" = /* ]] || actual="$target/$actual"
+  [ "$(canonical "$actual")" = "$common" ] || fail 'worktree repository mismatch'
+  [ "$(git -C "$target" rev-parse --show-toplevel)" = "$target" ] || fail 'worktree root mismatch'
+  git -C "$project" worktree list --porcelain | awk -v p="worktree $target" '$0==p {found=1} END {exit !found}' || fail 'worktree is not registered'
+  [ "$(git -C "$target" symbolic-ref --short HEAD)" = "$branch" ] || fail 'worktree branch mismatch'
+  git -C "$target" merge-base --is-ancestor "$recorded_sha" HEAD || fail 'recorded base is no longer ancestral'
+}
+if [ "$operation" = check ]; then
+  # Read-only: shares prepare's predicates but never creates the metadata
+  # directory, the task lock, or any other state. Prerequisites are only
+  # advisory here — prepare re-resolves them again itself under its own lock,
+  # since a check result can go stale the instant this process exits.
+  root_explicit=false; [ -n "$root" ] && root_explicit=true
+  requested_target=""
+  [ "$root_explicit" = true ] && requested_target="$(canonical "$root")/$task"
+  if [ -f "$receipt" ]; then
+    if ! jq -e --arg t "$task" --arg r "$common" --arg b "$branch" '
+      type == "object" and .version == 1 and (.version|type)=="number" and
+      .task == $t and .repository == $r and .branch == $b and
+      (.worktree|type)=="string" and (.worktree|startswith("/")) and
+      (.base_ref|type)=="string" and (.base_ref|length)>0 and
+      (.base_sha|type)=="string" and (.base_sha|test("^[0-9a-f]{40}([0-9a-f]{24})?$")) and
+      (.dependency|type)=="string" and (.dependency=="" or .dependency==.base_ref) and
+      (.status=="prepared" or .status=="finished")' "$receipt" >/dev/null 2>&1; then
+      jq -cn --arg task "$task" '{task:$task,registered:true,receipt_schema:"invalid"}'
+      exit 1
+    fi
+    recorded_target=$(jq -r .worktree "$receipt")
+    recorded_sha=$(jq -r .base_sha "$receipt")
+    recorded_base=$(jq -r .base_ref "$receipt")
+    target="$recorded_target"
+    validate_owned_target
+    base_match=not_applicable
+    if [ "$explicit" = true ]; then
+      base_match=fail; [ "$base_sha" = "$recorded_sha" ] && base_match=pass
+    fi
+    ancestry=not_applicable
+    if [ -n "$required" ]; then
+      ancestry=fail; git -C "$project" merge-base --is-ancestor "$required_sha" "$recorded_sha" 2>/dev/null && ancestry=pass
+    fi
+    root_match=not_applicable
+    if [ "$root_explicit" = true ]; then
+      root_match=fail; [ "$requested_target" = "$recorded_target" ] && root_match=pass
+    fi
+    dirty=fail
+    if [ -d "$recorded_target" ] && [ -z "$(git -C "$recorded_target" status --porcelain --untracked-files=all 2>/dev/null)" ]; then dirty=pass; fi
+    jq -cn --arg task "$task" --arg branch "$branch" --arg worktree "$recorded_target" \
+      --arg base_ref "$recorded_base" --arg base_sha "$recorded_sha" \
+      --arg base_match "$base_match" --arg ancestry "$ancestry" --arg root_match "$root_match" --arg dirty "$dirty" \
+      '{task:$task,registered:true,branch:$branch,worktree:$worktree,base_ref:$base_ref,base_sha:$base_sha,
+        checks:{base_match:$base_match,prerequisite_ancestry:$ancestry,root_match:$root_match,dirty:$dirty}}'
+    ok=true
+    [ "$base_match" != fail ] || ok=false
+    [ "$ancestry" != fail ] || ok=false
+    [ "$root_match" != fail ] || ok=false
+    [ "$dirty" != fail ] || ok=false
+    if [ "$ok" = true ]; then exit 0; else exit 1; fi
+  else
+    [ "$root_explicit" = true ] || requested_target="$(canonical "$(dirname "$project")/$(basename "$project")-worktrees")/$task"
+    case "$requested_target/" in "$project/"*) fail 'worktree root must be outside caller checkout' ;; esac
+    branch_owned=false
+    git -C "$project" show-ref --verify --quiet "refs/heads/$branch" && branch_owned=true
+    target_exists=false
+    { [ -e "$requested_target" ] || [ -L "$requested_target" ]; } && target_exists=true
+    jq -cn --arg task "$task" --argjson branch_owned "$branch_owned" --argjson target_exists "$target_exists" \
+      '{task:$task,registered:false,unowned_branch:$branch_owned,unowned_target:$target_exists}'
+    ok=true
+    [ "$branch_owned" = false ] || ok=false
+    [ "$target_exists" = false ] || ok=false
+    if [ "$ok" = true ]; then exit 0; else exit 1; fi
+  fi
+fi
 mkdir -p "$metadata"
 lock="$metadata/$task.lock"; locked=false; scope_locked=false; temporary=
 cleanup() {
@@ -142,15 +219,7 @@ if [ -e "$receipt" ]; then
   if [ -n "$root" ]; then
     [ "$(canonical "$root")/$task" = "$target" ] || fail 'requested root differs from receipt'
   fi
-  [ "$(canonical "$target")" = "$target" ] || fail 'receipt worktree path is not canonical'
-  [ -d "$target" ] || fail "missing worktree: $target"
-  actual=$(git -C "$target" rev-parse --git-common-dir) || fail 'invalid worktree'
-  [[ "$actual" = /* ]] || actual="$target/$actual"
-  [ "$(canonical "$actual")" = "$common" ] || fail 'worktree repository mismatch'
-  [ "$(git -C "$target" rev-parse --show-toplevel)" = "$target" ] || fail 'worktree root mismatch'
-  git -C "$project" worktree list --porcelain | awk -v p="worktree $target" '$0==p {found=1} END {exit !found}' || fail 'worktree is not registered'
-  [ "$(git -C "$target" symbolic-ref --short HEAD)" = "$branch" ] || fail 'worktree branch mismatch'
-  git -C "$target" merge-base --is-ancestor "$recorded_sha" HEAD || fail 'recorded base is no longer ancestral'
+  validate_owned_target
   if [ "$operation" = refresh ]; then
     [ "$explicit" = true ] || fail 'refresh requires --base REF'
     for state in .nightshift .drew .claude/task-progress .Codex/task-progress; do
