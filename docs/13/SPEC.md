@@ -1,6 +1,6 @@
 # Risk-based behavioral proof before full implementation
 
-Status: PROPOSED; independent design challenge required before bootstrap execution or implementation.
+Status: Recovery design approved by independent review 849fd60f2a934cd98bbf896b1b66db23. Runtime execution and final acceptance remain required.
 Baseline: integration/nightshift at 44ad7cc4d6af7a30cde2b139d9ad25c19b41c2bf; issue 19 integrated.
 Delivery: isolated integration PR. No active installation update, Coach changes, paid API fallback, main promotion or deployment.
 
@@ -94,11 +94,19 @@ Record elapsed time, observed usage and distinct failed scenario IDs in proof re
 
 ### 6. Issue 13 bootstrap before broad implementation
 
-The runner does not yet exist. Before writing its surrounding engine/config/stage changes: approve this design through independent cross-provider challenge, then allow a narrowly scoped manual prototype comprising only the new reviewer role prompt, its strict schema, and synthetic development/held-out case artifacts. Record this explicit exception as bootstrap evidence, not as a fabricated runner receipt or a legacy exemption.
+The runner is incomplete and has not established the required proof. The retained premature implementation attempts do not satisfy the originally required order (see Recovery amendment below). Before further surrounding engine/config/stage changes: approve the recovery design through independent cross-provider challenge, then allow a narrowly scoped manual prototype comprising only the new reviewer role prompt, its strict schema, and synthetic development/held-out case artifacts. Record this explicit exception as bootstrap evidence, not as a fabricated runner receipt or a legacy exemption.
 
 Use the verified no-tool Claude subscription CLI directly through a local bounded process wrapper outside the worktree. An independent reviewer fixes public expected/forbidden assertions and separately retains heldout before execution. Run a synthetic design-review task whose machine oracle rejects an approving answer when a required negative case is absent, then accepts a corrected design and checks an independently prepared heldout. Review the bootstrap prompt and oracle before calls. Record real versions, hashes, provenance, output digests, durations and counters, with no self-reported verdict accepted. Maximum bootstrap calls development 8/final 2, including counted design challenge calls relevant to this bootstrap. Retain the manual bootstrap ledger immutably outside the checkout and link its digest from issue 13 delivery receipts. Do not import historical attempts through a production API, merge counters with later helper fixture tasks, or claim the helper executed them. This self-hosting exception applies only to issue 13 manual delivery evidence; it introduces no reusable runtime bypass flag.
 
 Only after accepted bootstrap behavior proceed to engine implementation under meaningful RED. After integration, repeat real supported-profile acceptance through the implemented helper in a separately identified synthetic fixture task; this establishes runner execution rather than only manual transport. Preserve the bootstrap record as distinct evidence. Neither experiment touches Coach, active runtime installs or production data.
+
+## Recovery amendment — independently approved
+
+The retained commits d2929e9, 45bfecb, 2c51e26 and 8dfc146 preceded approved specification and RED seals. They are incomplete implementation attempts, not accepted proof that original ordering complied. Preserve their history, budgets and the qualification in docs/13/recovery.md. A new seal cannot repair historical chronology, and earlier schema/missing-task checks are not complete behavioral verification.
+
+The prospective recovery sequence is independent review of this amended specification and public scenarios; independent retained heldout commitment; expanded meaningful RED and recorded seals; approved narrow manual reviewer-prompt prototype; then further engine integration and actual implemented-runner verification. No new engine work is authorized by merely writing this amendment. Retain pre-existing source changes as explicit recovery baseline without treating them as admitted implementation. Existing accepted-source, scope, independent challenge and final evidence requirements remain.
+
+The public scenario artifact maps AC-1 through AC-9 to the numbered criteria below. Cases 13-admission through 13-recovery-and-delivery cover local deterministic claims; 13-reviewer-missing-negative and 13-reviewer-complete-design are the only prototype cases, covering AC-2/AC-3/AC-9. They test the new reviewer prompt's actual output, not a claim that text runtime proves accounting, filesystem isolation or configuration correctness. Private commitment metadata covers the same prototype AC union; the author of this public artifact has not read the private bodies. Classification review fields remain null until actual independently approved evidence is recorded. The runtime records the currently verified Claude CLI 2.1.265; no prior 2.1.263 observation is represented as evidence for the newer binary.
 
 ## Acceptance Criteria
 
@@ -110,7 +118,7 @@ Only after accepted bootstrap behavior proceed to engine implementation under me
 6. Heldout remains outside checkout/history and model context except each input; final pass is required despite no Playwright. Exposure requires new independent cases and invalidates prior freshness.
 7. Deadline/output bound kills/reaps process groups and emits unknown on interruption. Billing credentials are stripped per existing policy; no fallback or configuration mutation. CLI/profile version evidence is honest.
 8. Safe defaults and bounded config validation preserve existing manifest precedence/setup behavior. Optional metrics record observed duration/tokens/defects or null; no sensitive content enters metrics.
-9. Independent bootstrap challenge and real narrow prototype pass precede broad implementation; completed helper later passes a real supported-profile acceptance, plus offline privacy/concurrency/invalid-input fixtures and existing regressions.
+9. Under the explicitly documented recovery amendment, independent challenge and real narrow prototype pass precede further broad implementation; retain the earlier ordering failure without claiming original compliance. The completed helper later passes a real supported-profile acceptance, plus offline privacy/concurrency/invalid-input fixtures and existing regressions.
 
 ## Files to Change
 
@@ -198,6 +206,8 @@ These proposed details resolve the fixture/implementation interface before seali
 
 ### Review digest and visibility
 
+Applicability kind is derived from required cases only. Summary risks is the union of all public case risks, including optional cases. Per-case risk rules apply to every case. Runtime metadata is required if any public case is prototype, including optional prototypes. An optional prototype case may supplement coverage only when its AC IDs already have required prototype coverage; otherwise validation rejects the document. This prevents optional labeling from suppressing required execution. Only required cases are executed for admission; optional cases never satisfy coverage. A safety-sensitive risk anywhere requires the typed independent challenge.
+
 Canonical JSON is UTF-8 json.dumps with sort_keys=True, separators=(",", ":"), ensure_ascii=False and allow_nan=False. All input parsing rejects duplicate keys and nonfinite numbers. The review input digest hashes the complete public scenario manifest after replacing only its top-level applicability.review and each case.applicability.review with null. Do not recursively remove arbitrary data keys named review from oracle values or synthetic inputs. Every classification attestation references that same digest. Attestations are trusted orchestration records of existing review, not a cryptographic claim that an arbitrary local JSON author is independent. Their evidence_sha256 is the recorded digest of the actual retained review evidence. Validate 64 lowercase hex digests and distinct (provider, author_id) identity; typed prototype challenge additionally requires distinct provider.
 
 The typed challenge receives public cases and public heldout commitments only. Its scenario_ids must exactly cover public case IDs; private bodies/locators are not supplied as review input; commitment case IDs are public metadata, not reviewed public cases. Private classification attestations reference the corresponding private manifest semantics digest, with the same serialization. Validate heldout author identity against public author and match the public commitment exactly. Review roles receive sanitized materialized inputs, never private file locators.
@@ -231,10 +241,12 @@ Reservation ceilings conservatively include an unresolved pre-launch reservation
 
 Add expose --case ID as an explicit operation recording known private-case disclosure, with no hidden text in its output. Exposure invalidates final freshness. Replacing cases requires new independent commitments and challenge/seal with retained budgets; no automatic substantive final repair or unlimited replacement budget is added. An exhausted task stops with a concrete retained receipt.
 
+Exposure reporting is a trusted-orchestrator obligation. The helper cannot detect undisclosed same-user access to private material or compel the orchestrator to call expose. Its freshness claim is conditional on honest exposure reporting, just as ordinary test observation relies on honest execution provenance.
+
 ### Snapshot and read-only details
 
 Enumerate tracked files plus non-ignored untracked files using Git's NUL-delimited inventory. Independently include every explicit declared path even if ignored. Exclude Git metadata, .nightshift runtime state, local .nightshift.toml runtime configuration and docs/task delivery evidence from broad source-change snapshots; explicit declared paths override those exclusions, and SPEC/scenarios/effective policy remain independently bound. Use safe regular-file/symlink checks and streamed content hashes. Do not silently drop an unreadable inventoried source file.
 
-A reviewed not_applicable-only task needs neither RED evidence nor a RED-lock commit. Its sealed test set is empty and RED-lock identity null; it still requires reviewed classification, source scope and required final-file checks. Deterministic cases require the recorded RED lock and actual RED/final observations. Read-only gate/status must resolve existing task state without --create and read the sidecar directly; they must not invoke nightshift-lock-field.sh's mutating getter. Canonical ledger/lock paths reject symlinks below the verified Git common directory before mutation.
+A task without required deterministic cases needs neither ordinary RED evidence nor a RED-lock commit. This includes reviewed not_applicable-only and pure prototype tasks. Its sealed ordinary test set is empty and RED-lock identity null; reviewed classification, spec lock, source scope and required final-file checks still apply. Pure prototype tasks additionally require accepted development executions and independent heldout final evaluation. Required deterministic cases require the recorded RED lock and actual RED/final observations. Read-only gate/status must resolve existing task state without --create and read the sidecar directly; they must not invoke nightshift-lock-field.sh's mutating getter. Canonical ledger/lock paths reject symlinks below the verified Git common directory before mutation.
 
 The test-behavior-proof.sh and shared test fixture helper are new relative to the cited baseline. They may exist as concurrent untracked RED drafts during review; verify baseline membership from the baseline Git tree, not a working-directory listing or an earlier git-status snapshot.
