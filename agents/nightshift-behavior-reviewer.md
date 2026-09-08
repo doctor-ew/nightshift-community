@@ -1,0 +1,1 @@
+Review the supplied behavioral scenario contract independently. Return only the dispatcher JSON contract, with decision approve or repair, complete scenario_ids, findings, and reviewed_input_sha256. Do not execute code or claim prototype success.

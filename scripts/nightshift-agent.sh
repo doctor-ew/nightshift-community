@@ -122,11 +122,11 @@ SEEN=' '
 while [ "$#" -gt 0 ]; do
   opt="$1"; shift
   case "$opt" in
-    --gear|--in|--out|--author-provider|--risk|--attempt|--auth|--stage)
+    --gear|--in|--out|--author-provider|--risk|--attempt|--auth|--stage|--task)
       if [[ "$SEEN" == *" $opt "* ]]; then ERROR="duplicate option: $opt"; fi
       SEEN="$SEEN$opt "
       if [ "$#" -eq 0 ] || [[ "$1" == --* ]]; then ERROR="missing value for $opt"; continue; fi
-      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; --stage) STAGE_OVERRIDE="$1";; esac
+      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; --stage) STAGE_OVERRIDE="$1";; --task) TASK_KEY="$1";; esac
       shift;;
     --adversarial) if [ "$ADV" = true ]; then ERROR='duplicate --adversarial'; fi; ADV=true;;
     *) ERROR="unknown option: $opt";;
@@ -134,6 +134,10 @@ while [ "$#" -gt 0 ]; do
 done
 [ -z "$ERROR" ] || fail "$ERROR"
 case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-engineer|nightshift-architect)
+  [ -n "${TASK_KEY:-}" ] || fail 'engineer and architect dispatch requires --task and task-bound behavioral proof'
+  [[ "$TASK_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || fail 'invalid task key';;
+esac
 case "$AUTH" in subscription|api) ;; *) fail 'auth must be subscription or api';; esac
 case "$RISK" in low|standard|high) ;; *) fail 'invalid risk';; esac
 case "$ATTEMPT" in 1|2|3) ;; *) fail 'attempt must be 1..3';; esac
