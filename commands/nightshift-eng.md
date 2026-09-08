@@ -262,6 +262,13 @@ echo "TASK_KEY: $TASK_KEY"
 
 ## Step 3 — Stage gating — read current state from tracker
 
+For adversarial verification, use the persisted `.adversarial-budget.json` in the
+task output directory for retry admission. Infrastructure failures are not
+substantive spec-repair attempts; do not exhaust the substantive gate budget by
+counting failed model launches. Retain both counters and the independent total
+ceiling across resumes. Other stages retain their existing budgets. Never reset
+or delete budget evidence to resume a failed gate.
+
 ```bash
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
