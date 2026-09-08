@@ -39,7 +39,7 @@ if [ "${MOCK_MODEL_REJECT:-false}" = true ]; then
   exit 1
 fi
 [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ] || exit 88
-if [ "${MOCK_LOCAL_UNAVAILABLE:-false}" = true ] && [[ " $* " == *' --oss '* ]]; then echo 'Ollama connection refused' >&2; exit 1; fi
+if [ "${MOCK_LOCAL_UNAVAILABLE:-false}" = true ] && [[ " $* " == *' --oss '* ]]; then echo 'Ollama model fixture not found' >&2; exit 1; fi
 jq -n --args '$ARGS.positional' -- "$@" > "$MOCK_LOG"
 LAST=""; SCHEMA=""
 while [ "$#" -gt 0 ]; do

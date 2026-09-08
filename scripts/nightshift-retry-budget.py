@@ -36,6 +36,7 @@ def account(path, attempt, category):
         elif category == 'substantive':
             state['substantive_failures'] += 1
         action = {'model_unavailable': 'change_config_before_retry',
+                  'pending': 'evaluate_report_before_retry',
                   'authentication': 'restore_auth_before_retry',
                   'unknown': 'diagnose_before_retry',
                   'schema': 'repair_transport_before_retry',
@@ -97,16 +98,24 @@ def run_dispatch(arguments):
                 claims = record.get('results', {}).get('claims')
                 if not isinstance(claims, list) or not claims:
                     category = 'schema'
-                elif all(isinstance(c, dict) and c.get('status') == 'VERIFIED' for c in claims):
-                    category = 'success'
+                elif all(isinstance(c, dict) and c.get('status') in ('VERIFIED', 'NOT_FOUND', 'CONFLICT') for c in claims):
+                    # The canonical gate owns NEW/EXISTING mapping, completeness,
+                    # evidence checks and overrides. Transport cannot judge them.
+                    category = 'pending'
                 else:
-                    category = 'substantive'
+                    category = 'schema'
             else:
                 category = 'substantive'
             with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
                 json.dump(record, out)
                 temporary = out.name
             os.replace(temporary, output)
+            if category == 'pending':
+                with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+                    json.dump({'attempt_id': identity, 'state_path': str(state_path),
+                               'result_path': str(invocation)}, out)
+                    temporary = out.name
+                os.replace(temporary, str(output) + '.retry.json')
         except (OSError, ValueError, TypeError, AttributeError):
             category = 'unknown'
         if category == 'model_unavailable':
@@ -117,7 +126,9 @@ def run_dispatch(arguments):
         state = account(state_path, identity, category)
         print(json.dumps({'budget': str(state_path), 'category': category,
                           'next_action': state['next_action']}), file=sys.stderr)
-        return 0 if category == 'success' else 1
+        # Zero means a report is available for authoritative gate evaluation,
+        # never that the gate is approved. Pending blocks another dispatch.
+        return 0 if category == 'pending' else 1
 
 
 if __name__ == '__main__':

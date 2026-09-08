@@ -92,6 +92,32 @@ attempts. An unsupported model requires a routing configuration change before
 another launch. A completed report with conflicts requires a spec repair, not a
 transport retry. See `docs/RETRY-BUDGETS.md` for limits and interrupted reservations.
 
+A zero dispatcher exit means **report available**, not gate approval. A valid
+report leaves its prelaunch reservation pending until this stage evaluates it.
+The dispatcher-owned `<output>.retry.json` sidecar supplies `state_path`,
+`attempt_id`, and the retained `result_path`; never take these from model output.
+After validating completeness, evidence and the mappings below, finalize that
+same attempt using the accounting CLI. Set `EVALUATION_CATEGORY` to `success`
+only for an accepted batch, `substantive` for mapped findings requiring repair,
+or `schema` for an incomplete/malformed batch. `NOT_FOUND` on a spec-authored
+`[NEW]` claim maps to `NET_NEW` and is not a substantive failure. A raw model
+status alone does not decide the category.
+
+Finalization recipe (`REPORT` is the just-evaluated requested output path):
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-budget.py" \
+  --state "$(jq -er '.state_path' "$REPORT.retry.json")" \
+  --attempt-id "$(jq -er '.attempt_id' "$REPORT.retry.json")" \
+  --category "$EVALUATION_CATEGORY"
+```
+
+Read the resulting `next_action` before another invocation. Do not finalize
+again with a different category; retained attempts are immutable after mapping.
+Nonzero dispatcher exits already finalize infrastructure/role failures and must
+not use an older sidecar. A pending reservation blocks further dispatch: finish
+the recorded evaluation before retrying, without deleting its evidence.
+
 Read `## Sources` from `$SPEC`. If absent or empty, hard-stop:
 
 ```
@@ -159,6 +185,11 @@ Extractor result: <what was found>
 ```
 
 Choice **C** adds to the blocked list (Step 8).
+
+Finalize the source report using the recipe above before dispatching the claim
+batch. Malformed responses finalize as `schema` before the bounded reissue;
+source discrepancies requiring repair finalize as `substantive`. Only accepted
+source mappings finalize as `success`. Retain all existing source gates.
 
 ---
 
@@ -360,6 +391,12 @@ CONFIRM-after-conflict records to the shared `$SHARED_CACHE` — engineer overri
 belong to a single task and should not auto-apply to other tickets. Only Step 6c's
 `FOUND_MATCH` and `NET_NEW` outcomes (clean extractor results, no human judgment) are
 eligible for the shared cache.
+
+Finalize the claim report using the same recipe after completeness checks,
+Step 6c's `[NEW]`/`[EXISTING]` mapping and this challenge loop. Use `schema` for
+malformed/incomplete batches, `substantive` for unresolved findings requiring
+repair, or `success` for accepted mapped outcomes (including `NET_NEW`). Finalize
+before any repair reissue; budget accounting never replaces Step 8 approval.
 
 ---
 

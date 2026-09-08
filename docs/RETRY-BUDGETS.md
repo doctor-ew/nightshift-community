@@ -7,6 +7,17 @@ a cap of four (initial evaluation plus three repairs). All calls, including succ
 share a twelve-invocation ceiling across source and claim batches. A successful
 transport with conflicting claims is a substantive failure, not gate approval.
 
+The dispatcher returns zero for a valid report, leaving its reservation pending.
+Its `<output>.retry.json` sidecar identifies that attempt and its unique retained
+result. The canonical adversarial stage checks completeness and evidence, maps
+`NOT_FOUND` plus spec-authored `[NEW]` to accepted `NET_NEW`, and finalizes the
+same attempt with the accounting CLI as `success`, `substantive`, or `schema`.
+Raw extractor statuses never decide whether a new symbol is an error. Finalizing
+does not count another call. Pending reports block further launches until mapped;
+a zero transport exit never approves a gate. Source evaluation must be finalized
+before the claim batch starts. See `commands/nightshift-adversarial.md` for the
+finalization recipe and authoritative mappings.
+
 Reservations are recorded before provider launch under an invocation lock. An
 interrupted pending reservation blocks further dispatch until explicitly reconciled;
 never delete/reset its budget merely to retry. Prior outputs have unique retained
