@@ -73,7 +73,7 @@ If **B**: `rm "$CITATION"`.
 
 ## Step 4 — Verify the spec's ## Sources section
 
-Dispatch all extractor calls through `scripts/nightshift-agent.sh` with
+Dispatch all extractor calls through `scripts/nightshift-dispatch-bounded.sh` (which invokes the shared role dispatcher) with
 `--author-provider` copied from the spec-writing result's `_provenance.provider`.
 Do not infer authorship from the current runtime. If prior author provenance is
 missing, block verification until authorship is established. Explicit adversarial
@@ -83,6 +83,14 @@ publishes normalized JSON: `status`, `summary`, `findings`, `evidence`, and its 
 `_provenance`; parse the report from these fields rather than provider event logs.
 Carry this provenance into citations and the stage receipt. A failed or blocked
 result cannot approve the gate, even if the provider process exited successfully.
+
+Retry admission is persisted in the task output directory's
+`.adversarial-budget.json`. Infrastructure failures do not consume substantive
+spec-repair attempts: retain separate counters and the independent total-call
+ceiling. Read `next_action` after any nonzero exit; never reset this file to gain
+attempts. An unsupported model requires a routing configuration change before
+another launch. A completed report with conflicts requires a spec repair, not a
+transport retry. See `docs/RETRY-BUDGETS.md` for limits and interrupted reservations.
 
 Read `## Sources` from `$SPEC`. If absent or empty, hard-stop:
 
@@ -107,14 +115,14 @@ actual author receipt.
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-sources.in.md" \
   --out "docs/$TASK/adversarial-sources.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-sources.out.json"
 else
   jq '{status,reason}' "docs/$TASK/adversarial-sources.out.json"
-  # Apply the existing single reissue/factory repair policy; do not mark verified.
+  # Read .adversarial-budget.json; infrastructure failures do not consume spec repairs.
 fi
 ```
 
@@ -239,14 +247,14 @@ and evidence requirements. Dispatch once with the same actual author provenance:
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-claims.in.md" \
   --out "docs/$TASK/adversarial-claims.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-claims.out.json"
 else
   jq '{status,reason}' "docs/$TASK/adversarial-claims.out.json"
-  # Reissue within the existing limit, then block on exhaustion.
+  # Read .adversarial-budget.json; repair substantive findings before reissuing.
 fi
 ```
 

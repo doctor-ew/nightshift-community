@@ -201,7 +201,8 @@ if wait "$CHILD"; then CHILD=''; else
     printf 'Private provider diagnostics: %s\n' "$diagnostics" >&2
   fi
   category=unknown
-    if grep -Eqi 'oauth|login expired|not logged in|authentication' "$TMP/stderr" "$TMP/stdout"; then category=authentication
+    if grep -Eqi '(model.*(not supported|unsupported|not found|does not exist)|unsupported.*model)' "$TMP/stderr" "$TMP/stdout"; then category=model_unavailable
+  elif grep -Eqi 'oauth|login expired|not logged in|authentication' "$TMP/stderr" "$TMP/stdout"; then category=authentication
   elif grep -Eqi 'schema|ajv|strictTypes' "$TMP/stderr" "$TMP/stdout"; then category=schema
   elif grep -Eqi 'usage limit|rate.limit|capacity' "$TMP/stderr" "$TMP/stdout"; then category=capacity
   elif [ "$PROVIDER" = local ] && grep -Eqi 'connection refused|could not connect|model.*not found|ollama.*(unavailable|not running)' "$TMP/stderr" "$TMP/stdout"; then category=local_unavailable; fi

@@ -10,6 +10,7 @@ cp "$ROOT/routing.json" "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
 for helper in "$ROOT/scripts/"*.jq "$ROOT/scripts/nightshift-capability.sh"; do
   [ ! -f "$helper" ] || cp "$helper" "$TMP/runtime/scripts/"
 done
@@ -32,6 +33,11 @@ cat > "$TMP/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = login ]; then echo 'Logged in using ChatGPT'; exit 0; fi
+if [ "${MOCK_MODEL_REJECT:-false}" = true ]; then
+  echo 'MCP authentication error: no access token' >&2
+  echo 'HTTP 400: model is not supported for this account' >&2
+  exit 1
+fi
 [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ] || exit 88
 if [ "${MOCK_LOCAL_UNAVAILABLE:-false}" = true ] && [[ " $* " == *' --oss '* ]]; then echo 'Ollama connection refused' >&2; exit 1; fi
 jq -n --args '$ARGS.positional' -- "$@" > "$MOCK_LOG"
@@ -72,6 +78,12 @@ args() { jq -e "$1" "$MOCK_LOG" >/dev/null 2>&1; }
 run() { RC=0; bash "$TMP/runtime/scripts/nightshift-agent.sh" "$@" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?; }
 normal() { run nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT" "$@"; }
 route() { jq --arg p "$1" '.roles["nightshift-engineer"].gears["1"]={provider:$p,model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"; }
+route codex
+export MOCK_MODEL_REJECT=true
+normal
+check 'model rejection outranks unrelated MCP auth noise' json '.status == "FAIL" and (.reason | contains("category=model_unavailable"))'
+unset MOCK_MODEL_REJECT
+route claude
 normal
 check 'Claude SUCCESS normalized' json '.status == "SUCCESS" and (has("structured_output")|not)'
 check 'terminal telemetry sanitized and complete' jq -e 'keys == ["finished_at","gear","model","pid","provider","role","started_at","status"] and .status == "success" and (.finished_at|length)>0' "$TMP"/telemetry/*.json
