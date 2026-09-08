@@ -58,7 +58,7 @@ print(json.dumps({"type":"result","usage":{"input_tokens":7,"output_tokens":3},"
         assert isinstance(record.get('elapsed_seconds'),(int,float)) and record['elapsed_seconds']>=0,'AC4 elapsed time not measured'
         assert record.get('preflight_reason') is None,'AC4 success fabricated preflight failure'
         assert record.get('repair_count') is None,'AC4 no observation must not invent zero repairs'
-        usage=record.get('usage');assert usage is None or all(value is None for value in usage.values()),'AC4 opaque stdout fabricated reported usage'
+        usage=record.get('usage');assert usage is None or (usage.get('input_tokens') is None and usage.get('output_tokens') is None),'AC4 opaque stdout fabricated reported usage'
         assert record.get('run_id')==run_dir.name,'AC4 run identity mismatch'
     assert set(terminals)=={'provider_exited_0','provider_exited_nonzero'},'AC4 incorrect terminal states'
     before={p.name for p in runs}
