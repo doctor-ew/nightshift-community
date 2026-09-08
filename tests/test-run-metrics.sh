@@ -23,7 +23,7 @@ if os.environ.get("STUB_ROLE_RUN")=="yes":
     state=project/".nightshift";state.mkdir(exist_ok=True)
     (state/"input.md").write_text("Do not expose PRIVATE_SOURCE_SENTINEL_56421")
     scripts=pathlib.Path(os.environ["FIXTURE_ROOT"])/"scripts"
-    subprocess.run(["bash",str(scripts/"nightshift-agent.sh"),"nightshift-engineer","--gear","1","--auth","subscription","--in",str(state/"input.md"),"--out",str(state/"output.json")],check=True)
+    subprocess.run(["bash",str(scripts/"nightshift-agent.sh"),"nightshift-engineer","--task","fixture","--gear","1","--auth","subscription","--in",str(state/"input.md"),"--out",str(state/"output.json")],check=True)
     subprocess.run(["bash",str(scripts/"nightshift-retry-increment.sh"),"fixture","RETRY_IMPLEMENT"],check=True)
 print("SECRETFIXTURE_CREDENTIAL_981734")
 sys.exit(int(os.environ.get("STUB_EXIT","0")))
