@@ -65,6 +65,7 @@ A tests scalar or non-string/blank command is invalid. Root-only mode skips this
 
 | Path | Change |
 |---|---|
+| install.sh | Modify |
 | agents/nightshift-architect.md | Modify |
 | agents/nightshift-engineer.md | Modify |
 | agents/nightshift-run-all-tests.md | Modify |
@@ -148,3 +149,13 @@ Root-only/shell errors print diagnostics to stderr and no successful stdout.
 Semantic lookup JSON: status (available/unavailable/error), operation
 (document-read), tool (string/null); errors carry a typed code. Unknown operations,
 invalid mappings and invalid tool inventories exit 64; unavailable exits 1.
+
+## Scope amendment — installed context availability
+
+Independent source review approved adding install.sh before its modification.
+Install the shared policy at docs/nightshift-project-context.md under the runtime
+home, and the resolver beside legacy shell adapters. Runtime instructions name
+the installed policy/helper explicitly. Fix the existing Bash 3.2 empty UPDATE_ARGS
+expansion because it blocks both installed-runtime verification modes. This is a
+compatibility repair, not permission to reinstall an active user runtime.
+Source: install.sh:437-486,561-565 at baseline bd47c2a.
