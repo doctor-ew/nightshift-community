@@ -9,6 +9,24 @@ and MEX remain optional. Do not update the installed runtime during an active ru
 
 ## Now / next / later
 
+Updated execution priority: finish active #8 without interruption, then #18 neutral
+core, #13 behavioral proof/BDD, #19 regression guard, #9 handoffs, #11 targeted
+repairs, #10 evidence cache, #12 gearshifting and #14 optional MEX discovery.
+#15's blocking authorization conflict is fixed by PR #17; transport timeout/output
+quota hardening remains open and should be addressed before unattended scale-up.
+
+- [#18 Provider-neutral core](https://github.com/doctor-ew/nightshift-community/issues/18)
+  is NOW: medium effort, correctness/portability prerequisite for reusable proof and
+  handoff contracts. Keep provider specifics in adapters, not role instructions.
+- [#19 Regression guard](https://github.com/doctor-ew/nightshift-community/issues/19)
+  is NEXT: small/medium effort, prevents recurrence; pair with #18 where practical.
+  Scope scans to Nightshift-owned artifacts, retain explicit compatibility allowances,
+  and never treat a clean scoped scan as proof of globally clean user plugins/history.
+
+The original estimates below remain rationale; the updated sequence above takes
+precedence over its original order numbers. No changes to the active #8 acceptance
+criteria or runtime are authorized by this documentation update.
+
 | Order | Horizon | Ticket | Expected benefit | Relative effort / reason |
 | --- | --- | --- | --- | --- |
 | 1 | Now | [#15 Scoped verifier authorization](https://github.com/doctor-ew/nightshift-community/issues/15) | Unblocks required independent review | Small/medium; resolve contradictory dispatch policy without weakening recursion controls |
