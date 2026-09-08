@@ -66,6 +66,21 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
         result,count=run(good,'spec:valid.markdown',branch='none')
         assert result.returncode==0 and count,'AC1 valid .markdown did not reach stub provider'
     except (AssertionError,subprocess.TimeoutExpired) as e:failures.append(str(e))
+    # The coordinator is an explicit typed boundary, independently usable from
+    # any caller directory. Exercise its declared parser contract without models.
+    coordinator=['bash',str(root/'scripts/nightshift-preflight-check.sh'),'--project',str(good),'--branch','none']
+    for args,expected,reason in [(['--ref','gh:1','--ref','gh:2'],0,None),(['--ref','gh:1','--project',str(good)],64,'USAGE'),(['--ref','gh:1','--resume','unused'],64,'USAGE')]:
+        response=subprocess.run(coordinator+args,env=env,capture_output=True,text=True)
+        try:
+            value=json.loads(response.stdout)
+            assert response.returncode==expected and value.get('reason')==reason,'AC3 repeated-ref/singleton/mode contract mismatch'
+        except (AssertionError,ValueError) as e:failures.append(str(e))
+    invalid_resume=base/'batch-20260908-0000.json';invalid_resume.write_text('[]')
+    response=subprocess.run(coordinator+['--resume',str(invalid_resume)],env=env,capture_output=True,text=True)
+    try:
+        value=json.loads(response.stdout)
+        assert response.returncode!=0 and value.get('status')=='blocked','AC3 malformed resume must not silently admit zero tasks'
+    except (AssertionError,ValueError) as e:failures.append(str(e))
 if failures:
     for failure in failures:print('FAIL:',failure,file=sys.stderr)
     raise SystemExit(1)
