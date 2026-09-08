@@ -24,6 +24,14 @@ case "$CUR" in
   ''|*[!0-9]*) CUR=0 ;;
 esac
 NEW=$((CUR + 1))
-bash "${SCRIPT_DIR}/nightshift-lock-field.sh" "$TASK" "$KEY" "$NEW"
+bash "${SCRIPT_DIR}/nightshift-lock-field.sh" "$TASK" "$KEY" "$NEW" || exit $?
+# Emit the run-linked delta only now that the increment is durably persisted.
+# This is a substantive repair count (a retry the caller actually took),
+# distinct from infrastructure-only dispatch attempts that never reach here;
+# it does not read, alter, or duplicate any adversarial repair budget policy.
+if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "${SCRIPT_DIR}/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" --kind repair \
+    --task "$TASK" --key "$KEY" --old "$CUR" --new "$NEW" >/dev/null 2>&1 || true
+fi
 echo "RETRY_INCREMENT: ${KEY} ${CUR} → ${NEW}"
 echo "$NEW"
