@@ -28,7 +28,9 @@ structural grounding.
 ## Step 1 — Parse argument and resolve paths
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -347,8 +349,7 @@ Use the bundled helper for hash/lookup/append/invalidate — see `scripts/nights
 in this repo (mirrored to `~/.claude/scripts/` by the installer). Never reach for a
 Python SDK / `cache_control: ephemeral` workaround here — the 5-minute TTL is the wrong
 cache layer for a stage that BLOCKS for hours during engineer triage, and the SDK path
-breaks the interactive challenge loop in Step 7. See CX ADR-002 alternatives A–D for
-the full rejection rationale.
+breaks the interactive challenge loop in Step 7. This retained file cache remains available across the interactive challenge loop.
 
 ---
 

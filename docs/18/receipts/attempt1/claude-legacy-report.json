@@ -1,0 +1,21 @@
+{
+  "status": "SUCCESS",
+  "reason": "Test command detected from explicit CLAUDE.md instruction (codebase-level fixture convention): `python3 ./fixture_test.py --label 'two words' --mode exact`. Executed from /private/tmp/nightshift-18-runtime-fixtures/claude-legacy per role scope. All 1 test passed with 0 failures.",
+  "attempts": 1,
+  "results": {
+    "passed": 1,
+    "failed": 0
+  },
+  "rules_fired": [
+    "explicit-codebase-instruction-takes-precedence",
+    "exact-command-preserved",
+    "build-success-before-parse",
+    "read-only-execution"
+  ],
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "N/A-fixture-project",
+    "diff": "No source changes—test execution only"
+  }
+}

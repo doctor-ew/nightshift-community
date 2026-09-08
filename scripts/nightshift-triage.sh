@@ -19,7 +19,7 @@
 # Manual review of the passing set is still recommended.
 set -euo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_DIR=$(bash "${SCRIPT_DIR}/nightshift-state-dir.sh" --project "$PROJECT" --create)
 N=5

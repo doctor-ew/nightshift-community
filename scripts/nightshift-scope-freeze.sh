@@ -27,7 +27,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only --cwd-default)" || exit $?
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCOPE_DIR=$(bash "${SCRIPT_DIR}/nightshift-state-dir.sh" --project "$PROJECT")
 

@@ -14,14 +14,16 @@ Trend log lives at the resolved state home's `review-history.jsonl` — every ru
 and the next run shows deltas vs the previous (per lens, per severity).
 
 **No gstack.** Do not invoke `/review` (gstack), `/health`, or `/autoplan`. The lens checks
-below are run inline by Claude using Read + Grep over the changed files.
+below are run by the active runtime using file reads and repository searches over the changed files.
 
 ---
 
 ## Step 1 — Parse argument and resolve scope
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK="$ARGUMENTS"
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
@@ -166,7 +168,9 @@ type predicates written multiple times for the same shape.
 - **D** — user input or critical data lost without recovery
 
 ### CoC — Convention over Configuration
-Names, file placement, patterns vs the repo's `CLAUDE.md` and adjacent code conventions.
+Names, file placement and patterns against resolved project conventions
+(`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)) and adjacent code.
 
 ### Big O
 - **BLOCK**: O(n²)+ in hot path, N+1 query, unbounded DB fetches

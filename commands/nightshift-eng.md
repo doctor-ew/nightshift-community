@@ -90,7 +90,9 @@ Run `--check` first to audit what's missing without making changes.
 ## Step 1 — Resolve task key
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 ARG=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -164,7 +166,8 @@ WORKTREE_RECEIPT=$(bash ~/.nightshift/scripts/nightshift-worktree.sh prepare "$T
   --project "$PROJECT" "${BASE_ARGS[@]}") || exit 1
 PROJECT=$(printf '%s\n' "$WORKTREE_RECEIPT" | jq -er '.worktree') || exit 1
 cd "$PROJECT" || exit 1
-export CLAUDE_PROJECT_DIR="$PROJECT"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
 export NIGHTSHIFT_PREPARED_TASK="$TASK_KEY"
 export NIGHTSHIFT_WORKTREE_RECEIPT="$WORKTREE_RECEIPT"
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)

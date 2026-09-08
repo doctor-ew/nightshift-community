@@ -30,4 +30,5 @@ required_bool policy require_production_confirmation
 required_bool policy require_removal_confirmation
 [ "$(value policy allow_heuristic_production_target)" = false ] || fail MANIFEST_INVALID "[policy].allow_heuristic_production_target must be false"
 for gate in implement review drift qa; do required_budget "$gate"; done
+python3 "$(dirname "$0")/nightshift-project-context.py" --project "$PROJECT" >/dev/null || fail MANIFEST_INVALID "Project conventions or optional test configuration are invalid"
 jq -cn --arg provider "$provider" --arg url "$production_url" '{status:"ok",ticket_source:$provider,production_url:$url}'

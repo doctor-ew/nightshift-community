@@ -9,7 +9,7 @@
 # Output: stdout (the Pipeline Stages section). Silent exit 0 if the tracker absent.
 set -euo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"
 [ -z "$TASK" ] && exit 0
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

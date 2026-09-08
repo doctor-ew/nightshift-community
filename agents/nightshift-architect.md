@@ -112,7 +112,8 @@ context grows — this is a quality issue, not a token limit.
    implement.
 
 Per file:
-- Follow the acceptance criteria exactly and the repo's CLAUDE.md conventions.
+- Follow the acceptance criteria exactly and the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`).
 - Use existing patterns; do not invent new ones.
 - **Stop and flag** any file not in the spec's Files-to-Change table before touching it.
 - **Stop and flag** an incomplete or wrong spec the moment you discover it.

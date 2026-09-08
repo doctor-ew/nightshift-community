@@ -13,7 +13,7 @@
 # Idempotent setter: a repeated key is replaced in place, never duplicated.
 set -uo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"
 ARG2="${2:-}"
 

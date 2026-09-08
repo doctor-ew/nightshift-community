@@ -1,0 +1,24 @@
+{
+  "status": "SUCCESS",
+  "reason": "Command: python3 ./fixture_test.py --label 'two words' --mode exact | Source: CLAUDE.md, line 6 | Scope: /private/tmp/nightshift-18-runtime-fixtures-attempt2/claude-legacy | Convention: Explicit instruction in CLAUDE.md with all arguments preserved exactly as specified. No AGENTS.md conflict. No fallback needed.",
+  "attempts": 1,
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "not-a-git-repo",
+    "diff": ""
+  },
+  "rules_fired": [
+    "explicit-command-from-CLAUDE.md",
+    "read-all-convention-sources",
+    "no-AGENTS.md-conflict",
+    "exact-command-preserved",
+    "step1-convention-detection-complete",
+    "step2-run-successful",
+    "step3-parse-and-report"
+  ],
+  "results": {
+    "passed": 1,
+    "failed": 0
+  }
+}

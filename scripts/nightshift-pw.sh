@@ -25,7 +25,7 @@
 # bash 3.x compatible (macOS default shell).
 set -uo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"; shift || true
 [ -z "$TASK" ] && { echo "ERROR: usage: nightshift-pw.sh <task-key> --detect|--run [opts]" >&2; exit 2; }
 
