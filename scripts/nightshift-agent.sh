@@ -133,7 +133,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -z "$ERROR" ] || fail "$ERROR"
-case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 case "$ROLE" in nightshift-engineer|nightshift-architect)
   [ -n "${TASK_KEY:-}" ] || fail 'engineer and architect dispatch requires --task and task-bound behavioral proof'
   [[ "$TASK_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || fail 'invalid task key';;

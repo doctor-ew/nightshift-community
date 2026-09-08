@@ -143,6 +143,16 @@
         }
       }
     },
+    "nightshift-behavior-reviewer": {
+      "prompt": "agents/nightshift-behavior-reviewer.md",
+      "sandbox": "read-only",
+      "gears": {
+        "1": {"provider": "claude", "model": "sonnet"},
+        "2": {"provider": "claude", "model": "sonnet"},
+        "3": {"provider": "claude", "model": "opus"},
+        "4": {"provider": "claude", "model": "opus"}
+      }
+    },
     "nightshift-run-all-tests": {
       "prompt": "agents/nightshift-run-all-tests.md",
       "sandbox": "workspace-write",
