@@ -18,7 +18,7 @@
   },
   "applicability": {
     "kind": "prototype",
-    "rationale": "Mixed issue: local engine/admission/ledger claims use deterministic evidence, while only the new reviewer prompt is exercised as a real prototype. All classifications remain unapproved pending independent review.",
+    "rationale": "Mixed issue: local engine, admission and ledger claims require deterministic evidence; the new reviewer prompt additionally requires actual prototype execution.",
     "risks": [
       "agent_behavior",
       "deterministic_logic",
@@ -26,11 +26,11 @@
       "safety_sensitive"
     ],
     "review": {
-      "reviewer_provider": "claude",
-      "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+      "reviewer_provider": "codex",
+      "reviewer_author_id": "review-13-private",
       "decision": "approve",
-      "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-      "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+      "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+      "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
     }
   },
   "runtime": {
@@ -57,11 +57,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A canonical task with absent, malformed, unsupported or stale required proof and a valid GREEN role request.",
@@ -93,11 +93,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "An ordinary deterministic task and a separately classified risky task with retained independent review evidence.",
@@ -128,11 +128,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "Synthetic raw text/JSON completions, including malformed JSON and transport failures, supplied directly to registered local assertions.",
@@ -163,11 +163,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A sealed baseline, immutable expected/prohibited assertions and a bounded prototype file list.",
@@ -199,11 +199,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A canonical Git-common task ledger with pending, completed and exhausted development/final attempts.",
@@ -235,11 +235,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "An independently retained private commitment with required prototype AC coverage and deterministic final evidence.",
@@ -271,11 +271,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A bounded fake process tree and synthetic credential sentinels exercising the declared no-tool subscription adapter boundary.",
@@ -307,11 +307,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "Canonical/legacy manifests with optional proof settings and optional metrics availability.",
@@ -343,11 +343,11 @@
           "safety_sensitive"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "Retained premature implementation commits, recovery record and later independently reviewed bootstrap/runner evidence.",
@@ -374,17 +374,17 @@
       "required": true,
       "applicability": {
         "kind": "prototype",
-        "rationale": "Execute the reviewer prompt against fixed public preview-link coverage cases; the original expected decisions, nested IDs and review digests are unchanged. This interface correction precedes prototype calls and is not evidence of passing behavior.",
+        "rationale": "Execute the reviewer prompt against the fixed incomplete preview-link design. Expected repair, nested scenario IDs and input digest remain fixed; only prompt revisions may repair a missing output field. Execution receipts determine the actual outcome.",
         "risks": [
           "prompt_behavior",
           "agent_behavior"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A fixed synthetic preview-link design covering active links but omitting the explicitly required expired-link non-disclosure behavior.",
@@ -447,24 +447,24 @@
       "required": true,
       "applicability": {
         "kind": "prototype",
-        "rationale": "Execute the reviewer prompt against fixed public preview-link coverage cases; the original expected decisions, nested IDs and review digests are unchanged. This interface correction precedes prototype calls and is not evidence of passing behavior.",
+        "rationale": "Execute the reviewer prompt on the independently corrected v2 design. The original approval fixture omitted read-only mutation coverage and failed during bootstrap. The v2 input adds observable mutation denial; expected approval is retained, while nested IDs and the input digest reflect the new version. Preserve the original failed result and charged call.",
         "risks": [
           "prompt_behavior",
           "agent_behavior"
         ],
         "review": {
-          "reviewer_provider": "claude",
-          "reviewer_author_id": "spec-review-849fd60f2a934cd98bbf896b1b66db23",
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
           "decision": "approve",
-          "reviewed_input_sha256": "e4f8dca843a0e125d20433b960ac2234cc2ee1e6cf782f660058424a3a4e6786",
-          "evidence_sha256": "3ab7762bc9baa8d8e61051cad67c50900e5774b3c9b4dd0547c7c6ea8caada39"
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
         }
       },
       "given": "A fixed synthetic preview-link design covering active and expired-link behavior with observable oracles.",
       "when": "Execute the sealed reviewer prompt on the fixed public bootstrap input, returning the standard dispatcher envelope with the review under results.",
       "then": "The returned results match the fixed expected decision, complete nested scenario IDs and supplied reviewed-input digest.",
       "forbidden": "Do not return the opposite review decision, omit or invent nested scenario IDs, substitute the outer proof-case ID, change the supplied review digest, or claim execution of the preview-link feature.",
-      "input": "{\"design\":{\"case_id\":\"public-corrected\",\"requirements\":[{\"behavior\":\"A preview link grants read-only access to the identified draft until expiry. Expired links must disclose no draft text.\",\"id\":\"AC-P1\"}],\"scenarios\":[{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired link for draft A\",\"id\":\"public-active\",\"oracle\":{\"checks\":{\"draft\":\"A\",\"status\":200},\"kind\":\"json_fields\"},\"then\":\"Return draft A text\",\"when\":\"Read that link\"},{\"ac_ids\":[\"AC-P1\"],\"given\":\"The same link after expiry\",\"id\":\"public-expired\",\"oracle\":{\"checks\":{\"draft\":null,\"status\":403},\"kind\":\"json_fields\"},\"then\":\"Deny access without draft text\",\"when\":\"Read that link\"}]},\"instruction\":\"Independently evaluate required positive and negative coverage and oracle observability. Missing required behavior, unknown coverage, or missing observable oracle requires repair. Approve only a complete supported design. Do not execute tools. Return the supplied structured reviewer contract.\",\"reviewed_input_sha256\":\"377ee4ab3b3a9a689e6eed41317230ef8750cd7e34268acc87afae1c8d627783\"}",
+      "input": "{\"design\":{\"case_id\":\"public-corrected-v2\",\"requirements\":[{\"behavior\":\"A preview link grants read-only access to the identified draft until expiry. Expired links must disclose no draft text.\",\"id\":\"AC-P1\"}],\"scenarios\":[{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired link for draft A\",\"id\":\"public-active\",\"oracle\":{\"checks\":{\"draft\":\"A\",\"status\":200},\"kind\":\"json_fields\"},\"then\":\"Return draft A text\",\"when\":\"Read that link\"},{\"ac_ids\":[\"AC-P1\"],\"given\":\"The same link after expiry\",\"id\":\"public-expired\",\"oracle\":{\"checks\":{\"draft\":null,\"status\":403},\"kind\":\"json_fields\"},\"then\":\"Deny access without draft text\",\"when\":\"Read that link\"},{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired preview link for draft A; stored draft bytes are A and stored revision is 7.\",\"id\":\"public-mutation-denied\",\"oracle\":{\"checks\":{\"mutation_status\":403,\"stored_draft_after\":\"A\",\"stored_revision_after\":7},\"kind\":\"response_and_stored_state\"},\"then\":\"Deny mutation and preserve the original stored draft bytes and revision.\",\"when\":\"Attempt to replace the draft through the preview link, then inspect its stored bytes and revision.\"}]},\"instruction\":\"Independently evaluate required positive and negative coverage and oracle observability. Missing required behavior, unknown coverage, or missing observable oracle requires repair. Approve only a complete supported design. Do not execute tools. Return the supplied structured reviewer contract.\",\"reviewed_input_sha256\":\"126056b3d8ce0fe4bdfd47f82345fc254bb7eb95ca3e890c2914900cc8059632\"}",
       "expected": [
         {
           "op": "json_field_equals",
@@ -482,7 +482,8 @@
           ],
           "value": [
             "public-active",
-            "public-expired"
+            "public-expired",
+            "public-mutation-denied"
           ]
         },
         {
@@ -491,7 +492,7 @@
             "results",
             "reviewed_input_sha256"
           ],
-          "value": "377ee4ab3b3a9a689e6eed41317230ef8750cd7e34268acc87afae1c8d627783"
+          "value": "126056b3d8ce0fe4bdfd47f82345fc254bb7eb95ca3e890c2914900cc8059632"
         }
       ],
       "prohibited": [
