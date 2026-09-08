@@ -97,7 +97,7 @@ def run_dispatch(arguments):
                 claims = record.get('results', {}).get('claims')
                 if not isinstance(claims, list) or not claims:
                     category = 'schema'
-                elif all(isinstance(c, dict) and c.get('status') in ('VERIFIED', 'NET_NEW') for c in claims):
+                elif all(isinstance(c, dict) and c.get('status') == 'VERIFIED' for c in claims):
                     category = 'success'
                 else:
                     category = 'substantive'
