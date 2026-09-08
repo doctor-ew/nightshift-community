@@ -6,11 +6,45 @@ if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
   exit 64
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SECONDS=0
 ROLE="${1:-}"; [ "$#" -eq 0 ] || shift
 GEAR=${NIGHTSHIFT_GEAR:-1} INPUT='' OUTPUT='' AUTHOR='' ADV=false PROVIDER='' MODEL='' TMP='' PUBLISH='' CHILD=''
-RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE=''
+RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE='' STAGE_OVERRIDE=''
 TELEMETRY_FILE='' TELEMETRY_STARTED='' TELEMETRY_STATUS=failed
+INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
+USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
 ERROR=''
+# Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
+# telemetry file above: a run-local, typed record of this one invocation for
+# nightshift-run-metrics.py's summary. Purely observational and nonfatal;
+# never gates or blocks the dispatch it describes.
+role_stage() {
+  case "$1" in
+    nightshift-engineer|nightshift-architect) echo implement ;;
+    nightshift-spec-writer) echo product ;;
+    # Fact extraction and test runs happen from multiple stages; only a
+    # caller-validated --stage (never a role-inferred guess) resolves those.
+    *) echo '' ;;
+  esac
+}
+emit_observation() {
+  [ "$OBS_EMITTED" = false ] || return 0
+  OBS_EMITTED=true
+  [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  local status="$1" stage
+  stage="$(role_stage "$ROLE")"
+  if [ -z "$stage" ] && [ -n "$STAGE_OVERRIDE" ]; then
+    case "$STAGE_OVERRIDE" in
+      product|adversarial|implement|review|drift|preflight|deploy) stage="$STAGE_OVERRIDE" ;;
+    esac
+  fi
+  python3 "$ROOT/scripts/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" --kind observation \
+    --invocation-id "$INVOCATION_ID" ${stage:+--stage "$stage"} ${PROVIDER:+--provider "$PROVIDER"} \
+    ${MODEL:+--model "$MODEL"} --role "$ROLE" --duration-seconds "$SECONDS" --status "$status" \
+    ${USAGE_INPUT:+--input-tokens "$USAGE_INPUT"} ${USAGE_OUTPUT:+--output-tokens "$USAGE_OUTPUT"} \
+    >/dev/null 2>&1 || true
+}
 telemetry() (
   # Observational only: any filesystem/serialization failure is non-fatal.
   set -e
@@ -35,6 +69,7 @@ telemetry() (
 )
 cleanup() {
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
+  emit_observation "$TELEMETRY_STATUS" || true
   [ -z "$TMP" ] || rm -rf -- "$TMP"; [ -z "$PUBLISH" ] || rm -f -- "$PUBLISH"
 }
 publish() {
@@ -87,11 +122,11 @@ SEEN=' '
 while [ "$#" -gt 0 ]; do
   opt="$1"; shift
   case "$opt" in
-    --gear|--in|--out|--author-provider|--risk|--attempt|--auth)
+    --gear|--in|--out|--author-provider|--risk|--attempt|--auth|--stage)
       if [[ "$SEEN" == *" $opt "* ]]; then ERROR="duplicate option: $opt"; fi
       SEEN="$SEEN$opt "
       if [ "$#" -eq 0 ] || [[ "$1" == --* ]]; then ERROR="missing value for $opt"; continue; fi
-      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; esac
+      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; --stage) STAGE_OVERRIDE="$1";; esac
       shift;;
     --adversarial) if [ "$ADV" = true ]; then ERROR='duplicate --adversarial'; fi; ADV=true;;
     *) ERROR="unknown option: $opt";;
@@ -209,6 +244,14 @@ if wait "$CHILD"; then CHILD=''; else
   fail "provider launch or transport failed (exit=$provider_exit category=$category)"
 fi
 if [ "$PROVIDER" = claude ]; then
+  # Inspect the raw envelope's own usage before projecting into
+  # .structured_output/.result — that projection discards it. Only a
+  # numeric value actually present in the envelope is ever recorded;
+  # anything else (missing, non-numeric, opaque) stays null.
+  USAGE_INPUT="$(jq -esr 'if length==1 then (.[0].usage.input_tokens? // empty) else empty end' "$TMP/stdout" 2>/dev/null)" || USAGE_INPUT=''
+  USAGE_OUTPUT="$(jq -esr 'if length==1 then (.[0].usage.output_tokens? // empty) else empty end' "$TMP/stdout" 2>/dev/null)" || USAGE_OUTPUT=''
+  [[ "$USAGE_INPUT" =~ ^[0-9]+$ ]] || USAGE_INPUT=''
+  [[ "$USAGE_OUTPUT" =~ ^[0-9]+$ ]] || USAGE_OUTPUT=''
   jq -es 'if length != 1 then error("multiple outputs") else .[0] end |
     if type != "object" or .is_error == true or .type == "error" then error("provider error")
     elif has("structured_output") then .structured_output
@@ -216,6 +259,8 @@ if [ "$PROVIDER" = claude ]; then
     elif (.result | type) == "string" then .result | fromjson
     else error("missing contract") end' "$TMP/stdout" > "$TMP/contract" || fail 'invalid provider envelope'
 else
+  # Codex/local: no documented structured usage event is observed at this
+  # provider boundary today, so token counts stay null rather than guessed.
   [ -s "$TMP/final" ] || fail 'missing provider final contract'
   jq -es 'if length == 1 then .[0] else error("multiple outputs") end' "$TMP/final" > "$TMP/contract" || fail 'invalid final contract JSON'
 fi

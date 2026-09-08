@@ -129,16 +129,71 @@ done
 [ "$MODE" = "batch" ] && [ "${#BATCH_ARGS[@]}" -eq 0 ] && { usage >&2; exit 64; }
 [ "$MODE" = "eng" ] && [ -z "$REF" ] && { usage >&2; exit 64; }
 [ -d "$PROJECT" ] || { echo "Project directory not found: $PROJECT" >&2; exit 66; }
-if [ "$BRANCH" != none ] && ! git -C "$PROJECT" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1; then
-  echo 'nightshift: BASE_MISSING: isolated runs require an initial Git commit. Review and commit the starter files first; no model was started.' >&2
-  exit 66
-fi
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
-if ! bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT" >/dev/null 2>&1; then
-  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --ticket-ref "$REF" --runtime-provider "$PROVIDER" --runtime-model "$MODEL"
-elif [ ! -e "$PROJECT/.nightshift.toml" ]; then
+
+# One run-scoped, private metrics context for this factory invocation,
+# propagated to role/worktree descendants through the environment. Metrics
+# are strictly observational: an unavailable or failed metrics home (no Git,
+# I/O error) never blocks or alters the run it describes.
+RUN_METRICS_INIT="$(python3 "$SCRIPT_DIR/nightshift-run-metrics.py" init --project "$PROJECT" --branch "$BRANCH" 2>/dev/null || echo '{}')"
+NIGHTSHIFT_RUN_ID="$(jq -r '.run_id // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
+NIGHTSHIFT_RUN_DIR="$(jq -r '.run_dir // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
+export NIGHTSHIFT_RUN_ID NIGHTSHIFT_RUN_DIR
+METRICS_FINALIZED=false
+run_metrics_summary() {
+  METRICS_FINALIZED=true
+  [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  if [ -z "${NIGHTSHIFT_RUN_DIR:-}" ]; then
+    printf '%s\n' '{"schema_version":1,"metrics_available":false,"reason":"PERSISTENCE_UNAVAILABLE"}' >&2
+    return 0
+  fi
+  python3 "$SCRIPT_DIR/nightshift-run-metrics.py" summary --run-dir "${NIGHTSHIFT_RUN_DIR:-}" \
+    --run-id "$NIGHTSHIFT_RUN_ID" --terminal-status "$1" ${2:+--preflight-reason "$2"} >/dev/null 2>&1 || true
+}
+finish_metrics() {
+  local result=$?
+  if [ "$METRICS_FINALIZED" = false ]; then
+    run_metrics_summary interrupted
+  fi
+  return "$result"
+}
+trap finish_metrics EXIT
+
+# Typed, read-only admission receipt: baseline, local-input/ticket identity,
+# manifest and worktree-collision checks, in that fixed order, before any
+# provider is started (or even auto-setup/dashboard/auth are touched below).
+preflight_admission() {
+  if [ "$MODE" = batch ]; then
+    local i=0 pf_resume='' pf_batch_input=''
+    while [ "$i" -lt "${#BATCH_ARGS[@]}" ]; do
+      case "${BATCH_ARGS[$i]}" in
+        --resume) pf_resume="${BATCH_ARGS[$((i + 1))]}"; i=$((i + 2)) ;;
+        --batch-n) i=$((i + 2)) ;;
+        *) pf_batch_input="${pf_batch_input:+$pf_batch_input,}${BATCH_ARGS[$i]}"; i=$((i + 1)) ;;
+      esac
+    done
+    if [ -n "$pf_resume" ]; then
+      bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --resume "$pf_resume"
+    else
+      bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --batch-input "$pf_batch_input"
+    fi
+  else
+    bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --ref "$REF"
+  fi
+}
+set +e
+ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
+set -e
+ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION" 2>/dev/null || echo '')"
+if [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
   bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
+fi
+if [ "$ADMISSION_STATUS" -ne 0 ]; then
+  echo "nightshift: preflight blocked (${ADMISSION_REASON:-UNKNOWN})" >&2
+  printf '%s\n' "$ADMISSION" >&2
+  run_metrics_summary preflight_blocked "$ADMISSION_REASON"
+  exit "$ADMISSION_STATUS"
 fi
 bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT"
 # Read data, never evaluate configuration as shell code.
@@ -277,6 +332,12 @@ handle_interruption() {
     wait "$CHILD_PID" 2>/dev/null || true
   fi
   echo "nightshift: inspect the batch state and resume with 'nightshift batch --resume <batch-file> --branch ${BRANCH}'." >&2
+  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$CHILD_PID" ]; then
+    python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
+      --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
+      --status interrupted >/dev/null 2>&1 || true
+  fi
+  run_metrics_summary interrupted
   exit 143
 }
 trap 'handle_interruption SIGINT' INT
@@ -305,7 +366,20 @@ wait "$CHILD_PID"
 CODEX_STATUS=$?
 set -e
 CHILD_PID=""
+if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
+  python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
+    --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
+    --status "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" >/dev/null 2>&1 || true
+fi
 if [ "$CODEX_STATUS" -eq 143 ]; then
   echo "nightshift: Codex received SIGTERM; inspect the batch state and resume instead of starting a fresh batch." >&2
+  run_metrics_summary interrupted
+elif [ "$CODEX_STATUS" -eq 0 ]; then
+  # A clean process exit is not itself proof of a verified, delivered result;
+  # downstream gates decide that. This only records that the provider ran
+  # and returned control.
+  run_metrics_summary provider_exited_0
+else
+  run_metrics_summary provider_exited_nonzero
 fi
 exit "$CODEX_STATUS"

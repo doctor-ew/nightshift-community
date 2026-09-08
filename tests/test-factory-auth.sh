@@ -101,6 +101,10 @@ if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightsh
 assert_contains "$blocked" 'BASE_MISSING'
 case "$blocked" in *'ARGS='*) fail 'baseline check ran after provider execution';; esac
 git -C "$TMP_ROOT" -c user.name=Test -c user.email=test@example.invalid commit -q --allow-empty -m baseline
+# Resume admission now requires real state; this remains an auth/argv test.
+mkdir -p "$TMP_ROOT/.nightshift"
+printf '%s\n' '{"tickets":["gh:1"],"statuses":{"gh:1":{"status":"pending"}}}' > "$TMP_ROOT/.nightshift/batch-20260906-1323.json"
+cp "$REPO_DIR/nightshift.toml" "$TMP_ROOT/.nightshift.toml"
 claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
 assert_contains "$claude_output" '--print --dangerously-skip-permissions --model sonnet'
