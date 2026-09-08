@@ -207,6 +207,20 @@ sys.addaudithook(audit);runpy.run_path(script,run_name='__main__')
         scripts=self.targets['nightshift']/'scripts';shutil.rmtree(scripts);scripts.symlink_to(self.forbidden,target_is_directory=True)
         result,payload=self.scan('installed',forbidden=[unrelated]);self.assertEqual(result.returncode,1);self.assertTrue(payload['coverage'])
 
+    def test_installed_dotdot_link_cannot_disguise_external_target(self):
+        entries,_=self.installed('symlink')
+        entry=next(e for e in entries if e['source_relative']=='commands/nightshift-product.md')
+        expected=Path(entry['source']);destination=Path(entry['destination'])
+        child=self.forbidden/'child';child.mkdir()
+        external=self.forbidden/expected.name;external.write_text(RETIRED+' '+SECRET+'\n')
+        pivot=expected.parent/'nightshift-fixture-pivot';pivot.symlink_to(child,target_is_directory=True)
+        destination.unlink();destination.symlink_to(str(pivot)+'/../'+expected.name)
+        self.assertEqual(destination.resolve(strict=True),external)
+        self.assertNotEqual(destination.resolve(strict=True),expected)
+        result,payload=self.scan('installed')
+        self.assertEqual(result.returncode,1,'Actual external target must not pass as its lexical source alias')
+        self.assertTrue(payload['coverage'])
+
     def test_installed_tree_nested_escape(self):
         entries,ownership=self.installed()
         tree=next(e for e in entries if e['category']=='codex_skill')
