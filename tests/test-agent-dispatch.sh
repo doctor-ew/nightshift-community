@@ -11,6 +11,7 @@ cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
 for helper in "$ROOT/scripts/"*.jq "$ROOT/scripts/nightshift-capability.sh"; do
   [ ! -f "$helper" ] || cp "$helper" "$TMP/runtime/scripts/"
 done
@@ -78,6 +79,10 @@ args() { jq -e "$1" "$MOCK_LOG" >/dev/null 2>&1; }
 run() { RC=0; case "${1:-}" in nightshift-engineer|nightshift-architect) set -- "$1" --task fixture "${@:2}";; esac; bash "$TMP/runtime/scripts/nightshift-agent.sh" "$@" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?; }
 normal() { run nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT" "$@"; }
 route() { jq --arg p "$1" '.roles["nightshift-engineer"].gears["1"]={provider:$p,model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"; }
+mkdir -p "$TMP/project"
+export NIGHTSHIFT_PROJECT_DIR="$TMP/project"
+unset CLAUDE_PROJECT_DIR
+python3 "$ROOT/tests/nightshift-behavior-fixture.py" --root "$ROOT" --project "$TMP/project" --task fixture > "$TMP/admission.json"
 route codex
 export MOCK_MODEL_REJECT=true
 normal
