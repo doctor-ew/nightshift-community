@@ -1,0 +1,23 @@
+{
+  "previous_link": "/private/tmp/nightshift-19-dotdot-repro/source/commands/pivot/../nightshift-product.md",
+  "relative_link": "../../source/commands/nightshift-product.md",
+  "actual": "/private/tmp/nightshift-19-dotdot-repro/source/commands/nightshift-product.md",
+  "expected": "/private/tmp/nightshift-19-dotdot-repro/source/commands/nightshift-product.md",
+  "exit": 0,
+  "output": {
+    "coverage": [],
+    "findings": [],
+    "inventories": {
+      "installed": {
+        "discovered": 154,
+        "excluded": 0,
+        "missing": 0,
+        "scanned": 154,
+        "status": "complete",
+        "unknown": 0,
+        "unreadable": 0
+      }
+    },
+    "status": "pass"
+  }
+}
