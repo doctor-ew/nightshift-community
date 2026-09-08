@@ -49,7 +49,7 @@ print(json.dumps({"type":"result","usage":{"input_tokens":7,"output_tokens":3},"
     for run_dir in runs:
         records=[]
         for path in run_dir.rglob('*.json'):
-            text=path.read_text();assert secret not in text and prompt not in text,'AC5 sensitive input leaked to measurements'
+            text=path.read_text();assert secret not in text and prompt not in text and str(project) not in text,'AC5 sensitive input or personal project path leaked to measurements'
             data=json.loads(text)
             if isinstance(data,dict) and data.get('terminal_status') in ('provider_exited_0','provider_exited_nonzero'):records.append(data)
         assert records,'AC4 missing terminal run record'
@@ -77,6 +77,6 @@ print(json.dumps({"type":"result","usage":{"input_tokens":7,"output_tokens":3},"
         return isinstance(value,list) and any(reported(v) for v in value)
     assert reported(summaries[-1]),'AC4 genuinely reported structured usage was dropped'
     for p in linked[0].rglob('*'):
-        if p.is_file():assert secret not in p.read_text() and prompt not in p.read_text(),'AC5 nested provider data leaked'
+        if p.is_file():assert secret not in p.read_text() and prompt not in p.read_text() and str(project) not in p.read_text(),'AC5 nested provider data or personal path leaked'
 print('PASS: concurrent run metrics, unknowns, exit preservation and privacy')
 PY
