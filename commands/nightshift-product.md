@@ -77,7 +77,9 @@ adapters and requested remote actions require their corresponding credentials.
 ## Step 2 — Resolve paths and fetch ticket
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 REF=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -186,7 +188,11 @@ Otherwise, ask the engineer:
 
 Handle the response:
 
-- **Valid Confluence URL** (contains `atlassian.net` or `/wiki/`) — call `mcp__claude_ai_Atlassian__getConfluencePage` with the URL. If successful, set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` from the result. If the fetch fails (auth, 404), warn and set `PRODUCT_SPEC_CONTENT=` (empty) with a note.
+- **Valid Confluence URL** (contains `atlassian.net` or `/wiki/`) — resolve the optional `document-read` capability through the runtime adapter using
+  `scripts/nightshift-capability.sh --resolve document-read` with its mapping and
+  available-tool inventory (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)). Validate the selected
+  tool schema and fetch the URL. If unavailable, warn and retain empty optional context. If successful, set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` from the result. If the fetch fails (auth, 404), warn and set `PRODUCT_SPEC_CONTENT=` (empty) with a note.
 - **Local file path** — if the file exists, read it and set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` to the path.
 - **`skip` or empty after one retry** — set `PRODUCT_SPEC_REF=OVERRIDE`. Print: `⚠  Proceeding without product spec.`
 
@@ -480,7 +486,9 @@ Read the answer. Treat empty input, `y`, `Y`, `yes`, `YES` as **Yes**. Treat `n`
 ## Stop Flow
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT")
 TRACKER=$(ls "${TASK_DIR}/"bd-*.md 2>/dev/null | head -1)
 ACTIVE=$(ls "${TASK_DIR}/ACTIVE-"* 2>/dev/null | head -1)

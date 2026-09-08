@@ -38,7 +38,9 @@ not assertable:
   budget applies.
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -47,8 +49,8 @@ TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
 
 Before any context/state helper or spec-lock writes, parse optional `--base REF` as literal
 arguments and remove it from `TASK`. Use `nightshift-worktree.sh prepare "$TASK" --project
-"$PROJECT"` with that exact `--base` value, then change directory and `CLAUDE_PROJECT_DIR`
-to the returned `.worktree`. A failed prepare stops only this ticket in factory mode.
+"$PROJECT"` with that exact `--base` value, then change directory to the returned `.worktree` and use the shared context
+resolver with explicit `--project` and `--shell` to switch neutral context. A failed prepare stops only this ticket in factory mode.
 
 If eng/batch already prepared this exact context, do not call clean-only prepare after
 product has written this ticket's files. Validate the common-Git-dir receipt at
@@ -259,7 +261,8 @@ the implementation gate; do not silently expand sandbox authority.
 
 Apply the Step 5 firewall to the delegation prompt. Both agents:
 - follow the spec's ACs as the checklist — nothing more, nothing less
-- follow the repo's CLAUDE.md conventions
+- follow the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)
 - **stop and flag** any file not in the Files-to-Change table before touching it
 - **stop and flag** an incomplete/wrong spec — never improvise
 

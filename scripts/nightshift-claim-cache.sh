@@ -29,7 +29,7 @@
 #     Output:     64-char hex sha256 on stdout.
 #
 #   nightshift-claim-cache.sh lookup <key> [--cache <path>]
-#     Default cache: $CLAUDE_PROJECT_DIR/.claude/task-progress/.claim-cache.jsonl
+#     Default cache: <resolved-state-directory>/.claim-cache.jsonl
 #     Output: the matching record's "citation" field as compact JSON, or empty.
 #     Exit 0 always; absence == miss.
 #
@@ -55,7 +55,7 @@ resolve_cache_path() {
     return
   fi
   local project
-  project="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  project="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
   local script_dir
   script_dir="$(cd "$(dirname "$0")" && pwd)"
   local state_dir

@@ -1,0 +1,20 @@
+{
+  "status": "FAIL",
+  "reason": "AGENT BLOCKED — conflicting explicit test commands in convention sources. CLAUDE.md:6 prescribes `python3 ./fixture_test.py --label 'two words' --mode exact` while AGENTS.md:6 prescribes `python3 ./fixture_test.py --label conflicting --mode exact`. The --label argument differs. Per nightshift-run-all-tests role: \"If AGENTS.md and CLAUDE.md prescribe different explicit commands, stop.\" No tests executed.",
+  "attempts": 1,
+  "results": {
+    "passed": 0,
+    "failed": 0
+  },
+  "rules_fired": [
+    "conflict-detection-gate",
+    "mandatory-pre-execution-read",
+    "both-sources-required"
+  ],
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "model": "haiku",
+    "provider": "claude"
+  }
+}

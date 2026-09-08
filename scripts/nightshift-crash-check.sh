@@ -15,7 +15,7 @@
 #   CLEAN: no orphaned pipeline state
 #
 # Fail-open: any error / non-pipeline project prints CLEAN.
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TP=$(bash "${SCRIPT_DIR}/nightshift-state-dir.sh" --project "$PROJECT")
 [ -d "$TP" ] || { echo "CLEAN: no orphaned pipeline state"; exit 0; }

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "gate": "convention-runtime-acceptance",
+  "limits": {
+    "substantive_repairs": 3,
+    "infrastructure_attempts_per_case": 3
+  },
+  "attempts": [
+    {
+      "case": "claude-conflict",
+      "attempt": 1,
+      "category": "substantive",
+      "outcome": "fail",
+      "reason": "executed conflicting legacy command"
+    },
+    {
+      "case": "claude-legacy",
+      "attempt": 1,
+      "category": "substantive",
+      "outcome": "fail",
+      "reason": "exact argv passed; required source-line provenance missing"
+    },
+    {
+      "case": "codex-conflict",
+      "attempt": 1,
+      "category": "infrastructure",
+      "outcome": "unknown",
+      "reason": "configured gpt-5.4 unavailable; no fixture execution"
+    },
+    {
+      "case": "codex-legacy",
+      "attempt": 1,
+      "category": "infrastructure",
+      "outcome": "unknown",
+      "reason": "configured gpt-5.4 unavailable; no fixture execution"
+    },
+    {
+      "case": "claude-conflict",
+      "attempt": 2,
+      "category": "success",
+      "outcome": "pass"
+    },
+    {
+      "case": "claude-legacy",
+      "attempt": 2,
+      "category": "success",
+      "outcome": "pass"
+    },
+    {
+      "case": "codex-conflict",
+      "attempt": 2,
+      "category": "success",
+      "outcome": "pass"
+    },
+    {
+      "case": "codex-legacy",
+      "attempt": 2,
+      "category": "infrastructure",
+      "outcome": "unknown",
+      "reason": "correct command selected; fixture receipt write incompatible with unchanged read-only sandbox"
+    },
+    {
+      "case": "codex-legacy",
+      "attempt": 3,
+      "category": "success",
+      "outcome": "pass",
+      "reason": "independently corrected read-only oracle; exact execution confirmed from external CLI events"
+    }
+  ],
+  "repair": "Make complete convention discovery and conflict/provenance gate explicit before execution; retain original cases and results.",
+  "harness_correction": "Validator expects fixture basename, not full path; revalidated existing Claude outputs without provider rerun.",
+  "outcome": "pass",
+  "evidence": "receipts/"
+}

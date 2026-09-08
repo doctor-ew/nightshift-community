@@ -38,7 +38,9 @@ the verification manifest. It also runs standalone.
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "${ARGUMENTS:-$*}") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -er '.argv[0] | select(type == "string" and length > 0)' <<< "$STAGE_ARGS") || exit 64
-PROJECT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 DIR="${PROJECT}/docs/${TASK}"
 SPEC="${DIR}/SPEC.md"
 mkdir -p "$DIR"

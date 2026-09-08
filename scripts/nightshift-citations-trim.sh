@@ -11,7 +11,7 @@
 # source citation file is absent.
 set -uo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"
 [ -z "$TASK" ] && { echo "[nightshift] WARNING: nightshift-citations-trim.sh — no task-key passed"; exit 0; }
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

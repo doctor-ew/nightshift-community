@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RESOLVER="${REPO_DIR}/scripts/nightshift-state-dir.sh"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-state-dir.XXXXXX")"
+TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }

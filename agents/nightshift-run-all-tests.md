@@ -1,6 +1,6 @@
 ---
 name: nightshift-run-all-tests
-description: Run the project's unit/integration test suite and report results. Language-agnostic detection from CLAUDE.md and lockfiles. Read-only — never edits files.
+description: Run the project's unit/integration test suite and report results. Language-agnostic detection from resolved project conventions and lockfiles. Read-only — never edits files.
 maxTurns: 15
 tools: Bash, Read, Glob, Grep
 disallowedTools: Edit, Write, NotebookEdit
@@ -19,11 +19,28 @@ via `scripts/nightshift-pw.sh` — do not invoke them here, and do not start an 
 
 ## Step 1 — Detect the test command
 
-In priority order, stop at the first that answers:
+**Mandatory pre-execution gate:** first run the shared context resolver and read
+EVERY path in its `conventions` array, including both AGENTS.md and CLAUDE.md when
+both are present. An automatically loaded CLAUDE.md is not complete discovery.
+Do not execute a test command while any returned instruction file remains unread.
+If AGENTS.md and CLAUDE.md prescribe different explicit commands, stop: return
+AGENT BLOCKED (structured status FAIL, passed 0), name BOTH sources with line
+numbers, and explain the conflict. Do not execute either command, even if one
+was automatically loaded by the runtime. Legacy fallback applies only when the
+neutral source is silent. Before execution, record the exact selected command,
+source file AND line number, scope, and the fallback reason in the result reason.
 
-1. **The repo's CLAUDE.md.** If it names a test command, that command wins over every heuristic
-   below, including its exact flags. Check sub-project CLAUDE.md files if the context names one.
-2. **Lockfile / manifest**, when CLAUDE.md is silent:
+Use `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`) for the shared convention decision. Run
+`python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py"` with the explicit project and applicable
+scope; read its returned convention files and configured test command. A blocked
+resolver result blocks this role. No tests may run until convention review completes.
+
+1. **Explicit applicable instructions and configuration.** Preserve exact commands
+   and flags from scoped neutral instructions, with documented legacy fallback.
+   Conflicting explicit commands block; do not silently override either source.
+   Record the command and source path/line, scope and fallback rationale in the report.
+2. **Lockfile / manifest**, only when the resolved conventions and configuration are silent:
 
    | Signal | Command |
    |---|---|
@@ -41,13 +58,13 @@ In priority order, stop at the first that answers:
 3. **Ambiguous or nothing matched** → return AGENT BLOCKED. Do not guess a command.
 
 **Package manager discipline:** never substitute one manager for another. If the lockfile is
-`bun.lock`, `npm test` is wrong even though it might run. If CLAUDE.md distinguishes a runner
+`bun.lock`, `npm test` is wrong even though it might run. If the resolved conventions distinguish a runner
 from the manager's own (for example `bun run test` rather than `bun test`), honor that exactly —
 they are different runners.
 
 ## Step 2 — Run
 
-Run the detected command. Add no flags beyond what CLAUDE.md specifies.
+Run the selected command. Add no flags beyond the resolved convention decision.
 
 **If the build fails before tests run**, stop immediately:
 

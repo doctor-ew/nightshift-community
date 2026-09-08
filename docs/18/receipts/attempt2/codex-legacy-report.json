@@ -1,0 +1,25 @@
+{
+  "status": "FAIL",
+  "reason": "AGENT BLOCKED — nightshift-run-all-tests. Stage: Run. Selected command: python3 ./fixture_test.py --label 'two words' --mode exact. Source: /private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-legacy/CLAUDE.md:6. Scope: /private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-legacy; unit and integration tests only. All resolver-returned conventions and installed policy were read. Legacy fallback applied because neutral instructions and configuration were silent. Command exited 1 before reporting test results at fixture_test.py:4: PermissionError: [Errno 1] Operation not permitted: '/private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-legacy/observed-argv.json'. Required action: permit the expected receipt write and rerun. No tests are claimed as executed.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-6-astra"
+  },
+  "rules_fired": [
+    "mandatory_context_resolver",
+    "all_conventions_read",
+    "legacy_fallback",
+    "exact_command_preserved",
+    "read_only_sandbox_block",
+    "no_e2e",
+    "no_edits",
+    "no_diagnosis"
+  ],
+  "results": {
+    "passed": 0,
+    "failed": 0
+  }
+}

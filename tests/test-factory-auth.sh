@@ -7,6 +7,7 @@ export NIGHTSHIFT_SYNC_CHECK=off
 export NIGHTSHIFT_DASHBOARD=off
 cd "$REPO_DIR"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-factory-auth.XXXXXX")"
+TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }

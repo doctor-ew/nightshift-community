@@ -7,7 +7,7 @@
 # bash 3.x compatible (macOS default shell — no associative arrays).
 set -uo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"
 [ -z "$TASK" ] && { echo "TDD_INTEGRITY: SKIPPED — no task-key passed"; exit 0; }
 

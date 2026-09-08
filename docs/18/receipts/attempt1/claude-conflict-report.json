@@ -1,0 +1,20 @@
+{
+  "status": "SUCCESS",
+  "reason": "Test command detected from CLAUDE.md: `python3 ./fixture_test.py --label 'two words' --mode exact`. This explicit project instruction was preserved per role conventions. All tests passed.",
+  "results": {
+    "passed": 1,
+    "failed": 0
+  },
+  "attempts": 1,
+  "rules_fired": [
+    "explicit-instructions-preserved",
+    "exact-command-honored",
+    "no-flag-substitution"
+  ],
+  "artifacts": {
+    "branch": "N/A",
+    "diff": "N/A",
+    "model": "haiku",
+    "provider": "claude"
+  }
+}

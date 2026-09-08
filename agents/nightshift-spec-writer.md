@@ -34,7 +34,8 @@ identifier in it is forbidden from the spec body. Put it under Open Questions in
 ## Step 1 — Understand before drafting
 
 1. Read the task/ticket content given to you.
-2. Read the repo's CLAUDE.md for conventions.
+2. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
 3. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` to locate affected files before Grep/Read. No-op when absent.
 4. Read the files you are about to describe. Record `path:line` for each fact as you go — do

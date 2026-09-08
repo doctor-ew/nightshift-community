@@ -9,7 +9,7 @@
 # /nightshift-review uses this SHA as the start of the range it audits.
 set -euo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK="${1:-}"
 [ -z "$TASK" ] && { echo "SPEC_LOCK_SKIPPED: no task-key passed"; exit 0; }
 

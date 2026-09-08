@@ -441,7 +441,8 @@ echo
 fi
 
 bold "Installing shared Nightshift runtime"
-mkdir -p "$SCRIPT_DST" "$AGENT_DST" "${NIGHTSHIFT_TARGET}/contracts"
+mkdir -p "$SCRIPT_DST" "$AGENT_DST" "${NIGHTSHIFT_TARGET}/contracts" "${NIGHTSHIFT_TARGET}/docs"
+install_one "$REPO_DIR/docs/PROJECT-CONTEXT.md" "${NIGHTSHIFT_TARGET}/docs/nightshift-project-context.md"
 install_one "$SCRIPT_SRC/nightshift-contract.jq" "$SCRIPT_DST/nightshift-contract.jq"
 for helper in "$SCRIPT_SRC"/nightshift-*.py; do
   [ -f "$helper" ] || continue
@@ -471,6 +472,7 @@ echo
 if want_claude; then
   bold "Installing legacy Claude script adapters"
   mkdir -p "$CLAUDE_SCRIPT_DST" "$CLAUDE_AGENT_DST"
+  install_one "$SCRIPT_SRC/nightshift-project-context.py" "$CLAUDE_SCRIPT_DST/nightshift-project-context.py"
   for f in "$SCRIPT_SRC"/*.sh; do
     install_one "$f" "$CLAUDE_SCRIPT_DST/$(basename "$f")"
     chmod +x "$CLAUDE_SCRIPT_DST/$(basename "$f")" 2>/dev/null || true
@@ -562,7 +564,7 @@ UPDATE_ARGS=()
 [ -z "$UPDATE_SOURCE" ] || UPDATE_ARGS+=(--source "$UPDATE_SOURCE")
 [ -z "$UPDATE_CHANNEL" ] || UPDATE_ARGS+=(--channel "$UPDATE_CHANNEL")
 NIGHTSHIFT_HOME="$NIGHTSHIFT_TARGET" python3 "$SCRIPT_SRC/nightshift-update.py" \
-  --project "$REPO_DIR" --configure "${UPDATE_ARGS[@]}" --install-args \
+  --project "$REPO_DIR" --configure ${UPDATE_ARGS[@]+"${UPDATE_ARGS[@]}"} --install-args \
   --runtime "$RUNTIME" --target "$TARGET" --codex-target "$CODEX_TARGET" \
   --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE" --repair
 mkdir -p "$BIN_TARGET"

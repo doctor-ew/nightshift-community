@@ -32,3 +32,9 @@ resolve from the project, global paths from the runtime home.
 `--gear` and `--risk` select its run preferences; mandatory gates are unchanged.
 Setup requires Python 3.11+ (`tomllib`). Existing production URL placeholders are
 not live deployment destinations and must be configured before deployment.
+
+Optional `[tests].command` declares an exact test command. It must be a nonblank
+single-line string. Configuration does not silently override applicable project
+instructions: conflicting explicit commands block before execution. See
+[Project context and conventions](PROJECT-CONTEXT.md) for scoped AGENTS.md guidance,
+legacy CLAUDE.md fallback, provenance, and neutral runtime context.

@@ -18,7 +18,9 @@ shape is borrowed; the implementation is local.
 ## Step 1 — Parse arguments and verify preconditions
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK=$(echo "$ARGUMENTS" | awk '{print $1}')
 ENV=$(echo "$ARGUMENTS" | awk '{print $2}')   # optional: dev|staging|prod (default: configured default)
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK" --create)
@@ -41,7 +43,9 @@ Hard preconditions:
 Look for deploy config in this order:
 1. `${PROJECT}/.nightshift/deploy.json` — explicit Nightshift config (preferred)
 2. `${PROJECT}/.claude/deploy.json` — legacy compatibility reader; migrate its contents to `.nightshift/deploy.json` when found
-3. `${PROJECT}/CLAUDE.md` — search for `## Deploy` section
+3. Resolved project conventions (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)) — read applicable
+   deployment instructions, with documented legacy fallback and conflict handling
 4. Heuristic detection: `vercel.json`, `fly.toml`, `netlify.toml`, `.github/workflows/deploy*`, `Dockerfile`
 
 `deploy.json` shape:

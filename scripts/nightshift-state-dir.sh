@@ -9,14 +9,14 @@
 
 set -euo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ARGS=()
 TASK=""
 CREATE="no"
 ALL="no"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --project) shift; PROJECT="${1:?--project requires a directory}" ;;
+    --project) shift; PROJECT_ARGS=(--project "${1:?--project requires a directory}") ;;
     --task) shift; TASK="${1:?--task requires a task key}" ;;
     --create) CREATE="yes" ;;
     --all) ALL="yes" ;;
@@ -29,7 +29,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-PROJECT="$(cd "$PROJECT" && pwd)"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"})" || exit $?
 CANONICAL="${PROJECT}/.nightshift"
 LEGACY_DREW="${PROJECT}/.drew"
 LEGACY_CLAUDE="${PROJECT}/.claude/task-progress"

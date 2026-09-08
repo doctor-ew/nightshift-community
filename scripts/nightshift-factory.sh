@@ -132,6 +132,11 @@ done
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
 
+# Explicit launcher project retains its cwd default; translate adapter context once.
+PROJECT_CONTEXT=$(python3 "$SCRIPT_DIR/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
+
 # One run-scoped, private metrics context for this factory invocation,
 # propagated to role/worktree descendants through the environment. Metrics
 # are strictly observational: an unavailable or failed metrics home (no Git,

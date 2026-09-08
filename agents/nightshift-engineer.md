@@ -74,7 +74,8 @@ If scope has grown past 1–2 files, escalate to architect instead.
    before Grep/Read for any symbol you're about to touch. Treat mex output as already-read
    source. When mex is absent this step is a no-op — go straight to Grep/Read/Glob.
 2. Read the file(s) you're about to change.
-3. Read the repo's CLAUDE.md for conventions.
+3. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
 4. Identify the pattern the codebase uses for this kind of work — naming, structure, error
    handling, test style.
 5. If anything is unclear, stop and ask.
@@ -82,7 +83,8 @@ If scope has grown past 1–2 files, escalate to architect instead.
 ### Step 3 — Implement
 
 - Follow the acceptance criteria line by line.
-- Follow the repo's CLAUDE.md conventions.
+- Follow the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`).
 - Match existing patterns.
 - Keep changes minimal and focused.
 - **Stop and flag** any file not in the spec's Files-to-Change table before touching it.

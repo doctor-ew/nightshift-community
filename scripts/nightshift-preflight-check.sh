@@ -190,7 +190,7 @@ if [ "$HAVE_REF" = true ]; then
   fi
   done
 elif [ "$HAVE_BATCH" = true ]; then
-  RESOLVED="$(CLAUDE_PROJECT_DIR="$PROJECT" bash "$SCRIPT_DIR/nightshift-batch-resolve.sh" --input "$BATCH_INPUT" 2>/dev/null)"
+  RESOLVED="$(env -u CLAUDE_PROJECT_DIR NIGHTSHIFT_PROJECT_DIR="$PROJECT" bash "$SCRIPT_DIR/nightshift-batch-resolve.sh" --input "$BATCH_INPUT" 2>/dev/null)"
   rc=$?
   if [ "$rc" -eq 2 ]; then
     CK_INPUT=fail

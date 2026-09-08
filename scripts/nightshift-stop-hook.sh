@@ -22,7 +22,7 @@ if echo "$INPUT" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; th
   exit 0
 fi
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PROJECT_DIR="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only --cwd-default)" || exit $?
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TP=$(bash "${SCRIPT_DIR}/nightshift-state-dir.sh" --project "$PROJECT_DIR")
 [ -d "$TP" ] || exit 0
