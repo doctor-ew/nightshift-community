@@ -189,8 +189,9 @@ malicious same-user host forging a receipt.
 Development seals bind spec, scenarios, oracle/runtime policy, scope, review,
 locked tests and prototype revisions. Before development pass only the declared
 prototype files may change; surrounding engine or application work is premature.
-Up to two recorded repairs may change the prototype, not its oracle or hidden
-cases. An unchanged failing prompt cannot be repeatedly sampled until it passes.
+The default allowance is two recorded prototype repairs. Repairs do not change
+the oracle or hidden cases; an explicitly reviewed policy amendment may extend
+the cumulative allowance. An unchanged failing prompt cannot be repeatedly sampled until it passes.
 After development pass, allowed surrounding changes preserve development
 admission but invalidate stale final evidence. Out-of-scope edits, changed tests,
 spec or oracle block. Preserve pre-existing dirty files as baseline data without
@@ -255,3 +256,63 @@ scenario, specification and policy requires a new independent challenge and the
 same prototype. It retains previous failure seal identities and all counters, so
 an unchanged failed prompt remains blocked. Subsequent prototype changes consume
 the ordinary repair budget. Resealing is not permission to resample failed work.
+
+## Explicit completion format contract
+
+The optional runtime field `response_normalization` accepts `none` (the default)
+or `json-or-single-fence-v1`. The latter permits JSON assertions to parse either
+raw JSON or exactly one whole fenced block, with an optional lowercase `json`
+label and line breaks after the opening fence and before the closing fence.
+Surrounding whitespace is allowed. Extra prose, multiple blocks, another language
+label, malformed JSON, duplicate keys and nonfinite values fail JSON assertions.
+This setting is bound into reviewed public and private runtime metadata and the
+seal. It is not an automatic fallback after failure.
+
+Only the JSON assertion parser unwraps the response. Text assertions, prohibited
+text checks, actual conversation replay and retained public completions use the
+original response. Metadata, scenario files, accounting state and provider result
+envelopes continue to require strict JSON. Oracle operators and their semantic
+meaning are unchanged.
+
+Changing the format contract requires explicit product authorization, independent
+public classification and challenge, an independently updated matching private
+runtime/commitment, and a new public specification lock and seal. Historical
+failures remain in the ledger; they are not relabeled as passes. New development
+and final observations must pass under the new seal. Reseal the unchanged
+prototype before applying another prompt repair, so the repair remains counted.
+
+## Explicit cumulative policy amendments
+
+A pinned policy cannot be changed by editing configuration and rerunning. The
+`amend-policy --evidence <path>` operation records an explicitly authorized,
+independently reviewed increase before a new challenge and seal. It permits only
+increases to cumulative `repairs`, `development_calls` and `final_calls`, each
+bounded at 64. Defaults remain two repairs, eight development calls and two final
+calls. All other policy fields remain unchanged. Pending attempts block amendment.
+
+The evidence JSON has exactly these fields:
+
+- `version`: integer 1; `task`: the existing task identifier.
+- `previous_policy_sha256`: canonical JSON digest of the pinned policy.
+- `policy`: the complete proposed policy, equal to the current configuration.
+- `rationale`: a nonempty explanation of the authorized continuation.
+- `authorization`: `path` under the task documentation directory and `sha256`
+  of the nonempty file recording the user's explicit authorization.
+- `review`: `provider`, `author_id`, `decision: approve` and
+  `reviewed_input_sha256`, computed over the evidence with `review: null`.
+  The reviewer must differ from the public scenario author.
+
+The operation verifies authorization bytes, the review digest, the prior policy,
+and the exact target. It appends the complete amendment evidence, previous policy,
+current counters and timestamp to `policy_amendments` and updates only the pinned
+policy limits. It preserves all attempts, used counters, observations, exposures
+and prior seals. Replaying stale evidence fails. A retained authorization record
+is trusted human-review evidence, not cryptographic proof of a user's identity.
+
+For example, increasing a repair cap from two to five with two already used leaves
+three repairs available. The change does not reset the used count. Run a fresh
+independent challenge and reseal the unchanged prototype before the next repair.
+A policy-only reseal retains failed-prompt restrictions; it cannot authorize
+resampling unchanged failed work. A separately authorized format-contract change
+requires the reviewed scenario amendment described above. Preserve every earlier
+failure and budget receipt when publishing the continuation.

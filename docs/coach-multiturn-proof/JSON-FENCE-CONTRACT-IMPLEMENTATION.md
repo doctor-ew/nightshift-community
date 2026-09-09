@@ -1,0 +1,13 @@
+# Explicit completion format and continuation policy
+
+The user authorized accepting raw JSON or exactly one whole fenced JSON block, with unchanged strict inner validation. The user also authorized continued repair after the existing two prototype repairs were consumed. These changes make both revisions explicit and reviewable; they do not reinterpret historical failures or reset any ledger.
+
+The runtime metadata opt-in is `response_normalization: json-or-single-fence-v1`. Omitted metadata and `none` retain strict defaults. JSON assertions alone normalize the wrapper; text assertions, prohibited text, actual replay and retained evidence use the original response. Metadata JSON and provider envelopes remain strict. The original function-argument RED and passing normalization tests are retained in the adjacent logs.
+
+`amend-policy --evidence` validates a cumulative budget extension against the old policy, exact new configuration, a hashed task-local user-authorization record and an independent review digest. Existing counters, attempts, prior seals, observations and exposures remain intact. Only call/repair caps can increase, with finite upper bounds. New challenge and unchanged-prototype resealing precede another counted repair. Configuration changes alone still block. The full contract and evidence fields are documented in `docs/BEHAVIOR-PROOF.md`.
+
+The format-contract regression exhausts two repairs under strict JSON, retains all failed observations, explicitly amends and locks public/private format metadata, obtains another charged challenge and reseals, then passes actual new fixture responses without resetting the repair count. The policy regression increases the cumulative cap from two to five, preserves all used counters and observations, rejects unchanged failed-prompt resampling after reseal, and counts the next prototype edit as repair three. Negative tests cover malformed and multiple fences, extra/prohibited prose, duplicate keys, nonfinite values, strict metadata parsing, unknown normalization values, missing amendment review, changed authorization bytes and stale amendment replay.
+
+Validation so far: 21 normalization/multi-turn tests passed in 36.449 seconds, then all 23 tests including policy amendments passed in 41.931 seconds. The original 25 proof tests passed in 36.725 seconds before the policy extension; the updated proof suite is rerun for the final policy delta. These are synthetic offline fixtures. No coach/private model calls or consumer ledger mutations were performed by this runtime task.
+
+Final local validation: `json-fence-amendment-proof.log` records all 25 existing proof tests passing in 36.644 seconds with the final policy change. `git diff --check` passed.

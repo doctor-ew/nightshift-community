@@ -25,6 +25,30 @@ class StructuralOracles(unittest.TestCase):
         self.assertFalse(self.proof.evaluate('{"nested":{"field":[],"field":[1]}}', case))
         prohibited = dict(expected=[], prohibited=[assertion])
         self.assertFalse(self.proof.evaluate(json.dumps({'nested':{'field':accepted[0]}}), prohibited))
+    def test_optin_json_fence_preserves_strict_inner_validation(self):
+        case = {'expected': [{'op': 'json_field_equals', 'field': ['choice'], 'value': 'allow'}],
+                'prohibited': [{'op': 'text_contains', 'value': 'forbidden'}]}
+        raw = '{"choice":"allow"}'
+        fenced = '```json\n' + raw + '\n```'
+        self.assertFalse(self.proof.evaluate(fenced, case))
+        for text in (raw, fenced, '```\n' + raw + '\n```', ' \n' + fenced + '\n ', '```json\r\n' + raw + '\r\n```'):
+            self.assertTrue(self.proof.evaluate(text, case, 'json-or-single-fence-v1'), repr(text))
+        for text in ('prefix ' + fenced, fenced + ' suffix', fenced + '\n' + fenced,
+                     '```python\n' + raw + '\n```', '```json ' + raw + '```',
+                     '```json\n{"choice":"allow", "choice":"deny"}\n```',
+                     '```json\n{"choice":"allow", "number":NaN}\n```',
+                     '```json\n{"choice":"allow", "number":Infinity}\n```',
+                     '```json\n{"choice":"allow"} trailing\n```',
+                     '```json\n{"choice":"allow",}\n```', '```json\n' + raw,
+                     'forbidden\n' + fenced, fenced + '\nforbidden',
+                     '```json\n{"choice":"allow","note":"forbidden"}\n```'):
+            self.assertFalse(self.proof.evaluate(text, case, 'json-or-single-fence-v1'), repr(text))
+        with self.assertRaises(self.proof.Invalid):
+            self.proof.parse_json(fenced)
+        # Text requirements inspect the original response, including the fence.
+        self.assertTrue(self.proof.evaluate(fenced, {'expected': [{'op':'text_contains','value':'```json'}], 'prohibited': []}, 'json-or-single-fence-v1'))
+        diagnostic = self.proof.assertion_outcomes(fenced, case, 'json-or-single-fence-v1')
+        self.assertEqual(diagnostic, {'expected': [True], 'prohibited': [True]})
     def test_array_length(self):
         self.check_oracle('json_field_length_at_most', 3, [[], [1], [1,2,3]], [[1,2,3,4], '', {}, True, 3, None])
     def test_nonempty(self):
@@ -182,6 +206,123 @@ class Multiturn(unittest.TestCase):
             evidence = json.loads((fx.project/record['development_evidence']['path']).read_text())
             self.assertEqual(evidence['completion'], fx.response.read_text())
             self.assertEqual(evidence['case_assertions'], {'expected': [True], 'prohibited': [True]})
+    def amend_normalization(self, value):
+        private = json.loads(self.fx.private.read_text())
+        private['runtime']['response_normalization'] = value
+        self.fx.private.write_bytes(fixture.canonical(fixture.attest(private)))
+        self.public['runtime']['response_normalization'] = value
+        self.public['heldout']['manifest_sha256'] = fixture.digest(self.fx.private)
+        self.write()
+    def test_explicit_format_contract_reseal_preserves_exhausted_repairs_and_failures(self):
+        import subprocess
+        self.fx.seal()
+        completion = '```json\n{"choice":"allow"}\n```'
+        self.fx.response.write_text(completion)
+        for index in range(3):
+            if index:
+                self.fx.prompt.write_text(self.fx.prompt.read_text() + 'Attempt repair.\n')
+            self.assertNotEqual(self.fx.call('run', '--gate', 'development').returncode, 0)
+        ledger = self.fx.project/'.git/nightshift/behavior-proof/prototype/state.json'
+        before = json.loads(ledger.read_text())
+        self.assertEqual(before['budget']['repairs'], 2)
+        self.amend_normalization('json-or-single-fence-v1')
+        # An explicit reviewed contract amendment needs a new locked scenario,
+        # independent challenge, and matching private commitment.
+        result = subprocess.run(['bash', str(ROOT/'scripts/nightshift-tdd-spec-lock.sh'), self.fx.task],
+                                cwd=self.fx.project, env=self.fx.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.fx.seal()
+        resealed = json.loads(ledger.read_text())
+        self.assertEqual(resealed['observations'], before['observations'])
+        self.assertEqual(resealed['turn_observations'], before['turn_observations'])
+        self.assertEqual(resealed['budget']['repairs'], 2)
+        self.assertEqual(resealed['budget']['launches']['development'], before['budget']['launches']['development'] + 1)
+        self.assertEqual(len(resealed['seals']), 1)
+        self.assertEqual(self.fx.call('run', '--gate', 'development').returncode, 0)
+        state = json.loads(ledger.read_text())
+        self.assertEqual(state['budget']['repairs'], 2)
+        for turn in state['observations'][-1]['turns']:
+            evidence = json.loads((self.fx.project/turn['development_evidence']['path']).read_text())
+            self.assertEqual(evidence['completion'], completion)
+            self.assertEqual(evidence['turn_assertions'], {'expected': [True], 'prohibited': [True]})
+        calls = [c for c in self.fx.model_calls() if '--json-schema' not in c['argv'] and '--agents' not in c['argv']]
+        replay = json.loads(calls[-1]['argv'][-1].split('\n', 1)[1])
+        self.assertEqual(replay[1]['content'], completion)
+        self.assertEqual(self.fx.call('run', '--gate', 'final').returncode, 0)
+    def test_normalization_schema_rejects_unknown_values(self):
+        for value in ('fenced', True, None, 1):
+            self.amend_normalization(value)
+            self.assertNotEqual(self.fx.call('validate', '--scenarios', self.fx.scenarios).returncode, 0)
+        for value in ('none', 'json-or-single-fence-v1'):
+            self.amend_normalization(value)
+            self.assertEqual(self.fx.call('validate', '--scenarios', self.fx.scenarios).returncode, 0)
+    def test_policy_amendment_extends_cumulative_budget_without_reset(self):
+        spec = importlib.util.spec_from_file_location('policy_amendment', ROOT/'scripts/nightshift-behavior-proof.py')
+        proof = importlib.util.module_from_spec(spec); spec.loader.exec_module(proof)
+        self.fx.seal(); self.fx.response.write_text('{"choice":"deny"}')
+        for index in range(3):
+            if index:
+                self.fx.prompt.write_text(self.fx.prompt.read_text() + 'Old repair.\n')
+            self.assertNotEqual(self.fx.call('run', '--gate', 'development').returncode, 0)
+        ledger = self.fx.project/'.git/nightshift/behavior-proof/prototype/state.json'
+        before = json.loads(ledger.read_text())
+        self.assertEqual(before['budget']['repairs'], 2)
+        with (self.fx.project/'.nightshift.toml').open('a') as stream:
+            stream.write('repairs = 5\n')
+        self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'policy_changed')
+        self.assertEqual(json.loads(self.fx.call('challenge', '--scenarios', self.fx.scenarios, '--out', self.fx.challenge).stdout)['reason'], 'policy_changed')
+        authorization = self.fx.project/'docs/prototype/authorization.md'
+        authorization.write_text('Synthetic user authorizes three additional prototype repairs, cumulative cap five.\n')
+        amendment = {'version': 1, 'task': self.fx.task,
+                     'previous_policy_sha256': proof.digest(before['budget']['policy']),
+                     'policy': dict(before['budget']['policy'], repairs=5),
+                     'rationale': 'Explicit continuation with all existing attempts retained',
+                     'authorization': {'path': 'docs/prototype/authorization.md', 'sha256': fixture.digest(authorization)},
+                     'review': None}
+        review = {'provider': 'claude', 'author_id': 'independent-policy-reviewer',
+                  'decision': 'approve', 'reviewed_input_sha256': proof.digest(amendment)}
+        amendment['review'] = review
+        path = self.fx.project/'docs/prototype/policy-amendment.json'
+        path.write_bytes(fixture.canonical(amendment))
+        calls = len(self.fx.model_calls())
+        self.assertEqual(self.fx.call('amend-policy', '--evidence', path).returncode, 0)
+        amended = json.loads(ledger.read_text())
+        self.assertEqual(len(self.fx.model_calls()), calls)
+        self.assertEqual(amended['observations'], before['observations'])
+        self.assertEqual(amended['turn_observations'], before['turn_observations'])
+        self.assertEqual(amended['seal'], before['seal'])
+        for key in ('repairs', 'attempts', 'reservations', 'launches', 'infrastructure_failures'):
+            self.assertEqual(amended['budget'][key], before['budget'][key])
+        self.assertEqual(amended['budget']['policy']['repairs'], 5)
+        self.assertEqual(amended['policy_amendments'][0]['previous_policy'], before['budget']['policy'])
+        self.assertEqual(json.loads(self.fx.call('amend-policy', '--evidence', path).stdout)['reason'], 'policy_amendment_stale')
+        self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'seal_stale')
+        self.fx.seal()
+        self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'prototype_revision_required')
+        self.fx.prompt.write_text(self.fx.prompt.read_text() + 'New charged repair.\n')
+        self.fx.response.write_text('{"choice":"allow"}')
+        self.assertEqual(self.fx.call('run', '--gate', 'development').returncode, 0)
+        self.assertEqual(json.loads(ledger.read_text())['budget']['repairs'], 3)
+    def test_policy_amendment_rejects_missing_review_and_changed_authorization(self):
+        spec = importlib.util.spec_from_file_location('policy_reject', ROOT/'scripts/nightshift-behavior-proof.py')
+        proof = importlib.util.module_from_spec(spec); spec.loader.exec_module(proof)
+        self.fx.seal()
+        policy = proof.config(self.fx.project)
+        with (self.fx.project/'.nightshift.toml').open('a') as stream:
+            stream.write('repairs = 5\n')
+        authorization = self.fx.project/'docs/prototype/authorization.md'
+        authorization.write_text('Synthetic authorization')
+        amendment = {'version': 1, 'task': self.fx.task, 'previous_policy_sha256': proof.digest(policy),
+                     'policy': dict(policy, repairs=5), 'rationale': 'Synthetic continuation',
+                     'authorization': {'path': 'docs/prototype/authorization.md', 'sha256': fixture.digest(authorization)}, 'review': None}
+        path = self.fx.project/'docs/prototype/policy-amendment.json'
+        path.write_bytes(fixture.canonical(amendment))
+        self.assertNotEqual(self.fx.call('amend-policy', '--evidence', path).returncode, 0)
+        amendment['review'] = {'provider': 'claude', 'author_id': 'independent-reviewer', 'decision': 'approve',
+                               'reviewed_input_sha256': proof.digest(amendment)}
+        path.write_bytes(fixture.canonical(amendment))
+        authorization.write_text('Changed authorization')
+        self.assertEqual(json.loads(self.fx.call('amend-policy', '--evidence', path).stdout)['reason'], 'policy_authorization_mismatch')
     def test_failed_first_turn_never_accepts_or_launches_second(self):
         self.fx.seal(); self.fx.response.write_text('{"choice":"deny"}')
         result = self.fx.call('run', '--gate', 'development')
