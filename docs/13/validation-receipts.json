@@ -1,0 +1,535 @@
+{
+  "checks": {
+    "dispatch": {
+      "log": "/private/tmp/nightshift-13-green-dispatch-attempt-2.log",
+      "observed_summary": "Dispatch assertions: 95 passed, 0 failed",
+      "outcome": "pass",
+      "sha256": "d4fbf0dba93c608e5ab9cdbbec2517de39526d9c6253d7e2fa766a5c630b65b5"
+    },
+    "offline": {
+      "log": "/private/tmp/nightshift-13-green-evals-attempt-1.log",
+      "observed_summary": "Summary: 35 passed, 0 failed, 35 total",
+      "outcome": "pass",
+      "sha256": "6938b4a89618a4b0827cc43f16f2c1c4198e62e1c83679e16175436438645c87"
+    },
+    "proof": {
+      "log": "/private/tmp/nightshift-13-green-proof-routing-fix.log",
+      "observed_summary": "Ran 25 tests",
+      "outcome": "pass",
+      "sha256": "0768e31d1eab7c86bdd4a5ff9f16d2a9c5e17b585676a9ddaeab33289b1b9fc7"
+    }
+  },
+  "observer": {
+    "author_id": "root-orchestrator",
+    "provider": "codex"
+  },
+  "qualification": "Source and copy executions bind an earlier helper hash. Symlink execution binds the repaired delivery engine. Fixed cases are reused to compare packaging, not described as three independently sampled held-out sets. Original failures and counters remain retained.",
+  "runs": {
+    "copy": {
+      "final_gate": {
+        "applicability": "prototype",
+        "attempt_ids": [
+          "70e092cbdcc348808b2c8b8b8b645623",
+          "b7aa580ea5e74b97b520b1b14fcf2d62"
+        ],
+        "counters": {
+          "infrastructure_failures": 0,
+          "launches": {
+            "development": 3,
+            "final": 2
+          },
+          "repairs": 0,
+          "reservations": {
+            "development": 3,
+            "final": 2
+          }
+        },
+        "distinct_failed_scenarios": 0,
+        "duration_seconds": 3.9193,
+        "evidence_sha256": {},
+        "expected_red_observed": false,
+        "failed_scenario_ids": [],
+        "gate": "final",
+        "input_sha256": "435f9e48c7e56e89288a0fbd1ce300bc4076a9bf33aea9c5fbdf300a2c3661a1",
+        "next_action": "continue",
+        "oracle_sha256": "881e5058247ea7880dc15a0b54cecf3f4e470e06243b36da6dd88054fea8c856",
+        "outcome": "pass",
+        "policy_sha256": "4a3ac8b51420f305b203f89486019512e657e5b121fb99351960a3349ec9dc9a",
+        "prompt_sha256": "8432d8dd23b861333b912ba5a7062690680d23d22e381f062389bcfb93739a5a",
+        "rationale_sha256": "7ada4840fdcfbad589caed2c0ef8e78a6f831d06183b6a53650a4a0b307554d9",
+        "reason": "proof_eligible",
+        "runtime_sha256": "61dfcedaf681be210532ccdad8d875d7fd85588eb98e8e11e4f4bae8bf31dbfb",
+        "scenario_ids": [
+          "private-negative",
+          "private-positive"
+        ],
+        "seal_sha256": "5825b48a534ef945922df637316ea26f725144da141eb3e8b79b4f63bf6cd673",
+        "status": "pass",
+        "task": "real-helper-label",
+        "timestamp": "2026-09-09T01:04:45Z",
+        "usage": {
+          "input_tokens": 1508,
+          "output_tokens": 43
+        },
+        "version": 1
+      },
+      "final_gate_sha256": "d23cfe5def21857d73c25e9c36413f762e87b8c66c3a7d437be95c8021a4bc07",
+      "receipt_directory": "/private/tmp/nightshift-13-real-helper/execution-copy-project",
+      "summary": {
+        "observations": [
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "00a803d4c0a748f495f3e4203627d193",
+            "duration_seconds": 2.027321,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "ca8f599934bc29d6f93aa823b02f0a2950cf9bb2279a90dfbca65efe42440192",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 762,
+              "output_tokens": 27
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "0028c0981141404696d8867309330db8",
+            "duration_seconds": 1.895329,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "f52118a60e3aba90efe5d21f10bad246b9100eaccee5e46e40ca2b2c5f8c38a8",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 740,
+              "output_tokens": 11
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "b7aa580ea5e74b97b520b1b14fcf2d62",
+            "duration_seconds": 2.099992,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "b6cb8bb029d825201f2485a6bbc06b6b9777f3669c76109aebc58766d251cb4a",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 766,
+              "output_tokens": 32
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "70e092cbdcc348808b2c8b8b8b645623",
+            "duration_seconds": 1.819308,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "9744d5ae4472c57900e87d2fe31eedc5c1a07d8eb9d7700d763bb75cd3cc45ab",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 742,
+              "output_tokens": 11
+            }
+          }
+        ],
+        "runtime_observed": {
+          "cli_version": "2.1.266 (Claude Code)",
+          "executable": "/private/tmp/nightshift-13-real-helper/pinned-bin/claude",
+          "executable_sha256": "553d1b9e9e7068b275c0a783c7e139ff6503096f286e674c8c919379fb0eca62",
+          "model": "sonnet",
+          "profile": "claude-subscription-text-v1"
+        },
+        "status": "pass"
+      },
+      "summary_sha256": "1dee0401e8ed7667f5a2a9c2efd1df291ac3a57889aef44f01661d2a2a5f0f48"
+    },
+    "source": {
+      "final_gate": {
+        "applicability": "prototype",
+        "attempt_ids": [
+          "6a49e28f2c734b948d062a59f226bc45",
+          "8b99d840499e4f0c81df9b6f5ca2b4fb"
+        ],
+        "counters": {
+          "infrastructure_failures": 1,
+          "launches": {
+            "development": 4,
+            "final": 2
+          },
+          "repairs": 0,
+          "reservations": {
+            "development": 4,
+            "final": 2
+          }
+        },
+        "distinct_failed_scenarios": 0,
+        "duration_seconds": 4.577321,
+        "evidence_sha256": {},
+        "expected_red_observed": false,
+        "failed_scenario_ids": [],
+        "gate": "final",
+        "input_sha256": "435f9e48c7e56e89288a0fbd1ce300bc4076a9bf33aea9c5fbdf300a2c3661a1",
+        "next_action": "continue",
+        "oracle_sha256": "881e5058247ea7880dc15a0b54cecf3f4e470e06243b36da6dd88054fea8c856",
+        "outcome": "pass",
+        "policy_sha256": "4a3ac8b51420f305b203f89486019512e657e5b121fb99351960a3349ec9dc9a",
+        "prompt_sha256": "8432d8dd23b861333b912ba5a7062690680d23d22e381f062389bcfb93739a5a",
+        "rationale_sha256": "7ada4840fdcfbad589caed2c0ef8e78a6f831d06183b6a53650a4a0b307554d9",
+        "reason": "proof_eligible",
+        "runtime_sha256": "61dfcedaf681be210532ccdad8d875d7fd85588eb98e8e11e4f4bae8bf31dbfb",
+        "scenario_ids": [
+          "private-negative",
+          "private-positive"
+        ],
+        "seal_sha256": "ed7c7e35dfaee79c57436fc22f102f331ee6a06e40db94c9b9322eab84cd29b6",
+        "status": "pass",
+        "task": "real-helper-label",
+        "timestamp": "2026-09-09T01:02:52Z",
+        "usage": {
+          "input_tokens": 1505,
+          "output_tokens": 43
+        },
+        "version": 1
+      },
+      "final_gate_sha256": "daf4a41c8f3311a7cc16db967098719f9b384a63a1dbb3110e7ea574790be2c8",
+      "receipt_directory": "/private/tmp/nightshift-13-real-helper/execution-source-project-resume-50871cb775ed4a79ac51f706e772e93e",
+      "summary": {
+        "observations": [
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "2622dbd098524ce0912051c3d88a3fd4",
+            "duration_seconds": 2.091243,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "265d96dccdebd21c3614bf91e80e3e6e10c708ed100039866fa793a07faba8e2",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 760,
+              "output_tokens": 27
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "bff4f51397f041a793155340067f36a3",
+            "duration_seconds": 1.580493,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "22883d3f0939a5d4013e5384ebdcb36600d28ea9b0f1e888b7340918f003ffd4",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 740,
+              "output_tokens": 11
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "8b99d840499e4f0c81df9b6f5ca2b4fb",
+            "duration_seconds": 2.848849,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "e5623ce1be42e571093674dd7084129dba10716b370a38dac851f63a6bd10249",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 765,
+              "output_tokens": 32
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "6a49e28f2c734b948d062a59f226bc45",
+            "duration_seconds": 1.728472,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "a6c30b8ce7e826929cc155cbbb9510a204acb1360cb13d09cb48839e35f8dddb",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 740,
+              "output_tokens": 11
+            }
+          }
+        ],
+        "runtime_observed": {
+          "cli_version": "2.1.266 (Claude Code)",
+          "executable": "/private/tmp/nightshift-13-real-helper/pinned-bin/claude",
+          "executable_sha256": "553d1b9e9e7068b275c0a783c7e139ff6503096f286e674c8c919379fb0eca62",
+          "model": "sonnet",
+          "profile": "claude-subscription-text-v1"
+        },
+        "status": "pass"
+      },
+      "summary_sha256": "b3feb4e17b15f1266a16206ab0e3cd7b9a259801dc5081bad2e711580d2b81fc"
+    },
+    "symlink": {
+      "final_gate": {
+        "applicability": "prototype",
+        "attempt_ids": [
+          "05c93276064f405db086c34fb61796a7",
+          "138b1d148f204b1692efc012d4b4e339"
+        ],
+        "counters": {
+          "infrastructure_failures": 1,
+          "launches": {
+            "development": 3,
+            "final": 2
+          },
+          "repairs": 0,
+          "reservations": {
+            "development": 3,
+            "final": 2
+          }
+        },
+        "distinct_failed_scenarios": 0,
+        "duration_seconds": 5.098757,
+        "evidence_sha256": {},
+        "expected_red_observed": false,
+        "failed_scenario_ids": [],
+        "gate": "final",
+        "input_sha256": "435f9e48c7e56e89288a0fbd1ce300bc4076a9bf33aea9c5fbdf300a2c3661a1",
+        "next_action": "continue",
+        "oracle_sha256": "3cdd53a30b5dab496a672d07aa9d3c9222bef81a2f00c5ac471842159ac00299",
+        "outcome": "pass",
+        "policy_sha256": "4a3ac8b51420f305b203f89486019512e657e5b121fb99351960a3349ec9dc9a",
+        "prompt_sha256": "8432d8dd23b861333b912ba5a7062690680d23d22e381f062389bcfb93739a5a",
+        "rationale_sha256": "7ada4840fdcfbad589caed2c0ef8e78a6f831d06183b6a53650a4a0b307554d9",
+        "reason": "proof_eligible",
+        "runtime_sha256": "61dfcedaf681be210532ccdad8d875d7fd85588eb98e8e11e4f4bae8bf31dbfb",
+        "scenario_ids": [
+          "private-negative",
+          "private-positive"
+        ],
+        "seal_sha256": "634d97aee002ea460e527169355d8d77ea3f181912e22154605d67cf59c3f111",
+        "status": "pass",
+        "task": "real-helper-label",
+        "timestamp": "2026-09-09T01:06:29Z",
+        "usage": {
+          "input_tokens": 1510,
+          "output_tokens": 43
+        },
+        "version": 1
+      },
+      "final_gate_sha256": "2be2e7ddf01b0549cce48a415ffd8ea0fd37e2a6cf368b854b0476ac832a03c2",
+      "receipt_directory": "/private/tmp/nightshift-13-real-helper/execution-symlink-project-resume-f059720c200e402eb0009af505af31d0",
+      "summary": {
+        "observations": [
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "b9de4b4f232b470fb8adb83b00cd2378",
+            "duration_seconds": 2.069954,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "afe31021707f95221f0f1d30789a65537cae3720e3ca8f42dc1e54da7bc13519",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 761,
+              "output_tokens": 27
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "057b5b98735d402e83afae648f05ff4a",
+            "duration_seconds": 2.469535,
+            "gate": "development",
+            "outcome": "pass",
+            "output_sha256": "881c2d131f47b099a12134e8fd4e3f02bb7b706271438295a5baf7d2d2d6c04d",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "public-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 738,
+              "output_tokens": 11
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "05c93276064f405db086c34fb61796a7",
+            "duration_seconds": 3.38298,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "a221441b11e7cdd02b91f2bf478bd84311166917e30f5c6a1881e16f4ef972e8",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-positive",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 768,
+              "output_tokens": 32
+            }
+          },
+          {
+            "accounting_unit": "cli_launch",
+            "attempt_id": "138b1d148f204b1692efc012d4b4e339",
+            "duration_seconds": 1.715777,
+            "gate": "final",
+            "outcome": "pass",
+            "output_sha256": "ba8b4a1a4b9209e9611c91c5c294c35c2fda1c25dabfced9a6ad21f504a155cb",
+            "reported_models": [
+              "claude-haiku-4-5-20251001",
+              "claude-sonnet-5"
+            ],
+            "scenario_id": "private-negative",
+            "selected_model": "sonnet",
+            "usage": {
+              "input_tokens": 742,
+              "output_tokens": 11
+            }
+          }
+        ],
+        "runtime_observed": {
+          "cli_version": "2.1.266 (Claude Code)",
+          "executable": "/private/tmp/nightshift-13-real-helper/pinned-bin/claude",
+          "executable_sha256": "553d1b9e9e7068b275c0a783c7e139ff6503096f286e674c8c919379fb0eca62",
+          "model": "sonnet",
+          "profile": "claude-subscription-text-v1"
+        },
+        "status": "pass"
+      },
+      "summary_sha256": "7953508b3c47f4cda5ec5e10a0c722c35aaa133e8b771fcf05e68fd80f07e5e0"
+    }
+  },
+  "task": "13",
+  "version": 1,
+  "retained_failures": {
+    "source_version_probe": {
+      "receipt": {
+        "applicability": "prototype",
+        "attempt_ids": [
+          "801bd9a07a6f4d77993d939ddc507d65"
+        ],
+        "counters": {
+          "infrastructure_failures": 1,
+          "launches": {
+            "development": 1,
+            "final": 0
+          },
+          "repairs": 0,
+          "reservations": {
+            "development": 1,
+            "final": 0
+          }
+        },
+        "distinct_failed_scenarios": 0,
+        "duration_seconds": 22.212266,
+        "evidence_sha256": {
+          "challenge": "499d7e9b2cacb52e2e92d4bf1891de1f92b3616a7b310056ae8348eecae9e14b"
+        },
+        "expected_red_observed": false,
+        "failed_scenario_ids": [],
+        "gate": "development",
+        "input_sha256": "9dcfc93653b8809dff3c469aa64ee051ee633cd4ede3e1bc2bb7d86127ab1ce2",
+        "next_action": "restore_runtime",
+        "oracle_sha256": "881e5058247ea7880dc15a0b54cecf3f4e470e06243b36da6dd88054fea8c856",
+        "outcome": "unknown",
+        "policy_sha256": "4a3ac8b51420f305b203f89486019512e657e5b121fb99351960a3349ec9dc9a",
+        "prompt_sha256": "8432d8dd23b861333b912ba5a7062690680d23d22e381f062389bcfb93739a5a",
+        "rationale_sha256": "7ada4840fdcfbad589caed2c0ef8e78a6f831d06183b6a53650a4a0b307554d9",
+        "reason": "runtime_version_mismatch",
+        "runtime_sha256": "caaa6677457fff1aa921c53dd3546b56c53b69437a8ffc11cb5b7c428abf7e20",
+        "scenario_ids": [],
+        "seal_sha256": "5f1b32d6034701bd95e61c95de904c8eb565a8b9ad2d1df2d1ec5aaa56bd0292",
+        "status": "unknown",
+        "task": "real-helper-label",
+        "timestamp": "2026-09-09T00:57:52Z",
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        "version": 1
+      },
+      "path": "/private/tmp/nightshift-13-real-helper/execution-source-project/development-run.stdout",
+      "sha256": "ceb901f48944bc6df650f2f8da855cded060fd1524c06088068cb1e99546f025"
+    },
+    "symlink_routing_admission": {
+      "receipt": {
+        "applicability": null,
+        "attempt_ids": [],
+        "counters": {
+          "infrastructure_failures": 1,
+          "launches": {
+            "development": 0,
+            "final": 0
+          },
+          "repairs": 0,
+          "reservations": {
+            "development": 0,
+            "final": 0
+          }
+        },
+        "distinct_failed_scenarios": 0,
+        "duration_seconds": null,
+        "evidence_sha256": {},
+        "expected_red_observed": false,
+        "failed_scenario_ids": [],
+        "gate": "development",
+        "input_sha256": null,
+        "next_action": "restore_runtime",
+        "oracle_sha256": null,
+        "outcome": "unknown",
+        "policy_sha256": "4a3ac8b51420f305b203f89486019512e657e5b121fb99351960a3349ec9dc9a",
+        "prompt_sha256": null,
+        "rationale_sha256": null,
+        "reason": "reviewer_admission_unknown",
+        "runtime_sha256": null,
+        "scenario_ids": [],
+        "seal_sha256": null,
+        "status": "unknown",
+        "task": "real-helper-label",
+        "timestamp": "2026-09-09T01:04:38Z",
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        "version": 1
+      },
+      "path": "/private/tmp/nightshift-13-real-helper/execution-symlink-project/challenge.stdout",
+      "sha256": "157a28ce998fce2700a583f736f7011311c3a06efcf074ffbf6fbad0a5bea10c"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "status": "FAIL",
+  "reason": "Claude subscription login required",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "claude",
+    "model": "sonnet"
+  },
+  "rules_fired": [
+    "dispatcher_failure"
+  ],
+  "results": {
+    "claims": []
+  }
+}
