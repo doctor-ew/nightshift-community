@@ -160,7 +160,7 @@ def proof_validate(state):
         raise ValueError('invalid proof accounting state')
     policy = budget['policy']
     bounds = {'version': (1, 1), 'development_calls': (1, 64), 'final_calls': (1, 64),
-              'repairs': (0, 2), 'infrastructure_failures': (0, 2),
+              'repairs': (0, 64), 'infrastructure_failures': (0, 2),
               'timeout_seconds': (1, 120), 'output_bytes': (1, 1048576)}
     if not isinstance(policy, dict) or set(policy) != set(bounds) | {'force_prompt'} or type(policy['force_prompt']) is not bool:
         raise ValueError('invalid pinned proof policy')

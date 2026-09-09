@@ -352,7 +352,11 @@ def validate_doc(doc, project=None, task=None, private=False):
         raise Invalid('applicability_summary')
     runtime = doc['runtime']
     if any_prototype:
-        exact(runtime, ('profile', 'model', 'cli_version', 'system_prompt_file'))
+        runtime_keys = ('profile', 'model', 'cli_version', 'system_prompt_file')
+        exact(runtime, runtime_keys + (('response_normalization',) if isinstance(runtime, dict)
+                                       and 'response_normalization' in runtime else ()))
+        if runtime.get('response_normalization', 'none') not in ('none', 'json-or-single-fence-v1'):
+            raise Invalid('unsupported_response_normalization')
         for value in runtime.values():
             text(value)
         relative(runtime['system_prompt_file'])
@@ -405,7 +409,7 @@ def config(project):
             raise Invalid('config_keys')
         values.update(section)
     integer(values['version'], 1, 1)
-    for key, low, high in (('development_calls', 1, 64), ('final_calls', 1, 64), ('repairs', 0, 2),
+    for key, low, high in (('development_calls', 1, 64), ('final_calls', 1, 64), ('repairs', 0, 64),
                            ('infrastructure_failures', 0, 2), ('timeout_seconds', 1, 120), ('output_bytes', 1, MAX_JSON)):
         integer(values[key], low, high)
     if type(values['force_prompt']) is not bool:
@@ -430,12 +434,20 @@ def equal(left, right):
     return left == right
 
 
-def evaluate(completion, case):
+def completion_json(completion, normalization='none'):
+    if normalization == 'json-or-single-fence-v1':
+        match = re.fullmatch(r'```(?:json)?[ \t]*\r?\n(.*?)\r?\n```', completion.strip(), re.DOTALL)
+        if match is not None:
+            return parse_json(match.group(1))
+    return parse_json(completion)
+
+
+def evaluate(completion, case, normalization='none'):
     assertions = case['expected'] + case['prohibited']
     parsed = None
     if any(item['op'].startswith('json_') for item in assertions):
         try:
-            parsed = parse_json(completion)
+            parsed = completion_json(completion, normalization)
         except Invalid:
             return False
     def holds(item):
@@ -458,9 +470,9 @@ def evaluate(completion, case):
     return all(holds(item) for item in case['expected']) and not any(holds(item) for item in case['prohibited'])
 
 
-def assertion_outcomes(completion, case):
+def assertion_outcomes(completion, case, normalization='none'):
     return {kind: [evaluate(completion, {'expected': [item] if kind == 'expected' else [],
-                                        'prohibited': [item] if kind == 'prohibited' else []})
+                                        'prohibited': [item] if kind == 'prohibited' else []}, normalization)
                    for item in case[kind]] for kind in ('expected', 'prohibited')}
 
 
@@ -620,11 +632,13 @@ class Proof:
                 'observations': [], 'exposures': [], 'seal': None, 'latest': None}
 
     @contextmanager
-    def transaction(self, readonly=False):
+    def transaction(self, readonly=False, allow_policy_change=False):
         with retry.transaction(self.path, self.initial, secure_root=self.common, readonly=readonly) as (state, save):
-            if (not isinstance(state, dict) or set(state) - set(self.initial()) - {'budget', 'turn_observations'}
+            if (not isinstance(state, dict) or set(state) - set(self.initial()) - {'budget', 'turn_observations', 'policy_amendments'}
                     or set(self.initial()) - set(state) or type(state['version']) is not int
                     or state['version'] != 1 or state['task'] != self.task):
+                raise Blocked('proof_state_invalid')
+            if not isinstance(state.get('policy_amendments', []), list):
                 raise Blocked('proof_state_invalid')
             if not isinstance(state.get('turn_observations', []), list):
                 raise Blocked('proof_state_invalid')
@@ -634,9 +648,60 @@ class Proof:
                     raise Blocked('proof_state_invalid')
             if not isinstance(state['challenges'], dict):
                 raise Blocked('proof_state_invalid')
-            if state.get('budget') and state['budget']['pinned'] and state['budget']['policy'] != self.policy:
+            if (not allow_policy_change and state.get('budget') and state['budget']['pinned']
+                    and state['budget']['policy'] != self.policy):
                 raise Blocked('policy_changed')
             yield state, save
+
+    def amend_policy(self, path):
+        value = read_json(confined(self.project, public_relative(self.project, path)))
+        exact(value, ('version', 'task', 'previous_policy_sha256', 'policy', 'rationale', 'authorization', 'review'))
+        if type(value['version']) is not int or value['version'] != 1 or value['task'] != self.task:
+            raise Invalid('policy_amendment_identity')
+        hash_string(value['previous_policy_sha256']); text(value['rationale'])
+        if not equal(value['policy'], self.policy):
+            raise Blocked('policy_amendment_target_mismatch')
+        authorization = value['authorization']
+        exact(authorization, ('path', 'sha256'))
+        hash_string(authorization['sha256'])
+        authorization_path = relative(authorization['path'])
+        if not authorization_path.startswith('docs/' + self.task + '/'):
+            raise Invalid('policy_authorization_path')
+        source = confined(self.project, authorization_path)
+        if file_hash(source) != authorization['sha256'] or not bounded(source).strip():
+            raise Blocked('policy_authorization_mismatch')
+        review = value['review']
+        exact(review, ('provider', 'author_id', 'decision', 'reviewed_input_sha256'))
+        identity({'provider': review['provider'], 'author_id': review['author_id']})
+        unsigned = dict(value, review=None)
+        if review['decision'] != 'approve' or review['reviewed_input_sha256'] != digest(unsigned):
+            raise Blocked('policy_amendment_unreviewed')
+        author = self.doc()['author']
+        if (review['provider'], review['author_id']) == (author['provider'], author['author_id']):
+            raise Blocked('policy_amendment_independence')
+        with self.transaction(allow_policy_change=True) as (state, save):
+            budget = state.get('budget')
+            if budget is None or not budget['pinned']:
+                raise Blocked('policy_amendment_requires_pinned_budget')
+            if any(item['outcome'] == 'pending' for item in budget['attempts'].values()):
+                raise Blocked('policy_amendment_pending_attempt')
+            previous = budget['policy']
+            if digest(previous) != value['previous_policy_sha256']:
+                raise Blocked('policy_amendment_stale')
+            changed = {key for key in previous if previous[key] != self.policy[key]}
+            if (not changed or changed - {'repairs', 'development_calls', 'final_calls'}
+                    or any(self.policy[key] < previous[key] for key in changed)):
+                raise Blocked('policy_amendment_not_bounded_extension')
+            record = {'evidence': value, 'evidence_sha256': digest(value), 'previous_policy': previous,
+                      'counters': self.counters(state), 'timestamp': utc()}
+            budget['policy'] = dict(self.policy)
+            retry.proof_validate(state)
+            state.setdefault('policy_amendments', []).append(record)
+            result = {'status': 'amended', 'outcome': 'pass', 'reason': 'fresh_challenge_and_reseal_required',
+                      'task': self.task, 'counters': self.counters(state), 'evidence_sha256': digest(value)}
+            state['latest'] = result
+            save()
+            return result
 
     def doc(self, path=None):
         canonical_path = 'docs/' + self.task + '/behavior-scenarios.json'
@@ -779,8 +844,8 @@ class Proof:
                     raise Blocked('use_bounded_prototype_revision')
                 return self.receipt(state, 'development', 'pass', 'already_sealed')
             runtime_reseal = (old is not None and old['scenario_sha256'] == digest(doc)
-                              and old['spec_sha256'] == spec_sha and old['policy_sha256'] == digest(self.policy))
-            if runtime_reseal and old['current_prompt'] != digest(prototypes):
+                              and old['spec_sha256'] == spec_sha)
+            if old is not None and old['current_prompt'] != digest(prototypes):
                 raise Blocked('use_bounded_prototype_revision')
             if old is not None:
                 if self.challenge_needed(doc) and challenge['receipt']['attempt_id'] == old['challenge']:
@@ -1223,9 +1288,10 @@ def run_proof(proof, gate):
                     if transport['reason'] is None and transport['returncode'] == 0:
                         try:
                             completion, turn_usage, turn_models = completion_result(transport['stdout'])
-                            passed = evaluate(completion, turn)
+                            normalization = doc['runtime'].get('response_normalization', 'none')
+                            passed = evaluate(completion, turn, normalization)
                             if index == len(turns) - 1:
-                                passed = passed and evaluate(completion, case)
+                                passed = passed and evaluate(completion, case, normalization)
                             outcome = 'pass' if passed else 'fail'
                             reason = 'oracle_pass' if passed else 'oracle_mismatch'
                         except Blocked as error:
@@ -1259,8 +1325,8 @@ def run_proof(proof, gate):
                                     'seal_sha256': seal['sha256'], 'prompt_sha256': seal['current_prompt'],
                                     'input': turn['input'], 'completion': completion,
                                     'outcome': outcome, 'reason': reason,
-                                    'turn_assertions': assertion_outcomes(completion, turn),
-                                    'case_assertions': assertion_outcomes(completion, case)
+                                    'turn_assertions': assertion_outcomes(completion, turn, normalization),
+                                    'case_assertions': assertion_outcomes(completion, case, normalization)
                                         if index == len(turns) - 1 else None}
                         path = 'docs/' + proof.task + '/development-' + attempt + '.json'
                         try:
@@ -1486,7 +1552,7 @@ class Arguments(argparse.ArgumentParser):
 
 def arguments():
     parser = Arguments(add_help=False)
-    parser.add_argument('operation', choices=('validate', 'challenge', 'seal', 'record-red', 'record-final', 'run', 'gate', 'status', 'expose'))
+    parser.add_argument('operation', choices=('validate', 'challenge', 'seal', 'record-red', 'record-final', 'run', 'gate', 'status', 'expose', 'amend-policy'))
     parser.add_argument('--project', required=True)
     for name in ('task', 'scenarios', 'challenge', 'heldout', 'evidence', 'out', 'case'):
         parser.add_argument('--' + name)
@@ -1501,10 +1567,10 @@ def arguments():
             seen.add(option)
     args = parser.parse_args()
     allowed = {'validate': {'scenarios', 'config_only'}, 'challenge': {'scenarios', 'out'},
-               'seal': {'scenarios', 'challenge', 'heldout'}, 'record-red': {'evidence'},
+               'seal': {'scenarios', 'challenge', 'heldout'}, 'amend-policy': {'evidence'}, 'record-red': {'evidence'},
                'record-final': {'evidence'}, 'run': {'gate'}, 'gate': {'gate'}, 'status': set(), 'expose': {'case'}}
     required = {'validate': set() if args.config_only else {'scenarios'}, 'challenge': {'scenarios', 'out'},
-                'seal': {'scenarios'}, 'record-red': {'evidence'}, 'record-final': {'evidence'},
+                'seal': {'scenarios'}, 'amend-policy': {'evidence'}, 'record-red': {'evidence'}, 'record-final': {'evidence'},
                 'run': {'gate'}, 'gate': {'gate'}, 'status': set(), 'expose': {'case'}}
     for key in ('scenarios', 'challenge', 'heldout', 'evidence', 'out', 'case', 'gate', 'config_only'):
         if getattr(args, key) and key not in allowed[args.operation]:
@@ -1532,7 +1598,9 @@ def execute(args):
         forced(doc, policy)
         return {'status': 'valid', 'outcome': 'pass', 'task': args.task, 'reviewed_input_sha256': semantics(doc)}, 0
     proof = Proof(project, args.task, policy)
-    if args.operation == 'seal':
+    if args.operation == 'amend-policy':
+        result = proof.amend_policy(args.evidence)
+    elif args.operation == 'seal':
         result = proof.seal(args)
     elif args.operation == 'challenge':
         result = challenge_proof(proof, args)

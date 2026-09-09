@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_optin_json_fence_preserves_strict_inner_validation (__main__.StructuralOracles.test_optin_json_fence_preserves_strict_inner_validation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/nightshift-coach-continuation-20260909/tests/test-behavior-multiturn.py", line 35, in test_optin_json_fence_preserves_strict_inner_validation
+    self.assertTrue(self.proof.evaluate(text, case, 'json-or-single-fence-v1'), repr(text))
+                    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: evaluate() takes 2 positional arguments but 3 were given
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+FAILED (errors=1)
