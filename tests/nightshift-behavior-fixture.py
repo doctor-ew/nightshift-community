@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
 class PrototypeFixture:
     """Offline transport fixture; all proof state comes from public CLI operations."""
-    def __init__(self, root, base, cases=1, output='{"choice":"allow"}', timeout=2, cap=1048576):
+    def __init__(self, root, base, cases=1, output='{"choice":"allow"}', timeout=2, cap=1048576, multiturn=False):
         self.root=Path(root).resolve();self.base=Path(base).resolve();self.project=self.base/'project';self.project.mkdir()
         self.task='prototype';self.directory=self.project/'docs'/self.task;self.directory.mkdir(parents=True)
         self.binary=self.base/'bin';self.binary.mkdir();self.calls=self.base/'provider-calls.jsonl'
@@ -130,8 +130,13 @@ class PrototypeFixture:
             return {'id':identifier,'ac_ids':['AC-1'],'required':True,'applicability':dict(app),'given':'Synthetic request with explicit allowed choice','when':'Evaluate the prompt','then':'Return the allowed choice','forbidden':'A denial when allowance is required','input':'Choose allow for synthetic request '+identifier,'expected':[{'op':'json_field_equals','field':['choice'],'value':'allow'}],'prohibited':[{'op':'json_field_equals','field':['choice'],'value':'deny'}],'counterexamples':['Returning deny violates this synthetic request'],'visibility':visibility}
         self.private=self.base/'private-scenarios.json'
         private={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'independent-private-author'},'applicability':dict(app),'runtime':runtime,'prototype_files':['reviewer-prompt.md'],'cases':[case('private-1','held_out')],'heldout':None}
+        if multiturn:
+            runtime['profile']='claude-subscription-multiturn-text-v1'
+            private['cases']=[self.multiturn_case(c) for c in private['cases']]
         self.private.write_bytes(canonical(attest(private)))
         public={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'public-prototype-author'},'applicability':dict(app),'runtime':runtime,'prototype_files':['reviewer-prompt.md'],'cases':[case('public-'+str(i+1),'public') for i in range(cases)],'heldout':{'manifest_sha256':digest(self.private),'case_ids':['private-1'],'author':private['author'],'prepared_at':'2026-09-08T00:00:00+00:00'}}
+        if multiturn:
+            public['cases']=[self.multiturn_case(c) for c in public['cases']]
         self.scenarios=self.directory/'behavior-scenarios.json';self.scenarios.write_bytes(canonical(attest(public)))
         self.env=dict(os.environ,NIGHTSHIFT_PROJECT_DIR=str(self.project),PYTHONDONTWRITEBYTECODE='1',NIGHTSHIFT_TELEMETRY_DIR='off',PATH=str(self.binary)+os.pathsep+os.environ['PATH'],FIXTURE_CALLS=str(self.calls),FIXTURE_SCENARIOS=str(self.scenarios),FIXTURE_RESPONSE=str(self.response))
         self.env.pop('CLAUDE_PROJECT_DIR',None);self.env.pop('NIGHTSHIFT_ROLE_CHILD',None)
@@ -162,6 +167,12 @@ print(json.dumps({'type':'result','is_error':False,'result':pathlib.Path(os.envi
         subprocess.run(['bash',str(self.root/'scripts/nightshift-scope-activate.sh'),self.task,'--project',str(self.project),'--spec',str(self.directory/'SPEC.md')],env=self.env,cwd=self.project,capture_output=True,check=True)
         subprocess.run(['bash',str(self.root/'scripts/nightshift-tdd-spec-lock.sh'),self.task],env=self.env,cwd=self.project,capture_output=True,check=True)
         self.challenge=self.directory/'challenge.json'
+
+    @staticmethod
+    def multiturn_case(case):
+        case['input']=[dict(input='First choice', expected=case['expected'], prohibited=case['prohibited']),
+                       dict(input='Use your previous choice', expected=case['expected'], prohibited=case['prohibited'])]
+        return case
 
     def call(self,operation,*args):
         return subprocess.run([sys.executable,str(self.root/'scripts/nightshift-behavior-proof.py'),operation,'--project',str(self.project),'--task',self.task,*map(str,args)],env=self.env,cwd=self.project,capture_output=True,text=True)

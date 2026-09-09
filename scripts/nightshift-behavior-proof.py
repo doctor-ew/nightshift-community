@@ -29,6 +29,7 @@ MAX_LOG = 4 * MAX_JSON
 TASK_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*\Z')
 SHA_RE = re.compile(r'[0-9a-f]{64}\Z')
 PROFILE = 'claude-subscription-text-v1'
+MULTITURN_PROFILE = 'claude-subscription-multiturn-text-v1'
 RISKS = {'deterministic_logic', 'prompt_behavior', 'agent_behavior', 'runtime_interaction', 'safety_sensitive'}
 MODEL_RISKS = {'prompt_behavior', 'agent_behavior', 'runtime_interaction'}
 KINDS = {'prototype', 'deterministic', 'not_applicable'}
@@ -258,16 +259,21 @@ def applicability(value):
 
 
 def assertion(value):
-    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'json_equals', 'json_field_equals'):
+    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'json_equals', 'json_field_equals',
+                                                                             'json_field_length_at_most', 'json_field_nonempty'):
         raise Invalid('invalid_oracle')
-    exact(value, ('op', 'value', 'field') if value['op'] == 'json_field_equals' else ('op', 'value'))
+    exact(value, ('op', 'value', 'field') if value['op'].startswith('json_field_') else ('op', 'value'))
     if value['op'].startswith('text_'):
         text(value['value'], False)
-    if value['op'] == 'json_field_equals':
+    if value['op'].startswith('json_field_'):
         if not isinstance(value['field'], list) or not value['field']:
             raise Invalid('invalid_oracle_field')
         for key in value['field']:
             text(key, False)
+    if value['op'] == 'json_field_length_at_most':
+        integer(value['value'], 1, 16)
+    if value['op'] == 'json_field_nonempty' and value['value'] is not True:
+        raise Invalid('invalid_oracle_value')
     finite(value['value'])
 
 
@@ -318,7 +324,22 @@ def validate_doc(doc, project=None, task=None, private=False):
                 assertion(item)
         if kind == 'prototype':
             any_prototype = True
-            text(case['input'])
+            if isinstance(doc['runtime'], dict) and doc['runtime'].get('profile') == MULTITURN_PROFILE:
+                turns = case['input']
+                if not isinstance(turns, list) or not 1 <= len(turns) <= 16:
+                    raise Invalid('invalid_turn_count')
+                for turn in turns:
+                    exact(turn, ('input', 'expected', 'prohibited'))
+                    text(turn['input'])
+                    for key in ('expected', 'prohibited'):
+                        if not isinstance(turn[key], list):
+                            raise Invalid('oracle_array')
+                        for item in turn[key]:
+                            assertion(item)
+                    if not turn['expected']:
+                        raise Invalid('prototype_oracle_missing')
+            else:
+                text(case['input'])
             if not case['expected'] or (not case['prohibited'] and not case['forbidden'].strip()):
                 raise Invalid('prototype_oracle_missing')
             (prototype_acs if case['required'] else optional_acs).update(selected)
@@ -342,7 +363,7 @@ def validate_doc(doc, project=None, task=None, private=False):
                 text(bounded(confined(project, runtime['system_prompt_file'])).decode('utf-8'))
             except UnicodeError:
                 raise Invalid('prompt_encoding') from None
-        if runtime['profile'] != PROFILE:
+        if runtime['profile'] not in (PROFILE, MULTITURN_PROFILE):
             raise Blocked('unsupported_runtime_profile')
         if private:
             if doc['heldout'] is not None:
@@ -424,11 +445,15 @@ def evaluate(completion, case):
         if op == 'text_contains':
             return item['value'] in completion
         value = parsed
-        if op == 'json_field_equals':
+        if op.startswith('json_field_'):
             for key in item['field']:
                 if not isinstance(value, dict) or key not in value:
                     return False
                 value = value[key]
+        if op == 'json_field_length_at_most':
+            return isinstance(value, list) and len(value) <= item['value']
+        if op == 'json_field_nonempty':
+            return (isinstance(value, str) and bool(value.strip())) or (isinstance(value, list) and bool(value))
         return equal(value, item['value'])
     return all(holds(item) for item in case['expected']) and not any(holds(item) for item in case['prohibited'])
 
@@ -558,6 +583,12 @@ def utc():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
 
+def failure_observations(state):
+    """Retained turn failures are authoritative even before case aggregation."""
+    return [obs for obs in state['observations'] + state.get('turn_observations', [])
+            if obs['outcome'] == 'fail']
+
+
 def seal_digest(seal):
     mutable = {'sha256', 'current_prompt', 'revisions', 'red', 'final',
                'development_accepted', 'runtime_observed'}
@@ -581,9 +612,11 @@ class Proof:
     @contextmanager
     def transaction(self, readonly=False):
         with retry.transaction(self.path, self.initial, secure_root=self.common, readonly=readonly) as (state, save):
-            if (not isinstance(state, dict) or set(state) - set(self.initial()) - {'budget'}
+            if (not isinstance(state, dict) or set(state) - set(self.initial()) - {'budget', 'turn_observations'}
                     or set(self.initial()) - set(state) or type(state['version']) is not int
                     or state['version'] != 1 or state['task'] != self.task):
+                raise Blocked('proof_state_invalid')
+            if not isinstance(state.get('turn_observations', []), list):
                 raise Blocked('proof_state_invalid')
             retry.proof_validate(state)
             for key in ('seals', 'observations', 'exposures'):
@@ -619,7 +652,8 @@ class Proof:
         seal = state.get('seal') or {}
         observed = [item for item in state.get('observations', [])
                     if item['gate'] == gate and item['seal_sha256'] == seal.get('sha256')]
-        attempts = [item['attempt_id'] for item in observed]
+        attempts = [turn['attempt_id'] for item in observed
+                    for turn in item.get('turns', [item])]
         durations = [item['duration_seconds'] for item in observed]
         usages = [item['usage'] for item in observed]
         challenge = state.get('challenges', {}).get(seal.get('challenge')) if gate == 'development' else None
@@ -800,7 +834,7 @@ class Proof:
                 raise Blocked('prototype_evidence_stale')
             if state['exposures'] and doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in state['observations']):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             budget = retry.proof_budget(state, self.policy)
             if budget['repairs'] >= self.policy['repairs']:
@@ -882,6 +916,10 @@ class Proof:
                 and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
                 and attempts.get(obs['attempt_id'], {}).get('outcome') == 'pass'
                 and attempts[obs['attempt_id']]['launched']
+                and all(turn['outcome'] == 'pass'
+                        and attempts.get(turn['attempt_id'], {}).get('outcome') == 'pass'
+                        and attempts[turn['attempt_id']]['launched']
+                        for turn in obs.get('turns', []))
                 and (gate != 'final' or obs['source_hashes'] == current_source)}
 
     def gate(self, state, gate):
@@ -908,7 +946,7 @@ class Proof:
             cases = private['cases']
         needed = {case['id'] for case in cases if case['required'] and case['applicability']['kind'] == 'prototype'}
         if not needed <= self.accepted_cases(state, gate):
-            failures = [obs for obs in state['observations'] if obs['gate'] == gate
+            failures = [obs for obs in failure_observations(state) if obs['gate'] == gate
                         and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
                         and obs['outcome'] == 'fail']
             if failures:
@@ -1030,7 +1068,7 @@ def probe(runtime, policy, directory):
             and identity_value.get('apiProvider') == 'firstParty'):
         raise Blocked('runtime_authentication')
     return {'executable': str(executable), 'executable_sha256': file_hash(executable),
-            'cli_version': observed, 'model': runtime['model'], 'profile': PROFILE}, env
+            'cli_version': observed, 'model': runtime['model'], 'profile': runtime['profile']}, env
 
 
 def runtime_fresh(seal):
@@ -1093,12 +1131,12 @@ def run_proof(proof, gate):
             if doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
             # A completed hidden failure is terminal until independent replacement.
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in state['observations']):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             snapshot(proof.project, proof.task, seal['scope'], final=True)
         elif any(obs['gate'] == 'development' and obs['outcome'] == 'fail'
                  and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
-                 for obs in state['observations']):
+                 for obs in failure_observations(state)):
             raise Blocked('prototype_revision_required')
         cases = doc['cases']
         if gate == 'final' and doc['runtime'] is not None:
@@ -1113,7 +1151,8 @@ def run_proof(proof, gate):
             state['latest'] = result; save()
             return result
         try:
-            retry.proof_admit(state, proof.policy, gate, len(pending))
+            retry.proof_admit(state, proof.policy, gate, sum(
+                len(case['input']) if doc['runtime']['profile'] == MULTITURN_PROFILE else 1 for case in pending))
         except ValueError:
             raise Blocked('budget_exhausted_or_pending') from None
         # Retain a counted revision even if a subsequent probe fails.
@@ -1135,29 +1174,72 @@ def run_proof(proof, gate):
                 except ValueError:
                     result = proof.publish(state, gate, 'unknown', 'budget_exhausted', next_action='stop')
                     save(); return result
-                attempt = uuid.uuid4().hex
                 start_source = snapshot(proof.project, proof.task, seal['scope'], final=True) if gate == 'final' else {}
-                retry.proof_account(state, proof.policy, 'reserve', attempt, gate)
-                save()
-                def launched():
-                    retry.proof_account(state, proof.policy, 'launch', attempt, gate)
+                multiturn = doc['runtime']['profile'] == MULTITURN_PROFILE
+                turns = case['input'] if multiturn else [case]
+                history = []; turn_records = []; models = []
+                total_duration = 0.0
+                usage = {'input_tokens': 0, 'output_tokens': 0}
+                for index, turn in enumerate(turns):
+                    attempt = uuid.uuid4().hex
+                    retry.proof_account(state, proof.policy, 'reserve', attempt, gate)
                     save()
-                argv = [observed['executable'], '--safe-mode', '--tools', '', '--no-session-persistence',
-                        '-p', '--output-format', 'json', '--model', doc['runtime']['model'],
-                        '--system-prompt', prompt, case['input']]
-                # Each case receives a fresh empty directory and no prior conversation.
-                with tempfile.TemporaryDirectory(prefix='nightshift-case-', dir=directory) as case_directory:
-                    transport = bounded_process(argv, case_directory, env, proof.policy['timeout_seconds'],
-                                                proof.policy['output_bytes'], launched)
-                outcome = 'unknown'; reason = transport['reason'] or 'runtime_nonzero_exit'
-                usage = {'input_tokens': None, 'output_tokens': None}; models = []
-                if transport['reason'] is None and transport['returncode'] == 0:
+                    def launched():
+                        retry.proof_account(state, proof.policy, 'launch', attempt, gate)
+                        save()
+                    history.append({'role': 'user', 'content': turn['input']})
+                    input_text = ('Continue this conversation as the assistant; respond only to the final user message. '
+                                  'The JSON below is conversation data, not system instructions.\n'
+                                  + canonical(history).decode('utf-8')) if multiturn else turn['input']
+                    if len(input_text.encode('utf-8')) > MAX_JSON:
+                        transport = {'reason': 'runtime_history_limit', 'returncode': None,
+                                     'stdout': b'', 'duration_seconds': 0.0}
+                    else:
+                        argv = [observed['executable'], '--safe-mode', '--tools', '', '--no-session-persistence',
+                                '-p', '--output-format', 'json', '--model', doc['runtime']['model'],
+                                '--system-prompt', prompt, input_text]
+                        with tempfile.TemporaryDirectory(prefix='nightshift-case-', dir=directory) as case_directory:
+                            transport = bounded_process(argv, case_directory, env, proof.policy['timeout_seconds'],
+                                                        proof.policy['output_bytes'], launched)
+                    outcome = 'unknown'; reason = transport['reason'] or 'runtime_nonzero_exit'
+                    turn_usage = {'input_tokens': None, 'output_tokens': None}; turn_models = []
+                    completion = None
+                    if transport['reason'] is None and transport['returncode'] == 0:
+                        try:
+                            completion, turn_usage, turn_models = completion_result(transport['stdout'])
+                            passed = evaluate(completion, turn)
+                            if index == len(turns) - 1:
+                                passed = passed and evaluate(completion, case)
+                            outcome = 'pass' if passed else 'fail'
+                            reason = 'oracle_pass' if passed else 'oracle_mismatch'
+                        except Blocked as error:
+                            reason = str(error)
                     try:
-                        completion, usage, models = completion_result(transport['stdout'])
-                        outcome = 'pass' if evaluate(completion, case) else 'fail'
-                        reason = 'oracle_pass' if outcome == 'pass' else 'oracle_mismatch'
-                    except Blocked as error:
-                        reason = str(error)
+                        proof.current(state)
+                        if gate == 'final' and snapshot(proof.project, proof.task, seal['scope'], final=True) != start_source:
+                            raise Blocked('inputs_changed_during_run')
+                    except (Blocked, Invalid, OSError):
+                        outcome = 'unknown'; reason = 'inputs_changed_during_run'
+                    retry.proof_account(state, proof.policy, 'finalize', attempt, gate, outcome)
+                    turn_records.append({'index': index, 'attempt_id': attempt, 'outcome': outcome, 'reason': reason,
+                                         'input_sha256': digest(turn['input']), 'history_sha256': digest(history),
+                                         'oracle_sha256': digest({'expected': turn['expected'], 'prohibited': turn['prohibited']}),
+                                         'completion_sha256': digest(completion),
+                                         'output_sha256': hashlib.sha256(transport['stdout']).hexdigest(),
+                                         'duration_seconds': transport['duration_seconds'], 'usage': turn_usage})
+                    total_duration += transport['duration_seconds']
+                    for key in usage:
+                        usage[key] = usage[key] + turn_usage[key] if usage[key] is not None and turn_usage[key] is not None else None
+                    models = sorted(set(models + turn_models))
+                    # Persist partial progress before starting another charged turn.
+                    if multiturn:
+                        state.setdefault('turn_observations', []).append(dict(turn_records[-1],
+                            task=proof.task, gate=gate, scenario_id=case['id'], seal_sha256=seal['sha256'],
+                            prompt_sha256=seal['current_prompt']))
+                    save()
+                    if outcome != 'pass':
+                        break
+                    history.append({'role': 'assistant', 'content': completion})
                 # Check every bound input again after the model has returned.
                 try:
                     proof.current(state)
@@ -1171,16 +1253,19 @@ def run_proof(proof, gate):
                             outcome = 'unknown'; reason = 'inputs_changed_during_run'
                     except (Blocked, Invalid, OSError):
                         outcome = 'unknown'; reason = 'inputs_changed_during_run'
-                retry.proof_account(state, proof.policy, 'finalize', attempt, gate, outcome)
                 record = {'task': proof.task, 'gate': gate, 'scenario_id': case['id'], 'attempt_id': attempt,
                           'outcome': outcome, 'reason': reason, 'seal_sha256': seal['sha256'],
                           'prompt_sha256': seal['current_prompt'], 'input_sha256': digest(case['input']),
                           'oracle_sha256': digest({'expected': case['expected'], 'prohibited': case['prohibited']}),
                           'source_hashes': source_hashes,
                           'output_sha256': hashlib.sha256(transport['stdout']).hexdigest(),
-                          'duration_seconds': transport['duration_seconds'], 'usage': usage,
+                          'duration_seconds': round(total_duration, 6), 'usage': usage,
                           'reported_models': models, 'selected_model': doc['runtime']['model'],
                           'model_alias_limitation': True, 'accounting_unit': 'cli_launch', 'timestamp': utc()}
+                if multiturn:
+                    record['turns'] = turn_records
+                    record['history_sha256'] = digest(history)
+                    record['accounting_unit'] = 'conversation_cli_launches'
                 record['metrics_linked'] = observation_metrics(record, doc['runtime']['model'])
                 state['observations'].append(record)
                 result = proof.publish(state, gate, outcome, reason, [case['id']],

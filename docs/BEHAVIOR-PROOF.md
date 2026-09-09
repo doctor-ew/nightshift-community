@@ -55,12 +55,39 @@ semantics require new review evidence and invalidate prior approval.
 
 ## Supported runtime and local assertions
 
-The supported profile is `claude-subscription-text-v1`: one synthetic text input,
+The original profile is `claude-subscription-text-v1`: one synthetic text input,
 one sealed task system prompt and one completion, with tools, customizations and
 session persistence disabled. `runtime` contains `profile`, `model`,
 `cli_version`, and `system_prompt_file`; it is null when no prototype applies.
 The recorded CLI version must match actual admission. Hosted model aliases do
 not establish an immutable backend version; retain that limitation explicitly.
+
+The additional `claude-subscription-multiturn-text-v1` profile accepts a case
+`input` containing an ordered array of 1–16 turn objects. Every turn has exactly
+`input` (nonempty text), `expected` (nonempty assertion array), and `prohibited`
+(assertion array). Use the same assertion format described below. Existing
+case-level expected/prohibited assertions additionally grade the final response.
+All turns must pass; a failed or unknown turn ends that case immediately.
+
+Each launch receives the sealed system prompt and explicit JSON replay of all
+prior user messages and actual assistant completions plus the next user input.
+This tests conversational reasoning from supplied history; it does not test
+native session persistence, tool access or external memory. Each case starts
+with an empty history. Assertions are never included in the model input.
+Replay input is bounded to 1 MiB; transport timeout and output limits apply to
+every turn. A large conversation can therefore end as unknown at that limit.
+
+Each turn reserves and charges one existing CLI-call budget unit. Admission
+requires enough remaining units for all pending turns before any model launch;
+include the independent challenge call when sizing development_calls. No budget
+reset or automatic increase occurs. The canonical local state retains turn
+attempts, usage, outcomes, oracle/input/history/completion hashes, and partial
+progress. Retained failed turns remain authoritative after interruption, even
+if the final case aggregate was not written; unchanged development retries and
+failed heldout retries remain blocked. Public receipts list all turn attempt IDs
+and aggregate usage; raw
+private conversations are not published. Changing any turn input or assertion
+changes the sealed scenario digest and requires new independent review.
 
 A task requiring tool use, another provider, persistent memory, browser execution
 or another unsupported interaction blocks applicable proof. Read-only sandbox
@@ -76,8 +103,16 @@ rationale. Deterministic and not-applicable cases can have null input and empty
 oracle lists; their evidence comes from tests or reviewed applicability.
 
 The built-in version-1 oracle supports `text_equals`, `text_contains`,
-`json_equals`, and `json_field_equals`. Assertions contain `op` and `value`;
-field equality also uses `field`, a list of literal JSON object keys. There is
+`json_equals`, `json_field_equals`, `json_field_length_at_most`, and
+`json_field_nonempty`. Assertions contain `op` and `value`;
+All `json_field_` assertions use `field`, a nonempty list of literal JSON object
+keys. `json_field_length_at_most` requires an integer `value` from 1 through 16
+and matches only arrays whose length is at most that value.
+`json_field_nonempty` requires literal `value: true` and matches only nonblank
+strings or nonempty arrays. To require one to three features, combine nonempty
+and length-at-most-three assertions on the same array. Neither operator validates
+the semantic quality of array members or prose; independent review remains
+necessary. Missing fields and other JSON types fail these assertions. There is
 no expression language, arbitrary regex, imported grader or command executor.
 JSON comparisons preserve types and reject duplicate keys/nonfinite values.
 Malformed task JSON is wrong behavior; missing completion or transport failure
