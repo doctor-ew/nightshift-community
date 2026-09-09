@@ -82,7 +82,10 @@ requires enough remaining units for all pending turns before any model launch;
 include the independent challenge call when sizing development_calls. No budget
 reset or automatic increase occurs. The canonical local state retains turn
 attempts, usage, outcomes, oracle/input/history/completion hashes, and partial
-progress. Public receipts list all turn attempt IDs and aggregate usage; raw
+progress. Retained failed turns remain authoritative after interruption, even
+if the final case aggregate was not written; unchanged development retries and
+failed heldout retries remain blocked. Public receipts list all turn attempt IDs
+and aggregate usage; raw
 private conversations are not published. Changing any turn input or assertion
 changes the sealed scenario digest and requires new independent review.
 

@@ -574,6 +574,12 @@ def utc():
     return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
 
+def failure_observations(state):
+    """Retained turn failures are authoritative even before case aggregation."""
+    return [obs for obs in state['observations'] + state.get('turn_observations', [])
+            if obs['outcome'] == 'fail']
+
+
 def seal_digest(seal):
     mutable = {'sha256', 'current_prompt', 'revisions', 'red', 'final',
                'development_accepted', 'runtime_observed'}
@@ -819,7 +825,7 @@ class Proof:
                 raise Blocked('prototype_evidence_stale')
             if state['exposures'] and doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in state['observations']):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             budget = retry.proof_budget(state, self.policy)
             if budget['repairs'] >= self.policy['repairs']:
@@ -931,7 +937,7 @@ class Proof:
             cases = private['cases']
         needed = {case['id'] for case in cases if case['required'] and case['applicability']['kind'] == 'prototype'}
         if not needed <= self.accepted_cases(state, gate):
-            failures = [obs for obs in state['observations'] if obs['gate'] == gate
+            failures = [obs for obs in failure_observations(state) if obs['gate'] == gate
                         and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
                         and obs['outcome'] == 'fail']
             if failures:
@@ -1116,12 +1122,12 @@ def run_proof(proof, gate):
             if doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
             # A completed hidden failure is terminal until independent replacement.
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in state['observations']):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             snapshot(proof.project, proof.task, seal['scope'], final=True)
         elif any(obs['gate'] == 'development' and obs['outcome'] == 'fail'
                  and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
-                 for obs in state['observations']):
+                 for obs in failure_observations(state)):
             raise Blocked('prototype_revision_required')
         cases = doc['cases']
         if gate == 'final' and doc['runtime'] is not None:
@@ -1219,7 +1225,8 @@ def run_proof(proof, gate):
                     # Persist partial progress before starting another charged turn.
                     if multiturn:
                         state.setdefault('turn_observations', []).append(dict(turn_records[-1],
-                            task=proof.task, gate=gate, scenario_id=case['id'], seal_sha256=seal['sha256']))
+                            task=proof.task, gate=gate, scenario_id=case['id'], seal_sha256=seal['sha256'],
+                            prompt_sha256=seal['current_prompt']))
                     save()
                     if outcome != 'pass':
                         break

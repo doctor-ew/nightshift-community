@@ -64,6 +64,39 @@ class Multiturn(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)['outcome'], 'unknown')
         state = json.loads((self.fx.project/'.git/nightshift/behavior-proof/prototype/state.json').read_text())
         self.assertEqual(len(state['observations'][-1]['turns']), 1)
+    def test_crash_after_failed_turn_cannot_resample_development_or_heldout(self):
+        # Simulate only the exact durable boundary: turn+budget saved, aggregate absent.
+        for gate in ('development', 'final'):
+            with self.subTest(gate=gate), tempfile.TemporaryDirectory(prefix='nightshift-crash-turn-') as temp:
+                fx = fixture.PrototypeFixture(ROOT, temp, multiturn=True)
+                with (fx.project/'.nightshift.toml').open('a') as stream:
+                    stream.write('final_calls = 4\n')
+                fx.seal()
+                if gate == 'final':
+                    self.assertEqual(fx.call('run','--gate','development').returncode, 0)
+                fx.response.write_text('{"choice":"deny"}')
+                self.assertNotEqual(fx.call('run','--gate',gate).returncode, 0)
+                ledger = fx.project/'.git/nightshift/behavior-proof/prototype/state.json'
+                state = json.loads(ledger.read_text())
+                state['observations'] = [o for o in state['observations'] if o['gate'] != gate]
+                ledger.write_text(json.dumps(state))
+                fx.response.write_text('{"choice":"allow"}')
+                before = len(fx.model_calls())
+                result = fx.call('run','--gate',gate)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(json.loads(result.stdout)['reason'],
+                                 'prototype_revision_required' if gate == 'development' else 'heldout_replacement_required')
+                self.assertEqual(len(fx.model_calls()), before)
+                self.assertNotEqual(fx.call('gate','--gate',gate).returncode, 0)
+                fx.prompt.write_text(fx.prompt.read_text() + 'Changed prototype.\n')
+                revised = fx.call('run','--gate','development')
+                if gate == 'final':
+                    self.assertEqual(json.loads(revised.stdout)['reason'], 'heldout_replacement_required')
+                    self.assertEqual(len(fx.model_calls()), before)
+                else:
+                    self.assertEqual(revised.returncode, 0, revised.stdout)
+                    changed = json.loads(ledger.read_text())
+                    self.assertEqual(changed['budget']['repairs'], 1)
     def test_invalid_turn_shapes(self):
         for value in ([], [{}], [{'input':'x','expected':[],'prohibited':[]}], 'single turn', [dict(input='x',expected=[{'op':'text_equals','value':'x'}],prohibited=[])] * 17):
             with self.subTest(value=value):
