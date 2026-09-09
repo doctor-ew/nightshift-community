@@ -458,6 +458,12 @@ def evaluate(completion, case):
     return all(holds(item) for item in case['expected']) and not any(holds(item) for item in case['prohibited'])
 
 
+def assertion_outcomes(completion, case):
+    return {kind: [evaluate(completion, {'expected': [item] if kind == 'expected' else [],
+                                        'prohibited': [item] if kind == 'prohibited' else []})
+                   for item in case[kind]] for kind in ('expected', 'prohibited')}
+
+
 def git(project, *arguments):
     env = dict(os.environ, GIT_OPTIONAL_LOCKS='0')
     result = subprocess.run(['git', '-C', str(project), *arguments], stdout=subprocess.PIPE,
@@ -587,6 +593,10 @@ def failure_observations(state):
     """Retained turn failures are authoritative even before case aggregation."""
     return [obs for obs in state['observations'] + state.get('turn_observations', [])
             if obs['outcome'] == 'fail']
+
+
+def failure_bound(observation, seal):
+    return observation['seal_sha256'] in [seal['sha256']] + seal.get('failure_seals', [])
 
 
 def seal_digest(seal):
@@ -768,6 +778,10 @@ class Proof:
                 if old['current_prompt'] != digest(prototypes):
                     raise Blocked('use_bounded_prototype_revision')
                 return self.receipt(state, 'development', 'pass', 'already_sealed')
+            runtime_reseal = (old is not None and old['scenario_sha256'] == digest(doc)
+                              and old['spec_sha256'] == spec_sha and old['policy_sha256'] == digest(self.policy))
+            if runtime_reseal and old['current_prompt'] != digest(prototypes):
+                raise Blocked('use_bounded_prototype_revision')
             if old is not None:
                 if self.challenge_needed(doc) and challenge['receipt']['attempt_id'] == old['challenge']:
                     raise Blocked('fresh_challenge_required')
@@ -788,6 +802,8 @@ class Proof:
                     'red': None, 'final': None,
                     'development_accepted': not deterministic and doc['runtime'] is None,
                     'runtime_observed': None}
+            if runtime_reseal:
+                seal['failure_seals'] = old.get('failure_seals', []) + [old['sha256']]
             seal['sha256'] = seal_digest(seal)
             state['seal'] = seal
             record = self.publish(state, 'development', 'pass', 'sealed')
@@ -834,7 +850,7 @@ class Proof:
                 raise Blocked('prototype_evidence_stale')
             if state['exposures'] and doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and failure_bound(obs, seal) for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             budget = retry.proof_budget(state, self.policy)
             if budget['repairs'] >= self.policy['repairs']:
@@ -947,7 +963,7 @@ class Proof:
         needed = {case['id'] for case in cases if case['required'] and case['applicability']['kind'] == 'prototype'}
         if not needed <= self.accepted_cases(state, gate):
             failures = [obs for obs in failure_observations(state) if obs['gate'] == gate
-                        and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
+                        and failure_bound(obs, seal) and obs['prompt_sha256'] == seal['current_prompt']
                         and obs['outcome'] == 'fail']
             if failures:
                 return self.receipt(state, gate, 'fail', 'behavior_failed', sorted({obs['scenario_id'] for obs in failures}),
@@ -1131,11 +1147,11 @@ def run_proof(proof, gate):
             if doc['heldout'] and set(state['exposures']) & set(doc['heldout']['case_ids']):
                 raise Blocked('heldout_exposed')
             # A completed hidden failure is terminal until independent replacement.
-            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and obs['seal_sha256'] == seal['sha256'] for obs in failure_observations(state)):
+            if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and failure_bound(obs, seal) for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             snapshot(proof.project, proof.task, seal['scope'], final=True)
         elif any(obs['gate'] == 'development' and obs['outcome'] == 'fail'
-                 and obs['seal_sha256'] == seal['sha256'] and obs['prompt_sha256'] == seal['current_prompt']
+                 and failure_bound(obs, seal) and obs['prompt_sha256'] == seal['current_prompt']
                  for obs in failure_observations(state)):
             raise Blocked('prototype_revision_required')
         cases = doc['cases']
@@ -1237,6 +1253,27 @@ def run_proof(proof, gate):
                             task=proof.task, gate=gate, scenario_id=case['id'], seal_sha256=seal['sha256'],
                             prompt_sha256=seal['current_prompt']))
                     save()
+                    if gate == 'development' and completion is not None:
+                        evidence = {'version': 1, 'task': proof.task, 'scenario_id': case['id'],
+                                    'attempt_id': attempt, 'index': index, 'gate': gate,
+                                    'seal_sha256': seal['sha256'], 'prompt_sha256': seal['current_prompt'],
+                                    'input': turn['input'], 'completion': completion,
+                                    'outcome': outcome, 'reason': reason,
+                                    'turn_assertions': assertion_outcomes(completion, turn),
+                                    'case_assertions': assertion_outcomes(completion, case)
+                                        if index == len(turns) - 1 else None}
+                        path = 'docs/' + proof.task + '/development-' + attempt + '.json'
+                        try:
+                            if len(canonical(evidence)) > MAX_LOG:
+                                raise Blocked('development_evidence_limit')
+                            write_public(str(proof.project / path), evidence, proof.project, proof.task)
+                            reference = {'path': path, 'sha256': digest(evidence)}
+                            turn_records[-1]['development_evidence'] = reference
+                            if multiturn:
+                                state['turn_observations'][-1]['development_evidence'] = reference
+                        except (Blocked, Invalid, OSError):
+                            turn_records[-1]['development_evidence_error'] = 'artifact_unavailable'
+                        save()
                     if outcome != 'pass':
                         break
                     history.append({'role': 'assistant', 'content': completion})
@@ -1262,6 +1299,10 @@ def run_proof(proof, gate):
                           'duration_seconds': round(total_duration, 6), 'usage': usage,
                           'reported_models': models, 'selected_model': doc['runtime']['model'],
                           'model_alias_limitation': True, 'accounting_unit': 'cli_launch', 'timestamp': utc()}
+                if not multiturn:
+                    for key in ('development_evidence', 'development_evidence_error'):
+                        if key in turn_records[-1]:
+                            record[key] = turn_records[-1][key]
                 if multiturn:
                     record['turns'] = turn_records
                     record['history_sha256'] = digest(history)

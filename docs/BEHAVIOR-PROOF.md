@@ -230,3 +230,28 @@ Optional metrics retain observed duration/token use or null, with distinct faile
 scenario IDs in proof receipts. Metrics failure never changes proof outcome. Raw
 prompts, completions, fixtures, credentials, command text and private locators do
 not enter aggregate metrics. This is not a claim of measured savings.
+
+## Public development transcripts
+
+Prototype development runs retain each available parsed completion and its public
+student input in `docs/<task>/development-<attempt_id>.json`. Observation records
+reference the relative path and the SHA-256 of canonical JSON. Files include the
+attempt, scenario, turn index, prompt and seal hashes, outcome, and assertion
+satisfaction arrays. Both `expected` and `prohibited` arrays use `true` to mean
+that the corresponding requirement is satisfied; invalid JSON fails JSON
+requirements. Case assertions appear only on the last turn. These diagnostics
+reuse the existing evaluator and do not change acceptance semantics.
+
+Evidence is limited to 4 MiB per charged turn, in addition to existing input,
+output and call limits. The file contains only the current turn, avoiding repeated
+history growth. Final runs never write these files or retain completion bodies.
+Transport failures without a parsed completion do not retain raw provider output.
+Evidence write failures leave `development_evidence_error: artifact_unavailable`
+in the aggregate observation without changing grading or retry accounting.
+Historical runs with completion hashes only cannot be reconstructed by this change.
+
+An engine update invalidates existing seals. A runtime-only reseal with unchanged
+scenario, specification and policy requires a new independent challenge and the
+same prototype. It retains previous failure seal identities and all counters, so
+an unchanged failed prompt remains blocked. Subsequent prototype changes consume
+the ordinary repair budget. Resealing is not permission to resample failed work.
