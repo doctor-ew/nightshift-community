@@ -1,0 +1,30 @@
+test_green_without_task_proof_never_launches_provider (__main__.BehaviorProofAdmission.test_green_without_task_proof_never_launches_provider) ... ok
+test_changed_spec_and_locked_test_invalidate_admission (__main__.BehaviorProofEvidence.test_changed_spec_and_locked_test_invalidate_admission) ... ok
+test_evidence_rejects_forged_integrity_and_irrelevant_failure (__main__.BehaviorProofEvidence.test_evidence_rejects_forged_integrity_and_irrelevant_failure) ... ok
+test_final_requires_exact_current_source_snapshot (__main__.BehaviorProofEvidence.test_final_requires_exact_current_source_snapshot) ... ok
+test_log_symlink_and_oversize_are_rejected (__main__.BehaviorProofEvidence.test_log_symlink_and_oversize_are_rejected) ... ok
+test_readonly_missing_status_does_not_create_state (__main__.BehaviorProofEvidence.test_readonly_missing_status_does_not_create_state) ... ok
+test_relevant_red_admits_development_but_never_final (__main__.BehaviorProofEvidence.test_relevant_red_admits_development_but_never_final) ... ok
+test_unreviewed_and_same_author_seals_block (__main__.BehaviorProofEvidence.test_unreviewed_and_same_author_seals_block) ... ok
+test_billing_environment_stripped_and_transport_unknown (__main__.BehaviorProofPrototype.test_billing_environment_stripped_and_transport_unknown) ... ok
+test_challenge_rejects_wrong_digest_or_missing_case_ids (__main__.BehaviorProofPrototype.test_challenge_rejects_wrong_digest_or_missing_case_ids) ... ok
+test_concurrent_runs_do_not_double_reserve_case (__main__.BehaviorProofPrototype.test_concurrent_runs_do_not_double_reserve_case) ... ok
+test_heldout_exposure_invalidates_final_freshness (__main__.BehaviorProofPrototype.test_heldout_exposure_invalidates_final_freshness) ... ok
+test_json_oracle_preserves_boolean_integer_distinction (__main__.BehaviorProofPrototype.test_json_oracle_preserves_boolean_integer_distinction) ... ok
+test_minimum_remaining_budget_blocks_partial_case_set (__main__.BehaviorProofPrototype.test_minimum_remaining_budget_blocks_partial_case_set) ... ok
+test_premature_surrounding_edit_blocks_before_launch (__main__.BehaviorProofPrototype.test_premature_surrounding_edit_blocks_before_launch) ... ok
+test_real_stub_execution_oracle_and_idempotent_reuse (__main__.BehaviorProofPrototype.test_real_stub_execution_oracle_and_idempotent_reuse) ... ok
+test_timeout_and_output_cap_never_admit (__main__.BehaviorProofPrototype.test_timeout_and_output_cap_never_admit) ... ok
+test_wrong_behavior_requires_prompt_revision_before_retry (__main__.BehaviorProofPrototype.test_wrong_behavior_requires_prompt_revision_before_retry) ... ok
+test_canonical_invalid_manifest_never_falls_back (__main__.BehaviorProofSchema.test_canonical_invalid_manifest_never_falls_back) ... ok
+test_config_defaults_and_finite_bounds (__main__.BehaviorProofSchema.test_config_defaults_and_finite_bounds) ... ok
+test_duplicate_json_keys_and_unknown_schema_fields (__main__.BehaviorProofSchema.test_duplicate_json_keys_and_unknown_schema_fields) ... ok
+test_missing_coverage_and_optional_coverage_rejected (__main__.BehaviorProofSchema.test_missing_coverage_and_optional_coverage_rejected) ... ok
+test_risk_cannot_be_downgraded (__main__.BehaviorProofSchema.test_risk_cannot_be_downgraded) ... ok
+test_schema_only_validates_before_review (__main__.BehaviorProofSchema.test_schema_only_validates_before_review) ... ok
+test_unsafe_task_and_non_git_gate_block (__main__.BehaviorProofSchema.test_unsafe_task_and_non_git_gate_block) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 39.368s
+
+OK
