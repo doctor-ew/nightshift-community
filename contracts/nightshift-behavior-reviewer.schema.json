@@ -1,1 +1,132 @@
-{"type":"object","properties":{"status":{"type":"string"},"reason":{"type":"string"},"attempts":{"type":"integer"},"artifacts":{"type":"object"},"rules_fired":{"type":"array"},"results":{"type":"object"}},"required":["status","reason","attempts","artifacts","rules_fired","results"]}
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "FAIL",
+        "SKIP"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "diff": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "diff",
+        "model",
+        "provider"
+      ],
+      "additionalProperties": false
+    },
+    "rules_fired": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "approve",
+            "repair"
+          ]
+        },
+        "scenario_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scenario_id": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "scenario_id",
+              "code",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "reviewed_input_sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "scenario_ids",
+        "findings",
+        "reviewed_input_sha256"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "artifacts",
+    "attempts",
+    "reason",
+    "results",
+    "rules_fired",
+    "status"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "FAIL",
+              "SKIP"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

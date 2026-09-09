@@ -22,3 +22,14 @@ qa = 3
 require_production_confirmation = true
 require_removal_confirmation = true
 allow_heuristic_production_target = false
+
+# Optional: omitted fields use these same finite defaults.
+[behavior_proof]
+version = 1
+development_calls = 8
+final_calls = 2
+repairs = 2
+infrastructure_failures = 2
+timeout_seconds = 120
+output_bytes = 1048576
+force_prompt = false

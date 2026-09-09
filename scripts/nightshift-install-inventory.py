@@ -89,6 +89,7 @@ def make_inventory(project, runtime, targets):
         for source in commands:
             add('claude_commands', source, 'claude')
     add('shared', 'docs/PROJECT-CONTEXT.md', 'nightshift', 'docs/nightshift-project-context.md')
+    add('shared', 'docs/BEHAVIOR-PROOF.md', 'nightshift', 'docs/nightshift-behavior-proof.md')
     add('shared', 'scripts/nightshift-contract.jq', 'nightshift')
     for source in helpers:
         add('shared', source, 'nightshift')
@@ -103,6 +104,8 @@ def make_inventory(project, runtime, targets):
         add('shared_roles', 'dashboard/server.py', 'nightshift')
     if runtime in ('claude', 'all'):
         add('claude_adapters', 'scripts/nightshift-project-context.py', 'claude')
+        add('claude_adapters', 'scripts/nightshift-behavior-proof.py', 'claude')
+        add('claude_adapters', 'scripts/nightshift-retry-budget.py', 'claude')
         for source in scripts + agents:
             add('claude_adapters', source, 'claude')
         add('claude_adapters', 'routing.json', 'claude', 'nightshift-routing.json')

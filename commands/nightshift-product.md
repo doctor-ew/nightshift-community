@@ -373,7 +373,20 @@ in the `## Sources` section preamble.
 > Vague entries ("see file") are invalid. The spec-guardrail hook blocks the Write if Sources
 > is absent or has no `path:line ... commit:` entries.
 
-Spec saves to `docs/<task-key>/SPEC.md`.
+Spec saves to `docs/<task-key>/SPEC.md`; every mode also produces
+`docs/<task-key>/behavior-scenarios.json`. Include stable AC IDs, per-case
+applicability/risk rationale, expected/forbidden behavior and counterexamples in
+the writer brief. Keep actual provenance; review fields remain null until reviewed.
+
+Delegate scenario validation and conditional independent design challenge to
+`/nightshift-spec` Step 4 once. Require its complete reviewed coverage before
+approval/tracker advancement. Ordinary deterministic cases reuse planned RED
+assertions without a universal model gate. Prompt/runtime and safety-sensitive
+cases require the typed independent challenge; unknown runtime/oracle blocks.
+Private held-out bodies and locators remain with the independent evaluator;
+only commitments appear in public scenarios. Use `docs/BEHAVIOR-PROOF.md` in
+source (installed at `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+Do not run prototypes or build surrounding implementation during this stage.
 
 ---
 
