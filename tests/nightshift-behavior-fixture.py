@@ -69,7 +69,7 @@ def prepare(root, project, task='fixture', final=False, require_gate=True):
                 'applicability':dict(app),'runtime':None,'prototype_files':[],
                 'cases':[{'id':'case-1','ac_ids':['AC-1'],'required':True,'applicability':dict(app),
                           'given':'An existing answer value','when':'Read answer','then':'Answer equals 42',
-                          'forbidden':['Any answer other than 42'],'input':None,'expected':[], 'prohibited':[],
+                          'forbidden':'Any answer other than 42','input':None,'expected':[], 'prohibited':[],
                           'counterexamples':['An answer value of 0'],'visibility':'public'}], 'heldout':None}
     scenarios = directory/'behavior-scenarios.json'; scenarios.write_bytes(canonical(attest(document)))
     run(['bash',root/'scripts/nightshift-scope-activate.sh',task,'--project',project,'--spec',spec])
@@ -127,7 +127,7 @@ class PrototypeFixture:
         app={'kind':'prototype','rationale':'Prompt output requires observable text behavior proof','risks':['prompt_behavior'],'review':None}
         runtime={'profile':'claude-subscription-text-v1','model':'sonnet','cli_version':'2.1.265','system_prompt_file':'reviewer-prompt.md'}
         def case(identifier,visibility):
-            return {'id':identifier,'ac_ids':['AC-1'],'required':True,'applicability':dict(app),'given':'Synthetic request with explicit allowed choice','when':'Evaluate the prompt','then':'Return the allowed choice','forbidden':['A denial when allowance is required'],'input':'Choose allow for synthetic request '+identifier,'expected':[{'op':'json_field_equals','field':['choice'],'value':'allow'}],'prohibited':[{'op':'json_field_equals','field':['choice'],'value':'deny'}],'counterexamples':['Returning deny violates this synthetic request'],'visibility':visibility}
+            return {'id':identifier,'ac_ids':['AC-1'],'required':True,'applicability':dict(app),'given':'Synthetic request with explicit allowed choice','when':'Evaluate the prompt','then':'Return the allowed choice','forbidden':'A denial when allowance is required','input':'Choose allow for synthetic request '+identifier,'expected':[{'op':'json_field_equals','field':['choice'],'value':'allow'}],'prohibited':[{'op':'json_field_equals','field':['choice'],'value':'deny'}],'counterexamples':['Returning deny violates this synthetic request'],'visibility':visibility}
         self.private=self.base/'private-scenarios.json'
         private={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'independent-private-author'},'applicability':dict(app),'runtime':runtime,'prototype_files':['reviewer-prompt.md'],'cases':[case('private-1','held_out')],'heldout':None}
         self.private.write_bytes(canonical(attest(private)))
@@ -145,7 +145,7 @@ args=sys.argv[1:]
 with pathlib.Path(os.environ['FIXTURE_CALLS']).open('a') as f:f.write(json.dumps({'argv':args,'billing':bool(os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('OPENAI_API_KEY'))})+'\\n')
 if args==['--version']:print('2.1.265 (Claude Code)');sys.exit(0)
 if args[:2]==['auth','status']:print(json.dumps({'loggedIn':True,'authMethod':'claude.ai','apiProvider':'firstParty'}));sys.exit(0)
-if '--agents' in args:
+if '--agents' in args or ('--system-prompt' in args and '--json-schema' in args):
  doc=json.loads(pathlib.Path(os.environ['FIXTURE_SCENARIOS']).read_text())
  result={'decision':'approve','scenario_ids':[c['id'] for c in doc['cases']],'findings':[],'reviewed_input_sha256':doc['applicability']['review']['reviewed_input_sha256']}
  if os.environ.get('FIXTURE_REVIEW')=='wrong_digest':result['reviewed_input_sha256']='0'*64

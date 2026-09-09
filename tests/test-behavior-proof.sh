@@ -40,7 +40,7 @@ class BehaviorProofSchema(unittest.TestCase):
         self.path=self.base/'docs'/self.task;self.path.mkdir(parents=True)
         self.scenarios=self.path/'behavior-scenarios.json'
         self.app={'kind':'deterministic','rationale':'Observable pure logic contract','risks':['deterministic_logic'],'review':None}
-        self.document={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'fixture-author'},'applicability':dict(self.app),'runtime':None,'prototype_files':[],'cases':[{'id':'case-1','ac_ids':['AC-1'],'required':True,'applicability':dict(self.app),'given':'An input outside the accepted range','when':'Validate the input','then':'Reject the input','forbidden':['Accept the invalid input'],'input':None,'expected':[],'prohibited':[],'counterexamples':['The exact boundary immediately beyond the accepted range'],'visibility':'public'}],'heldout':None}
+        self.document={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'fixture-author'},'applicability':dict(self.app),'runtime':None,'prototype_files':[],'cases':[{'id':'case-1','ac_ids':['AC-1'],'required':True,'applicability':dict(self.app),'given':'An input outside the accepted range','when':'Validate the input','then':'Reject the input','forbidden':'Accept the invalid input','input':None,'expected':[],'prohibited':[],'counterexamples':['The exact boundary immediately beyond the accepted range'],'visibility':'public'}],'heldout':None}
         self.env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1')
         self.env.pop('CLAUDE_PROJECT_DIR',None);self.env.pop('NIGHTSHIFT_PROJECT_DIR',None)
 
