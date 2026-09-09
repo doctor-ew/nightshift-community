@@ -268,6 +268,7 @@ class BehaviorProofPrototype(unittest.TestCase):
         fixture=self.fixture(output='{"choice":true}')
         document=json.loads(fixture.scenarios.read_text());document['cases'][0]['expected'][0]['value']=1
         fixture.scenarios.write_bytes(self.builder.canonical(self.builder.attest(document)))
+        subprocess.run(['bash',str(fixture.root/'scripts/nightshift-tdd-spec-lock.sh'),fixture.task],env=fixture.env,cwd=fixture.project,capture_output=True,check=True)
         fixture.seal()
         self.assertNotEqual(fixture.call('run','--gate','development').returncode,0,'JSON boolean must not satisfy integer oracle')
         self.assertNotEqual(fixture.call('gate','--gate','development').returncode,0)

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "reviewer": {"provider": "codex", "author_id": "review-13-private"},
+  "decision": "approve",
+  "scope": "In test_json_oracle_preserves_boolean_integer_distinction, rerun the normal spec-lock helper after writing the modified and reattested public fixture, before fixture.seal and the first challenge. Use the fixture project, environment, root and task with check=True.",
+  "basis": "The fixture constructor locks the original scenario before this test changes its expected value. The corrected ordering seals the intended test input through the normal helper. It preserves the boolean completion versus integer expectation and both development run and gate rejection assertions.",
+  "constraints": ["No production changes", "No oracle or assertion relaxation", "No prior model call or budget reset", "Retain amendment history"]
+}
