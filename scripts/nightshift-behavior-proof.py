@@ -259,16 +259,21 @@ def applicability(value):
 
 
 def assertion(value):
-    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'json_equals', 'json_field_equals'):
+    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'json_equals', 'json_field_equals',
+                                                                             'json_field_length_at_most', 'json_field_nonempty'):
         raise Invalid('invalid_oracle')
-    exact(value, ('op', 'value', 'field') if value['op'] == 'json_field_equals' else ('op', 'value'))
+    exact(value, ('op', 'value', 'field') if value['op'].startswith('json_field_') else ('op', 'value'))
     if value['op'].startswith('text_'):
         text(value['value'], False)
-    if value['op'] == 'json_field_equals':
+    if value['op'].startswith('json_field_'):
         if not isinstance(value['field'], list) or not value['field']:
             raise Invalid('invalid_oracle_field')
         for key in value['field']:
             text(key, False)
+    if value['op'] == 'json_field_length_at_most':
+        integer(value['value'], 1, 16)
+    if value['op'] == 'json_field_nonempty' and value['value'] is not True:
+        raise Invalid('invalid_oracle_value')
     finite(value['value'])
 
 
@@ -440,11 +445,15 @@ def evaluate(completion, case):
         if op == 'text_contains':
             return item['value'] in completion
         value = parsed
-        if op == 'json_field_equals':
+        if op.startswith('json_field_'):
             for key in item['field']:
                 if not isinstance(value, dict) or key not in value:
                     return False
                 value = value[key]
+        if op == 'json_field_length_at_most':
+            return isinstance(value, list) and len(value) <= item['value']
+        if op == 'json_field_nonempty':
+            return (isinstance(value, str) and bool(value.strip())) or (isinstance(value, list) and bool(value))
         return equal(value, item['value'])
     return all(holds(item) for item in case['expected']) and not any(holds(item) for item in case['prohibited'])
 

@@ -103,8 +103,16 @@ rationale. Deterministic and not-applicable cases can have null input and empty
 oracle lists; their evidence comes from tests or reviewed applicability.
 
 The built-in version-1 oracle supports `text_equals`, `text_contains`,
-`json_equals`, and `json_field_equals`. Assertions contain `op` and `value`;
-field equality also uses `field`, a list of literal JSON object keys. There is
+`json_equals`, `json_field_equals`, `json_field_length_at_most`, and
+`json_field_nonempty`. Assertions contain `op` and `value`;
+All `json_field_` assertions use `field`, a nonempty list of literal JSON object
+keys. `json_field_length_at_most` requires an integer `value` from 1 through 16
+and matches only arrays whose length is at most that value.
+`json_field_nonempty` requires literal `value: true` and matches only nonblank
+strings or nonempty arrays. To require one to three features, combine nonempty
+and length-at-most-three assertions on the same array. Neither operator validates
+the semantic quality of array members or prose; independent review remains
+necessary. Missing fields and other JSON types fail these assertions. There is
 no expression language, arbitrary regex, imported grader or command executor.
 JSON comparisons preserve types and reject duplicate keys/nonfinite values.
 Malformed task JSON is wrong behavior; missing completion or transport failure

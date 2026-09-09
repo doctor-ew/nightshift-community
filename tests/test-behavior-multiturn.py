@@ -7,6 +7,40 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('fixture', ROOT/'tests/nightshift-behavior-fixture.py')
 fixture = importlib.util.module_from_spec(spec); spec.loader.exec_module(fixture)
 
+class StructuralOracles(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location('proof_oracles', ROOT/'scripts/nightshift-behavior-proof.py')
+        cls.proof = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.proof)
+    def check_oracle(self, op, value, accepted, rejected):
+        assertion = dict(op=op, field=['nested','field'], value=value)
+        self.proof.assertion(assertion)
+        case = dict(expected=[assertion], prohibited=[])
+        for item in accepted:
+            self.assertTrue(self.proof.evaluate(json.dumps({'nested':{'field':item}}), case), repr(item))
+        for item in rejected:
+            self.assertFalse(self.proof.evaluate(json.dumps({'nested':{'field':item}}), case), repr(item))
+        self.assertFalse(self.proof.evaluate('{"nested":{}}', case))
+        self.assertFalse(self.proof.evaluate('not JSON', case))
+        self.assertFalse(self.proof.evaluate('{"nested":{"field":[],"field":[1]}}', case))
+        prohibited = dict(expected=[], prohibited=[assertion])
+        self.assertFalse(self.proof.evaluate(json.dumps({'nested':{'field':accepted[0]}}), prohibited))
+    def test_array_length(self):
+        self.check_oracle('json_field_length_at_most', 3, [[], [1], [1,2,3]], [[1,2,3,4], '', {}, True, 3, None])
+    def test_nonempty(self):
+        self.check_oracle('json_field_nonempty', True, ['yes', [None]], ['', '  \n', [], {}, True, 1, None])
+    def test_structural_schema_bounds(self):
+        for op, invalid in [('json_field_length_at_most', [True, 0, 17, 1.0, '3']),
+                            ('json_field_nonempty', [False, 1, 'true', None])]:
+            for value in invalid:
+                with self.assertRaises(self.proof.Invalid):
+                    self.proof.assertion(dict(op=op, field=['x'], value=value))
+        for field in ([], 'x', [1]):
+            with self.assertRaises(self.proof.Invalid):
+                self.proof.assertion(dict(op='json_field_nonempty', field=field, value=True))
+        with self.assertRaises(self.proof.Invalid):
+            self.proof.assertion(dict(op='json_field_unknown', field=['x'], value=True))
+
 class Multiturn(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='nightshift-multiturn-')
