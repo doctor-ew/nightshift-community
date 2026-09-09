@@ -1,0 +1,22 @@
+test_all_runtime_inventory_and_owned_modes (__main__.BrandingContract.test_all_runtime_inventory_and_owned_modes) ... ok
+test_duplicate_unused_external_and_oversize_policy (__main__.BrandingContract.test_duplicate_unused_external_and_oversize_policy) ... ok
+test_exact_exception_and_nearby_unrelated_match (__main__.BrandingContract.test_exact_exception_and_nearby_unrelated_match) ... ok
+test_forged_duplicate_and_oversize_ownership (__main__.BrandingContract.test_forged_duplicate_and_oversize_ownership) ... ok
+test_fresh_installer_check_is_json_readonly (__main__.BrandingContract.test_fresh_installer_check_is_json_readonly) ... ok
+test_installed_ancestor_escape_and_unrelated_siblings (__main__.BrandingContract.test_installed_ancestor_escape_and_unrelated_siblings) ... ok
+test_installed_dotdot_link_cannot_disguise_external_target (__main__.BrandingContract.test_installed_dotdot_link_cannot_disguise_external_target) ... ok
+test_installed_exception_uses_exact_source_context (__main__.BrandingContract.test_installed_exception_uses_exact_source_context) ... ok
+test_installed_tree_nested_escape (__main__.BrandingContract.test_installed_tree_nested_escape) ... ok
+test_nested_name_content_and_sanitization (__main__.BrandingContract.test_nested_name_content_and_sanitization) ... ok
+test_owned_copy_drift_and_unknown_copy (__main__.BrandingContract.test_owned_copy_drift_and_unknown_copy) ... ok
+test_provider_core_rules_and_negative_instructions (__main__.BrandingContract.test_provider_core_rules_and_negative_instructions) ... ok
+test_source_clean_and_readonly (__main__.BrandingContract.test_source_clean_and_readonly) ... ok
+test_source_escape_cycle_encoding_and_oversize (__main__.BrandingContract.test_source_escape_cycle_encoding_and_oversize) ... ok
+test_symlink_install_and_independent_ownership (__main__.BrandingContract.test_symlink_install_and_independent_ownership) ... ok
+test_unreadable_source (__main__.BrandingContract.test_unreadable_source) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 6.204s
+
+OK
+PASS: installer archives owned aliases and preserves unrelated symlinks

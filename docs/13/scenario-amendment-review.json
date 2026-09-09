@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "task": "13",
+  "reviewer": {
+    "provider": "codex",
+    "author_id": "review-13-private"
+  },
+  "decision": "approve",
+  "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+  "reviewed_at": "2026-09-08T23:38:40.516586+00:00",
+  "scenario_ids": [
+    "13-admission",
+    "13-review-and-red",
+    "13-oracle",
+    "13-scope-and-staleness",
+    "13-accounting",
+    "13-heldout-final",
+    "13-runner-containment",
+    "13-policy-and-metrics",
+    "13-recovery-and-delivery",
+    "13-reviewer-missing-negative",
+    "13-reviewer-complete-design"
+  ],
+  "findings": [],
+  "checks": {
+    "per_case_applicability_and_risks": "pass",
+    "derived_summary_and_risk_union": "pass",
+    "required_ac_coverage": "pass",
+    "given_when_then_counterexamples": "pass",
+    "prototype_expected_and_prohibited_observability": "pass",
+    "nested_scenario_ids_and_input_digests": "pass",
+    "supported_declared_text_profile": "pass",
+    "amendment_provenance": "pass"
+  },
+  "assessment": "Deterministic scenarios require ordinary execution evidence. Prototype scenarios exercise reviewer behavior through observable decisions, complete nested identifiers and exact input digests. The corrected positive fixture covers active access, expiry denial and mutation denial with unchanged persisted state. The amended rationale preserves the original fixture defect, failed result and charged call.",
+  "scope": "Independent classification review of this exact public manifest. This receipt does not replace distinct-provider typed challenge or attest runtime execution."
+}

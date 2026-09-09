@@ -13,16 +13,18 @@ authorization from saved state, configuration, or an inherited environment varia
 Forward the explicit option to every nested stage; a resumed run must opt in again.
 
 The nightshift's build stage. Same spine as `/implement` (branch → approaches → plan →
-build → test → hand off) with four mechanics layered on so "tests went green" is provable,
+build → test → hand off) with these mechanics so "tests went green" is provable,
 not assertable:
 
-1. **Spec-lock** — seal `SPEC.md` under `nightshift-bot@local` before any code is written.
+1. **Spec-lock** — seal `SPEC.md` and public scenarios under `nightshift-bot@local` before task code is written.
 2. **Agent firewall** — the implementation agent never sees the test source, so the RED
    phase stays epistemically independent (it designs to the spec, not to the assertions).
 3. **RED-lock** — after the failing tests are written and confirmed RED, seal them under
    `nightshift-bot@local`. `/nightshift-review` later fails if a non-bot commit touched a locked path.
 4. **Already-fixed-upstream** — if the new tests pass on unpatched code, there is nothing
-   to build; exit cleanly without consuming retry budget.
+   to build for that deterministic defect; this is not proof approval for remaining required cases.
+5. **Behavioral admission** — reuse deterministic RED, execute only required bounded
+   prototypes, and require the task-bound development gate before GREEN.
 
 **No gstack.** Never invoke `/ship`, `/qa`, `/review` (gstack), `/health`, or `/autoplan`.
 **Never commit the final diff. Never push. Never open a PR.** That is `/nightshift-deploy`'s job.
@@ -38,7 +40,9 @@ not assertable:
   budget applies.
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -47,8 +51,8 @@ TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
 
 Before any context/state helper or spec-lock writes, parse optional `--base REF` as literal
 arguments and remove it from `TASK`. Use `nightshift-worktree.sh prepare "$TASK" --project
-"$PROJECT"` with that exact `--base` value, then change directory and `CLAUDE_PROJECT_DIR`
-to the returned `.worktree`. A failed prepare stops only this ticket in factory mode.
+"$PROJECT"` with that exact `--base` value, then change directory to the returned `.worktree` and use the shared context
+resolver with explicit `--project` and `--shell` to switch neutral context. A failed prepare stops only this ticket in factory mode.
 
 If eng/batch already prepared this exact context, do not call clean-only prepare after
 product has written this ticket's files. Validate the common-Git-dir receipt at
@@ -90,7 +94,12 @@ if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 
 ## Step 0 — Load spec
 
-Read `$SPEC` fully. Extract:
+Read `$SPEC` and the required `docs/$TASK/behavior-scenarios.json` fully. Missing
+scenarios block adoption; a task name or old spec is not proof. Follow
+`docs/BEHAVIOR-PROOF.md` in source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+Validate scenarios and require recorded independent classification/design review
+before proceeding. Extract:
 - Acceptance-criteria count (numbered items under `## Acceptance Criteria`)
 - Files-to-change count (rows in the `## Files to Change` table)
 - Ticket type (`Bug` vs `Feature`)
@@ -99,7 +108,7 @@ Read `$SPEC` fully. Extract:
 
 ## Step 0.5 — Spec-lock + token-savings artifacts
 
-Seal the approved spec under the bot identity, then regenerate the review digest and the
+Seal the approved spec and public scenario artifact under the bot identity, then regenerate the review digest and the
 trimmed citations from the sealed spec.
 
 ```bash
@@ -108,7 +117,7 @@ bash ~/.nightshift/scripts/nightshift-spec-digest.sh "$TASK"
 bash ~/.nightshift/scripts/nightshift-citations-trim.sh "$TASK"
 ```
 
-- `SPEC_LOCK_SKIPPED: SPEC.md not found` → warn and continue (should not happen — Step 0 guarded).
+- `SPEC_LOCK_SKIPPED: SPEC.md not found` → block; approved inputs are required.
 - `SPEC_LOCK_SHA:` → noted; also written to the resolved state home's `${TASK}.locks` automatically.
 - Digest/citation skips are non-fatal — warn and continue.
 
@@ -149,7 +158,11 @@ state which and why in one line, proceed.
 ### Effort estimate
 ```
 
-The sequence **must** write the failing tests before any production code — RED precedes GREEN.
+The sequence writes meaningful failing tests for required deterministic cases
+before their fix code. A pure prototype task permits only its declared minimal
+prompt files before behavioral admission; it does not authorize surrounding
+implementation. A reviewed not-applicable-only task needs no fabricated RED test.
+Keep ordinary scope activation in place for every path.
 
 **Supervised:** "Does this plan look right?" — wait for explicit approval. **Autonomous:** record
 the plan to the progress file and proceed.
@@ -175,7 +188,7 @@ Pipeline Stages section; only add an `## Implementation` block — never clobber
 
 ## Step 5 — RED phase (agent firewall applies)
 
-Write the failing tests named in the spec's Files-to-Change table. Confirm each fails with a
+For required deterministic cases, write the failing tests named in the spec's Files-to-Change table. Confirm each fails with a
 **relevant assertion error** (not a syntax/import error — a wrong test isn't a RED test).
 
 **Agent firewall — applies when delegating the GREEN implementation in Step 7:**
@@ -197,11 +210,16 @@ orchestrator) write the tests in this step; the delegated agent in Step 7 does n
 
 ## Step 5.5 — Already-fixed-upstream detection (after RED, before any fix)
 
-Run the new tests against the **unpatched** code:
+Use the retained Step 5 execution against the **unpatched** code; do not repeat
+it merely to populate proof evidence. This check applies to deterministic cases:
 
 - RED produced the expected failing assertion(s) → the defect is present. Continue to Step 6.
 - **All** new tests pass on unpatched code → already fixed upstream. Terminal, **non-failure**
   exit; does **not** consume retry budget.
+
+Already-fixed-upstream exit applies only when no remaining required prototype or
+other implementation work exists. SKIP records that existing behavior was found;
+it is not a final behavioral proof pass.
 
 Already-fixed-upstream exit:
 1. Note it in the progress file and (if a bead exists) `bd note "$BD_ID" "already-fixed-upstream: tests pass on unpatched code"`.
@@ -212,7 +230,7 @@ Already-fixed-upstream exit:
 
 ## Step 6 — RED-lock
 
-With the failing tests written and confirmed RED, seal them **before** writing fix code:
+When required deterministic cases exist, with the failing tests written and confirmed RED, seal them **before** writing fix code:
 
 ```bash
 bash ~/.nightshift/scripts/nightshift-tdd-red-lock.sh "$TASK"
@@ -222,6 +240,50 @@ bash ~/.nightshift/scripts/nightshift-tdd-red-lock.sh "$TASK"
 - `RED_LOCK_SKIPPED: no test files to stage` → tests weren't left uncommitted. Ensure the new
   tests are written and **not yet committed**, then re-run. (red-lock is the thing that commits
   them — do not pre-commit tests yourself.)
+
+---
+
+## Step 6.5 — Seal evidence and establish development admission
+
+Use the approved public cases and retained independent review. Pure prototype or
+not-applicable tasks have no ordinary RED lock; do not fabricate one. Required
+deterministic cases retain the actual Step 5 execution once and its Step 6 lock.
+
+Call the proof helper's `seal --project "$PROJECT" --task "$TASK" --scenarios
+"docs/$TASK/behavior-scenarios.json"`. Add `--challenge "docs/$TASK/proof-challenge.json"`
+for prototype/safety-sensitive cases. For prototype cases also supply `--heldout`
+with the independently retained private manifest; never place its path or bodies
+in worker prompts, public evidence or Git. Seal checks commitment, private AC
+coverage, approved inputs and current source scope before runtime execution.
+
+For deterministic cases, the trusted orchestrator writes `docs/$TASK/proof-red.json`
+using the shared observation schema: actual command/provenance, relevant assertion
+failures, explicit scenario IDs, log/test hashes and recorded RED-lock identity.
+Missing imports or a model's SUCCESS are not relevant RED. Ingest the observation:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  record-red --project "$PROJECT" --task "$TASK" --evidence "docs/$TASK/proof-red.json" || exit $?
+```
+
+For required prototype cases, call `run --project "$PROJECT" --task "$TASK"
+--gate development`. This executes only the declared no-tool profile; unsupported
+intended runtime/tool behavior blocks. Inspect sanitized failures in orchestration.
+At most two recorded prompt repairs may change only the declared prototype files;
+never weaken the oracle, expose private cases or repeatedly sample unchanged
+failure. Preserve pending reservations, counters and fixed scope. Do not launch
+a separate model-repair worker or implement surrounding artifacts before pass.
+
+Every path, including reviewed not-applicable cases, must pass the read-only gate:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  gate --project "$PROJECT" --task "$TASK" --gate development || exit $?
+```
+
+Require the returned pass outcome. Unknown, missing, exhausted or stale evidence
+blocks GREEN; a prose approval or provider exit alone cannot override it. The
+engineer/architect dispatcher repeats this admission check before launching.
 
 ---
 
@@ -240,7 +302,7 @@ never include tests, RED output or hidden assertions. Invoke the shared dispatch
 
 ```bash
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
-  "$ROLE" --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK/implementation.in.md" \
+  "$ROLE" --task "$TASK" --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK/implementation.in.md" \
   --out "docs/$TASK/implementation.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK/implementation.out.json"
 else
@@ -259,7 +321,8 @@ the implementation gate; do not silently expand sandbox authority.
 
 Apply the Step 5 firewall to the delegation prompt. Both agents:
 - follow the spec's ACs as the checklist — nothing more, nothing less
-- follow the repo's CLAUDE.md conventions
+- follow the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)
 - **stop and flag** any file not in the Files-to-Change table before touching it
 - **stop and flag** an incomplete/wrong spec — never improvise
 
@@ -287,6 +350,14 @@ fi
 
 Require SUCCESS, `.results.failed == 0`, and actual test evidence; SKIP does not
 prove tests green. Keep test reports outside the implementation agent firewall.
+For required deterministic cases, the trusted orchestrator records actual final
+success in `docs/$TASK/proof-final.json`: zero exit, relevant passed assertions,
+complete scenario coverage, unchanged locked tests/log hashes and current final
+source hashes. Call `record-final --project "$PROJECT" --task "$TASK" --evidence
+"docs/$TASK/proof-final.json"` through the proof helper. It ingests evidence without
+executing command text. RED evidence cannot stand in for final success. Keep the
+raw observation outside GREEN context; later source changes require fresh evidence.
+
 Initialize `GATE_ATTEMPT=1` separately for each gate. On a failed gate, record the
 attempt in its existing persisted retry ledger, increment `GATE_ATTEMPT`, and pass
 it on the next scoped repair dispatch. Resume from the recorded count, never reset
@@ -379,7 +450,9 @@ only commits this stage makes; the GREEN diff stays in the working tree for `/ni
 
 ## Rules
 - No spec = no build (hard stop).
-- RED before GREEN, always. red-lock before any fix code.
+- Required deterministic RED and its lock precede fix code. Only declared minimal
+  prototype files may change before development proof; surrounding GREEN requires
+  task-bound gate pass. Reviewed not-applicable cases do not fabricate tests.
 - Never let the GREEN agent see the test source (firewall).
 - Never commit the final diff / push / open a PR.
 - Three failures on the same test = escalate (supervised) or exhaust (autonomous) — not a 4th guess.

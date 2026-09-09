@@ -17,6 +17,43 @@
 #
 # Deliberately NOT set -euo pipefail: probes must be allowed to fail.
 
+# Semantic adapter lookup is pure: no CLI probes, shared cache, or tool execution.
+if [ "${1:-}" = --resolve ]; then
+  shift
+  python3 - "$@" <<'PYSEMANTIC'
+import argparse, json, re, sys
+p = argparse.ArgumentParser()
+p.add_argument('operation')
+p.add_argument('--mapping')
+p.add_argument('--available-tools')
+try:
+    a = p.parse_args()
+    result = dict(status='unavailable', operation=a.operation, tool=None)
+    if a.operation != 'document-read':
+        raise ValueError('OPERATION_INVALID')
+    if not a.mapping or not a.available_tools:
+        print(json.dumps(result)); sys.exit(1)
+    with open(a.mapping, encoding='utf-8') as f:
+        mapping = json.load(f)
+    with open(a.available_tools, encoding='utf-8') as f:
+        available = json.load(f)
+    valid = lambda value: isinstance(value, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', value)
+    if not isinstance(mapping, dict) or any(k != 'document-read' or not valid(v) for k, v in mapping.items()):
+        raise ValueError('MAPPING_INVALID')
+    if not isinstance(available, list) or any(not valid(v) for v in available):
+        raise ValueError('TOOLS_INVALID')
+    tool = mapping.get(a.operation)
+    if tool in available:
+        result.update(status='available', tool=tool)
+    print(json.dumps(result))
+    sys.exit(0 if result['status'] == 'available' else 1)
+except (OSError, ValueError, UnicodeError):
+    print(json.dumps(dict(status='error', operation='document-read', tool=None, code='CAPABILITY_CONFIG_INVALID')))
+    sys.exit(64)
+PYSEMANTIC
+  exit $?
+fi
+
 CACHE_DIR="${NIGHTSHIFT_CACHE_DIR:-$HOME/.nightshift}"
 CACHE_FILE="$CACHE_DIR/capabilities"
 TTL=86400

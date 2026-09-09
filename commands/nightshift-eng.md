@@ -90,7 +90,9 @@ Run `--check` first to audit what's missing without making changes.
 ## Step 1 — Resolve task key
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 ARG=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -164,7 +166,8 @@ WORKTREE_RECEIPT=$(bash ~/.nightshift/scripts/nightshift-worktree.sh prepare "$T
   --project "$PROJECT" "${BASE_ARGS[@]}") || exit 1
 PROJECT=$(printf '%s\n' "$WORKTREE_RECEIPT" | jq -er '.worktree') || exit 1
 cd "$PROJECT" || exit 1
-export CLAUDE_PROJECT_DIR="$PROJECT"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
 export NIGHTSHIFT_PREPARED_TASK="$TASK_KEY"
 export NIGHTSHIFT_WORKTREE_RECEIPT="$WORKTREE_RECEIPT"
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
@@ -261,6 +264,13 @@ echo "TASK_KEY: $TASK_KEY"
 ---
 
 ## Step 3 — Stage gating — read current state from tracker
+
+For adversarial verification, use the persisted `.adversarial-budget.json` in the
+task output directory for retry admission. Infrastructure failures are not
+substantive spec-repair attempts; do not exhaust the substantive gate budget by
+counting failed model launches. Retain both counters and the independent total
+ceiling across resumes. Other stages retain their existing budgets. Never reset
+or delete budget evidence to resume a failed gate.
 
 ```bash
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
@@ -468,9 +478,10 @@ Append summary. Continue.
 sed -i '' "s|^⬜ /nightshift-qa.*|⏳ /nightshift-qa — behavioral QA|" "$TRACKER"
 ```
 
-Invoke `/nightshift-qa $TASK_KEY`. Wait. This runs the project's full Playwright suite as a
-regression gate; on a project without Playwright it returns `APPROVE (no Playwright — skipped)`
-at zero cost.
+Invoke `/nightshift-qa $TASK_KEY`. Wait for required ordinary final evidence and
+held-out prototype evaluation as applicable, plus browser regressions. An absent
+Playwright suite skips only that browser run; final behavioral proof must pass.
+Do not advance on development evidence, a task name or prose approval alone.
 
 If `NIGHTSHIFT-QA GATE: REQUEST CHANGES`: mark blocked and stop.
 
@@ -481,7 +492,16 @@ sed -i '' "s|^⏳ /nightshift-qa.*|❌ /nightshift-qa — behavioral QA [BLOCKED
 Engineer fixes the regression (or re-seals tests if a locked spec changed intentionally), then
 re-runs `/nightshift-eng $TASK_KEY`.
 
-If `APPROVE` (PASS or SKIPPED):
+After QA reports APPROVE, independently require the final read-only gate before
+marking the stage complete:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  gate --project "$PROJECT" --task "$TASK_KEY" --gate final || exit $?
+```
+
+Require its pass outcome. Missing, unknown or stale proof blocks completion even
+when browser QA passed or skipped. With both QA approval and final proof pass:
 
 ```bash
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)

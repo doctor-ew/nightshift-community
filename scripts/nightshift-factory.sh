@@ -11,6 +11,11 @@
 
 set -euo pipefail
 
+if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
+  echo 'nightshift: recursive factory launch from a role worker is prohibited' >&2
+  exit 64
+fi
+
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [ -L "$SCRIPT_PATH" ]; do
   LINK_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -19,6 +24,10 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ "${1:-}" = --sync ]; then
+  shift
+  exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --apply --heal "$@"
+fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
     version|setup|dashboard|--help|-h|"") ;;
@@ -36,6 +45,8 @@ if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-das
 PROJECT="$(pwd)"
 PROVIDER=""
 MODEL=""
+DASHBOARD="${NIGHTSHIFT_DASHBOARD:-}"
+DASHBOARD_BROWSER="${NIGHTSHIFT_DASHBOARD_BROWSER:-}"
 REF=""
 MODE="eng"
 BRANCH="auto"
@@ -67,6 +78,8 @@ Options:
   --gear auto|0|1|2|3|4       Role-router gear preference
   --risk low|standard|high    Role-router risk class
   --model MODEL              Override model; required for a deterministic local run
+  --dashboard auto|off       Start/reuse a local dashboard (default: auto)
+  --dashboard-browser once|off  Open only on dashboard start (default: once)
   --auth subscription|api    Authentication (default: subscription; api is a per-run opt-in)
   --branch auto|NAME         Isolated ticket branch (default: auto)
   --push                     Commit verified changes and push the ticket branch
@@ -82,6 +95,8 @@ while [ "$#" -gt 0 ]; do
     --model) shift; MODEL="${1:-}" ;;
     --gear) shift; export NIGHTSHIFT_GEAR="${1:-}" ;;
     --risk) shift; export NIGHTSHIFT_RISK="${1:-}" ;;
+    --dashboard) shift; DASHBOARD="${1:-}" ;;
+    --dashboard-browser) shift; DASHBOARD_BROWSER="${1:-}" ;;
     --auth) shift; AUTH_MODE="${1:-}"; AUTH_EXPLICIT=true ;;
     --branch) shift; BRANCH="${1:-}" ;;
     --push) PUSH="true" ;;
@@ -116,10 +131,74 @@ done
 [ -d "$PROJECT" ] || { echo "Project directory not found: $PROJECT" >&2; exit 66; }
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
-if ! bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT" >/dev/null 2>&1; then
-  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT"
-elif [ ! -e "$PROJECT/.nightshift.toml" ]; then
+
+# Explicit launcher project retains its cwd default; translate adapter context once.
+PROJECT_CONTEXT=$(python3 "$SCRIPT_DIR/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
+
+# One run-scoped, private metrics context for this factory invocation,
+# propagated to role/worktree descendants through the environment. Metrics
+# are strictly observational: an unavailable or failed metrics home (no Git,
+# I/O error) never blocks or alters the run it describes.
+RUN_METRICS_INIT="$(python3 "$SCRIPT_DIR/nightshift-run-metrics.py" init --project "$PROJECT" --branch "$BRANCH" 2>/dev/null || echo '{}')"
+NIGHTSHIFT_RUN_ID="$(jq -r '.run_id // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
+NIGHTSHIFT_RUN_DIR="$(jq -r '.run_dir // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
+export NIGHTSHIFT_RUN_ID NIGHTSHIFT_RUN_DIR
+METRICS_FINALIZED=false
+run_metrics_summary() {
+  METRICS_FINALIZED=true
+  [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  if [ -z "${NIGHTSHIFT_RUN_DIR:-}" ]; then
+    printf '%s\n' '{"schema_version":1,"metrics_available":false,"reason":"PERSISTENCE_UNAVAILABLE"}' >&2
+    return 0
+  fi
+  python3 "$SCRIPT_DIR/nightshift-run-metrics.py" summary --run-dir "${NIGHTSHIFT_RUN_DIR:-}" \
+    --run-id "$NIGHTSHIFT_RUN_ID" --terminal-status "$1" ${2:+--preflight-reason "$2"} >/dev/null 2>&1 || true
+}
+finish_metrics() {
+  local result=$?
+  if [ "$METRICS_FINALIZED" = false ]; then
+    run_metrics_summary interrupted
+  fi
+  return "$result"
+}
+trap finish_metrics EXIT
+
+# Typed, read-only admission receipt: baseline, local-input/ticket identity,
+# manifest and worktree-collision checks, in that fixed order, before any
+# provider is started (or even auto-setup/dashboard/auth are touched below).
+preflight_admission() {
+  if [ "$MODE" = batch ]; then
+    local i=0 pf_resume='' pf_batch_input=''
+    while [ "$i" -lt "${#BATCH_ARGS[@]}" ]; do
+      case "${BATCH_ARGS[$i]}" in
+        --resume) pf_resume="${BATCH_ARGS[$((i + 1))]}"; i=$((i + 2)) ;;
+        --batch-n) i=$((i + 2)) ;;
+        *) pf_batch_input="${pf_batch_input:+$pf_batch_input,}${BATCH_ARGS[$i]}"; i=$((i + 1)) ;;
+      esac
+    done
+    if [ -n "$pf_resume" ]; then
+      bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --resume "$pf_resume"
+    else
+      bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --batch-input "$pf_batch_input"
+    fi
+  else
+    bash "$SCRIPT_DIR/nightshift-preflight-check.sh" --project "$PROJECT" --branch "$BRANCH" --ref "$REF"
+  fi
+}
+set +e
+ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
+set -e
+ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION" 2>/dev/null || echo '')"
+if [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
   bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
+fi
+if [ "$ADMISSION_STATUS" -ne 0 ]; then
+  echo "nightshift: preflight blocked (${ADMISSION_REASON:-UNKNOWN})" >&2
+  printf '%s\n' "$ADMISSION" >&2
+  run_metrics_summary preflight_blocked "$ADMISSION_REASON"
+  exit "$ADMISSION_STATUS"
 fi
 bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT"
 # Read data, never evaluate configuration as shell code.
@@ -192,7 +271,9 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 
 Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through commit, ordinary push, and PR creation only. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
-Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') and do not start another Codex process. Those commands would recursively start a second factory. Perform the batch protocol and its per-ticket stages in this session instead."
+Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
+
+Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, including its read-only Codex verifier subprocess for cross-provider adversarial review. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
 SANDBOX="workspace-write"
 if [ "$BRANCH" != "none" ]; then
   # Git creates refs and worktrees under .git; workspace-write intentionally
@@ -240,6 +321,13 @@ else
   echo "nightshift: authentication: API key billing." >&2
 fi
 
+[ -n "$DASHBOARD" ] || DASHBOARD="$(jq -r '.dashboard.mode // "auto"' <<< "$SETTINGS_JSON")"
+[ -n "$DASHBOARD_BROWSER" ] || DASHBOARD_BROWSER="$(jq -r '.dashboard.browser // "once"' <<< "$SETTINGS_JSON")"
+case "$DASHBOARD" in auto|off) ;; *) echo 'invalid dashboard mode' >&2; exit 64 ;; esac
+case "$DASHBOARD_BROWSER" in once|off) ;; *) echo 'invalid dashboard browser mode' >&2; exit 64 ;; esac
+if [ "$DASHBOARD" = auto ]; then
+  python3 "$SCRIPT_DIR/nightshift-dashboard-start.py" --project "$PROJECT" --browser "$DASHBOARD_BROWSER" || true
+fi
 CHILD_PID=""
 handle_interruption() {
   local signal="$1"
@@ -249,6 +337,12 @@ handle_interruption() {
     wait "$CHILD_PID" 2>/dev/null || true
   fi
   echo "nightshift: inspect the batch state and resume with 'nightshift batch --resume <batch-file> --branch ${BRANCH}'." >&2
+  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$CHILD_PID" ]; then
+    python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
+      --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
+      --status interrupted >/dev/null 2>&1 || true
+  fi
+  run_metrics_summary interrupted
   exit 143
 }
 trap 'handle_interruption SIGINT' INT
@@ -277,7 +371,20 @@ wait "$CHILD_PID"
 CODEX_STATUS=$?
 set -e
 CHILD_PID=""
+if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
+  python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
+    --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
+    --status "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" >/dev/null 2>&1 || true
+fi
 if [ "$CODEX_STATUS" -eq 143 ]; then
   echo "nightshift: Codex received SIGTERM; inspect the batch state and resume instead of starting a fresh batch." >&2
+  run_metrics_summary interrupted
+elif [ "$CODEX_STATUS" -eq 0 ]; then
+  # A clean process exit is not itself proof of a verified, delivered result;
+  # downstream gates decide that. This only records that the provider ran
+  # and returned control.
+  run_metrics_summary provider_exited_0
+else
+  run_metrics_summary provider_exited_nonzero
 fi
 exit "$CODEX_STATUS"

@@ -1,0 +1,4 @@
+Legacy scanner with nested maintained-doc retired branding: exit 0
+PASS: maintained Nightshift source has no retired branding or alias paths
+
+RED: expected nonzero detection; legacy returns clean pass

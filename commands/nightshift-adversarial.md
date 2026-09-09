@@ -28,7 +28,9 @@ structural grounding.
 ## Step 1 — Parse argument and resolve paths
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -73,7 +75,7 @@ If **B**: `rm "$CITATION"`.
 
 ## Step 4 — Verify the spec's ## Sources section
 
-Dispatch all extractor calls through `scripts/nightshift-agent.sh` with
+Dispatch all extractor calls through `scripts/nightshift-dispatch-bounded.sh` (which invokes the shared role dispatcher) with
 `--author-provider` copied from the spec-writing result's `_provenance.provider`.
 Do not infer authorship from the current runtime. If prior author provenance is
 missing, block verification until authorship is established. Explicit adversarial
@@ -83,6 +85,40 @@ publishes normalized JSON: `status`, `summary`, `findings`, `evidence`, and its 
 `_provenance`; parse the report from these fields rather than provider event logs.
 Carry this provenance into citations and the stage receipt. A failed or blocked
 result cannot approve the gate, even if the provider process exited successfully.
+
+Retry admission is persisted in the task output directory's
+`.adversarial-budget.json`. Infrastructure failures do not consume substantive
+spec-repair attempts: retain separate counters and the independent total-call
+ceiling. Read `next_action` after any nonzero exit; never reset this file to gain
+attempts. An unsupported model requires a routing configuration change before
+another launch. A completed report with conflicts requires a spec repair, not a
+transport retry. See `docs/RETRY-BUDGETS.md` for limits and interrupted reservations.
+
+A zero dispatcher exit means **report available**, not gate approval. A valid
+report leaves its prelaunch reservation pending until this stage evaluates it.
+The dispatcher-owned `<output>.retry.json` sidecar supplies `state_path`,
+`attempt_id`, and the retained `result_path`; never take these from model output.
+After validating completeness, evidence and the mappings below, finalize that
+same attempt using the accounting CLI. Set `EVALUATION_CATEGORY` to `success`
+only for an accepted batch, `substantive` for mapped findings requiring repair,
+or `schema` for an incomplete/malformed batch. `NOT_FOUND` on a spec-authored
+`[NEW]` claim maps to `NET_NEW` and is not a substantive failure. A raw model
+status alone does not decide the category.
+
+Finalization recipe (`REPORT` is the just-evaluated requested output path):
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-budget.py" \
+  --state "$(jq -er '.state_path' "$REPORT.retry.json")" \
+  --attempt-id "$(jq -er '.attempt_id' "$REPORT.retry.json")" \
+  --category "$EVALUATION_CATEGORY"
+```
+
+Read the resulting `next_action` before another invocation. Do not finalize
+again with a different category; retained attempts are immutable after mapping.
+Nonzero dispatcher exits already finalize infrastructure/role failures and must
+not use an older sidecar. A pending reservation blocks further dispatch: finish
+the recorded evaluation before retrying, without deleting its evidence.
 
 Read `## Sources` from `$SPEC`. If absent or empty, hard-stop:
 
@@ -107,14 +143,14 @@ actual author receipt.
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-sources.in.md" \
   --out "docs/$TASK/adversarial-sources.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-sources.out.json"
 else
   jq '{status,reason}' "docs/$TASK/adversarial-sources.out.json"
-  # Apply the existing single reissue/factory repair policy; do not mark verified.
+  # Read .adversarial-budget.json; infrastructure failures do not consume spec repairs.
 fi
 ```
 
@@ -151,6 +187,11 @@ Extractor result: <what was found>
 ```
 
 Choice **C** adds to the blocked list (Step 8).
+
+Finalize the source report using the recipe above before dispatching the claim
+batch. Malformed responses finalize as `schema` before the bounded reissue;
+source discrepancies requiring repair finalize as `substantive`. Only accepted
+source mappings finalize as `success`. Retain all existing source gates.
 
 ---
 
@@ -239,14 +280,14 @@ and evidence requirements. Dispatch once with the same actual author provenance:
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-claims.in.md" \
   --out "docs/$TASK/adversarial-claims.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-claims.out.json"
 else
   jq '{status,reason}' "docs/$TASK/adversarial-claims.out.json"
-  # Reissue within the existing limit, then block on exhaustion.
+  # Read .adversarial-budget.json; repair substantive findings before reissuing.
 fi
 ```
 
@@ -308,8 +349,7 @@ Use the bundled helper for hash/lookup/append/invalidate — see `scripts/nights
 in this repo (mirrored to `~/.claude/scripts/` by the installer). Never reach for a
 Python SDK / `cache_control: ephemeral` workaround here — the 5-minute TTL is the wrong
 cache layer for a stage that BLOCKS for hours during engineer triage, and the SDK path
-breaks the interactive challenge loop in Step 7. See CX ADR-002 alternatives A–D for
-the full rejection rationale.
+breaks the interactive challenge loop in Step 7. This retained file cache remains available across the interactive challenge loop.
 
 ---
 
@@ -352,6 +392,12 @@ CONFIRM-after-conflict records to the shared `$SHARED_CACHE` — engineer overri
 belong to a single task and should not auto-apply to other tickets. Only Step 6c's
 `FOUND_MATCH` and `NET_NEW` outcomes (clean extractor results, no human judgment) are
 eligible for the shared cache.
+
+Finalize the claim report using the same recipe after completeness checks,
+Step 6c's `[NEW]`/`[EXISTING]` mapping and this challenge loop. Use `schema` for
+malformed/incomplete batches, `substantive` for unresolved findings requiring
+repair, or `success` for accepted mapped outcomes (including `NET_NEW`). Finalize
+before any repair reissue; budget accounting never replaces Step 8 approval.
 
 ---
 

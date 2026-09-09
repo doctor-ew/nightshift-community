@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "evidence_sha256": {
+    "raw.jsonl": "94e2795b93a2cafaaee13be6e6c0ad67cc3987348c2b354dbd5fa9c1456888cd",
+    "report.json": "ac2fc6fa3f849cfe1cc93a76a2378ca83be4f68066a6b23b7de0ee7b0a775ec9",
+    "baseline.json": "a95f38deaac63c6967e0beaded59ab53bc56a848f332d382e73da95cc7d4a973",
+    "codex-legacy/fixture_test.py": "fd00abf50acd40da8a108e245d167f38d146e7239a21f58939df8f0d5701541b",
+    "codex-legacy/CLAUDE.md": "57f9496ab4dc60eff6fbc033792bd3f032c076d5f9796e457ffdb2c103014ed3"
+  }
+}

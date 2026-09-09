@@ -77,7 +77,9 @@ adapters and requested remote actions require their corresponding credentials.
 ## Step 2 — Resolve paths and fetch ticket
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 REF=$(jq -r '.arguments' <<< "$STAGE_ARGS")
@@ -186,7 +188,11 @@ Otherwise, ask the engineer:
 
 Handle the response:
 
-- **Valid Confluence URL** (contains `atlassian.net` or `/wiki/`) — call `mcp__claude_ai_Atlassian__getConfluencePage` with the URL. If successful, set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` from the result. If the fetch fails (auth, 404), warn and set `PRODUCT_SPEC_CONTENT=` (empty) with a note.
+- **Valid Confluence URL** (contains `atlassian.net` or `/wiki/`) — resolve the optional `document-read` capability through the runtime adapter using
+  `scripts/nightshift-capability.sh --resolve document-read` with its mapping and
+  available-tool inventory (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)). Validate the selected
+  tool schema and fetch the URL. If unavailable, warn and retain empty optional context. If successful, set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` from the result. If the fetch fails (auth, 404), warn and set `PRODUCT_SPEC_CONTENT=` (empty) with a note.
 - **Local file path** — if the file exists, read it and set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` to the path.
 - **`skip` or empty after one retry** — set `PRODUCT_SPEC_REF=OVERRIDE`. Print: `⚠  Proceeding without product spec.`
 
@@ -367,7 +373,20 @@ in the `## Sources` section preamble.
 > Vague entries ("see file") are invalid. The spec-guardrail hook blocks the Write if Sources
 > is absent or has no `path:line ... commit:` entries.
 
-Spec saves to `docs/<task-key>/SPEC.md`.
+Spec saves to `docs/<task-key>/SPEC.md`; every mode also produces
+`docs/<task-key>/behavior-scenarios.json`. Include stable AC IDs, per-case
+applicability/risk rationale, expected/forbidden behavior and counterexamples in
+the writer brief. Keep actual provenance; review fields remain null until reviewed.
+
+Delegate scenario validation and conditional independent design challenge to
+`/nightshift-spec` Step 4 once. Require its complete reviewed coverage before
+approval/tracker advancement. Ordinary deterministic cases reuse planned RED
+assertions without a universal model gate. Prompt/runtime and safety-sensitive
+cases require the typed independent challenge; unknown runtime/oracle blocks.
+Private held-out bodies and locators remain with the independent evaluator;
+only commitments appear in public scenarios. Use `docs/BEHAVIOR-PROOF.md` in
+source (installed at `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+Do not run prototypes or build surrounding implementation during this stage.
 
 ---
 
@@ -480,7 +499,9 @@ Read the answer. Treat empty input, `y`, `Y`, `yes`, `YES` as **Yes**. Treat `n`
 ## Stop Flow
 
 ```bash
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+eval "$PROJECT_CONTEXT"
+PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT")
 TRACKER=$(ls "${TASK_DIR}/"bd-*.md 2>/dev/null | head -1)
 ACTIVE=$(ls "${TASK_DIR}/ACTIVE-"* 2>/dev/null | head -1)

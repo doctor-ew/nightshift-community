@@ -4,7 +4,7 @@
 # Modes:
 #   install.sh                  install shared Nightshift runtime + selected adapters (default)
 #   install.sh --copy           plain copy instead of symlinks
-#   install.sh --check          dry-run; report deps + conflicts + hook status
+#   install.sh --check          read-only source/owned-install audit; absent installs fail
 #   install.sh --with-hook      additionally wire scope-freeze + spec-guardrail (PreToolUse) and nightshift-stop-hook (Stop) into ~/.claude/settings.json
 #   install.sh --uninstall      remove everything this installer placed
 #   install.sh --runtime NAME   codex, claude, local, or all (default: all)
@@ -35,6 +35,9 @@ AUTH_MODE=""
 SETUP_PROJECT=""
 UPDATE_SOURCE=""
 UPDATE_CHANNEL=""
+REPAIR="no"
+PREVIOUS_SOURCE=""
+INSTALL_PAIRS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,6 +56,8 @@ while [ $# -gt 0 ]; do
     --setup-project) shift; SETUP_PROJECT="$1" ;;
     --update-source) shift; UPDATE_SOURCE="$1" ;;
     --update-channel) shift; UPDATE_CHANNEL="$1" ;;
+    --repair) REPAIR="yes" ;;
+    --previous-source) shift; PREVIOUS_SOURCE="$1" ;;
     -h|--help)
       sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -77,22 +82,24 @@ esac
 CMD_SRC="${REPO_DIR}/commands"
 SCRIPT_SRC="${REPO_DIR}/scripts"
 AGENT_SRC="${REPO_DIR}/agents"
-ROUTING_SRC="${REPO_DIR}/routing.json"
-MANIFEST_SRC="${REPO_DIR}/nightshift.toml"
 CMD_DST="${TARGET}/commands"
 SCRIPT_DST="${NIGHTSHIFT_TARGET}/scripts"
 AGENT_DST="${NIGHTSHIFT_TARGET}/agents"
 ROUTING_DST="${NIGHTSHIFT_TARGET}/routing.json"
 FACTORY_CONFIG="${NIGHTSHIFT_TARGET}/config"
-CLAUDE_SCRIPT_DST="${TARGET}/scripts"
-CLAUDE_AGENT_DST="${TARGET}/agents"
-CLAUDE_ROUTING_DST="${TARGET}/nightshift-routing.json"
-CODEX_SKILL_SRC="${REPO_DIR}/skills/nightshift"
 CODEX_SKILL_DST="${CODEX_TARGET}/skills/nightshift"
 FACTORY_SRC="${REPO_DIR}/scripts/nightshift-factory.sh"
 FACTORY_DST="${BIN_TARGET}/nightshift"
 SETTINGS="${TARGET}/settings.json"
 CODEX_HOOKS="${CODEX_TARGET}/hooks.json"
+# Audit before probes, timestamps, settings reads, directory creation or repair.
+if [ "$ACTION" = "check" ]; then
+  exec python3 "$SCRIPT_SRC/nightshift-branding.py" --project "$REPO_DIR" \
+    --inventory all --runtime "$RUNTIME" --target "$TARGET" \
+    --codex-target "$CODEX_TARGET" --nightshift-target "$NIGHTSHIFT_TARGET" \
+    --bin-target "$BIN_TARGET"
+fi
+
 BACKUP="${NIGHTSHIFT_TARGET}/.backup/$(date +%Y%m%d-%H%M%S)"
 
 # ───────────────────────── helpers ─────────────────────────
@@ -123,6 +130,26 @@ backup_if_exists() {
 
 install_one() {
   local src="$1" dst="$2"
+  if [ "$REPAIR" = yes ]; then
+    case "$(basename "$dst")" in
+      routing.json|nightshift-routing.json|nightshift.toml)
+        [ ! -e "$dst" ] || return 0 ;;
+    esac
+    if [ -L "$dst" ]; then
+      local existing
+      existing="$(readlink "$dst")"
+      if [ "$existing" != "$src" ]; then
+        case "$existing" in
+          "${PREVIOUS_SOURCE:-/__nightshift_no_previous_source__}/"*) ;;
+          *) err "preserving unowned link: $dst"; return 74 ;;
+        esac
+      fi
+    elif [ -e "$dst" ]; then
+      # Routing and project configuration are user-owned data after installation.
+      case "$(basename "$dst")" in routing.json|nightshift-routing.json|nightshift.toml) return 0 ;; esac
+      err "preserving existing non-link: $dst"; return 74
+    fi
+  fi
   backup_if_exists "$dst"
   rm -f "$dst"
   if [ "$MODE" = "symlink" ]; then
@@ -131,10 +158,16 @@ install_one() {
     cp "$src" "$dst"
   fi
   ok "$(basename "$dst")"
+  INSTALL_PAIRS+=("$dst" "$src")
 }
 
 install_tree() {
   local src="$1" dst="$2"
+  if [ "$REPAIR" = yes ]; then
+    mkdir -p "$(dirname "$dst")"
+    install_one "$src" "$dst"
+    return
+  fi
   backup_if_exists "$dst"
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
@@ -144,6 +177,7 @@ install_tree() {
     cp -R "$src" "$dst"
   fi
   ok "$(basename "$dst")"
+  INSTALL_PAIRS+=("$dst" "$src")
 }
 
 want_claude() { [ "$RUNTIME" = "claude" ] || [ "$RUNTIME" = "all" ]; }
@@ -256,6 +290,27 @@ if [ "$NS_VIOLATION" -gt 0 ]; then
   exit 65
 fi
 
+
+install_category() {
+  local category="$1" kind src dst serialized
+  serialized="$(mktemp "${TMPDIR:-/tmp}/nightshift-install-category.XXXXXX")" || return 1
+  if ! printf '%s' "$INSTALL_INVENTORY" | jq -jr --arg category "$category" \
+    '.entries[] | select(.category == $category) | .kind, "\u0000", .source, "\u0000", .destination, "\u0000"' > "$serialized"; then
+    rm -f "$serialized"
+    return 1
+  fi
+  while IFS= read -r -d '' kind && IFS= read -r -d '' src && IFS= read -r -d '' dst; do
+    mkdir -p "$(dirname "$dst")"
+    if [ "$kind" = tree ]; then
+      install_tree "$src" "$dst"
+    else
+      install_one "$src" "$dst"
+      case "$src" in *.sh) chmod +x "$dst" 2>/dev/null || true ;; esac
+    fi
+  done < "$serialized"
+  rm -f "$serialized"
+}
+
 bold "Existing conflicts"
 if want_claude; then
 mkdir -p "$CMD_DST" "$SCRIPT_DST" "$AGENT_DST"
@@ -310,11 +365,6 @@ else
 fi
 echo
 
-if [ "$ACTION" = "check" ]; then
-  bold "Dry-run complete. No changes made."
-  exit 0
-fi
-
 # ───────────────────────── uninstall ─────────────────────────
 
 if [ "$ACTION" = "uninstall" ]; then
@@ -364,6 +414,13 @@ fi
 
 # ───────────────────────── install ─────────────────────────
 
+# One mapping contract is shared with the read-only installed audit.
+INSTALL_INVENTORY="$(python3 "$SCRIPT_SRC/nightshift-install-inventory.py" \
+  --project "$REPO_DIR" --runtime "$RUNTIME" --target "$TARGET" \
+  --codex-target "$CODEX_TARGET" --nightshift-target "$NIGHTSHIFT_TARGET" \
+  --bin-target "$BIN_TARGET")" || exit $?
+
+
 if [ "$UNATTENDED_SHELL" = "yes" ]; then
   bold "Configuring unattended shell execution"
   mkdir -p "$CODEX_TARGET"
@@ -402,56 +459,21 @@ retire_owned_aliases
 
 if want_claude; then
 bold "Installing Claude commands"
-for f in "$CMD_SRC"/*.md; do
-  install_one "$f" "$CMD_DST/$(basename "$f")"
-done
+install_category claude_commands
 echo
 fi
 
 bold "Installing shared Nightshift runtime"
-mkdir -p "$SCRIPT_DST" "$AGENT_DST" "${NIGHTSHIFT_TARGET}/contracts"
-install_one "$SCRIPT_SRC/nightshift-contract.jq" "$SCRIPT_DST/nightshift-contract.jq"
-for helper in "$SCRIPT_SRC"/nightshift-*.py; do
-  [ -f "$helper" ] || continue
-  install_one "$helper" "$SCRIPT_DST/$(basename "$helper")"
-done
-for f in "$REPO_DIR"/contracts/nightshift-*.schema.json; do
-  install_one "$f" "${NIGHTSHIFT_TARGET}/contracts/$(basename "$f")"
-done
-for f in "$SCRIPT_SRC"/*.sh; do
-  install_one "$f" "$SCRIPT_DST/$(basename "$f")"
-  chmod +x "$SCRIPT_DST/$(basename "$f")" 2>/dev/null || true
-done
+install_category shared
 echo
 
 bold "Installing shared agent role prompts"
-for f in "$AGENT_SRC"/*.md; do
-  install_one "$f" "$AGENT_DST/$(basename "$f")"
-done
-install_one "$ROUTING_SRC" "$ROUTING_DST"
-install_one "$MANIFEST_SRC" "${NIGHTSHIFT_TARGET}/nightshift.toml"
-if [ -d "$REPO_DIR/dashboard/dist" ]; then
-  install_tree "$REPO_DIR/dashboard/dist" "${NIGHTSHIFT_TARGET}/dashboard/dist"
-  install_one "$REPO_DIR/dashboard/server.py" "${NIGHTSHIFT_TARGET}/dashboard/server.py"
-fi
+install_category shared_roles
 echo
 
 if want_claude; then
   bold "Installing legacy Claude script adapters"
-  mkdir -p "$CLAUDE_SCRIPT_DST" "$CLAUDE_AGENT_DST"
-  for f in "$SCRIPT_SRC"/*.sh; do
-    install_one "$f" "$CLAUDE_SCRIPT_DST/$(basename "$f")"
-    chmod +x "$CLAUDE_SCRIPT_DST/$(basename "$f")" 2>/dev/null || true
-  done
-  for f in "$AGENT_SRC"/*.md; do
-    install_one "$f" "$CLAUDE_AGENT_DST/$(basename "$f")"
-  done
-  install_one "$ROUTING_SRC" "$CLAUDE_ROUTING_DST"
-  install_one "$SCRIPT_SRC/nightshift-contract.jq" "$CLAUDE_SCRIPT_DST/nightshift-contract.jq"
-  mkdir -p "${TARGET}/contracts"
-  for f in "$REPO_DIR"/contracts/nightshift-*.schema.json; do
-    install_one "$f" "${TARGET}/contracts/$(basename "$f")"
-  done
+  install_category claude_adapters
   migrate_legacy_hooks "$SETTINGS"
   echo
 
@@ -520,7 +542,7 @@ fi
 
 if want_codex; then
   bold "Installing Codex skill"
-  install_tree "$CODEX_SKILL_SRC" "$CODEX_SKILL_DST"
+  install_category codex_skill
   migrate_legacy_hooks "$CODEX_HOOKS"
   echo
 fi
@@ -530,12 +552,19 @@ UPDATE_ARGS=()
 [ -z "$UPDATE_SOURCE" ] || UPDATE_ARGS+=(--source "$UPDATE_SOURCE")
 [ -z "$UPDATE_CHANNEL" ] || UPDATE_ARGS+=(--channel "$UPDATE_CHANNEL")
 NIGHTSHIFT_HOME="$NIGHTSHIFT_TARGET" python3 "$SCRIPT_SRC/nightshift-update.py" \
-  --project "$REPO_DIR" --configure "${UPDATE_ARGS[@]}" --install-args \
+  --project "$REPO_DIR" --configure ${UPDATE_ARGS[@]+"${UPDATE_ARGS[@]}"} --install-args \
   --runtime "$RUNTIME" --target "$TARGET" --codex-target "$CODEX_TARGET" \
-  --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE"
+  --nightshift-target "$NIGHTSHIFT_TARGET" --bin-target "$BIN_TARGET" "--$MODE" --repair
 mkdir -p "$BIN_TARGET"
-install_one "$FACTORY_SRC" "$FACTORY_DST"
-chmod +x "$FACTORY_DST" 2>/dev/null || true
+install_category launcher
+python3 - "$NIGHTSHIFT_TARGET/install-links.json" "${INSTALL_PAIRS[@]}" <<'PY'
+import json, os, sys, tempfile
+from pathlib import Path
+path = Path(sys.argv[1])
+with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as output:
+    json.dump(dict(zip(sys.argv[2::2], sys.argv[3::2])), output)
+os.replace(output.name, path)
+PY
 if [ -n "$AUTH_MODE" ] || [ ! -e "$FACTORY_CONFIG" ]; then
   backup_if_exists "$FACTORY_CONFIG"
   printf 'NIGHTSHIFT_AUTH=%s\n' "${AUTH_MODE:-subscription}" > "$FACTORY_CONFIG"

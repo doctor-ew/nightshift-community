@@ -11,7 +11,7 @@
 #
 # Usage: nightshift-scope-thaw.sh <task-key>
 #   Falls back to NIGHTSHIFT_TICKET from the ACTIVE-* file if no arg is given.
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 TASK=$(echo "${1:-$ARGUMENTS}" | sed -E 's/--[a-z]+( [a-z-]+)?//g' | xargs)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_DIR=$(bash "${SCRIPT_DIR}/nightshift-state-dir.sh" --project "$PROJECT")

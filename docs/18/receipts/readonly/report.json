@@ -1,0 +1,22 @@
+{
+  "status": "SUCCESS",
+  "reason": "All tests passed: 1 run, 1 passed, 0 failed, 0 skipped. Executed exact command: python3 ./fixture_test.py --label 'two words' --mode exact. Source: /private/tmp/nightshift-18-runtime-fixtures-readonly/codex-legacy/CLAUDE.md:6. Project and scope: /private/tmp/nightshift-18-runtime-fixtures-readonly/codex-legacy; unit/integration tests only. Legacy fallback: resolver returned only CLAUDE.md, with no neutral instructions or configured test command. Shared policy and every returned convention file were read before execution. Exit code: 0. Output: Ran 1 test in 0.000s; OK.",
+  "attempts": 3,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-6-astra"
+  },
+  "rules_fired": [
+    "convention_review_complete",
+    "legacy_fallback",
+    "exact_command_preserved",
+    "read_only",
+    "no_e2e"
+  ],
+  "results": {
+    "passed": 1,
+    "failed": 0
+  }
+}

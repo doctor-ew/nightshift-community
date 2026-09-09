@@ -9,7 +9,7 @@ set -euo pipefail
 # Local-only: no telemetry, no external emit — just a markdown summary of what ran.
 # Exits 0 on success, 1 on error.
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE=""
 while [ $# -gt 0 ]; do

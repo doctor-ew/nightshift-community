@@ -1,0 +1,159 @@
+{
+  "artifacts": {
+    "branch": "nightshift/18",
+    "diff": " agents/nightshift-architect.md            |   3 +-\n agents/nightshift-engineer.md             |   6 +-\n agents/nightshift-run-all-tests.md        |  20 ++--\n agents/nightshift-spec-writer.md          |   3 +-\n commands/nightshift-adversarial.md        |   7 +-\n commands/nightshift-batch.md              |  22 ++--\n commands/nightshift-deploy.md             |   8 +-\n commands/nightshift-drift.md              |   4 +-\n commands/nightshift-eng.md                |   7 +-\n commands/nightshift-implement.md          |  11 +-\n commands/nightshift-product.md            |  14 ++-\n commands/nightshift-qa.md                 |   4 +-\n commands/nightshift-review.md             |  10 +-\n commands/nightshift-spec.md               |   4 +-\n docs/18/SPEC.md                           | 161 +++++++++++++++++++++++++\n docs/CONFIGURATION.md                     |   6 +\n install.sh                                |   6 +-\n scripts/nightshift-batch-init.sh          |   2 +-\n scripts/nightshift-batch-resolve.sh       |   2 +-\n scripts/nightshift-batch-retro.sh         |   2 +-\n scripts/nightshift-batch-update.sh        |   2 +-\n scripts/nightshift-capability.sh          |  37 ++++++\n scripts/nightshift-citations-trim.sh      |   2 +-\n scripts/nightshift-claim-cache.sh         |   4 +-\n scripts/nightshift-crash-check.sh         |   2 +-\n scripts/nightshift-factory.sh             |   5 +\n scripts/nightshift-lock-field.sh          |   2 +-\n scripts/nightshift-manifest-validate.sh   |   1 +\n scripts/nightshift-preflight-check.sh     |   2 +-\n scripts/nightshift-pw.sh                  |   2 +-\n scripts/nightshift-retry-exhaust.sh       |   2 +-\n scripts/nightshift-scope-freeze.sh        |   2 +-\n scripts/nightshift-scope-thaw.sh          |   2 +-\n scripts/nightshift-spec-digest.sh         |   2 +-\n scripts/nightshift-state-dir.sh           |   6 +-\n scripts/nightshift-stop-hook.sh           |   2 +-\n scripts/nightshift-tdd-integrity-check.sh |   2 +-\n scripts/nightshift-tdd-red-lock.sh        |   2 +-\n scripts/nightshift-tdd-spec-lock.sh       |   2 +-\n scripts/nightshift-tracker-trim.sh        |   2 +-\n scripts/nightshift-triage.sh              |   2 +-\n tests/test-project-context.sh             | 191 ++++++++++++++++++++++++++++++\n Plus untracked new files: docs/PROJECT-CONTEXT.md, scripts/nightshift-project-context.py\n 42 files changed, 512 insertions(+), 66 deletions(-) vs origin/integration/nightshift",
+    "model": "sonnet",
+    "provider": "claude"
+  },
+  "attempts": 1,
+  "reason": "APPROVE. Static/code-path review of the full `git diff origin/integration/nightshift` plus the untracked scripts/nightshift-project-context.py and docs/PROJECT-CONTEXT.md against docs/18/SPEC.md's acceptance criteria found no actionable blocking defects. Root identity precedence (explicit > neutral > legacy, conflict blocks unless explicit), scope containment, malformed/unreadable-manifest handling (no legacy fallback), the --shell mode's shlex.quote-based safe eval (verified no injection vector for `$()`/backticks/quotes), the semantic document-read lookup's exit-code contract (0/1/64) and identifier regex validation, the install.sh Bash-3.2 empty-array fix (`${UPDATE_ARGS[@]+\"${UPDATE_ARGS[@]}\"}` under `set -euo pipefail`), and dual-location installation of the resolver (shared $NIGHTSHIFT_TARGET/scripts and legacy $CLAUDE_SCRIPT_DST) and policy doc were all traced directly against source and match spec. Caller error propagation via `X=\\\"$(...)\\\" || exit $?` is consistently applied across every migrated script. The Confluence fetch in nightshift-product.md now goes through the generic `nightshift-capability.sh --resolve document-read` path instead of a hardcoded `mcp__claude_ai_Atlassian__getConfluencePage` call, satisfying the 'no provider-specific document tool in core' AC. Auth, retry-exhaust, preflight ordering, deploy-JSON precedence, worktree isolation, and legacy state-dir fallback logic are untouched except for the PROJECT-resolution line, preserving existing behavior. tests/test-project-context.sh (191 lines, read-only) provides direct behavioral coverage for every claim above including a live shell-injection attempt and a mode-000 unreadable-manifest case; I read it in full and traced each assertion against the resolver/capability implementation by hand, but I could NOT execute it or any other test in this sandbox — every `bash tests/test-project-context.sh` invocation and every Write of a temp fixture was rejected with 'requires approval' with no interactive channel to grant it, and /private/tmp/nightshift-18-green-evals.log (the separately-running full harness) was also unreadable (permission denied) from this session, so I have no retained execution evidence and am not claiming the suite passes — only that static tracing found no contract violation. Two minor, non-blocking observations for the engineer's awareness, neither rising to CONFLICT: (1) scripts/nightshift-crash-check.sh's header comment 'Fail-open: any error / non-pipeline project prints CLEAN' is no longer strictly true for a *standalone* invocation with conflicting NIGHTSHIFT_PROJECT_DIR/CLAUDE_PROJECT_DIR (it now exits 1 via the resolver's PROJECT_CONFLICT instead of printing CLEAN), but every actual caller (nightshift-eng.md) already normalizes to the neutral var and clears the legacy one via `--shell` before invoking it, so the conflict path is unreachable in the shipped pipeline. (2) scripts/nightshift-capability.sh's `--resolve` branch relies on argparse for CLI parsing; a malformed invocation missing the required `operation` positional exits 2 via argparse's own SystemExit rather than the documented 64, but no shipped caller invokes it that way (all pass `document-read` explicitly) and it isn't exercised by the test file. Neither is a real user-facing regression against the spec's acceptance criteria.",
+  "results": {
+    "claims": [
+      {
+        "claim": "resolve_project(): explicit --project always wins; with neither explicit, if NIGHTSHIFT_PROJECT_DIR and CLAUDE_PROJECT_DIR are both set and resolve to different physical directories, discovery raises PROJECT_CONFLICT and blocks; with neither set, falls back to `git rev-parse --show-toplevel`, then cwd; --cwd-default skips the git-root fallback and preserves hook pwd-only behavior.",
+        "file": "scripts/nightshift-project-context.py",
+        "line": 27,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-project-context.py",
+          "tests/test-project-context.sh"
+        ]
+      },
+      {
+        "claim": "discover() rejects a --scope outside the resolved project (including via a symlink that resolves outside) with SCOPE_OUTSIDE_PROJECT, and returns AGENTS.md then CLAUDE.md per ancestor from project root to scope only (siblings excluded); unreadable/escaping convention files raise CONVENTION_INVALID.",
+        "file": "scripts/nightshift-project-context.py",
+        "line": 44,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-project-context.py",
+          "tests/test-project-context.sh"
+        ]
+      },
+      {
+        "claim": "TOML manifest handling: `.nightshift.toml` takes precedence over `nightshift.toml`; malformed/unreadable canonical manifest raises MANIFEST_INVALID with no fallback to the legacy file; `[tests]` must be a table and `command` must be a nonblank string without NUL/CR/LF, else TEST_COMMAND_INVALID; absent manifest yields manifest/test_command/test_command_source all null with status ok.",
+        "file": "scripts/nightshift-project-context.py",
+        "line": 65,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-project-context.py",
+          "tests/test-project-context.sh"
+        ]
+      },
+      {
+        "claim": "--shell mode emits `export NIGHTSHIFT_PROJECT_DIR=<shlex.quote(path)>` and `unset CLAUDE_PROJECT_DIR` only on success; directory() rejects paths containing NUL/CR/LF before they can reach the quoted output, and shlex.quote neutralizes `$()`, backticks, quotes and `;` for safe `eval`. No other branch prints to stdout in --shell/--root-only modes; blocked results print JSON to stderr only in those modes.",
+        "file": "scripts/nightshift-project-context.py",
+        "line": 103,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-project-context.py",
+          "tests/test-project-context.sh",
+          "commands/nightshift-eng.md",
+          "commands/nightshift-batch.md"
+        ]
+      },
+      {
+        "claim": "capability.sh's `--resolve document-read --mapping FILE --available-tools FILE` branch validates operation=='document-read', that mapping is a dict with only that key mapping to an identifier matching `[A-Za-z_][A-Za-z0-9_]*`, and available-tools is a list of such identifiers; exits 0/status=available with the tool when present in both, exits 1/status=unavailable when missing inputs or tool absent from the inventory, exits 64/status=error with code CAPABILITY_CONFIG_INVALID for malformed JSON/unreadable files/invalid shapes/unknown operation. Performs no cache write, no CLI probe, no network call, no tool execution.",
+        "file": "scripts/nightshift-capability.sh",
+        "line": 20,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-capability.sh",
+          "tests/test-project-context.sh"
+        ]
+      },
+      {
+        "claim": "install.sh fixes a Bash-3.2 empty-array-under-`set -u` failure by changing `--configure \"${UPDATE_ARGS[@]}\"` to `--configure ${UPDATE_ARGS[@]+\"${UPDATE_ARGS[@]}\"}`, under an active `set -euo pipefail` at the top of the file.",
+        "file": "install.sh",
+        "line": 567,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "install.sh"
+        ]
+      },
+      {
+        "claim": "nightshift-project-context.py is installed to both the shared runtime scripts dir (via the `nightshift-*.py` glob loop into $SCRIPT_DST=$NIGHTSHIFT_TARGET/scripts) and explicitly beside the legacy Claude script adapters ($CLAUDE_SCRIPT_DST); docs/PROJECT-CONTEXT.md is installed to `${NIGHTSHIFT_TARGET}/docs/nightshift-project-context.md`, matching the paths referenced from agents/*.md and commands/*.md via `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/...`.",
+        "file": "install.sh",
+        "line": 441,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "install.sh",
+          "agents/nightshift-engineer.md",
+          "commands/nightshift-product.md"
+        ]
+      },
+      {
+        "claim": "commands/nightshift-product.md's Confluence-URL branch no longer hardcodes `mcp__claude_ai_Atlassian__getConfluencePage`; it now resolves the operation through `scripts/nightshift-capability.sh --resolve document-read` with adapter-supplied mapping/available-tools files, validates the tool schema before use, and preserves the prior empty-context fallback on failure/unavailability.",
+        "file": "commands/nightshift-product.md",
+        "line": 191,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "commands/nightshift-product.md"
+        ]
+      },
+      {
+        "claim": "Every migrated shell script (state-dir, triage, batch-init/resolve/retro/update, citations-trim, claim-cache, crash-check, lock-field, pw, retry-exhaust, scope-freeze/thaw, spec-digest, stop-hook, tdd-integrity-check/red-lock/spec-lock, tracker-trim) replaces the old `${CLAUDE_PROJECT_DIR:-$(git rev-parse ...||pwd)}` inline logic with `PROJECT=\"$(python3 .../nightshift-project-context.py --root-only ...)\" || exit $?`, correctly propagating the resolver's exit code to the caller under both `set -e` and non-`-e` scripts.",
+        "file": "scripts/nightshift-state-dir.sh",
+        "line": 32,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-state-dir.sh",
+          "scripts/nightshift-crash-check.sh",
+          "scripts/nightshift-triage.sh",
+          "scripts/nightshift-batch-init.sh",
+          "scripts/nightshift-batch-resolve.sh",
+          "scripts/nightshift-batch-retro.sh",
+          "scripts/nightshift-batch-update.sh",
+          "scripts/nightshift-citations-trim.sh",
+          "scripts/nightshift-claim-cache.sh",
+          "scripts/nightshift-lock-field.sh",
+          "scripts/nightshift-pw.sh",
+          "scripts/nightshift-retry-exhaust.sh",
+          "scripts/nightshift-scope-freeze.sh",
+          "scripts/nightshift-scope-thaw.sh",
+          "scripts/nightshift-spec-digest.sh",
+          "scripts/nightshift-stop-hook.sh",
+          "scripts/nightshift-tdd-integrity-check.sh",
+          "scripts/nightshift-tdd-red-lock.sh",
+          "scripts/nightshift-tdd-spec-lock.sh",
+          "scripts/nightshift-tracker-trim.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-preflight-check.sh translates the legacy env var to the neutral one at the batch-resolve boundary using `env -u CLAUDE_PROJECT_DIR NIGHTSHIFT_PROJECT_DIR=\"$PROJECT\" bash .../nightshift-batch-resolve.sh`, replacing the old `CLAUDE_PROJECT_DIR=\"$PROJECT\"` passthrough; HAVE_REF/HAVE_BATCH branching and downstream retry/auth logic are otherwise unmodified.",
+        "file": "scripts/nightshift-preflight-check.sh",
+        "line": 193,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-preflight-check.sh"
+        ]
+      },
+      {
+        "claim": "tests/test-project-context.sh exists and provides direct fixture-based coverage for root precedence/conflict, symlink equivalence, git-root/cwd-default, scoped convention discovery with exact test-command preservation, missing-manifest discoverability, implicit env disagreement blocking state-dir.sh, scope-escape rejection (plain and via symlink), root/shell modes tolerating a bad manifest, shell-quoting/injection resistance and legacy-var clearing, canonical-manifest-never-falls-back-to-legacy for 5 malformed-content cases, unreadable (chmod 0) canonical manifest, explicit-override preserving legacy state-dir lookup, and the capability resolve branch's unavailable/available/64-invalid-data cases including a check that no external tool stub is ever invoked and no cache file is created.",
+        "file": "tests/test-project-context.sh",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "tests/test-project-context.sh"
+        ]
+      },
+      {
+        "claim": "Could not execute tests/test-project-context.sh, python3 -m unittest on an extracted copy, or read /private/tmp/nightshift-18-green-evals.log in this session; all attempts (bash script execution, Write of a temp fixture file, reading the external log path) were rejected with '(this command / write / read) requires approval' and no interactive approval channel was available. This finding is procedural, not a defect in the reviewed code.",
+        "file": "tests/test-project-context.sh",
+        "line": 0,
+        "status": "NOT_FOUND",
+        "inspected_files": []
+      }
+    ]
+  },
+  "rules_fired": [
+    "diff-scoped-to-origin/integration/nightshift",
+    "read-spec-and-project-context-doc",
+    "read-every-changed-production-file",
+    "read-untracked-new-resolver-and-doc",
+    "static-trace-against-acceptance-criteria",
+    "read-test-file-full-assertion-trace",
+    "attempted-but-blocked-test-execution",
+    "no-install-no-coach-no-main-scope-respected"
+  ],
+  "status": "SUCCESS"
+}

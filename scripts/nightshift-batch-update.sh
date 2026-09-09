@@ -11,7 +11,7 @@ set -euo pipefail
 # state file (non-blocking — state is written to disk regardless of commit success).
 # Exits 0 on success, 1 on error.
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 STATE=""; TICKET=""; STATUS=""; PR_URL=""; REASON=""; RECEIPT=""
 
 while [ $# -gt 0 ]; do

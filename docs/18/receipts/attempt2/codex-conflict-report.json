@@ -1,0 +1,20 @@
+{
+  "status": "FAIL",
+  "reason": "AGENT BLOCKED — Detect test command. Scope: /private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-conflict (unit and integration tests only). Read every convention returned by the resolver and the installed convention policy. Conflicting explicit commands: /private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-conflict/AGENTS.md:6 prescribes `python3 ./fixture_test.py --label conflicting --mode exact`; /private/tmp/nightshift-18-runtime-fixtures-attempt2/codex-conflict/CLAUDE.md:6 prescribes `python3 ./fixture_test.py --label 'two words' --mode exact`. No command selected or executed. Legacy fallback is inapplicable because neutral instructions are explicit. Required action: resolve the conflicting instructions.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-6-astra"
+  },
+  "rules_fired": [
+    "mandatory_convention_review",
+    "conflicting_explicit_commands_block",
+    "legacy_fallback_only_when_neutral_silent"
+  ],
+  "results": {
+    "passed": 0,
+    "failed": 0
+  }
+}

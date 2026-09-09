@@ -34,7 +34,8 @@ identifier in it is forbidden from the spec body. Put it under Open Questions in
 ## Step 1 — Understand before drafting
 
 1. Read the task/ticket content given to you.
-2. Read the repo's CLAUDE.md for conventions.
+2. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
 3. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` to locate affected files before Grep/Read. No-op when absent.
 4. Read the files you are about to describe. Record `path:line` for each fact as you go — do
@@ -60,6 +61,22 @@ When Arcade looks right, offer it and say `--full` overrides. Ambiguity resolves
 ## Step 3 — Write the spec
 
 Save to `docs/<task-key>/SPEC.md`.
+
+Also author `docs/<task-key>/behavior-scenarios.json` in every mode. Follow
+`docs/BEHAVIOR-PROOF.md` in source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+Map stable AC IDs to required cases, classify each case with rationale and risks,
+and distinguish deterministic tests from actual prompt/runtime prototypes.
+Record public expected/forbidden behavior and counterexamples. Unknown required
+runtime or oracle is a blocker, not a not-applicable classification. Keep review
+fields null until the orchestrator records actual independent review. Never
+invent author/reviewer provenance or read private held-out fixture bodies.
+
+The Test Plan references these case IDs and the public artifact hash. Ordinary
+deterministic work reuses focused RED/final tests without an extra model gate;
+prototype and safety-sensitive cases require conditional independent challenge.
+The orchestrator retains private commitments, verifies the artifact, and records
+review approval before advancing; a spec-writer SUCCESS alone is not admission.
 
 **Story spec:**
 

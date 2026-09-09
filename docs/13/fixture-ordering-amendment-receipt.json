@@ -1,0 +1,8 @@
+{
+  "after_sha256": "13188704fe6557cfc349bdbcf3fc9ea31f5b8f97939d5eb21c77a54b0e343b23",
+  "before_sha256": "33ed86a527966e945efda3b59a2976f096211d8ae044ea8c05217f795606103a",
+  "behavioral_assertions_changed": false,
+  "change": "Normal spec-lock after modified reattested public oracle and before first challenge/seal",
+  "review": "docs/13/fixture-ordering-amendment-review.json",
+  "timestamp": "2026-09-09T00:53:26.453180+00:00"
+}

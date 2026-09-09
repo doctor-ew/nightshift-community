@@ -94,13 +94,33 @@ def update(root, data, apply):
 
 
 def refresh_install(root, args):
-    try:
-        subprocess.run(["bash", str(root / "install.sh"), *args],
-                       check=True, stdout=sys.stderr)
-    except subprocess.SubprocessError as exc:
-        # Launching after a partial adapter refresh is not safe. Keep a retry
-        # marker and require a successful repair before the next factory run.
-        raise RuntimeError("adapter refresh failed; run sync --apply to retry") from exc
+    # Older installations did not record the repair flag. Never let that turn
+    # automatic healing into an ordinary overwrite installation.
+    args = [*args, "--repair"] if "--repair" not in args else args
+    receipt = config_path().parent / "update-repair.json"
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, 4):
+        try:
+            subprocess.run(["bash", str(root / "install.sh"), *args],
+                           check=True, stdout=sys.stderr, timeout=120)
+            receipt.write_text(json.dumps({"status": "repaired", "attempts": attempt}))
+            return
+        except subprocess.SubprocessError:
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            receipt.write_text(json.dumps({"status": "failed", "attempts": attempt,
+                                          "next_action": "Inspect installer error; preserve custom files; retry nightshift --sync after reconciliation."}))
+    raise RuntimeError("adapter repair exhausted 3 attempts; see update-repair.json")
+
+
+def needs_repair():
+    path = config_path().parent / "install-links.json"
+    if not path.exists():
+        return True
+    for destination, source in json.loads(path.read_text()).items():
+        link = Path(destination)
+        if not link.is_symlink() or os.readlink(link) != source or not link.exists():
+            return True
+    return False
 
 
 def main():
@@ -111,6 +131,7 @@ def main():
     parser.add_argument("--channel")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--heal", action="store_true")
     parser.add_argument("--run", nargs=argparse.REMAINDER)
     parser.add_argument("--install-args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -149,7 +170,9 @@ def main():
         try:
             if args.run is None or os.environ.get("NIGHTSHIFT_SYNC_CHECK", "on") != "off":
                 if exclusive:
-                    update(root, data, args.apply or (args.run is not None and not args.check))
+                    update(root, data, not args.check and (args.apply or args.run is not None))
+                    if not args.check and (args.heal or args.run is not None) and data.get("install_args") and needs_repair():
+                        refresh_install(root, data["install_args"])
                 elif args.run is None:
                     return 75
         except RuntimeError as exc:

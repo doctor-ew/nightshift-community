@@ -1,0 +1,1 @@
+{"version": 1, "infrastructure_failures": 1, "substantive_failures": 0, "total": 4, "limits": {"infrastructure": 3, "substantive": 4, "total": 12}, "attempts": {"44b463a1d2de40ca9c253b5c4af4b1f7": "schema", "983968438fa94bcda3d72889e58ffefc": "success", "d1c0d19445484be1aac41984e0dbb0e1": "success", "06b93f640d974eea8306f30f7b20ea1f": "success"}, "next_action": "continue"}

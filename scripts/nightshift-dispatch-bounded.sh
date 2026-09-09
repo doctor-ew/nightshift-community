@@ -3,6 +3,11 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ROLE=${1:-}; [ "$#" -eq 0 ] || shift
+for argument in "$@"; do
+  if [ "$argument" = --adversarial ]; then
+    exec python3 "$ROOT/scripts/nightshift-retry-budget.py" dispatch "$ROLE" "$@"
+  fi
+done
 OUTPUT='' EXPECT_OUTPUT=false RISK=${NIGHTSHIFT_RISK:-standard} EXPECT_RISK=false ADV=false
 for arg in "$@"; do
   if [ "$EXPECT_RISK" = true ]; then RISK=$arg; EXPECT_RISK=false; fi

@@ -1,0 +1,8 @@
+{
+  "install.sh": "c7c56bb9c440457fd45a1ef5f08bdead7d56b410e8c40a7dfb188f224bb9b829",
+  "scripts/nightshift-branding.py": "413bb13ce7b1e193016c5758292b3895f7b709eff7614ac5e049c53e5693d58a",
+  "scripts/nightshift-install-inventory.py": "1c8501438896905f007ff1ef0f5b199cb5bcc0bed54824b1fc6cd34c34fd89d4",
+  "scripts/nightshift-branding-policy.json": "211b0ca558e083618aaeb38eb71bf04d358d33b2ac32d0ca38f54723bccfbb2a",
+  "docs/BRANDING-AUDIT.md": "c637209d3a62e9d2043984de00792f37de2cadbb5882d6121daad5904baa4b68",
+  "tests/test-branding.sh": "02cc352d4e6ef88929b8b38a310d6f756cd1384a0bb6ad1df13c48f191c9c403"
+}

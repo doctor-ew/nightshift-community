@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-PROJECT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/nightshift-project-context.py" --root-only)" || exit $?
 INPUT=""
 
 while [ "$#" -gt 0 ]; do
@@ -25,28 +25,55 @@ done
 
 [ -n "$INPUT" ] || exit 2
 
-# Batch ticket references cannot contain whitespace or commas. Replacing commas
-# lets callers use either documented comma lists or shell-friendly whitespace.
-read -r -a TOKENS <<< "${INPUT//,/ }"
+# Preserve a single existing path before parsing quoted comma/space lists.
+PARSED=$(python3 - "$INPUT" "$PROJECT" <<'PY'
+import pathlib, shlex, sys
+value, project = sys.argv[1:]
+path = pathlib.Path(value.removeprefix('spec:'))
+if not path.is_absolute():
+    path = pathlib.Path(project) / path
+if path.is_file():
+    tokens = [value if value.startswith('spec:') else 'spec:' + value]
+else:
+    lexer = shlex.shlex(value, posix=True)
+    lexer.whitespace += ','
+    lexer.whitespace_split = True
+    lexer.commenters = ''
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        sys.exit(2)
+if any('\n' in token or '\r' in token for token in tokens):
+    sys.exit(2)
+print('\n'.join(tokens))
+PY
+) || exit 2
+TOKENS=()
+while IFS= read -r token; do
+  [ -z "$token" ] || TOKENS+=("$token")
+done <<< "$PARSED"
 [ "${#TOKENS[@]}" -gt 0 ] || exit 2
-
+RESULTS=()
 for token in "${TOKENS[@]}"; do
   case "$token" in
-    gh:*|jira:*|monday:*|notion:*|bd:*)
-      [ "${token#*:}" != "$token" ] || exit 2
-      printf '%s\n' "$token"
+    gh:*|jira:*|monday:*|notion:*|bd:*|spec:*)
+      [ -n "${token#*:}" ] || exit 2
+      RESULTS+=("$token")
       ;;
     *)
-      if [ -f "${PROJECT}/docs/${token}/SPEC.md" ]; then
+      if [ -f "$token" ] || [ -f "${PROJECT}/$token" ]; then
+        RESULTS+=("spec:$token")
+      elif [ -f "${PROJECT}/docs/${token}/SPEC.md" ]; then
         # Existing task keys resume without re-fetching their ticket source.
-        printf '%s\n' "$token"
+        RESULTS+=("$token")
       elif command -v bd >/dev/null 2>&1 && bd show "$token" --json >/dev/null 2>&1; then
         # /nightshift-eng treats bare beads as resumes and requires a docs
         # mapping. Prefixing it forces the fresh bd source path instead.
-        printf 'bd:%s\n' "$token"
+        RESULTS+=("bd:$token")
       else
         exit 2
       fi
       ;;
   esac
 done
+printf '%s\n' "${RESULTS[@]}"
