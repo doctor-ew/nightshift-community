@@ -46,7 +46,7 @@
     {
       "rule": "provider-executor",
       "path": "scripts/nightshift-agent.sh",
-      "context": "    CMD=(claude -p --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\");;",
+      "context": "      CMD=(claude -p --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
       "reason": "The existing dispatcher implements the routed provider invocation using the selected role and model."
     },
     {
@@ -60,6 +60,12 @@
       "path": "scripts/nightshift-factory.sh",
       "context": "      echo 'nightshift: Claude subscription login required; run claude auth login first. No API fallback.' >&2",
       "reason": "The factory reports the existing subscription authentication repair instruction without invoking a provider executor."
+    },
+    {
+      "rule": "provider-executor",
+      "path": "scripts/nightshift-agent.sh",
+      "context": "      CMD=(claude -p --safe-mode --tools \"\" --no-session-persistence --output-format json --model \"$MODEL\" --system-prompt \"$(cat \"$TMP/role\")\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
+      "reason": "The routed reviewer adapter consumes complete public input with tools and customizations disabled; provider flags remain at the adapter boundary."
     }
   ]
 }

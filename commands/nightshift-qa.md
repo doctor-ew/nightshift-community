@@ -1,19 +1,15 @@
 ---
 name: nightshift-qa
-description: "Behavioral QA gate — runs the project's full Playwright suite locally as a regression check after code review and drift. PASS/SKIPPED (no Playwright) gates downstream; FAIL requests changes. Writes docs/<task-key>/QA.md. Run /nightshift-qa <task-key> after /nightshift-review and /nightshift-drift."
+description: "Behavioral QA gate — runs the project's full Playwright suite locally as a regression check after code review and drift. Final behavioral proof plus PASS/SKIPPED browser results gate downstream; FAIL requests changes. Writes docs/<task-key>/QA.md. Run /nightshift-qa <task-key> after /nightshift-review and /nightshift-drift."
 argument-hint: "<task-key> — matches docs/<task-key>/SPEC.md"
 ---
 
 # /nightshift-qa — Behavioral QA Gate
 
-The pipeline's first **behavioral** gate: code review (`nightshift-review`) proves the diff is
-well-built and drift (`nightshift-drift`) proves it matches the spec — `nightshift-qa` proves it actually
-**runs**. It executes the project's full Playwright suite locally as a regression check: did
-this ticket break any existing end-to-end behavior?
-
-**Zero-cost when Playwright is absent.** `nightshift-pw.sh` detects `@playwright/test` / a
-`playwright.config.*`; with none present the gate returns `SKIPPED` and approves — projects
-without E2E coverage are not penalized.
+Final QA combines the project's browser regressions with required task behavioral
+proof after review and drift. `nightshift-pw.sh` can skip an absent Playwright
+suite; that skip never waives deterministic final evidence or held-out prototype
+evaluation. Development RED or prompt pass alone cannot satisfy final approval.
 
 **No gstack.** Does not invoke `/qa`, `/browse`, or `/canary`. The runner is `nightshift-pw.sh`
 (local), which delegates to the project's own Playwright + package manager.
@@ -58,12 +54,49 @@ project's `playwright.config` responsibility (CoC).
 
 ---
 
+## Step 2.5 — Complete final behavioral proof
+
+Follow `docs/BEHAVIOR-PROOF.md` in source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`). Require
+the adopted public scenario artifact and existing development admission.
+
+For required deterministic cases, retain actual passing ordinary test evidence
+for the final source hashes. If review/drift/QA repairs changed bound files,
+rerun the affected ordinary checks and refresh `docs/$TASK/proof-final.json`
+through the trusted observer, then call the proof helper's `record-final
+--project "$PROJECT" --task "$TASK" --evidence "docs/$TASK/proof-final.json"`.
+Do not manufacture a passing observation from a reviewer label or old RED result.
+
+For required prototype cases, invoke the proof helper's `run --project "$PROJECT"
+--task "$TASK" --gate final`. It uses the independently retained private cases;
+never copy their bodies, expected assertions, output or locator into GREEN context.
+Failure/unknown blocks. Do not automatically repair from hidden output. Record
+known exposure with `expose --case ID`; replacement requires independent review
+and a new commitment/seal with retained budgets. No unchanged resampling or
+budget reset can turn failure into fresh validation.
+
+Every task, including not-applicable-only cases and no-Playwright projects, must
+satisfy the final read-only gate:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  gate --project "$PROJECT" --task "$TASK" --gate final || exit $?
+```
+
+Require its pass outcome before recording QA approval. Missing helper, unknown,
+stale source hashes, required case gaps or exhausted budgets stop this stage.
+Retain only sanitized proof status and evidence digests in the public QA report.
+
+---
+
 ## Step 3 — Write QA.md
 
 ```markdown
 ## Behavioral QA (nightshift-qa)
 **Task:** <task-key> · **Date:** YYYY-MM-DD · **Runner:** nightshift-pw.sh (Playwright)
-**Verdict:** PASS | FAIL | SKIPPED (no Playwright)
+**Browser verdict:** PASS | FAIL | SKIPPED (no Playwright)
+**Final behavioral proof:** pass | fail | unknown
+**Overall verdict:** APPROVE only with final proof pass and browser pass/skip
 
 ### Summary
 [one line: N passed / M failed, or "Playwright not present — skipped"]
@@ -78,17 +111,22 @@ project's `playwright.config` responsibility (CoC).
 
 | Verdict | Gate |
 |---|---|
-| `PW_PASS` | `NIGHTSHIFT-QA GATE: APPROVE` — continue. |
-| `PW_SKIPPED` | `NIGHTSHIFT-QA GATE: APPROVE (no Playwright — skipped)` — continue. |
+| `PW_PASS` with final proof pass | `NIGHTSHIFT-QA GATE: APPROVE` — continue. |
+| `PW_SKIPPED` with final proof pass | `NIGHTSHIFT-QA GATE: APPROVE (browser suite absent; final proof passed)` — continue. |
+| Final proof fail/unknown/missing | `NIGHTSHIFT-QA GATE: REQUEST CHANGES` — stop; browser skip is insufficient. |
 | `PW_FAIL` | `NIGHTSHIFT-QA GATE: REQUEST CHANGES` — surface the failing specs and stop. Do not gate downstream. |
 
-On `REQUEST CHANGES`, the engineer fixes the regression (or the spec/tests if the behavior
-intentionally changed — re-sealing tests via the TDD lock if a locked spec must change) and
-re-runs `/nightshift-qa <task-key>`.
+On `REQUEST CHANGES`, repair the smallest authorized regression using only public
+feedback. Intentional requirement or locked-test changes require independent
+re-review and new seals, retaining earlier evidence and budgets. Do not rewrite
+tests to bless a failure or expose held-out material to guide an automatic repair.
+Then rerun the required ordinary checks and `/nightshift-qa <task-key>`.
 
 ---
 
 ## Step 5 — Update tracker and bead
+
+Reach this step only after final proof pass and an accepted browser result.
 
 ```bash
 TRACKER="${TASK_DIR}/${TASK}.md"

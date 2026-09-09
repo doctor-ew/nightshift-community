@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Record offline trajectories of the real shell boundaries, with sealed stubs."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -85,13 +86,65 @@ def executable(path, body):
     path.chmod(0o755)
 
 
+def prepare_documentation_task(project, scripts, env):
+    """Establish ordinary reviewed admission for a documentation-only fixture."""
+    task = 'trajectory-documentation'
+    def run(argv):
+        result = subprocess.run(argv, cwd=project, env=env, capture_output=True)
+        require(result.returncode == 0)
+        return result
+    run(['git', 'init', '-q'])
+    run(['git', 'config', 'user.name', 'fixture'])
+    run(['git', 'config', 'user.email', 'fixture@local'])
+    (project / 'README.md').write_text('# Approved fixture documentation\n')
+    run(['git', 'add', 'README.md'])
+    run(['git', 'commit', '-qm', 'fixture baseline'])
+    directory = project / 'docs' / task
+    directory.mkdir(parents=True)
+    spec = directory / 'SPEC.md'
+    spec.write_text('# Documentation fixture\n\n## Files to Change\n\n'
+                    '| File | Change | Why |\n| --- | --- | --- |\n'
+                    '| README.md | MODIFY | Review existing documentation |\n')
+    app = {'kind': 'not_applicable', 'rationale': 'Review existing documentation only; no executable change.',
+           'risks': [], 'review': None}
+    document = {'version': 1, 'task': task, 'ac_ids': ['AC-1'],
+                'author': {'provider': 'codex', 'author_id': 'trajectory-author'},
+                'applicability': dict(app), 'runtime': None, 'prototype_files': [], 'heldout': None,
+                'cases': [{'id': 'documentation', 'ac_ids': ['AC-1'], 'required': True,
+                           'applicability': dict(app), 'given': 'Approved fixture documentation',
+                           'when': 'Review the documentation', 'then': 'Report no executable changes',
+                           'forbidden': 'Changing executable behavior', 'input': None,
+                           'expected': [], 'prohibited': [], 'counterexamples': ['A code change is outside this task.'],
+                           'visibility': 'public'}]}
+    digest = hashlib.sha256(json.dumps(document, sort_keys=True, separators=(',', ':'),
+                                      ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+    # This fixed fixture classification is reviewed with the trajectory harness;
+    # it uses the same explicit attestation contract as normal orchestration.
+    review = {'reviewer_provider': 'codex', 'reviewer_author_id': 'trajectory-reviewer',
+              'decision': 'approve', 'reviewed_input_sha256': digest,
+              'evidence_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    document['applicability']['review'] = review
+    document['cases'][0]['applicability']['review'] = review
+    scenarios = directory / 'behavior-scenarios.json'
+    scenarios.write_text(json.dumps(document))
+    run(['bash', str(scripts / 'nightshift-scope-activate.sh'), task,
+         '--project', str(project), '--spec', str(spec)])
+    run(['bash', str(scripts / 'nightshift-tdd-spec-lock.sh'), task])
+    proof = [sys.executable, str(scripts / 'nightshift-behavior-proof.py')]
+    run(proof + ['seal', '--project', str(project), '--task', task, '--scenarios', str(scenarios)])
+    run(proof + ['gate', '--project', str(project), '--task', task, '--gate', 'development'])
+    return task
+
+
 def record(scenario, root=ROOT):
     require(scenario in SCENARIOS)
     with tempfile.TemporaryDirectory(prefix='nightshift-trajectory-') as temporary:
-        box = Path(temporary)
+        box = Path(temporary).resolve()
         scripts = box / 'scripts'
         scripts.mkdir()
-        for name in ('controller.sh', 'policy.sh', 'isolate.sh', 'credentials.sh', 'agent.sh', 'contract.jq'):
+        for name in ('controller.sh', 'policy.sh', 'isolate.sh', 'credentials.sh', 'agent.sh', 'contract.jq',
+                     'project-context.py', 'behavior-proof.py', 'retry-budget.py',
+                     'state-dir.sh', 'lock-field.sh', 'tdd-spec-lock.sh', 'scope-activate.sh'):
             shutil.copyfile(Path(root) / 'scripts' / ('nightshift-' + name), scripts / ('nightshift-' + name))
         # Copy only dispatcher assets, never repository tests or user configuration.
         for directory, name in (('contracts', 'nightshift-engineer.schema.json'),
@@ -110,7 +163,7 @@ def record(scenario, root=ROOT):
         # PATH is constructed from individual safe tools, never inherited. No real
         # docker, provider, network utility or shell startup file is reachable.
         for name in ('bash', 'jq', 'awk', 'cat', 'chmod', 'cut', 'date', 'dirname',
-                     'git', 'id', 'mkdir', 'mktemp', 'mv', 'rm', 'rmdir', 'seq', 'sleep', 'tail', 'tr'):
+                     'git', 'grep', 'head', 'id', 'mkdir', 'mktemp', 'mv', 'rm', 'rmdir', 'seq', 'sleep', 'tail', 'touch', 'tr'):
             target = shutil.which(name, path='/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin')
             require(target is not None)
             (bins / name).symlink_to(target)
@@ -164,9 +217,11 @@ else: print(json.dumps(contract))
             command = ['bash', str(scripts / 'nightshift-policy.sh'), 'check', '--action', action,
                        '--worktree', str(worktree), '--log', str(policy_log), '--command', 'private command']
         elif scenario == 'adversarial-route':
+            proof_task = prepare_documentation_task(worktree, scripts, env)
             task = box / 'input.json'
-            task.write_text('{}')
+            task.write_text('{"task":"Review the approved documentation; report no executable changes."}')
             command = ['bash', str(scripts / 'nightshift-agent.sh'), 'nightshift-engineer',
+                       '--task', proof_task,
                        '--in', str(task), '--out', str(receipt), '--adversarial', '--author-provider', 'claude']
         else:
             budget = 2 if scenario in {'repaired-success', 'exhausted-failure', 'needs-decision'} else 1

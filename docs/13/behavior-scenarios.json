@@ -1,0 +1,528 @@
+{
+  "version": 1,
+  "task": "13",
+  "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+  ],
+  "author": {
+    "provider": "codex",
+    "author_id": "codex-13-recovery-author"
+  },
+  "applicability": {
+    "kind": "prototype",
+    "rationale": "Mixed issue: local engine, admission and ledger claims require deterministic evidence; the new reviewer prompt additionally requires actual prototype execution.",
+    "risks": [
+      "agent_behavior",
+      "deterministic_logic",
+      "prompt_behavior",
+      "safety_sensitive"
+    ],
+    "review": {
+      "reviewer_provider": "codex",
+      "reviewer_author_id": "review-13-private",
+      "decision": "approve",
+      "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+      "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+    }
+  },
+  "runtime": {
+    "profile": "claude-subscription-text-v1",
+    "model": "sonnet",
+    "cli_version": "2.1.265",
+    "system_prompt_file": "agents/nightshift-behavior-reviewer.md"
+  },
+  "prototype_files": [
+    "agents/nightshift-behavior-reviewer.md"
+  ],
+  "cases": [
+    {
+      "id": "13-admission",
+      "ac_ids": [
+        "AC-1"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A canonical task with absent, malformed, unsupported or stale required proof and a valid GREEN role request.",
+      "when": "Invoke the existing engineer and architect dispatcher entrypoints with task identity.",
+      "then": "Reject before authentication/model launch; valid adopted task evidence permits dispatch; preserve unrelated legacy helper interfaces.",
+      "forbidden": "No provider launch for missing artifact or unknown proof; a task string alone never admits GREEN.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Missing task",
+        "Missing scenarios",
+        "Unknown runtime profile",
+        "Stale scenario digest"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-review-and-red",
+      "ac_ids": [
+        "AC-2"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "An ordinary deterministic task and a separately classified risky task with retained independent review evidence.",
+      "when": "Record the existing relevant RED observation and evaluate independent challenge identity, digest and coverage.",
+      "then": "Reuse one observed RED execution with zero extra model call for ordinary deterministic work; require complete independent challenge for risky work.",
+      "forbidden": "Do not treat missing imports, model SUCCESS, same-author review or incomplete scenario IDs as accepted evidence.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Import failure reported as RED",
+        "Reviewer identity equals author",
+        "Wrong review digest"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-oracle",
+      "ac_ids": [
+        "AC-3"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "Synthetic raw text/JSON completions, including malformed JSON and transport failures, supplied directly to registered local assertions.",
+      "when": "Evaluate expected and prohibited assertions with exact type semantics and separate transport classification.",
+      "then": "Wrong or forbidden completion fails; unavailable transport or missing completion is unknown; actual matching output passes.",
+      "forbidden": "Provider exit zero or self-reported approval cannot override wrong output; boolean and numeric values cannot compare equal.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Boolean true versus integer 1",
+        "Duplicate JSON keys",
+        "Positive provider status with forbidden completion"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-scope-and-staleness",
+      "ac_ids": [
+        "AC-4"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A sealed baseline, immutable expected/prohibited assertions and a bounded prototype file list.",
+      "when": "Compare prototype revisions, locked tests and surrounding source snapshots before and after development admission.",
+      "then": "Allow at most two retained prompt revisions; reject premature surrounding edits, out-of-scope changes and stale bound inputs.",
+      "forbidden": "Do not reset evidence on changed paths, modify oracle to bless failure, or invalidate development solely for permitted post-admission GREEN edits.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Unchanged failing prompt resampled",
+        "Third prompt repair",
+        "Changed locked test",
+        "Allowed surrounding change after development pass"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-accounting",
+      "ac_ids": [
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A canonical Git-common task ledger with pending, completed and exhausted development/final attempts.",
+      "when": "Reserve and finalize concurrent per-case/reviewer attempts through alternate worktree/report paths.",
+      "then": "Counters are atomic and idempotent across paths and resumes; pending/exhausted state blocks; legacy accounting retains its defaults.",
+      "forbidden": "No counter reset after new output/spec hash, no duplicate finalized charge, no cross-gate infrastructure race.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Concurrent finalization",
+        "New report directory",
+        "Crash after reservation",
+        "Zero infrastructure-retry allowance"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-heldout-final",
+      "ac_ids": [
+        "AC-6"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "An independently retained private commitment with required prototype AC coverage and deterministic final evidence.",
+      "when": "Validate seal commitment, exposure state and aggregate final admission with and without browser QA.",
+      "then": "Require fresh held-out prototype pass and actual deterministic final-test success; reject exposed cases and stale final source hashes.",
+      "forbidden": "No private body/locator enters GREEN context; browser skip or expected RED must never satisfy final proof.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Heldout commitment mismatch",
+        "Exposed case replacement without re-review",
+        "No Playwright suite",
+        "Final source edited after evidence"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-runner-containment",
+      "ac_ids": [
+        "AC-7"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A bounded fake process tree and synthetic credential sentinels exercising the declared no-tool subscription adapter boundary.",
+      "when": "Observe argv/environment, limited output capture, deadline, interruption and process-group cleanup.",
+      "then": "Strip the exact billing/proxy variables, disable customizations/tools, retain honest CLI/model identity and classify failed cleanup as unknown.",
+      "forbidden": "No paid fallback, arbitrary shell from completion, unbounded buffering, surviving child or hidden configuration mutation.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Output exceeds 1 MiB",
+        "Timeout with child ignoring termination",
+        "Unsupported CLI version",
+        "Credential sentinel in diagnostics"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-policy-and-metrics",
+      "ac_ids": [
+        "AC-8"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "Canonical/legacy manifests with optional proof settings and optional metrics availability.",
+      "when": "Validate defaults, finite caps, strengthening-only applicability and observed metrics serialization.",
+      "then": "Preserve manifest precedence, reject malformed policy, retain observed duration/tokens/defects or null and keep proof outcome independent of metrics availability.",
+      "forbidden": "No disable flag, applicability downgrade, fabricated zero usage or sensitive content in metrics.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Boolean budget",
+        "Malformed canonical manifest with valid legacy file",
+        "Missing metrics helper",
+        "force_prompt with unsupported required runtime"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-recovery-and-delivery",
+      "ac_ids": [
+        "AC-9"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "These claims concern local validation, state transitions or retained execution evidence; ordinary focused assertions cover them without a model oracle.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "Retained premature implementation commits, recovery record and later independently reviewed bootstrap/runner evidence.",
+      "when": "Review chronology and actual manual bootstrap plus completed-helper acceptance receipts without importing historical attempts into production ledgers.",
+      "then": "Preserve the ordering defect explicitly; require reviewed recovery, meaningful later RED/seals, real narrow bootstrap and subsequent implemented-runner verification.",
+      "forbidden": "Do not claim earlier commits complied with RED-first or treat manual execution as helper execution; do not erase budgets/history.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Later seal presented as prior approval",
+        "Eight schema checks represented as full behavioral proof",
+        "Bootstrap ledger imported as fresh helper calls"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-reviewer-missing-negative",
+      "ac_ids": [
+        "AC-2",
+        "AC-3",
+        "AC-9"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "prototype",
+        "rationale": "Execute the reviewer prompt against the fixed incomplete preview-link design. Expected repair, nested scenario IDs and input digest remain fixed; only prompt revisions may repair a missing output field. Execution receipts determine the actual outcome.",
+        "risks": [
+          "prompt_behavior",
+          "agent_behavior"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A fixed synthetic preview-link design covering active links but omitting the explicitly required expired-link non-disclosure behavior.",
+      "when": "Execute the sealed reviewer prompt on the fixed public bootstrap input, returning the standard dispatcher envelope with the review under results.",
+      "then": "The returned results match the fixed expected decision, complete nested scenario IDs and supplied reviewed-input digest.",
+      "forbidden": "Do not return the opposite review decision, omit or invent nested scenario IDs, substitute the outer proof-case ID, change the supplied review digest, or claim execution of the preview-link feature.",
+      "input": "{\"design\":{\"case_id\":\"public-missing-negative\",\"requirements\":[{\"behavior\":\"A preview link grants read-only access to the identified draft until expiry. Expired links must disclose no draft text.\",\"id\":\"AC-P1\"}],\"scenarios\":[{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired link for draft A\",\"id\":\"public-active\",\"oracle\":{\"checks\":{\"draft\":\"A\",\"status\":200},\"kind\":\"json_fields\"},\"then\":\"Return draft A text\",\"when\":\"Read that link\"}]},\"instruction\":\"Independently evaluate required positive and negative coverage and oracle observability. Missing required behavior, unknown coverage, or missing observable oracle requires repair. Approve only a complete supported design. Do not execute tools. Return the supplied structured reviewer contract.\",\"reviewed_input_sha256\":\"6186d48ab4bac825d6ae01fcf322178b3f6178c47b0e518600489160ca588a2f\"}",
+      "expected": [
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "decision"
+          ],
+          "value": "repair"
+        },
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "scenario_ids"
+          ],
+          "value": [
+            "public-active"
+          ]
+        },
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "reviewed_input_sha256"
+          ],
+          "value": "6186d48ab4bac825d6ae01fcf322178b3f6178c47b0e518600489160ca588a2f"
+        }
+      ],
+      "prohibited": [
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "decision"
+          ],
+          "value": "approve"
+        }
+      ],
+      "counterexamples": [
+        "Outer proof-case IDs are not the nested design scenario IDs.",
+        "An approving decision is incorrect when expired-link non-disclosure coverage is omitted.",
+        "Correct decision with missing scenario IDs or a substituted input digest is not accepted."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "13-reviewer-complete-design",
+      "ac_ids": [
+        "AC-2",
+        "AC-3",
+        "AC-9"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "prototype",
+        "rationale": "Execute the reviewer prompt on the independently corrected v2 design. The original approval fixture omitted read-only mutation coverage and failed during bootstrap. The v2 input adds observable mutation denial; expected approval is retained, while nested IDs and the input digest reflect the new version. Preserve the original failed result and charged call.",
+        "risks": [
+          "prompt_behavior",
+          "agent_behavior"
+        ],
+        "review": {
+          "reviewer_provider": "codex",
+          "reviewer_author_id": "review-13-private",
+          "decision": "approve",
+          "reviewed_input_sha256": "751afa3b02203e801441733a9502ef4b0ff8ffe3f9b78ffb81a17c159dc0a5c1",
+          "evidence_sha256": "5c15e06dff95bba30b3d18b006050dd4d9d39f7a66eecbc367dd147ca9ca63f1"
+        }
+      },
+      "given": "A fixed synthetic preview-link design covering active and expired-link behavior with observable oracles.",
+      "when": "Execute the sealed reviewer prompt on the fixed public bootstrap input, returning the standard dispatcher envelope with the review under results.",
+      "then": "The returned results match the fixed expected decision, complete nested scenario IDs and supplied reviewed-input digest.",
+      "forbidden": "Do not return the opposite review decision, omit or invent nested scenario IDs, substitute the outer proof-case ID, change the supplied review digest, or claim execution of the preview-link feature.",
+      "input": "{\"design\":{\"case_id\":\"public-corrected-v2\",\"requirements\":[{\"behavior\":\"A preview link grants read-only access to the identified draft until expiry. Expired links must disclose no draft text.\",\"id\":\"AC-P1\"}],\"scenarios\":[{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired link for draft A\",\"id\":\"public-active\",\"oracle\":{\"checks\":{\"draft\":\"A\",\"status\":200},\"kind\":\"json_fields\"},\"then\":\"Return draft A text\",\"when\":\"Read that link\"},{\"ac_ids\":[\"AC-P1\"],\"given\":\"The same link after expiry\",\"id\":\"public-expired\",\"oracle\":{\"checks\":{\"draft\":null,\"status\":403},\"kind\":\"json_fields\"},\"then\":\"Deny access without draft text\",\"when\":\"Read that link\"},{\"ac_ids\":[\"AC-P1\"],\"given\":\"An unexpired preview link for draft A; stored draft bytes are A and stored revision is 7.\",\"id\":\"public-mutation-denied\",\"oracle\":{\"checks\":{\"mutation_status\":403,\"stored_draft_after\":\"A\",\"stored_revision_after\":7},\"kind\":\"response_and_stored_state\"},\"then\":\"Deny mutation and preserve the original stored draft bytes and revision.\",\"when\":\"Attempt to replace the draft through the preview link, then inspect its stored bytes and revision.\"}]},\"instruction\":\"Independently evaluate required positive and negative coverage and oracle observability. Missing required behavior, unknown coverage, or missing observable oracle requires repair. Approve only a complete supported design. Do not execute tools. Return the supplied structured reviewer contract.\",\"reviewed_input_sha256\":\"126056b3d8ce0fe4bdfd47f82345fc254bb7eb95ca3e890c2914900cc8059632\"}",
+      "expected": [
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "decision"
+          ],
+          "value": "approve"
+        },
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "scenario_ids"
+          ],
+          "value": [
+            "public-active",
+            "public-expired",
+            "public-mutation-denied"
+          ]
+        },
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "reviewed_input_sha256"
+          ],
+          "value": "126056b3d8ce0fe4bdfd47f82345fc254bb7eb95ca3e890c2914900cc8059632"
+        }
+      ],
+      "prohibited": [
+        {
+          "op": "json_field_equals",
+          "field": [
+            "results",
+            "decision"
+          ],
+          "value": "repair"
+        }
+      ],
+      "counterexamples": [
+        "Outer proof-case IDs are not the nested design scenario IDs.",
+        "An approving decision is incorrect when expired-link non-disclosure coverage is omitted.",
+        "Correct decision with missing scenario IDs or a substituted input digest is not accepted."
+      ],
+      "visibility": "public"
+    }
+  ],
+  "heldout": {
+    "manifest_sha256": "39cfe8ee01ac1d064edf19bb9f548e8debd0a25fdaa9a347ccea9a356a8f66c4",
+    "case_ids": [
+      "heldout-a",
+      "heldout-b"
+    ],
+    "author": {
+      "provider": "codex",
+      "author_id": "independent-review-18-bootstrap"
+    },
+    "prepared_at": "2026-09-08T23:14:12.635009+00:00"
+  }
+}

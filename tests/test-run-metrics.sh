@@ -23,7 +23,7 @@ if os.environ.get("STUB_ROLE_RUN")=="yes":
     state=project/".nightshift";state.mkdir(exist_ok=True)
     (state/"input.md").write_text("Do not expose PRIVATE_SOURCE_SENTINEL_56421")
     scripts=pathlib.Path(os.environ["FIXTURE_ROOT"])/"scripts"
-    subprocess.run(["bash",str(scripts/"nightshift-agent.sh"),"nightshift-engineer","--gear","1","--auth","subscription","--in",str(state/"input.md"),"--out",str(state/"output.json")],check=True)
+    subprocess.run(["bash",str(scripts/"nightshift-agent.sh"),"nightshift-engineer","--task","fixture","--gear","1","--auth","subscription","--in",str(state/"input.md"),"--out",str(state/"output.json")],check=True)
     subprocess.run(["bash",str(scripts/"nightshift-retry-increment.sh"),"fixture","RETRY_IMPLEMENT"],check=True)
 print("SECRETFIXTURE_CREDENTIAL_981734")
 sys.exit(int(os.environ.get("STUB_EXIT","0")))
@@ -62,6 +62,8 @@ print(json.dumps({"type":"result","usage":{"input_tokens":7,"output_tokens":3},"
         assert record.get('run_id')==run_dir.name,'AC4 run identity mismatch'
     assert set(terminals)=={'provider_exited_0','provider_exited_nonzero'},'AC4 incorrect terminal states'
     before={p.name for p in runs}
+    admission=subprocess.run([sys.executable,str(root/'tests/nightshift-behavior-fixture.py'),'--root',str(root),'--project',str(project),'--task','fixture'],env=env,capture_output=True,text=True)
+    assert admission.returncode==0,'Fixture admission failed: '+admission.stdout+admission.stderr
     run(0,roles=True)
     linked=[p for p in directory.iterdir() if p.is_dir() and p.name not in before]
     assert len(linked)==1,'AC4 role work created a second unrelated run'

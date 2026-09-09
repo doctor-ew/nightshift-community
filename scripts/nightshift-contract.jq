@@ -18,6 +18,17 @@ def valid_contract($role):
       and (.claim | type == "string") and (.file | type == "string")
       and (.status | . == "VERIFIED" or . == "NOT_FOUND" or . == "CONFLICT")
       and (.line | natural) and (.inspected_files | strings))))
+  elif $role == "nightshift-behavior-reviewer" then
+    (.results | keys_are(["decision","scenario_ids","findings","reviewed_input_sha256"])
+      and (.decision | . == "approve" or . == "repair")
+      and (.scenario_ids | strings and (length == (unique | length)))
+      and (.reviewed_input_sha256 | type == "string")
+      and (.findings | type == "array" and all(.[];
+        keys_are(["scenario_id","code","reason"]) and all(.[]; type == "string"))))
+    and (if .status == "SUCCESS" then
+      (.results.reviewed_input_sha256 | test("^[0-9a-f]{64}$"))
+      and (if .results.decision == "approve" then (.results.findings | length == 0) else (.results.findings | length > 0) end)
+      else true end)
   elif $role == "nightshift-run-all-tests" then
     (.results | keys_are(["passed","failed"]) and (.passed | natural) and (.failed | natural))
     and (if .status == "SUCCESS" then .results.failed == 0 else true end)

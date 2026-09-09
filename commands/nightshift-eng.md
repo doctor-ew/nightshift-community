@@ -478,9 +478,10 @@ Append summary. Continue.
 sed -i '' "s|^⬜ /nightshift-qa.*|⏳ /nightshift-qa — behavioral QA|" "$TRACKER"
 ```
 
-Invoke `/nightshift-qa $TASK_KEY`. Wait. This runs the project's full Playwright suite as a
-regression gate; on a project without Playwright it returns `APPROVE (no Playwright — skipped)`
-at zero cost.
+Invoke `/nightshift-qa $TASK_KEY`. Wait for required ordinary final evidence and
+held-out prototype evaluation as applicable, plus browser regressions. An absent
+Playwright suite skips only that browser run; final behavioral proof must pass.
+Do not advance on development evidence, a task name or prose approval alone.
 
 If `NIGHTSHIFT-QA GATE: REQUEST CHANGES`: mark blocked and stop.
 
@@ -491,7 +492,16 @@ sed -i '' "s|^⏳ /nightshift-qa.*|❌ /nightshift-qa — behavioral QA [BLOCKED
 Engineer fixes the regression (or re-seals tests if a locked spec changed intentionally), then
 re-runs `/nightshift-eng $TASK_KEY`.
 
-If `APPROVE` (PASS or SKIPPED):
+After QA reports APPROVE, independently require the final read-only gate before
+marking the stage complete:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  gate --project "$PROJECT" --task "$TASK_KEY" --gate final || exit $?
+```
+
+Require its pass outcome. Missing, unknown or stale proof blocks completion even
+when browser QA passed or skipped. With both QA approval and final proof pass:
 
 ```bash
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)

@@ -1,0 +1,22 @@
+{
+  "after": {
+    "docs/13/SPEC.md": "7e5f4c6bf85631e4a6076fa5a1605634bfc4a87c0b67e9e968d34358baa46faa",
+    "tests/nightshift-behavior-fixture.py": "885ce581e72fa2f8386826737c80362fc1a0262431af5048a8ac8184e45d895b",
+    "tests/test-behavior-proof.sh": "33ed86a527966e945efda3b59a2976f096211d8ae044ea8c05217f795606103a"
+  },
+  "authorization": "Root approved exact independent fixture amendment before edits",
+  "before": {
+    "docs/13/SPEC.md": "0f095d7baa0f34cb5f2fc1e277a2370336ba0d0dd347b5dc2a69a8a9a78a1286",
+    "tests/nightshift-behavior-fixture.py": "f4e1cdbdd2f2182115fcf03f1e18ca3c75fce45956a8676d2919f6bf793e4eb1",
+    "tests/test-behavior-proof.sh": "6270c4c6209fa5eb8d7a459937ff9f3742a2dd425102378ed9fab026370d73ff"
+  },
+  "behavioral_assertions_changed": false,
+  "changes": [
+    "Three singleton forbidden arrays converted to identical string values",
+    "Reviewer stub recognizes system-prompt plus json-schema flags, retaining legacy agents path",
+    "SPEC explicitly identifies forbidden as string"
+  ],
+  "reason": "Resolve forbidden description type against canonical public artifact; align stub with verified safe-mode reviewer transport",
+  "reviewer": "review_13_private",
+  "timestamp": "2026-09-09T00:49:03.930608+00:00"
+}

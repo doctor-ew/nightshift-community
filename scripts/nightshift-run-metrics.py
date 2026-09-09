@@ -49,7 +49,7 @@ STAGES = {"product", "adversarial", "implement", "review", "drift", "preflight",
 PROVIDERS = {"claude", "codex", "local"}
 ROLES = {
     "nightshift-engineer", "nightshift-architect", "nightshift-code-fact-extractor",
-    "nightshift-run-all-tests", "nightshift-spec-writer",
+    "nightshift-run-all-tests", "nightshift-spec-writer", "nightshift-behavior-reviewer",
 }
 STATUSES = {"success", "failed", "interrupted"}
 TERMINAL_STATUSES = {

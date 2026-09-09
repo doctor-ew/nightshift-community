@@ -38,3 +38,34 @@ single-line string. Configuration does not silently override applicable project
 instructions: conflicting explicit commands block before execution. See
 [Project context and conventions](PROJECT-CONTEXT.md) for scoped AGENTS.md guidance,
 legacy CLAUDE.md fallback, provenance, and neutral runtime context.
+
+## Behavioral proof
+
+Optional `[behavior_proof]` uses safe helper defaults when absent; setup need not
+materialize the section. Canonical manifest precedence is unchanged. Validate it
+through normal manifest validation or `nightshift-behavior-proof.py validate
+--project DIR --config-only`.
+
+| Key | Default | Accepted values |
+| --- | --- | --- |
+| version | 1 | 1 |
+| development_calls | 8 | Integer 1..64 |
+| final_calls | 2 | Integer 1..64 |
+| repairs | 2 | Integer 0..2 |
+| infrastructure_failures | 2 | Integer 0..2 |
+| timeout_seconds | 120 | Integer 1..120 |
+| output_bytes | 1048576 | Integer 1..1048576 |
+| force_prompt | false | Boolean; strengthens required prototype coverage only |
+
+Unknown keys, booleans used as integers, malformed tables and unsupported versions
+are invalid. Lower budgets block earlier; they never waive required proof. With
+zero infrastructure retries, the initial successful attempt is permitted but the
+first infrastructure failure blocks retries. Effective policy is pinned to the
+canonical task ledger; changing a config or report path does not reset it.
+`force_prompt` retains deterministic tests and adds reviewed prototype coverage;
+an unsupported intended runtime blocks. It cannot turn required agent/runtime
+behavior into a documentation-only exemption. The proof profile is subscription
+only regardless of other explicitly authorized runtime authentication paths.
+
+See [Behavioral proof](BEHAVIOR-PROOF.md) for scenarios, admission, evidence,
+private final cases and supported runtime limits.

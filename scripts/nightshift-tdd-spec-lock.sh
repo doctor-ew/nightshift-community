@@ -21,8 +21,23 @@ if [ ! -f "$SPEC_PATH" ]; then
   exit 0
 fi
 
-# Stage the spec (may be a no-op if already committed and unchanged).
-git -C "$PROJECT" add "$SPEC_PATH" 2>/dev/null || true
+# Adopted specs seal only the two public artifacts. Refuse an unrelated index
+# instead of silently committing another task's staged changes.
+SCENARIO_PATH="${PROJECT}/docs/${TASK}/behavior-scenarios.json"
+if [ -e "$SCENARIO_PATH" ] || [ -L "$SCENARIO_PATH" ]; then
+  python3 "$SCRIPT_DIR/nightshift-behavior-proof.py" validate --project "$PROJECT" --task "$TASK" --scenarios "$SCENARIO_PATH" >/dev/null
+  STAGED_PATHS=$(mktemp)
+  trap 'rm -f -- "$STAGED_PATHS"' EXIT
+  git -C "$PROJECT" diff --cached --name-only -z > "$STAGED_PATHS"
+  while IFS= read -r -d '' staged; do
+    case "$staged" in "docs/$TASK/SPEC.md"|"docs/$TASK/behavior-scenarios.json") ;;
+      *) echo 'SPEC_LOCK_FAILED: unrelated staged paths must remain outside the seal' >&2; exit 1;;
+    esac
+  done < "$STAGED_PATHS"
+  git -C "$PROJECT" add -- "$SPEC_PATH" "$SCENARIO_PATH"
+else
+  git -C "$PROJECT" add -- "$SPEC_PATH"
+fi
 
 # Always create a lock commit — --allow-empty guarantees a real SHA is recorded.
 git -C "$PROJECT" \

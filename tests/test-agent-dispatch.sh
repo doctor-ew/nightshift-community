@@ -11,6 +11,7 @@ cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
 for helper in "$ROOT/scripts/"*.jq "$ROOT/scripts/nightshift-capability.sh"; do
   [ ! -f "$helper" ] || cp "$helper" "$TMP/runtime/scripts/"
 done
@@ -75,9 +76,13 @@ PASS=0; FAIL=0; RC=0
 check() { local label="$1"; shift; if "$@"; then PASS=$((PASS+1)); else printf 'FAIL: %s\n' "$label" >&2; [ ! -f "$TMP/stderr" ] || tail -10 "$TMP/stderr" >&2; FAIL=$((FAIL+1)); fi; }
 json() { jq -e "$1" "$OUTPUT" >/dev/null 2>&1; }
 args() { jq -e "$1" "$MOCK_LOG" >/dev/null 2>&1; }
-run() { RC=0; bash "$TMP/runtime/scripts/nightshift-agent.sh" "$@" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?; }
+run() { RC=0; case "${1:-}" in nightshift-engineer|nightshift-architect) set -- "$1" --task fixture "${@:2}";; esac; bash "$TMP/runtime/scripts/nightshift-agent.sh" "$@" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?; }
 normal() { run nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT" "$@"; }
 route() { jq --arg p "$1" '.roles["nightshift-engineer"].gears["1"]={provider:$p,model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"; }
+mkdir -p "$TMP/project"
+export NIGHTSHIFT_PROJECT_DIR="$TMP/project"
+unset CLAUDE_PROJECT_DIR
+python3 "$ROOT/tests/nightshift-behavior-fixture.py" --root "$ROOT" --project "$TMP/project" --task fixture > "$TMP/admission.json"
 route codex
 export MOCK_MODEL_REJECT=true
 normal
@@ -200,7 +205,7 @@ MOCK_RESPONSE="$BASE_RESPONSE"
 route codex; MOCK_MODE=slow
 export MOCK_PID="$TMP/provider.pid" MOCK_DESC_PID="$TMP/tool.pid"
 printf '%s\n' "$BASE_RESPONSE" > "$OUTPUT"
-bash "$TMP/runtime/scripts/nightshift-agent.sh" nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT" > "$TMP/stdout" 2> "$TMP/stderr" &
+bash "$TMP/runtime/scripts/nightshift-agent.sh" nightshift-engineer --task fixture --gear 1 --in "$INPUT" --out "$OUTPUT" > "$TMP/stdout" 2> "$TMP/stderr" &
 dispatch_pid=$!
 for _ in $(seq 1 40); do [ ! -f "$MOCK_PID" ] || break; sleep 0.05; done
 check 'slow provider started' test -f "$MOCK_PID"
@@ -233,7 +238,7 @@ for mode in copy symlink; do
     check "$mode contracts installed" test -f "$destination/runtime/contracts/nightshift-spec-writer.schema.json"
     check "$mode validator installed" test -f "$destination/runtime/scripts/nightshift-contract.jq"
     RC=0
-    (cd "$TMP" && bash "$destination/runtime/scripts/nightshift-agent.sh" nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT") > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
+    (cd "$TMP" && bash "$destination/runtime/scripts/nightshift-agent.sh" nightshift-engineer --task fixture --gear 1 --in "$INPUT" --out "$OUTPUT") > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
     check "$mode installed dispatch" test "$RC" -eq 0
     check "$mode installed normalized" json '.status == "SUCCESS"'
   else

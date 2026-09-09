@@ -16,7 +16,8 @@ The spec is the contract for everything downstream. No code without a spec.
 
 > **HARD STOP — THE SPEC PHASE IS READ-ONLY.**
 > Do not write code, edit implementation files, or run git commands that change state. The
-> phase ends when the engineer approves the spec document. Nothing else.
+> phase prepares specification/scenario documents and their review evidence. Conditional
+> design review is permitted; prototype execution and production edits belong to implementation.
 
 Normally invoked by `/nightshift-product` Step 7, which supplies ticket content, engineer notes, and
 the verification manifest. It also runs standalone.
@@ -49,7 +50,7 @@ mkdir -p "$DIR"
 | Condition | Action |
 |-----------|--------|
 | No spec | Generate |
-| Spec exists, task unchanged | Show it: *"Spec is current. Confirm before implementing."* |
+| Spec exists, task unchanged | Validate its scenario artifact and review evidence before presenting it; migrate a missing artifact rather than bypass adoption. |
 | Spec exists, task updated since | *"⚠️ Spec may be stale."* Show what changed, ask: update or proceed? |
 | `--force` | Regenerate unconditionally |
 
@@ -124,9 +125,39 @@ integration; missing output files are failures even when the model claims succes
 
 ---
 
-## Step 4 — Present for approval
+## Step 4 — Validate behavioral coverage and present for approval
 
-Show the spec. Ask for approval. On approval:
+Require both SPEC.md and `docs/$TASK/behavior-scenarios.json`. Follow the shared
+contract in `docs/BEHAVIOR-PROOF.md` (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`). Map
+stable AC IDs to required cases and record actual author identity. Do not read or
+place private held-out bodies/locators in a writer or reviewer brief.
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  validate --project "$PROJECT" --task "$TASK" --scenarios "$DIR/behavior-scenarios.json" || exit $?
+```
+
+Record actual independent classification review with the reviewed semantic digest.
+Ordinary deterministic/documentation-only work uses existing independent review,
+without another model call merely to format an attestation. Prototype or
+safety-sensitive cases additionally require a complete typed design challenge:
+
+```bash
+python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+  challenge --project "$PROJECT" --task "$TASK" --scenarios "$DIR/behavior-scenarios.json" \
+  --out "$DIR/proof-challenge.json" || exit $?
+```
+
+Run that conditional call once through the helper's accounting. Require actual
+distinct-provider review, approval decision, matching digest and complete public
+case coverage. A transport SUCCESS alone is not approval. Amend rejected designs
+and retain findings/counters; do not relabel risky cases to avoid review. Private
+commitment metadata comes from the independent evaluator and covers prototype
+ACs; runtime sealing verifies the retained private artifact before execution.
+No prototype runs in this stage.
+
+Show the spec and behavioral coverage. Ask for approval. On approval:
 
 > "Spec approved: `docs/<task-key>/SPEC.md`.
 > **Next:** `/nightshift-adversarial <task-key>` to verify its claims."
@@ -138,7 +169,7 @@ standalone `/nightshift-spec` run leaves no half-initialized pipeline state behi
 
 ## Output
 
-`docs/<task-key>/SPEC.md`.
+`docs/<task-key>/SPEC.md` and `docs/<task-key>/behavior-scenarios.json`, with retained classification/design review evidence.
 
 | Mode | Contains |
 |---|---|

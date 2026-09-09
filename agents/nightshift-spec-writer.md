@@ -62,6 +62,22 @@ When Arcade looks right, offer it and say `--full` overrides. Ambiguity resolves
 
 Save to `docs/<task-key>/SPEC.md`.
 
+Also author `docs/<task-key>/behavior-scenarios.json` in every mode. Follow
+`docs/BEHAVIOR-PROOF.md` in source (installed at
+`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+Map stable AC IDs to required cases, classify each case with rationale and risks,
+and distinguish deterministic tests from actual prompt/runtime prototypes.
+Record public expected/forbidden behavior and counterexamples. Unknown required
+runtime or oracle is a blocker, not a not-applicable classification. Keep review
+fields null until the orchestrator records actual independent review. Never
+invent author/reviewer provenance or read private held-out fixture bodies.
+
+The Test Plan references these case IDs and the public artifact hash. Ordinary
+deterministic work reuses focused RED/final tests without an extra model gate;
+prototype and safety-sensitive cases require conditional independent challenge.
+The orchestrator retains private commitments, verifies the artifact, and records
+review approval before advancing; a spec-writer SUCCESS alone is not admission.
+
 **Story spec:**
 
 ```markdown

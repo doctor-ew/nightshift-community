@@ -9,7 +9,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SECONDS=0
 ROLE="${1:-}"; [ "$#" -eq 0 ] || shift
 GEAR=${NIGHTSHIFT_GEAR:-1} INPUT='' OUTPUT='' AUTHOR='' ADV=false PROVIDER='' MODEL='' TMP='' PUBLISH='' CHILD=''
-RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE='' STAGE_OVERRIDE=''
+RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE='' STAGE_OVERRIDE='' TASK_KEY='' LAUNCH_RECEIPT=''
 TELEMETRY_FILE='' TELEMETRY_STARTED='' TELEMETRY_STATUS=failed
 INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
@@ -22,6 +22,7 @@ role_stage() {
   case "$1" in
     nightshift-engineer|nightshift-architect) echo implement ;;
     nightshift-spec-writer) echo product ;;
+    nightshift-behavior-reviewer) echo adversarial ;;
     # Fact extraction and test runs happen from multiple stages; only a
     # caller-validated --stage (never a role-inferred guess) resolves those.
     *) echo '' ;;
@@ -107,6 +108,7 @@ fail() {
        results:(if $role == "nightshift-code-fact-extractor" then {claims:[]}
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
+         elif $role == "nightshift-behavior-reviewer" then {decision:"repair",scenario_ids:[],findings:[],reviewed_input_sha256:""}
          else {files_changed:[]} end)}' > "$receipt"; then
       publish "$receipt" || printf 'nightshift-agent: cannot publish failure to %s\n' "$OUTPUT" >&2
     fi
@@ -122,18 +124,29 @@ SEEN=' '
 while [ "$#" -gt 0 ]; do
   opt="$1"; shift
   case "$opt" in
-    --gear|--in|--out|--author-provider|--risk|--attempt|--auth|--stage)
+    --gear|--in|--out|--author-provider|--risk|--attempt|--auth|--stage|--task|--launch-receipt)
       if [[ "$SEEN" == *" $opt "* ]]; then ERROR="duplicate option: $opt"; fi
       SEEN="$SEEN$opt "
       if [ "$#" -eq 0 ] || [[ "$1" == --* ]]; then ERROR="missing value for $opt"; continue; fi
-      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; --stage) STAGE_OVERRIDE="$1";; esac
+      case "$opt" in --gear) GEAR="$1";; --in) INPUT="$1";; --out) OUTPUT="$1";; --author-provider) AUTHOR="$1";; --risk) RISK="$1";; --attempt) ATTEMPT="$1";; --auth) AUTH="$1";; --stage) STAGE_OVERRIDE="$1";; --task) TASK_KEY="$1";; --launch-receipt) LAUNCH_RECEIPT="$1";; esac
       shift;;
     --adversarial) if [ "$ADV" = true ]; then ERROR='duplicate --adversarial'; fi; ADV=true;;
     *) ERROR="unknown option: $opt";;
   esac
 done
 [ -z "$ERROR" ] || fail "$ERROR"
-case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+if [ -n "$LAUNCH_RECEIPT" ]; then
+  [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
+  [ ! -e "$LAUNCH_RECEIPT" ] && [ ! -L "$LAUNCH_RECEIPT" ] || fail 'launch receipt already exists'
+fi
+case "$ROLE" in nightshift-engineer|nightshift-architect)
+  [ -n "${TASK_KEY:-}" ] || fail 'engineer and architect dispatch requires --task and task-bound behavioral proof'
+  [[ "$TASK_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || fail 'invalid task key'
+  PROOF_PROJECT=$(python3 "$ROOT/scripts/nightshift-project-context.py" --root-only) || fail 'cannot resolve proof project'
+  PROOF_RESULT=$(python3 "$ROOT/scripts/nightshift-behavior-proof.py" gate --project "$PROOF_PROJECT" --task "$TASK_KEY" --gate development) || fail 'required development proof is missing, stale or blocked'
+  jq -e '(.outcome // .status) == "pass"' <<< "$PROOF_RESULT" >/dev/null || fail 'required development proof did not pass';;
+esac
 case "$AUTH" in subscription|api) ;; *) fail 'auth must be subscription or api';; esac
 case "$RISK" in low|standard|high) ;; *) fail 'invalid risk';; esac
 case "$ATTEMPT" in 1|2|3) ;; *) fail 'attempt must be 1..3';; esac
@@ -197,7 +210,12 @@ case "$PROVIDER" in
     # Claude's CLI schema compiler rejects the 2020-12 dialect declaration.
     # Project transport metadata only; keep full authoritative local validation.
     jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
-    CMD=(claude -p --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT");;
+    if [ "$ROLE" = nightshift-behavior-reviewer ]; then
+      # Public review input is complete; no filesystem tools or customization are needed.
+      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    else
+      CMD=(claude -p --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    fi;;
   codex|local)
     # OpenAI strict Structured Outputs excludes allOf/if/then. Supply its
     # supported shape projection; the full authoritative conditions stay local.
@@ -225,6 +243,21 @@ fi
 set -m
 NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
 CHILD=$!
+if [ -n "$LAUNCH_RECEIPT" ]; then
+  python3 - "$LAUNCH_RECEIPT" "$PROVIDER" "$MODEL" "$CHILD" <<'PY' || fail 'cannot record provider launch'
+import json, os, sys, tempfile
+path, provider, model, pid = sys.argv[1:]
+fd, temporary = tempfile.mkstemp(prefix='.nightshift-launch-', dir=os.path.dirname(os.path.abspath(path)))
+try:
+    with os.fdopen(fd, 'w') as stream:
+        json.dump({'provider': provider, 'model': model, 'pid': int(pid)}, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.link(temporary, path)
+finally:
+    os.unlink(temporary)
+PY
+fi
 if wait "$CHILD"; then CHILD=''; else
   provider_exit=$?
   CHILD=''
