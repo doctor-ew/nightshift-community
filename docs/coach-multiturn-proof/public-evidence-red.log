@@ -1,0 +1,23 @@
+..E..E.......
+======================================================================
+ERROR: test_failed_development_retains_completion_without_resampling (__main__.Multiturn.test_failed_development_retains_completion_without_resampling)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/nightshift-coach-continuation-20260909/tests/test-behavior-multiturn.py", line 98, in test_failed_development_retains_completion_without_resampling
+    evidence = json.loads((self.fx.project/turn['development_evidence']['path']).read_text())
+                                           ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'development_evidence'
+
+======================================================================
+ERROR: test_public_development_retains_actual_turns_and_final_is_private (__main__.Multiturn.test_public_development_retains_actual_turns_and_final_is_private)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/nightshift-coach-continuation-20260909/tests/test-behavior-multiturn.py", line 76, in test_public_development_retains_actual_turns_and_final_is_private
+    ref = turn['development_evidence']
+          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'development_evidence'
+
+----------------------------------------------------------------------
+Ran 13 tests in 20.379s
+
+FAILED (errors=2)

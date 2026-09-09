@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_runtime_reseal_never_reuses_previous_engine_success (__main__.Multiturn.test_runtime_reseal_never_reuses_previous_engine_success)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/nightshift-coach-continuation-20260909/tests/test-behavior-multiturn.py", line 147, in test_runtime_reseal_never_reuses_previous_engine_success
+    self.assertNotEqual(self.fx.call('gate', '--gate', 'development').returncode, 0)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 == 0
+
+----------------------------------------------------------------------
+Ran 1 test in 2.322s
+
+FAILED (failures=1)
