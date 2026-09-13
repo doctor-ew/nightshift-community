@@ -223,3 +223,33 @@ token, and cost limits. Invalid output never counts as approval.
 The recorded final-review check in `WORKSHOP-STRUCTURED-REVIEW-CHECK.json` used
 only the failed v2 exercise's final-review inputs. It passed with structured
 output; it does not rewrite the original failed run or certify the entire build.
+
+
+## Resume after malformed final-review output
+
+After fixing/updating the runtime, retry the same brief in the same project:
+
+```bash
+nightshift claude test-coach-brief-v2.md --retry-review --output concise
+```
+
+Keep the same auth/model options as the original run. `--retry-review` permits
+one additional attempt only when the failed call is a final review whose runtime
+receipt reports success but contains malformed JSON. It checks the saved spec,
+prompt, cases, and observations against retained state before proceeding. It
+reuses successful calls and spec approval; all earlier costs and elapsed time
+remain charged against the original limits. There is no budget reset.
+
+The old response remains `calls/code-review-0.stdout.json` (or `code-review-1`);
+the retry writes a separate `.retry-1.stdout.json`. A `FAILED-code-review-*.json`
+snapshot preserves the failed state. Budget exhaustion, artifact drift, invalid
+test expectations, and behavioral/review rejection cannot use this recovery.
+The dashboard's Run overview gives the retry action for new eligible failures;
+other failures direct the user to inspect the retained receipt. A web retry
+button and recovery for other error categories are not implemented.
+
+The observed v2 response had `stop_reason: end_turn`, `subtype: success`, and
+`is_error: false`, despite missing its JSON opening. These fields do not prove
+output-limit truncation. The retained envelope cannot distinguish malformed
+model output from CLI result assembly. The established integration defect was
+relying on prose instructions for JSON instead of schema-constrained output.

@@ -33,7 +33,7 @@ elif 'independent reviewer' in system: value={'evidence_audit':'No source claims
 else: value='What would you like to explore?'
 if mode=='broken-json' and 'Review the implemented prompt' in system: value='truncated JSON response'
 if mode=='missing-oracle' and isinstance(value,dict) and 'oracle_valid' in value: value.pop('oracle_valid')
-print(json.dumps(dict(result=json.dumps(value) if isinstance(value,dict) else value,is_error=False,total_cost_usd=3 if mode=='overcost' else .01,usage=dict(input_tokens=100,cache_read_input_tokens=20,cache_creation_input_tokens=10,output_tokens=20),session_id='fixture')))
+print(json.dumps(dict(result=json.dumps(value) if isinstance(value,dict) else value,is_error=False,subtype='success',total_cost_usd=3 if mode=='overcost' else .01,usage=dict(input_tokens=100,cache_read_input_tokens=20,cache_creation_input_tokens=10,output_tokens=20),session_id='fixture')))
 '''
 
 class WorkshopTest(unittest.TestCase):
@@ -167,6 +167,40 @@ class WorkshopTest(unittest.TestCase):
         self.assertEqual(json.loads(lifecycle.read_text())['failure'],s['failure'])
         result=self.command(['bash',str(ROOT/'scripts/nightshift-dashboard.sh'),'--project',str(self.project),'--json'])
         self.assertIn('runtime returned malformed JSON',result.stdout)
+
+    def test_retry_final_review_preserves_history_and_costs(self):
+        self.env['FIXTURE_MODE']='broken-json'
+        self.run_workshop();self.approve(status=1)
+        before=self.state();artifacts=Path(before['worktree'])/'docs'/before['task']
+        raw=(artifacts/'calls/code-review-0.stdout.json').read_bytes()
+        self.env.pop('FIXTURE_MODE')
+        self.command(['bash',str(ROOT/'scripts/nightshift-factory.sh'),'claude','brief.md','--retry-review','--dashboard','off'])
+        s=self.state();self.assertEqual(s['status'],'complete');self.assertEqual(len(s['calls']),18)
+        self.assertAlmostEqual(s['cost_usd'],.18)
+        self.assertEqual(s['calls'][16]['status'],'failed')
+        self.assertEqual((artifacts/'calls/code-review-0.stdout.json').read_bytes(),raw)
+        self.assertTrue((artifacts/'calls/code-review-0.retry-1.stdout.json').exists())
+        self.assertTrue((artifacts/'FAILED-code-review-0.json').exists())
+
+    def test_retry_refuses_drift_and_semantic_failure(self):
+        self.env['FIXTURE_MODE']='broken-json';self.run_workshop();self.approve(status=1)
+        s=self.state();artifact=Path(s['worktree'])/'prompts/workshop-agent.md'
+        artifact.write_text('changed')
+        self.run_workshop('--retry-review',status=1)
+        self.assertEqual(len(self.state()['calls']),17)
+
+    def test_retry_cannot_bypass_rejected_review(self):
+        self.env['FIXTURE_MODE']='invalid-oracle';self.run_workshop();self.approve(status=1)
+        result=self.run_workshop('--retry-review',status=1)
+        self.assertIn('not failed behavior or safety gates',result.stdout)
+        self.assertEqual(len(self.state()['calls']),17)
+
+    def test_retry_cannot_repeat_forever(self):
+        self.env['FIXTURE_MODE']='broken-json';self.run_workshop();self.approve(status=1)
+        self.run_workshop('--retry-review',status=1)
+        self.assertEqual(len(self.state()['calls']),18)
+        self.run_workshop('--retry-review',status=1)
+        self.assertEqual(len(self.state()['calls']),18)
 
     def test_prior_evidence_policy_cannot_reuse_cached_results(self):
         self.run_workshop()

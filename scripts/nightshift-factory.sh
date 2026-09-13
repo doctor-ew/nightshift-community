@@ -65,6 +65,7 @@ OPEN_PR="false"
 BATCH_ARGS=()
 PROFILE=""
 APPROVE_SPEC=""
+RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
 NIGHTSHIFT_HOME_DIR="${NIGHTSHIFT_HOME:-${HOME}/.nightshift}"
@@ -95,6 +96,7 @@ One autonomous Nightshift run. Examples:
 
 Options:
   --profile standard|workshop  Bounded prompt workshop or full engineering workflow
+  --retry-review             Retry one malformed workshop final review
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
@@ -115,6 +117,7 @@ EOF
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --profile) shift; PROFILE="${1:-}" ;;
+    --retry-review) RETRY_REVIEW=true ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
     --provider) shift; PROVIDER="${1:-}" ;;
@@ -350,12 +353,14 @@ if [ "$PROFILE" = workshop ]; then
   [ "$MODE" = eng ] || { echo 'Workshop accepts a single Markdown brief.' >&2; exit 64; }
   echo "nightshift: authentication: $AUTH_MODE; workshop reported costs are usage estimates." >&2
   WORKSHOP_ARGS=(--project "$PROJECT" --ref "$REF" --provider "$PROVIDER" --auth "$AUTH_MODE")
+  [ "$RETRY_REVIEW" = false ] || WORKSHOP_ARGS+=(--retry-review)
   [ -z "$MODEL" ] || WORKSHOP_ARGS+=(--model "$MODEL")
   [ -z "$APPROVE_SPEC" ] || WORKSHOP_ARGS+=(--approve-spec "$APPROVE_SPEC")
   [ "$PUSH" = false ] || WORKSHOP_ARGS+=(--push)
   [ "$OPEN_PR" = false ] || WORKSHOP_ARGS+=(--pr)
   exec python3 "$SCRIPT_DIR/nightshift-workshop.py" "${WORKSHOP_ARGS[@]}"
 fi
+[ "$RETRY_REVIEW" = false ] || { echo '--retry-review requires the workshop profile.' >&2; exit 64; }
 [ -z "$APPROVE_SPEC" ] || { echo '--approve-spec requires the workshop profile.' >&2; exit 64; }
 echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR")" >&2
 

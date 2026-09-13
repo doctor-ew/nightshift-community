@@ -124,7 +124,8 @@ class Run:
             stop('brief changed; use a new brief filename for a new exercise, preserving this history')
         if any(c['status'] == 'running' for c in self.state['calls']):
             stop('a prior launch was interrupted; inspect its retained receipt before any new exercise')
-        if self.state['status'] in ('failed', 'budget_exhausted', 'interrupted'):
+        self.retrying_review = bool(args.retry_review and self.state['status'] == 'failed')
+        if self.state['status'] in ('failed', 'budget_exhausted', 'interrupted') and not self.retrying_review:
             stop('this exercise is terminal; inspect its failure receipt before creating a new exercise')
         route_path = self.project / config['providers']['routing_file']
         routing = json.loads(route_path.read_text())
@@ -168,7 +169,50 @@ class Run:
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.artifact = self.worktree / 'prompts/workshop-agent.md'
         self.lifecycle_status = 'running'
+        if self.retrying_review:
+            self.recover_review()
         self.save()
+
+    def recover_review(self):
+        calls = self.state['calls']
+        last = calls[-1] if calls else {}
+        name = last.get('name', '')
+        if name not in ('code-review-0', 'code-review-1') or last.get('status') != 'failed':
+            stop('--retry-review only recovers a malformed final review, not failed behavior or safety gates')
+        if sum(c['name'] == name for c in calls) != 1:
+            stop('final-review retry already used; inspect retained evidence')
+        envelope = json.loads((self.artifacts / 'calls' / (name + '.stdout.json')).read_text())
+        if envelope.get('is_error') is not False or envelope.get('subtype') != 'success':
+            stop('retry requires a successful runtime receipt with malformed review JSON')
+        try:
+            json.loads(envelope.get('result', ''))
+        except json.JSONDecodeError:
+            pass
+        else:
+            stop('review is valid JSON; do not bypass its decision or schema failure')
+        attempt = name.rsplit('-', 1)[1]
+        cache = self.state['cache']
+        content = '\n'.join(cache['implementation-' + attempt]['lines']) + '\n'
+        if self.artifact.read_text() != content or digest(content) != self.state['prompt_sha256']:
+            stop('prompt drift; final-review retry refused')
+        if digest((self.artifacts / 'SPEC.md').read_bytes()) != self.state['approved_spec']:
+            stop('approved spec drift; final-review retry refused')
+        if json.loads((self.artifacts / 'CASES.json').read_text()) != cache['scenarios']:
+            stop('case drift; final-review retry refused')
+        evaluation = json.loads((self.artifacts / ('EVALUATION-' + attempt + '.json')).read_text())
+        observations = [{'case': case['id'], 'response': cache[f'behavior-{attempt}-{i}']}
+                        for i, case in enumerate(cache['scenarios']['cases'])]
+        if evaluation != {'prompt_sha256': digest(content), 'observations': observations,
+                          'grade': cache['grade-' + attempt]}:
+            stop('evaluation drift; final-review retry refused')
+        self.check_budget()
+        snapshot = self.artifacts / ('FAILED-' + name + '.json')
+        if snapshot.exists(): stop('recovery snapshot already exists; inspect retained evidence')
+        write(snapshot, self.state)
+        self.state.setdefault('recoveries', []).append({'stage': name, 'failure': self.state.get('failure'),
+                                                       'snapshot': str(snapshot), 'prior_calls': len(calls)})
+        self.state.pop('failure', None)
+        self.state['status'] = 'retrying_review'
 
     def save(self):
         self.state['elapsed_seconds'] = self.prior_elapsed + time.monotonic() - self.started
@@ -180,7 +224,12 @@ class Run:
             write(self.worktree / '.nightshift' / (self.task + '.json'),
                   dict(ticket=self.task, gate='workshop', status=status, provider='claude',
                        reason=self.state.get('failure') or phase,
-                       next_action='Review SPEC.md and supply its SHA-256' if phase == 'awaiting_spec_approval' else '',
+                       next_action=('Review SPEC.md and supply its SHA-256' if phase == 'awaiting_spec_approval' else
+                           'Retry the same command with --retry-review; one malformed final-review retry is allowed within the original budgets.'
+                           if phase == 'failed' and self.state['calls'] and self.state['calls'][-1].get('failure_kind') == 'invalid_json'
+                           and self.state['calls'][-1]['name'] in ('code-review-0', 'code-review-1')
+                           and not self.state.get('recoveries') else
+                           'Inspect the failure receipt; this failure has no automatic retry.' if phase == 'failed' else ''),
                        worktree=str(self.worktree)))
             write(self.worktree / '.nightshift' / 'agents' / (self.task + '.json'),
                   dict(role='nightshift-workshop', provider='claude', model=self.writer,
@@ -239,7 +288,9 @@ class Run:
             stop(f'{name}: input context exceeds byte limit')
         self.state['status'] = name
         reserve = min(self.limits['call_usd'], self.limits['cost_usd'] - self.state['cost_usd'])
-        record = {'name': name, 'model': model, 'status': 'running', 'reserved_usd': reserve,
+        prior_attempts = sum(c['name'] == name for c in self.state['calls'])
+        receipt_name = name + (f'.retry-{prior_attempts}' if prior_attempts else '') + '.stdout.json'
+        record = {'receipt': receipt_name, 'name': name, 'model': model, 'status': 'running', 'reserved_usd': reserve,
                   'input_sha256': digest(system + request), 'input_bytes': len((system + request).encode())}
         self.state['calls'].append(record)
         self.state['cost_usd'] += reserve
@@ -260,7 +311,7 @@ class Run:
         timeout = min(self.limits['call_seconds'], self.limits['seconds'] - self.state['elapsed_seconds'])
         try:
             code, stdout, stderr = self.execute(argv, max(0.1, timeout))
-            write(self.artifacts / 'calls' / (name + '.stdout.json'), stdout)
+            write(self.artifacts / 'calls' / receipt_name, stdout)
             write(self.artifacts / 'calls' / (name + '.stderr.log'), stderr)
             envelope = json.loads(stdout)
             cost = envelope.get('total_cost_usd')
@@ -288,7 +339,8 @@ class Run:
             try:
                 value = json.loads(serialized) if structured else result
             except json.JSONDecodeError as error:
-                stop(f'{name}: runtime returned malformed JSON ({error}); no review pass recorded. Raw response: {self.artifacts / "calls" / (name + ".stdout.json")}')
+                record['failure_kind'] = 'invalid_json'
+                stop(f'{name}: runtime returned malformed JSON ({error}); no review pass recorded. Raw response: {self.artifacts / "calls" / receipt_name}')
             if structured and not isinstance(value, dict):
                 stop('response is not an object')
             record['status'] = 'success'
@@ -461,6 +513,7 @@ def main():
     parser.add_argument('--provider',default='claude'); parser.add_argument('--model')
     parser.add_argument('--auth',choices=('subscription','api'),default='subscription')
     parser.add_argument('--wait-for-review-lock', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--retry-review', action='store_true', help='Retry one malformed final review, preserving prior calls and budgets')
     parser.add_argument('--approve-spec'); parser.add_argument('--push',action='store_true'); parser.add_argument('--pr',action='store_true')
     args=parser.parse_args(); run=None
     def interrupt(_signal,_frame): raise KeyboardInterrupt()
