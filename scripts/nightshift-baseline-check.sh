@@ -43,7 +43,7 @@ done
 [ -n "$BRANCH" ] || { echo "nightshift-baseline-check: --branch is required" >&2; exit 64; }
 
 if [ "$BRANCH" != none ] && ! git -C "$PROJECT" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1; then
-  echo 'nightshift: BASE_MISSING: isolated runs require an initial Git commit. Review and commit the starter files first; no model was started.' >&2
+  echo 'nightshift: BASE_MISSING: isolated runs require an initial Git commit. Run nightshift init first (use --include FILE for a starter brief); no model was started.' >&2
   exit 66
 fi
 exit 0

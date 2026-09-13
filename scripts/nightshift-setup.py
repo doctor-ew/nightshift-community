@@ -11,6 +11,7 @@ import stat
 parser = argparse.ArgumentParser()
 parser.add_argument('--project', default=os.getcwd())
 parser.add_argument('--read', action='store_true')
+parser.add_argument('--defaults', action='store_true', help='Fill missing settings without prompting')
 parser.add_argument('--migrate', action='store_true')
 parser.add_argument('--ticket-ref', default='')
 parser.add_argument('--runtime-provider', default='')
@@ -71,14 +72,19 @@ for key in ('local_model', 'file'):
 if args.read:
     print(json.dumps(data))
     sys.exit(0)
-if missing and not sys.stdin.isatty():
+if missing and not sys.stdin.isatty() and not args.defaults:
     fail('CONFIG_INCOMPLETE', 'Run nightshift setup in an interactive terminal', [f'{t}.{k}' for t, k, _ in missing])
 route_file = section('providers').get('routing_file')
 if route_file and not (project / route_file).is_file():
     fail('CONFIG_INCOMPLETE', 'Configured routing file does not exist; create it or update providers.routing_file', ['providers.routing_file'])
 additions = {}
-customize = True
-if sys.stdin.isatty() and not args.migrate:
+customize = not args.defaults
+if args.defaults:
+    if not section("ticket_source").get("provider") and args.ticket_ref:
+        additions["ticket_source"] = {"provider": args.ticket_ref.split(":", 1)[0]}
+    if args.runtime_provider:
+        additions["runtime"] = {"provider": args.runtime_provider, "model": args.runtime_model, "auth": runtime.get("auth", "subscription")}
+if sys.stdin.isatty() and not args.migrate and not args.defaults:
     ref = args.ticket_ref
     sources = ('spec', 'gh', 'jira', 'monday', 'notion', 'bd', 'beads')
     inferred = ref.split(':', 1)[0] if ':' in ref else ''
@@ -149,7 +155,7 @@ try:
     routing_path = project / completed.get('providers', {}).get('routing_file', 'routing.json')
     if not routing_path.is_file():
         template = Path(__file__).resolve().parent.parent / 'routing.json'
-        if sys.stdin.isatty() and template.is_file() and routing_path == project / 'routing.json':
+        if (sys.stdin.isatty() or args.defaults) and template.is_file() and routing_path == project / 'routing.json':
             with routing_path.open('x') as handle:
                 handle.write(template.read_text())
         else:

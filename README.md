@@ -922,3 +922,29 @@ investigate more deeply. Verbose output does not request a deeper investigation.
 Administrative commands such as setup, sync, version and dashboard retain their own
 output. See [output implementation](scripts/nightshift-output.py) and
 [explain contract](commands/nightshift-explain.md).
+
+## Initialize a new project
+
+Run `nightshift init` explicitly before the first isolated build. It creates Git
+when needed, fills missing Nightshift configuration from standard defaults, creates
+routing.json if needed, and commits an initialization baseline. It does not start
+a model, create a remote, push, or run the engineering workflow.
+
+For a folder containing a brief, run
+`nightshift init claude --include test-coach-brief.md`, then
+`nightshift claude test-coach-brief.md`. The optional runtime selection is saved;
+without one, the launcher continues to inherit your saved runtime configuration.
+Local aliases also work: `nightshift init codex/devstral`. An optional positional
+directory or `--project DIR` targets another folder; omitted means the current one.
+Explicit `--provider` and `--model` flags are supported too.
+
+Init commits its configuration and only starter files explicitly selected with
+repeatable `--include FILE`. It never stages all your files. Existing staged changes
+or uncommitted edits to selected initialization files must be resolved first.
+Running init again with unchanged settings does not create another commit. Existing
+configuration is preserved, except runtime settings you explicitly select. Git
+identity must already be configured. `nightshift setup` remains the interactive
+configuration editor; init uses its noninteractive `--defaults` path.
+
+Canonical implementation: [init](scripts/nightshift-init.py),
+[setup](scripts/nightshift-setup.py), [tests](tests/test-init.py).

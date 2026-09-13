@@ -12,6 +12,7 @@ Read the request and inspect only relevant project instructions and artifacts. W
 
 | Intent | Command |
 | --- | --- |
+| Prepare a new project and committed baseline | nightshift init [runtime/model] [DIR] [--include FILE] |
 | Understand a change, run, or failure | nightshift explain <task-key, path, or question> |
 | Discuss system tradeoffs | nightshift architect <question> |
 | Discuss implementation or debugging | nightshift dev <question> |

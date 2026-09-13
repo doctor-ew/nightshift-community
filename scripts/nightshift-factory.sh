@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
-    version|setup|dashboard|sync|--sync|--help|-h|"") ;;
+    version|init|setup|dashboard|sync|--sync|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-output.py" "$SCRIPT_PATH" "$@" ;;
   esac
 fi
@@ -36,7 +36,7 @@ if [ "${1:-}" = --sync ]; then
 fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
-    version|setup|dashboard|--help|-h|"") ;;
+    version|init|setup|dashboard|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --run "$@" ;;
   esac
 fi
@@ -45,6 +45,7 @@ if [ "${1:-}" = sync ]; then
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
+if [ "${1:-}" = "init" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-init.py" "$@"; fi
 if [ "${1:-}" = "setup" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-setup.sh" "$@"; fi
 if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-dashboard.sh" --serve "$@"; fi
 
@@ -74,6 +75,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift <runtime>/<model-or-alias> <ticket-ref> [options]
        nightshift batch <tickets-or-query> [options]
        nightshift [runtime/model] <help|explain|architect|dev|pm|ux-designer|architecture|ux|bmad> [request] [options]
+       nightshift init [runtime/model] [DIR] [--include FILE]
        nightshift setup [--project DIR]
        nightshift dashboard [--project DIR] [--port PORT]
 
@@ -247,6 +249,7 @@ if [ "$ADVISORY" = false ] && [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/
 fi
 if [ "$ADMISSION_STATUS" -ne 0 ]; then
   echo "nightshift: preflight blocked (${ADMISSION_REASON:-UNKNOWN})" >&2
+  case "$ADMISSION_REASON" in BASE_MISSING|MANIFEST_MISSING) echo "nightshift: run nightshift init in this project first; use --include FILE to commit a starter brief." >&2 ;; esac
   printf '%s\n' "$ADMISSION" >&2
   run_metrics_summary preflight_blocked "$ADMISSION_REASON"
   exit "$ADMISSION_STATUS"

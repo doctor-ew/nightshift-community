@@ -135,7 +135,7 @@ if bash "$SCRIPT_DIR/nightshift-baseline-check.sh" --project "$PROJECT" --branch
   CK_BASELINE=pass
 else
   CK_BASELINE=fail
-  block BASE_MISSING commit_initial_baseline 66
+  block BASE_MISSING run_init 66
 fi
 
 # ── (2) local input / ticket identity ───────────────────────────────────────
