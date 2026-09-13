@@ -117,7 +117,31 @@ def run(launcher, argv):
         log.write(line)
         log.flush()
         if mode == 'verbose':
-            print(line, end='', file=sys.stdout if name == 'stdout' else sys.stderr, flush=True)
+            # Claude print mode needs stream-json to expose live tool activity.
+            # Render its content blocks while retaining original events in logs.
+            try:
+                verbose_event = json.loads(line) if name == 'stdout' else {}
+            except ValueError:
+                verbose_event = {}
+            if isinstance(verbose_event, dict) and verbose_event.get('type') in ('assistant', 'user'):
+                message = verbose_event.get('message', {})
+                blocks = message.get('content', []) if isinstance(message, dict) else []
+                if not isinstance(blocks, list):
+                    blocks = [{'type': 'text', 'text': str(blocks)}]
+                for block in blocks:
+                    if not isinstance(block, dict):
+                        continue
+                    if block.get('type') == 'text':
+                        print(block.get('text', ''), flush=True)
+                    elif block.get('type') == 'tool_use':
+                        print('[tool ' + str(block.get('name', 'unknown')) + '] ' + json.dumps(block.get('input', {})), flush=True)
+                    elif block.get('type') == 'tool_result':
+                        content = block.get('content', '')
+                        print(content if isinstance(content, str) else json.dumps(content), flush=True)
+            elif isinstance(verbose_event, dict) and verbose_event.get('type') == 'result':
+                print(verbose_event.get('result') or json.dumps(verbose_event), flush=True)
+            else:
+                print(line, end='', file=sys.stdout if name == 'stdout' else sys.stderr, flush=True)
             continue
         if name == 'stderr':
             diagnostics.append(line.rstrip())

@@ -98,6 +98,7 @@ elif name in ('codex', 'claude'):
     assert '--tools' in args and 'Read,Grep,Glob' in args
     assert '--dangerously-skip-permissions' not in args
     assert '# Nightshift architect' in args[-1]
+    assert '--output-format' in args and 'stream-json' in args
     assert not run('help', '--push', status=64)
     # Advisory questions work without a ticket baseline or generated manifest.
     (project / '.nightshift.toml').unlink()
@@ -109,6 +110,7 @@ elif name in ('codex', 'claude'):
     args = worker(run('prompt.md'))
     assert args[args.index('--model') + 1] == 'configured-codex'
     assert '$nightshift prompt.md --branch none' in args[-1]
+    assert str(installed / 'commands/nightshift-eng.md') in args[-1]
     args = worker(run('codex', 'prompt with spaces.md'))
     assert "$nightshift 'prompt with spaces.md' --branch none" in args[-1]
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n'

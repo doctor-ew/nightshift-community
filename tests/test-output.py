@@ -70,6 +70,20 @@ class OutputTest(unittest.TestCase):
         self.assertIn('raw output', result.stdout)
         self.assertIn('unrelated MCP', result.stderr)
 
+    def test_claude_verbose_renders_tools_and_keeps_events(self):
+        result, directory = self.launch([
+            {'type': 'assistant', 'message': {'content': [
+                {'type': 'text', 'text': 'Inspecting the brief'},
+                {'type': 'tool_use', 'name': 'Read', 'input': {'file_path': 'brief.md'}}]}},
+            {'type': 'user', 'message': {'content': [
+                {'type': 'tool_result', 'content': '# Brief body'}]}},
+            {'type': 'result', 'result': 'Finished'}], 'verbose')
+        self.assertIn('Inspecting the brief', result.stdout)
+        self.assertIn('[tool Read]', result.stdout)
+        self.assertIn('# Brief body', result.stdout)
+        self.assertIn('Finished', result.stdout)
+        self.assertIn('"tool_use"', (directory / 'stdout.log').read_text())
+
     def test_missing_final_is_not_silent_success(self):
         result, _ = self.launch([{'type': 'thread.started'}])
         self.assertIn('no final answer', result.stderr)

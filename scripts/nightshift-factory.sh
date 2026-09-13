@@ -353,6 +353,8 @@ fi
 # to an agent that also has the terminal launcher on PATH, which can recurse.
 PROMPT="You are the inner Nightshift factory worker. Execute this requested Nightshift workflow directly by following its installed skill and command instructions: ${REQUEST}
 
+Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
+
 Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through commit, ordinary push, and PR creation only. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
@@ -432,7 +434,7 @@ fi
 CHILD_PID=""
 handle_interruption() {
   local signal="$1"
-  echo "nightshift: interrupted by ${signal}; Codex was stopped before the factory completed." >&2
+  echo "nightshift: interrupted by ${signal}; the $PROVIDER runtime was stopped before the factory completed." >&2
   if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
     kill -TERM "$CHILD_PID" 2>/dev/null || true
     wait "$CHILD_PID" 2>/dev/null || true
@@ -450,8 +452,7 @@ trap 'handle_interruption SIGINT' INT
 trap 'handle_interruption SIGTERM' TERM
 
 if [ "$PROVIDER" = claude ]; then
-  CLAUDE_ARGS=(--print)
-  [ "${NIGHTSHIFT_OUTPUT_MODE:-verbose}" = verbose ] || CLAUDE_ARGS+=(--output-format stream-json --verbose)
+  CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
     case "$MODE" in
       architecture|ux) ;;
