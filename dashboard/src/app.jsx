@@ -3,6 +3,49 @@ import { createRoot } from 'react-dom/client';
 import { active, attention, currentRows, filterRows, modified } from './model.mjs';
 import './app.css';
 
+function WorkshopReviews() {
+  const [items, setItems] = useState([]), [token, setToken] = useState(''), [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+  useEffect(() => {
+    let disposed = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/workshop/reviews', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Spec reviews unavailable. Refresh or check the terminal.');
+        const data = await response.json();
+        if (!disposed) { setItems(data.reviews); setToken(data.token); setError(''); }
+      } catch (e) { if (!disposed) setError(e.message); }
+    };
+    refresh(); const timer = setInterval(refresh, 3000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, []);
+  async function approve(item) {
+    setBusy(item.task); setError('');
+    try {
+      const response = await fetch('/api/workshop/approve', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': token },
+        body: JSON.stringify({ task: item.task, sha256: item.sha256 }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Approval failed. Reload the spec.');
+      setItems(current => current.map(i => i.task === item.task ? { ...i, approved: true } : i));
+    } catch (e) { setError(e.message); }
+    finally { setBusy(''); }
+  }
+  if (!items.length && !error) return null;
+  return <section className="workspace" aria-label="Spec approvals"><h2>Review your spec</h2>
+    {error && <p role="alert">{error}</p>}
+    {items.map(item => <article className="run" key={item.task}><h3>{item.task}</h3>
+      {item.error ? <p role="alert">{item.error}</p> : <>
+        <p>Also saved in your project: <code>{item.copy_path}</code></p>
+        <pre className="spec-preview">{item.spec}</pre>
+        <p>Read the requirements and exclusions before approving this version.</p>
+        <button disabled={!!busy || item.approved} onClick={() => approve(item)}>{item.approved ? 'Approved' : busy === item.task ? 'Saving…' : 'Approve this spec'}</button>
+        {item.approved && <p role="status">Approval saved. Rerun your original Nightshift command in the terminal to continue. No hash needed.</p>}
+      </>}
+    </article>)}
+  </section>;
+}
+
 function App() {
   const [data, setData] = useState(null), [error, setError] = useState('');
   const [query, setQuery] = useState(''), [state, setState] = useState('all'), [provider, setProvider] = useState('all');
@@ -35,8 +78,9 @@ function App() {
   const change = setter => e => { setter(e.target.value); setPage(0); };
   return <main>
     <header><div className="brand"><span className="mark">N</span><span>nightshift <small>OPERATIONS</small></span></div><span className={'connection '+(error?'offline':'')}>{error?'Update interrupted':data?'Auto-refresh · 3s':'Connecting…'}</span></header>
-    <section className="intro"><p className="eyebrow">YOUR LOCAL CONTROL ROOM</p><h1>See the work. Follow the evidence.</h1><p>Recorded run and gate states across your repository. Read-only, on this machine.</p><code className="repo">{data?.root || 'Loading repository…'}</code></section>
+    <section className="intro"><p className="eyebrow">YOUR LOCAL CONTROL ROOM</p><h1>See the work. Follow the evidence.</h1><p>Recorded run and gate states across your repository. Local evidence and workshop spec approval, on this machine.</p><code className="repo">{data?.root || 'Loading repository…'}</code></section>
     {error && <div className="notice" role="alert">{error}</div>}
+    <WorkshopReviews />
     <section className="stats" aria-label="Current recorded run summary">{[
       ['In flight',current.filter(r=>active.has(r.state)).length,'active'],
       ['Needs attention',current.filter(r=>attention.has(r.state)).length,'attention'],
@@ -55,7 +99,7 @@ function App() {
     <div className="cards">{visible.map((row,index)=><article className="run" key={[row.ticket,row.checkout,row.source,index].join(':')}><div className="run-head"><h3>{row.ticket}</h3><span className={'badge '+(attention.has(row.state)?'warn':active.has(row.state)?'busy':row.state==='complete'?'done':'')}>{row.state}</span></div><div className="run-meta"><span>{row.gate || 'unknown stage'}</span><span>{row.provider || 'unknown provider'}</span><span>{row.source}</span></div><p className="path" title={row.checkout}>{row.checkout}</p>{row.reason && <p className="reason">{row.reason}</p>}{row.next_action && <p className="next">Next: {row.next_action}</p>}<div className="run-footer"><span>Retries {row.attempted ?? 'unknown'} / {row.budget ?? 'unknown'}</span><span>{modified(row)?new Date(modified(row)*1000).toLocaleString():'No file timestamp'}</span></div><details><summary>Evidence & details</summary><p>File timestamps indicate source modification, not agent heartbeat.</p><p>Worktree: {row.worktree || 'unknown'}</p>{(row.links || []).filter(Boolean).map((link,i)=><div className="evidence" key={i}><strong>{link.label}</strong><code>{link.href}</code></div>)}</details></article>)}</div>
     <nav className="pagination" aria-label="Results pages"><button disabled={!safePage} onClick={()=>setPage(safePage-1)}>Previous</button><span>Page {safePage+1} of {pages} · up to 24 per page</span><button disabled={safePage+1>=pages} onClick={()=>setPage(safePage+1)}>Next</button></nav></section>
     {!!(data?.warnings.length || data?.errors.length) && <details className="diagnostics"><summary>Collection notes · {data.warnings.length+data.errors.length}</summary>{data.warnings.map((w,i)=><p key={'w'+i}>{w}</p>)}{data.errors.slice(0,50).map((e,i)=><p key={i}>{e.ticket}: {e.message}</p>)}{data.errors.length>50 && <p>Showing the first 50 errors. Static output contains the complete bounded report.</p>}</details>}
-    <footer>Local evidence. No run controls. <span>Nightshift</span></footer>
+    <footer>Local evidence. Version-bound spec approval. <span>Nightshift</span></footer>
   </main>;
 }
 createRoot(document.getElementById('root')).render(<App />);

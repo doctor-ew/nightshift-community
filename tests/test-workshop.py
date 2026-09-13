@@ -86,6 +86,16 @@ class WorkshopTest(unittest.TestCase):
         (Path(s['worktree'])/'prompts/workshop-agent.md').write_text('tampered')
         self.run_workshop(status=1);self.assertEqual(self.state()['status'],'failed')
 
+    def test_web_approval_continues_without_hash(self):
+        self.run_workshop(); s=self.state()
+        import importlib.util
+        module_spec=importlib.util.spec_from_file_location('review',ROOT/'scripts/nightshift-workshop-review.py')
+        review=importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(review)
+        info=review.review(self.project,s['task'])
+        self.assertTrue(Path(info['copy_path']).exists())
+        review.approve(self.project,s['task'],info['sha256'])
+        self.run_workshop();self.assertEqual(self.state()['status'],'complete')
+
     def test_call_budget_survives_resume(self):
         self.limits('calls = 4');self.run_workshop();self.approve(status=1)
         self.assertEqual(self.state()['status'],'budget_exhausted');self.assertEqual(len(self.state()['calls']),4)

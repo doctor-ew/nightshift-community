@@ -38,9 +38,9 @@ class ServerTests(unittest.TestCase):
     def write(self, status):
         self.state.write_text(json.dumps({'batch_id': 'test', 'statuses': {'task-a': {'status': status}}}))
 
-    def request(self, path='/', method='GET', headers=None):
+    def request(self, path='/', method='GET', headers=None, body=None):
         conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=15)
-        conn.request(method, path, headers=headers or {})
+        conn.request(method, path, body=body, headers=headers or {})
         response = conn.getresponse()
         body = response.read()
         result = response.status, body, dict(response.getheaders())
@@ -67,6 +67,27 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request('/')[0], 200)
         self.assertEqual(self.request('/assets/app.js')[0], 200)
         self.assertIn("connect-src 'self'", self.request('/')[2]['Content-Security-Policy'])
+
+    def test_web_spec_approval_requires_origin_token_and_current_hash(self):
+        import hashlib
+        task = 'workshop-' + 'a'*16
+        directory = self.repo/'.git/nightshift-workshop'; directory.mkdir()
+        (directory/(task+'.json')).write_text(json.dumps(dict(task=task,status='awaiting_spec_approval',worktree=str(self.repo.resolve()))))
+        folder = self.repo/'docs'/task;folder.mkdir(parents=True)
+        content = '# A spec\n'
+        (folder/'SPEC.md').write_text(content)
+        (self.repo/('NIGHTSHIFT-SPEC-'+task+'.md')).write_text(content)
+        data = json.loads(self.request('/api/workshop/reviews')[1])
+        digest = hashlib.sha256(content.encode()).hexdigest()
+        self.assertEqual(data['reviews'][0]['sha256'],digest)
+        body=json.dumps(dict(task=task,sha256=digest))
+        headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
+        self.assertEqual(self.request('/api/workshop/approve','POST',{'Content-Type':'application/json'},body)[0],403)
+        self.assertEqual(self.request('/api/workshop/approve','POST',headers,json.dumps(dict(task=task,sha256='stale')))[0],409)
+        self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],200)
+        self.assertEqual(json.loads((directory/(task+'.approval.json')).read_text())['sha256'],digest)
+        (folder/'SPEC.md').write_text('Changed')
+        self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],409)
 
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:

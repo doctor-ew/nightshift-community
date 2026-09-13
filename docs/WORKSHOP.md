@@ -96,7 +96,14 @@ subscription can instead be used with `--auth subscription`.
 
 The first run checks the actual detached runtime invocation and both configured
 model roles, then writes and reviews `SPEC.md` in an isolated worktree. It stops
-at **awaiting_spec_approval** and prints the exact file path and SHA-256.
+at **awaiting_spec_approval**. It also saves an identical `NIGHTSHIFT-SPEC-workshop-<id>.md`
+in your current project directory. Existing edited copies are never overwritten.
+
+Open the local dashboard's **Review your spec** section to read the complete spec
+and click **Approve this spec**. Then rerun the original Nightshift command; no
+hash is needed. Web approval records the decision but does not start a model.
+Only the exact version displayed can be approved; changed copies are rejected.
+The terminal SHA-256 approval below remains available as an alternative.
 
 Read the spec against the brief. Discuss what would count as convincing evidence,
 what is excluded, and where AI could mislead you. If acceptable, repeat the same

@@ -316,10 +316,14 @@ class Run:
         if spec_path.exists() and spec_path.read_text() != spec_text: stop('SPEC.md changed; preserve this run and create a revised brief')
         write(spec_path, spec_text)
         sha = digest(spec_text)
+        module_spec = importlib.util.spec_from_file_location('workshop_review', ROOT / 'scripts/nightshift-workshop-review.py')
+        review = importlib.util.module_from_spec(module_spec); module_spec.loader.exec_module(review)
+        review_copy = review.publish(self.project, self.task, spec_text.encode())
+        web_approval = review.approved_hash(self.project, self.task)
         if self.state.get('approved_spec') != sha:
-            if self.args.approve_spec != sha:
+            if self.args.approve_spec != sha and web_approval != sha:
                 self.state['status'] = 'awaiting_spec_approval'; self.lifecycle_status = 'success'; self.save()
-                return f'Review {spec_path}\nThen rerun the same command with --approve-spec {sha}. No implementation has run.'
+                return f'Review {review_copy}\nApprove in the local dashboard, then rerun this command; or add --approve-spec {sha}. No implementation has run.'
             self.state['approved_spec'] = sha
             self.save()
         slots = [{'id': f'case-{i + 1}', 'kind': 'positive' if i < 4 else 'negative',

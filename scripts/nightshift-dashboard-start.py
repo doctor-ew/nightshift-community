@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start or reuse a per-project read-only loopback dashboard."""
+"""Start or reuse a per-project loopback evidence and spec-review dashboard."""
 import argparse
 import fcntl
 import hashlib
@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -46,7 +47,10 @@ def belongs(url, project):
                     and isinstance(state.get('rows'), list)
                     and isinstance(state.get('checkouts'), list)
                     and 'generated_at' in state)
-        return identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
+        config = project / '.nightshift.toml'
+        workshop = config.is_file() and tomllib.loads(config.read_text()).get('workflow', {}).get('profile') == 'workshop'
+        return (identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
+                and (not workshop or identity.get('workshop_review_api') == 1))
     except (OSError, ValueError, urllib.error.URLError):
         return False
 
