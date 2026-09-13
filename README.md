@@ -5,7 +5,7 @@ For the engineer pilot and Hack-her-thon, start with the
 ACP remain experimental. Fresh-machine, independently reviewed end-to-end
 validation is still required before claiming beginner readiness.
 
-A source-agnostic, beads-backed engineering pipeline for Codex, Claude Code, and
+A source-agnostic engineering pipeline with an optional Beads ledger for Codex, Claude Code, and
 Codex driving local models.
 Drop a ticket reference (gh / jira / monday / notion / bd), get a guarded path from
 spec through ship.
@@ -41,7 +41,7 @@ Spec-driven workflows fall apart for two reasons: ticket sources that don't matc
 generator, and gradual scope creep during implementation. nightshift addresses both.
 
 - **One pipeline, any ticket source.** Adapters for GitHub, Jira, Monday, Notion, beads, and local Markdown specifications.
-  No project owns the canonical key — beads does, locally.
+  Upstream references or local brief identities determine the visible task key.
 - **Beads is local-only.** Upstream ticket (Monday / Jira / GH) stays the SSOT. Beads
   mirrors it via `--external-ref` for the local dev loop. The upstream ticket id
   (e.g., `MVP-1`) is the visible task key; the bead id is recorded internally in
@@ -300,12 +300,12 @@ ship hooks.)
 
 Required:
 - `jq` — JSON parsing in the adapters
-- `python3` — used by `nightshift-scope-freeze.sh` for glob matching
-- [`bd`](https://github.com/gastownhall/beads) — beads CLI for the local engineering ledger
+- Python **3.11+** — configuration, process control, and helper scripts
 - `curl` — Jira / Monday / Notion / health-check fetches
 - `git` — diff parsing for nightshift-drift / nightshift-review
 
 Optional:
+- [`bd`](https://github.com/gastownhall/beads) — local ledger; required only for `bd:*` inputs
 - `gh` — required for the `gh:` ticket source
 - [`graphify`](https://github.com/safishamsi/graphify) — optional structural grounding pass
   during nightshift-product / nightshift-adversarial. Skipped silently if not on PATH.
@@ -948,3 +948,11 @@ configuration editor; init uses its noninteractive `--defaults` path.
 
 Canonical implementation: [init](scripts/nightshift-init.py),
 [setup](scripts/nightshift-setup.py), [tests](tests/test-init.py).
+
+## Bounded classroom profile
+
+For the standalone coaching-prompt exercise, see [the student workshop guide](docs/WORKSHOP.md).
+`nightshift init claude --profile workshop --include brief.md` selects file tracking,
+fresh tool-free stage sessions, explicit spec approval, eight behavior cases, one
+repair, and persistent time/call/cost limits. Use `--auth api` for sponsored credits.
+The standard engineering profile retains its existing proof requirements.

@@ -63,6 +63,8 @@ BRANCH="auto"
 PUSH="false"
 OPEN_PR="false"
 BATCH_ARGS=()
+PROFILE=""
+APPROVE_SPEC=""
 AUTH_MODE=""
 AUTH_EXPLICIT=false
 NIGHTSHIFT_HOME_DIR="${NIGHTSHIFT_HOME:-${HOME}/.nightshift}"
@@ -92,6 +94,8 @@ One autonomous Nightshift run. Examples:
   nightshift gh:123 --provider local --model qwen3-coder:30b
 
 Options:
+  --profile standard|workshop  Bounded prompt workshop or full engineering workflow
+  --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
   --provider codex|claude|ollama|local  Runtime (default: configured, then codex)
@@ -110,6 +114,8 @@ EOF
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --profile) shift; PROFILE="${1:-}" ;;
+    --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
     --provider) shift; PROVIDER="${1:-}" ;;
     --model) shift; MODEL="${1:-}" ;;
@@ -207,6 +213,7 @@ run_metrics_summary() {
   python3 "$SCRIPT_DIR/nightshift-run-metrics.py" summary --run-dir "${NIGHTSHIFT_RUN_DIR:-}" \
     --run-id "$NIGHTSHIFT_RUN_ID" --terminal-status "$1" ${2:+--preflight-reason "$2"} >/dev/null 2>&1 || true
 }
+# shellcheck disable=SC2329 # invoked by EXIT trap
 finish_metrics() {
   local result=$?
   if [ "$METRICS_FINALIZED" = false ]; then
@@ -330,6 +337,26 @@ if [ "$AUTH_MODE" = subscription ]; then
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
   echo 'nightshift: paid API mode disabled; no automatic billing fallback.' >&2
 fi
+[ -n "$DASHBOARD" ] || DASHBOARD="$(jq -r '.dashboard.mode // "auto"' <<< "$SETTINGS_JSON")"
+[ -n "$DASHBOARD_BROWSER" ] || DASHBOARD_BROWSER="$(jq -r '.dashboard.browser // "once"' <<< "$SETTINGS_JSON")"
+case "$DASHBOARD" in auto|off) ;; *) echo 'invalid dashboard mode' >&2; exit 64 ;; esac
+case "$DASHBOARD_BROWSER" in once|off) ;; *) echo 'invalid dashboard browser mode' >&2; exit 64 ;; esac
+if [ "$DASHBOARD" = auto ]; then
+  python3 "$SCRIPT_DIR/nightshift-dashboard-start.py" --project "$PROJECT" --browser "$DASHBOARD_BROWSER" || true
+fi
+[ -n "$PROFILE" ] || PROFILE="$(jq -r '.workflow.profile // "standard"' <<< "$SETTINGS_JSON")"
+case "$PROFILE" in standard|workshop) ;; *) echo 'Unknown workflow profile.' >&2; exit 64 ;; esac
+if [ "$PROFILE" = workshop ]; then
+  [ "$MODE" = eng ] || { echo 'Workshop accepts a single Markdown brief.' >&2; exit 64; }
+  echo "nightshift: authentication: $AUTH_MODE; workshop reported costs are usage estimates." >&2
+  WORKSHOP_ARGS=(--project "$PROJECT" --ref "$REF" --provider "$PROVIDER" --auth "$AUTH_MODE")
+  [ -z "$MODEL" ] || WORKSHOP_ARGS+=(--model "$MODEL")
+  [ -z "$APPROVE_SPEC" ] || WORKSHOP_ARGS+=(--approve-spec "$APPROVE_SPEC")
+  [ "$PUSH" = false ] || WORKSHOP_ARGS+=(--push)
+  [ "$OPEN_PR" = false ] || WORKSHOP_ARGS+=(--pr)
+  exec python3 "$SCRIPT_DIR/nightshift-workshop.py" "${WORKSHOP_ARGS[@]}"
+fi
+[ -z "$APPROVE_SPEC" ] || { echo '--approve-spec requires the workshop profile.' >&2; exit 64; }
 echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR")" >&2
 
 if [ "$MODE" = "batch" ]; then
@@ -339,7 +366,6 @@ else
   REQUEST="\$nightshift ${QUOTED_REF}"
 fi
 REQUEST+=" --branch ${BRANCH}"
-if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth api"; fi
 if [ "$PROVIDER" = claude ]; then
   if [ "$MODE" = batch ]; then
     REQUEST="/nightshift-batch ${BATCH_ARGS[*]} --branch ${BRANCH}"
@@ -347,6 +373,7 @@ if [ "$PROVIDER" = claude ]; then
     REQUEST="/nightshift-eng ${REF} --branch ${BRANCH}"
   fi
 fi
+if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth api"; fi
 [ "$PUSH" = "true" ] && REQUEST+=" --push"
 [ "$OPEN_PR" = "true" ] && REQUEST+=" --pr"
 # This Codex process is the factory worker. A literal command alone is ambiguous
@@ -355,7 +382,7 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
-Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through commit, ordinary push, and PR creation only. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
@@ -424,14 +451,8 @@ fi
 
 echo "nightshift: factory provider: $PROVIDER; model: ${MODEL:-runtime default}; no automatic factory fallback; role routing remains configured." >&2
 
-[ -n "$DASHBOARD" ] || DASHBOARD="$(jq -r '.dashboard.mode // "auto"' <<< "$SETTINGS_JSON")"
-[ -n "$DASHBOARD_BROWSER" ] || DASHBOARD_BROWSER="$(jq -r '.dashboard.browser // "once"' <<< "$SETTINGS_JSON")"
-case "$DASHBOARD" in auto|off) ;; *) echo 'invalid dashboard mode' >&2; exit 64 ;; esac
-case "$DASHBOARD_BROWSER" in once|off) ;; *) echo 'invalid dashboard browser mode' >&2; exit 64 ;; esac
-if [ "$DASHBOARD" = auto ]; then
-  python3 "$SCRIPT_DIR/nightshift-dashboard-start.py" --project "$PROJECT" --browser "$DASHBOARD_BROWSER" || true
-fi
 CHILD_PID=""
+# shellcheck disable=SC2329 # invoked by signal traps
 handle_interruption() {
   local signal="$1"
   echo "nightshift: interrupted by ${signal}; the $PROVIDER runtime was stopped before the factory completed." >&2

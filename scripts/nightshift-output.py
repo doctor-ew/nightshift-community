@@ -163,6 +163,8 @@ def run(launcher, argv):
         item = event.get('item', {})
         if kind == 'item.completed' and isinstance(item, dict) and item.get('type') == 'agent_message':
             final = item.get('text', '')
+        elif kind == 'workshop.progress' and mode == 'concise':
+            print(f'nightshift: {event.get("stage")} (call {event.get("call")})', flush=True)
         elif kind == 'result':
             final = event.get('result', '') or final
             if event.get('is_error'):

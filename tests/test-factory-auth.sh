@@ -99,6 +99,9 @@ for auth_status in '{}' 'not-json' '{"loggedIn":false}' '{"loggedIn":true,"authM
 done
 claude_api=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" gh:1 --provider claude --auth api --branch none 2>&1)
 assert_contains "$claude_api" 'ANTHROPIC_API_KEY=present'
+assert_contains "$claude_api" '/nightshift-eng gh:1 --branch none --auth api'
+assert_contains "$claude_api" 'Publication authorization: push=false, pr=false'
+assert_contains "$claude_api" 'an absent remote is not a blocker'
 git -C "$TMP_ROOT" init -q -b main
 if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch auto 2>&1); then fail 'unborn repository launched a model'; fi
 assert_contains "$blocked" 'BASE_MISSING'

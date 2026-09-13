@@ -193,5 +193,14 @@
         "model": "sonnet"
       }
     ]
+  },
+  "profiles": {
+    "workshop": {
+      "provider": "claude",
+      "writer_model": "sonnet",
+      "reviewer_model": "sonnet",
+      "cross_provider": false,
+      "review_isolation": "fresh tool-free session; human spec approval"
+    }
   }
 }

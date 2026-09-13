@@ -11,6 +11,7 @@ import stat
 parser = argparse.ArgumentParser()
 parser.add_argument('--project', default=os.getcwd())
 parser.add_argument('--read', action='store_true')
+parser.add_argument('--workflow-profile', choices=('standard', 'workshop'))
 parser.add_argument('--defaults', action='store_true', help='Fill missing settings without prompting')
 parser.add_argument('--migrate', action='store_true')
 parser.add_argument('--ticket-ref', default='')
@@ -69,6 +70,10 @@ for name, alias in section('runtime.aliases').items():
 for key in ('local_model', 'file'):
     if key in section('routing') and not isinstance(section('routing')[key], str):
         fail('CONFIG_INVALID', f'routing.{key} must be a string')
+if section('workflow').get('profile', 'standard') not in ('standard', 'workshop'):
+    fail('CONFIG_INVALID', 'workflow.profile must be standard or workshop')
+if section('ledger').get('mode', 'auto') not in ('auto', 'files'):
+    fail('CONFIG_INVALID', 'ledger.mode must be auto or files')
 if args.read:
     print(json.dumps(data))
     sys.exit(0)
@@ -78,6 +83,10 @@ route_file = section('providers').get('routing_file')
 if route_file and not (project / route_file).is_file():
     fail('CONFIG_INCOMPLETE', 'Configured routing file does not exist; create it or update providers.routing_file', ['providers.routing_file'])
 additions = {}
+if args.workflow_profile:
+    additions['workflow'] = {'profile': args.workflow_profile}
+    if args.workflow_profile == 'workshop':
+        additions['ledger'] = {'mode': 'files'}
 customize = not args.defaults
 if args.defaults:
     if not section("ticket_source").get("provider") and args.ticket_ref:
@@ -160,6 +169,17 @@ try:
                 handle.write(template.read_text())
         else:
             fail('CONFIG_INCOMPLETE', 'Configured routing file does not exist', ['providers.routing_file'])
+    if args.workflow_profile == 'workshop':
+        routes = json.loads(routing_path.read_text())
+        profiles = routes.setdefault('profiles', {})
+        if 'workshop' not in profiles:
+            template = json.loads((Path(__file__).resolve().parent.parent / 'routing.json').read_text())
+            profiles['workshop'] = template['profiles']['workshop']
+            fd, temporary_route = tempfile.mkstemp(dir=routing_path.parent, prefix='.nightshift-routing-')
+            with os.fdopen(fd, 'w') as handle:
+                json.dump(routes, handle, indent=2)
+                handle.write('\n')
+            os.replace(temporary_route, routing_path)
     def private_file(text, prefix):
         fd, name = tempfile.mkstemp(prefix=prefix, dir=project)
         with os.fdopen(fd, 'w') as handle:

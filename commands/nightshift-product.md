@@ -118,12 +118,14 @@ If the fetch failed, surface the error JSON to the user and stop. Common causes:
 ## Step 3 — Mirror to beads (local engineering ledger)
 
 Beads is **optional**. It is the local engineering ledger, never the source of truth, so its
-absence degrades the pipeline rather than stopping it: no bead id, no `bd note` breadcrumbs,
-everything else unchanged.
+absence uses the file ledger: specs, reviews, and the resumable tracker remain available.
+Set `[ledger] mode = "files"` to skip bead mirroring even when `bd` is installed.
+A `bd:*` source still requires Beads and cannot be used with file-only mode.
 
 ```bash
 BD_ID=""
-if bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
+LEDGER_MODE=$(python3 ~/.nightshift/scripts/nightshift-setup.py --read | jq -r '.ledger.mode // "auto"')
+if [ "$LEDGER_MODE" != files ] && bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
   BD_ID=$(printf '%s' "$TICKET_JSON" | ~/.nightshift/scripts/nightshift-beads-mirror.sh)
   if [ -z "$BD_ID" ]; then
     echo "BEADS_MIRROR_FAILED — see stderr above."
@@ -131,7 +133,7 @@ if bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
   fi
   echo "BEAD: $BD_ID (internal — used for bd ops only)"
 else
-  echo "BEADS_UNAVAILABLE — bd not installed; continuing without the local ledger."
+  echo "FILE_LEDGER — bead mirroring disabled or unavailable; artifacts and tracker retain the run."
 fi
 
 # Canonical task key = upstream ticket id (source_id). Falls back to bead id

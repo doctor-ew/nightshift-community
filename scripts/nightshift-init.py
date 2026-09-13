@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('targets', nargs='*', help='Optional runtime/model selector and directory')
     parser.add_argument('--project', type=Path)
+    parser.add_argument('--profile', choices=('standard', 'workshop'))
     parser.add_argument('--provider', choices=RUNTIMES)
     parser.add_argument('--model')
     parser.add_argument('--include', action='append', default=[], metavar='FILE',
@@ -47,7 +48,7 @@ def main():
     provider, separator, suffix = selector.partition('/')
     if separator and not suffix:
         raise ValueError('runtime/model selector requires a model or alias')
-    provider = args.provider or provider
+    provider = args.provider or provider or ('claude' if args.profile == 'workshop' else '')
     model = args.model or suffix
     current = settings(project)
     home = Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home() / '.nightshift')))
@@ -96,6 +97,8 @@ def main():
               for name in ('.nightshift.toml', 'routing.json')}
     command = [sys.executable, str(ROOT / 'scripts/nightshift-setup.py'), '--project', str(project),
                '--defaults', '--ticket-ref', 'spec:starter']
+    if args.profile:
+        command += ['--workflow-profile', args.profile]
     if provider:
         command += ['--runtime-provider', provider, '--runtime-model', model or '']
     subprocess.run(command, check=True)

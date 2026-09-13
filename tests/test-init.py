@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -45,6 +46,25 @@ class InitTest(unittest.TestCase):
                                  '--project', str(self.project), '--branch', 'auto', '--ref', 'brief.md'],
                                 env=self.env, capture_output=True, text=True)
         self.assertEqual(receipt.returncode, 0, receipt.stdout + receipt.stderr)
+
+    def test_workshop_migrates_route_and_keeps_existing_roles(self):
+        self.run_init('claude', '--include', 'brief.md')
+        route = self.project / 'routing.json'
+        data = json.loads(route.read_text())
+        data.pop('profiles')
+        route.write_text(json.dumps(data))
+        subprocess.run(['git', '-C', str(self.project), 'add', 'routing.json'], env=self.env, check=True)
+        subprocess.run(['git', '-C', str(self.project), 'commit', '-m', 'fixture legacy routing'], env=self.env, check=True, capture_output=True)
+        self.run_init('--profile', 'workshop')
+        config = tomllib.loads((self.project / '.nightshift.toml').read_text())
+        self.assertEqual(config['workflow']['profile'], 'workshop')
+        self.assertEqual(config['ledger']['mode'], 'files')
+        upgraded = json.loads(route.read_text())
+        self.assertEqual(upgraded['roles'], data['roles'])
+        self.assertFalse(upgraded['profiles']['workshop']['cross_provider'])
+        before = self.git('rev-parse', 'HEAD')
+        self.run_init('--profile', 'workshop')
+        self.assertEqual(before, self.git('rev-parse', 'HEAD'))
 
     def test_alias_and_no_implicit_source_commit(self):
         self.run_init('codex/devstral')
