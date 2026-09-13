@@ -73,3 +73,22 @@ That export includes `docs/development-trials.json` and the completed prompt, sp
 cases, grades, and raw model receipts. It is an evidence export, not a moved
 resumable worktree. API-key live validation and Windows student-laptop validation
 remain necessary before promising classroom readiness on both platforms.
+
+
+## Source-integrity regression audit (2026-09-13)
+
+A later completed student exercise exposed a false pass: a synthetic competitor's
+placeholder URL was treated as evidence that it existed. The first proposed fix
+rejected a simplified bad test but still approved that actual flawed build.
+Requiring a written evidence audit and explicitly rejecting arbitrary-URL
+acceptance corrected all three targeted checks: reject the bad expectation,
+accept a clearly labeled conditional simulation, and reject the original flawed
+prompt/cases/observations despite its passing grade summary.
+
+Retained results: [WORKSHOP-EVIDENCE-REGRESSION.json](WORKSHOP-EVIDENCE-REGRESSION.json).
+All six calls across both candidate revisions cost a reported $0.258295, with
+12 fresh input, 25,687 cache-write, 0 cache-read, and 13,567 output tokens.
+These are subscription usage estimates, not API invoices or charges added to the
+original student's run. The final three checks passed once each; no statistical
+reliability or new end-to-end build is claimed. Original run artifacts were preserved.
+Offline validation: 14 workshop contracts, 4 approval-helper tests, 2 dashboard-start tests.

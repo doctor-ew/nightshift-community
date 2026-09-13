@@ -188,3 +188,21 @@ brief. It is independently installable, not embedded as a runtime dependency.
 Follow the pinned version of the official
 [BMad installer guide](https://docs.bmad-method.org/start/install-bmad/) for its
 Node/npm and uv requirements. Avoid teaching two orchestration loops at once.
+
+## Evidence integrity and older exercises
+
+Workshop reviews now distinguish a supplied URL from a verified claim. A tool-free
+coach can reason conditionally from a citation; it cannot establish truth simply
+because a URL was supplied. Synthetic examples must remain labeled synthetic.
+A metric also does not replace the procedure for an experiment.
+
+Scenario and implementation reviewers write an `evidence_audit` and return an explicit `oracle_valid` decision.
+The final reviewer sees the cases and raw responses alongside the grader's verdict.
+Invalid expectations or grading stop the exercise before automatic prompt repair;
+the failure and review remain available for inspection. This adds no model calls.
+Review remains model judgment, not a deterministic guarantee of correctness.
+
+The `source-integrity-v1` policy is pinned in each new run's identity. Older runs
+cannot reuse cached results under this policy. Preserve their artifacts and use a
+new brief filename (tracked in Git) for a fresh exercise and spec approval. This
+update does not repair or retroactively certify previously completed prompts.

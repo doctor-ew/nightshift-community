@@ -29,8 +29,9 @@ elif 'Independently author' in system:
 elif 'Implement only' in system: value={'lines':['Coach respectfully. '+str(i) for i in range(20)]}
 elif 'Grade observed' in system:
  value={'results':[dict(id='case-'+str(i+1),passed=mode!='reject',reason='Observed') for i in range(8)]}
-elif 'independent reviewer' in system: value={'approved':True,'issues':[]}
+elif 'independent reviewer' in system: value={'evidence_audit':'No source claims in this fixture.','approved':True,'oracle_valid':not ((mode=='invalid-oracle' and 'implemented prompt' in system) or (mode=='invalid-scenarios' and 'proposed scenarios' in system)),'issues':[]}
 else: value='What would you like to explore?'
+if mode=='missing-oracle' and isinstance(value,dict) and 'oracle_valid' in value: value.pop('oracle_valid')
 print(json.dumps(dict(result=json.dumps(value) if isinstance(value,dict) else value,is_error=False,total_cost_usd=3 if mode=='overcost' else .01,usage=dict(input_tokens=100,cache_read_input_tokens=20,cache_creation_input_tokens=10,output_tokens=20),session_id='fixture')))
 '''
 
@@ -122,6 +123,46 @@ class WorkshopTest(unittest.TestCase):
         self.env['FIXTURE_MODE']='reject';self.run_workshop();self.approve(status=1)
         s=self.state();self.assertEqual(s['repairs'],1);self.assertEqual(len(s['calls']),28)
         evidence=Path(s['worktree'])/'docs'/s['task'];self.assertTrue((evidence/'EVALUATION-0.json').exists());self.assertTrue((evidence/'EVALUATION-1.json').exists())
+
+    def test_invalid_oracle_stops_without_repair(self):
+        self.env['FIXTURE_MODE']='invalid-oracle'
+        self.run_workshop(); self.approve(status=1)
+        s=self.state()
+        self.assertEqual(s['repairs'],0)
+        self.assertEqual(len(s['calls']),17)
+        self.assertIn('invalid test oracle',s['failure'])
+        review_calls=[json.loads(line)['args'] for line in self.log.read_text().splitlines()
+                      if 'Review the implemented prompt' in line]
+        payload=json.loads(review_calls[0][-1])
+        self.assertEqual(len(payload['observations']),8)
+        self.assertEqual(len(payload['cases']),8)
+        self.assertTrue(all(r['passed'] for r in payload['grade']['results']))
+        self.run_workshop(status=1)
+        self.assertEqual(len(self.state()['calls']),17)
+
+    def test_invalid_scenarios_retained_before_implementation(self):
+        self.env['FIXTURE_MODE']='invalid-scenarios'
+        self.run_workshop();self.approve(status=1)
+        s=self.state();artifacts=Path(s['worktree'])/'docs'/s['task']
+        self.assertTrue((artifacts/'CASES.json').exists())
+        self.assertFalse(json.loads((artifacts/'scenario-review.json').read_text())['oracle_valid'])
+        self.assertEqual(len(s['calls']),6)
+        self.assertEqual(s['repairs'],0)
+        self.assertFalse((Path(s['worktree'])/'prompts/workshop-agent.md').exists())
+
+    def test_review_missing_oracle_decision_fails_closed(self):
+        self.env['FIXTURE_MODE']='missing-oracle'
+        self.run_workshop(status=1)
+        self.assertIn('invalid review schema',self.state()['failure'])
+        self.assertEqual(self.state()['repairs'],0)
+
+    def test_prior_evidence_policy_cannot_reuse_cached_results(self):
+        self.run_workshop()
+        path=next((self.project/'.git/nightshift-workshop').glob('workshop-????????????????.json'))
+        s=json.loads(path.read_text());s['identity'].pop('evidence_policy');path.write_text(json.dumps(s))
+        result=self.run_workshop(status=1)
+        self.assertIn('evidence policy',result.stdout)
+        self.assertEqual(len(self.state()['calls']),4)
 
     def test_missing_receipt_is_charged_and_terminal(self):
         self.env['FIXTURE_MODE']='no-receipt';self.run_workshop(status=1)
