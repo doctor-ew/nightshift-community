@@ -68,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -110,7 +110,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict) or set(body) != {'task', 'sha256'} or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
-            result = review_module().approve(self.server.project, body['task'], body['sha256'])
+            result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
             self.reply(200, json.dumps(result).encode(), 'application/json')
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')

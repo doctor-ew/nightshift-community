@@ -13,7 +13,7 @@ function WorkshopReviews() {
         const response = await fetch('/api/workshop/reviews', { cache: 'no-store' });
         if (!response.ok) throw new Error('Spec reviews unavailable. Refresh or check the terminal.');
         const data = await response.json();
-        if (!disposed) { setItems(data.reviews); setToken(data.token); setError(''); }
+        if (!disposed) { setItems(data.reviews.map(i => ({ ...i, started: i.launch?.status === 'running' }))); setToken(data.token); setError(''); }
       } catch (e) { if (!disposed) setError(e.message); }
     };
     refresh(); const timer = setInterval(refresh, 3000);
@@ -27,7 +27,7 @@ function WorkshopReviews() {
         body: JSON.stringify({ task: item.task, sha256: item.sha256 }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Approval failed. Reload the spec.');
-      setItems(current => current.map(i => i.task === item.task ? { ...i, approved: true } : i));
+      setItems(current => current.map(i => i.task === item.task ? { ...i, approved: true, started: true } : i));
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   }
@@ -38,9 +38,10 @@ function WorkshopReviews() {
       {item.error ? <p role="alert">{item.error}</p> : <>
         <p>Also saved in your project: <code>{item.copy_path}</code></p>
         <pre className="spec-preview">{item.spec}</pre>
+        {item.launch?.status === 'exited' && item.launch.exit_code !== 0 && <p role="alert">Build startup failed. See the retained log: {item.launch.log}</p>}
         <p>Read the requirements and exclusions before approving this version.</p>
-        <button disabled={!!busy || item.approved} onClick={() => approve(item)}>{item.approved ? 'Approved' : busy === item.task ? 'Saving…' : 'Approve this spec'}</button>
-        {item.approved && <p role="status">Approval saved. Rerun your original Nightshift command in the terminal to continue. No hash needed.</p>}
+        <button disabled={!!busy || item.started} onClick={() => approve(item)}>{item.started ? 'Build started' : busy === item.task ? 'Starting…' : item.approved ? 'Continue approved build' : 'Approve and build'}</button>
+        {item.approved && <p role="status">{item.started ? 'Build started. Follow its progress in Run overview below.' : 'This spec is approved. Click Continue approved build to resume.'}</p>}
       </>}
     </article>)}
   </section>;

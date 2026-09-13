@@ -58,7 +58,7 @@ class WorkshopTest(unittest.TestCase):
         return self.command([sys.executable,str(ROOT/'scripts/nightshift-workshop.py'),'--project',str(self.project),'--ref','brief.md',*args],status)
 
     def state(self):
-        return json.loads(next((self.project/'.git/nightshift-workshop').glob('*.json')).read_text())
+        return json.loads(next((self.project/'.git/nightshift-workshop').glob('workshop-????????????????.json')).read_text())
 
     def approve(self,**kw):
         s=self.state();spec=Path(s['worktree'])/'docs'/s['task']/'SPEC.md'
@@ -95,6 +95,23 @@ class WorkshopTest(unittest.TestCase):
         self.assertTrue(Path(info['copy_path']).exists())
         review.approve(self.project,s['task'],info['sha256'])
         self.run_workshop();self.assertEqual(self.state()['status'],'complete')
+
+    def test_web_approval_launches_and_completes_once(self):
+        self.run_workshop(); s=self.state()
+        import importlib.util, time
+        from unittest.mock import patch
+        module_spec=importlib.util.spec_from_file_location('review',ROOT/'scripts/nightshift-workshop-review.py')
+        review=importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(review)
+        info=review.review(self.project,s['task'])
+        with patch.dict(os.environ,self.env,clear=True):
+            first=review.approve_and_continue(self.project,s['task'],info['sha256'])
+            second=review.approve_and_continue(self.project,s['task'],info['sha256'])
+        self.assertEqual(first['pid'],second['pid'])
+        deadline=time.monotonic()+15
+        while time.monotonic()<deadline and self.state()['status'] not in ('complete','failed','budget_exhausted'):
+            time.sleep(.1)
+        self.assertEqual(self.state()['status'],'complete')
+        self.assertEqual(len(self.state()['calls']),17)
 
     def test_call_budget_survives_resume(self):
         self.limits('calls = 4');self.run_workshop();self.approve(status=1)

@@ -50,7 +50,7 @@ def belongs(url, project):
         config = project / '.nightshift.toml'
         workshop = config.is_file() and tomllib.loads(config.read_text()).get('workflow', {}).get('profile') == 'workshop'
         return (identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
-                and (not workshop or identity.get('workshop_review_api') == 1))
+                and (not workshop or identity.get('workshop_review_api') == 2))
     except (OSError, ValueError, urllib.error.URLError):
         return False
 

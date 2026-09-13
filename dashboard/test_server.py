@@ -72,7 +72,8 @@ class ServerTests(unittest.TestCase):
         import hashlib
         task = 'workshop-' + 'a'*16
         directory = self.repo/'.git/nightshift-workshop'; directory.mkdir()
-        (directory/(task+'.json')).write_text(json.dumps(dict(task=task,status='awaiting_spec_approval',worktree=str(self.repo.resolve()))))
+        (self.repo/'brief.md').write_text('Brief')
+        (directory/(task+'.json')).write_text(json.dumps(dict(task=task,status='awaiting_spec_approval',worktree=str(self.repo.resolve()), identity={'auth':'subscription','writer':'fixture'}, resume={'ref':'brief.md'}, brief_sha256=hashlib.sha256(b'Brief').hexdigest())))
         folder = self.repo/'docs'/task;folder.mkdir(parents=True)
         content = '# A spec\n'
         (folder/'SPEC.md').write_text(content)
@@ -86,6 +87,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request('/api/workshop/approve','POST',headers,json.dumps(dict(task=task,sha256='stale')))[0],409)
         self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],200)
         self.assertEqual(json.loads((directory/(task+'.approval.json')).read_text())['sha256'],digest)
+        # While the launched worker is alive, repeat clicks only reuse that launch.
+        deadline=time.monotonic()+5
+        while time.monotonic()<deadline:
+            job=json.loads((directory/(task+'.launch.json')).read_text())
+            if job.get('status')=='exited': break
+            time.sleep(.05)
+        self.assertEqual(job['status'],'exited')
         (folder/'SPEC.md').write_text('Changed')
         self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],409)
 

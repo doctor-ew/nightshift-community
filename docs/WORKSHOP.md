@@ -100,8 +100,10 @@ at **awaiting_spec_approval**. It also saves an identical `NIGHTSHIFT-SPEC-works
 in your current project directory. Existing edited copies are never overwritten.
 
 Open the local dashboard's **Review your spec** section to read the complete spec
-and click **Approve this spec**. Then rerun the original Nightshift command; no
-hash is needed. Web approval records the decision but does not start a model.
+and click **Approve and build**. The saved workshop resumes automatically with its
+original authentication mode, configured model and remaining budget. No terminal
+rerun or hash is needed. Duplicate clicks reuse the running launch. If you already
+approved under an older version, click **Continue approved build**.
 Only the exact version displayed can be approved; changed copies are rejected.
 The terminal SHA-256 approval below remains available as an alternative.
 

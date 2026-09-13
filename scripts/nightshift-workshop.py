@@ -82,12 +82,19 @@ class Run:
         self.state_path = common / 'nightshift-workshop' / (self.task + '.json')
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = (self.state_path.with_suffix('.lock')).open('a')
-        fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        deadline = time.monotonic() + (5 if args.wait_for_review_lock else 0)
+        while True:
+            try:
+                fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB); break
+            except BlockingIOError:
+                if time.monotonic() >= deadline: raise
+                time.sleep(0.05)
         self.state = json.loads(self.state_path.read_text()) if self.state_path.exists() else {
             'version': 1, 'task': self.task, 'brief_sha256': digest(self.brief),
             'started_at': datetime.now(timezone.utc).isoformat(), 'status': 'starting',
             'calls': [], 'cache': {}, 'elapsed_seconds': 0, 'cost_usd': 0,
             'input_tokens': 0, 'output_tokens': 0, 'repairs': 0}
+        self.state.setdefault('resume', {'ref': self.relative, 'push': args.push, 'pr': args.pr})
         self.prior_elapsed = self.state['elapsed_seconds']
         if self.state['brief_sha256'] != digest(self.brief):
             stop('brief changed; use a new brief filename for a new exercise, preserving this history')
@@ -417,6 +424,7 @@ def main():
     parser.add_argument('--project',type=Path,required=True); parser.add_argument('--ref',required=True)
     parser.add_argument('--provider',default='claude'); parser.add_argument('--model')
     parser.add_argument('--auth',choices=('subscription','api'),default='subscription')
+    parser.add_argument('--wait-for-review-lock', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--approve-spec'); parser.add_argument('--push',action='store_true'); parser.add_argument('--pr',action='store_true')
     args=parser.parse_args(); run=None
     def interrupt(_signal,_frame): raise KeyboardInterrupt()

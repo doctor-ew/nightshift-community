@@ -21,9 +21,11 @@ an exact loopback Host and same-origin browser access, and enables no CORS.
 Workshop specs can be read through `/api/workshop/reviews` and approved through
 `POST /api/workshop/approve`. Approval requires a per-server token, explicit same-origin
 Origin header, the current spec digest, identical canonical/project copies, and an
-idle workshop lock. It writes only a version-bound approval receipt; it launches no
-model or shell command supplied by the browser. Rerun the original CLI command to
-continue after approval. Other mutation methods and arbitrary file paths are refused.
+idle workshop lock. It writes a version-bound approval receipt and resumes the
+saved workshop via fixed argv, retaining the original auth, model, and budgets.
+The browser supplies no commands or runtime options. Concurrent approvals reuse
+the launch receipt; a retained startup log records failures. API runs require the
+dashboard process to have the original API key; there is no subscription fallback. Other mutation methods and arbitrary file paths are refused.
 The shared collector bounds scanning, records and file sizes and reports truncation.
 
 Runtime requires Git and Python 3.11+, but no Node, package install, CDN or paid provider.
