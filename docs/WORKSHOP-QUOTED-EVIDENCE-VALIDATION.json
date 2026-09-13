@@ -1,0 +1,62 @@
+{
+  "status": "live_verification_blocked",
+  "offline_checks_passed": 36,
+  "installed_runtime_updated": false,
+  "probes": [
+    {
+      "probe": "nightshift-quoted-evidence-z229v_rg",
+      "result": "runtime timeout; no reviewer verdict",
+      "effort": "runtime default",
+      "reserved_cost_usd": 0.25,
+      "elapsed_seconds": 90.09611399998539,
+      "calls": [
+        {
+          "receipt": "code-review-bad.stdout.json",
+          "name": "code-review-bad",
+          "model": "sonnet",
+          "status": "failed",
+          "reserved_usd": 0.25,
+          "input_sha256": "4ebdf0122761fd985b47de9f4512dfc7511d5d5a48355c77c11914845e0cbf41",
+          "input_bytes": 11419
+        }
+      ]
+    },
+    {
+      "probe": "nightshift-quoted-evidence-2idg2snr",
+      "result": "runtime timeout; no reviewer verdict",
+      "effort": "runtime default",
+      "reserved_cost_usd": 0.25,
+      "elapsed_seconds": 90.1123822920199,
+      "calls": [
+        {
+          "receipt": "code-review-bad.stdout.json",
+          "name": "code-review-bad",
+          "model": "sonnet",
+          "status": "failed",
+          "reserved_usd": 0.25,
+          "input_sha256": "4ebdf0122761fd985b47de9f4512dfc7511d5d5a48355c77c11914845e0cbf41",
+          "input_bytes": 11419
+        }
+      ]
+    },
+    {
+      "probe": "nightshift-quoted-evidence-499a6acf",
+      "result": "runtime timeout; no reviewer verdict",
+      "effort": "medium",
+      "reserved_cost_usd": 0.25,
+      "elapsed_seconds": 90.10146279100445,
+      "calls": [
+        {
+          "receipt": "code-review-bad.stdout.json",
+          "name": "code-review-bad",
+          "model": "sonnet",
+          "status": "failed",
+          "reserved_usd": 0.25,
+          "input_sha256": "1715ecbc2363815d369f585749e72ac8ab6b33e5c4dbbd73ff64ab3351c6bb22",
+          "input_bytes": 11423
+        }
+      ]
+    }
+  ],
+  "accounting_note": "$0.75 reserved across three timed-out calls; actual usage unavailable without runtime receipts. No timeout counts as semantic rejection."
+}

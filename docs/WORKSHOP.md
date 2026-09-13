@@ -202,7 +202,7 @@ Invalid expectations or grading stop the exercise before automatic prompt repair
 the failure and review remain available for inspection. This adds no model calls.
 Review remains model judgment, not a deterministic guarantee of correctness.
 
-The `source-integrity-v1` policy is pinned in each new run's identity. Older runs
+The `quoted-evidence-v2` policy is pinned in each new run's identity. Older runs
 cannot reuse cached results under this policy. Preserve their artifacts and use a
 new brief filename (tracked in Git) for a fresh exercise and spec approval. This
 update does not repair or retroactively certify previously completed prompts.
@@ -253,3 +253,47 @@ The observed v2 response had `stop_reason: end_turn`, `subtype: success`, and
 output-limit truncation. The retained envelope cannot distinguish malformed
 model output from CLI result assembly. The established integration defect was
 relying on prose instructions for JSON instead of schema-constrained output.
+
+
+## Evidence-backed verification
+
+Status: implemented on the review branch; live verification blocked after three
+90-second reviewer timeouts. The operator's installed runtime was not updated
+with this contract. See `WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`. Offline checks
+validate host enforcement, not semantic reviewer reliability.
+
+Each grader and final reviewer assesses the full case-by-requirement matrix,
+including requirements outside the case's assigned criterion. An assessment has
+an explicit verdict (`pass`, `fail`, `unresolved`, `not_applicable`), an exact
+quote from that case's response, and a short explanation. The host rejects
+missing/duplicate pairs, unknown cases or criteria, quotes absent from the cited
+response, and `not_applicable` for an assigned criterion. A case cannot pass if
+any applicable requirement fails or is unresolved. The final approval boolean
+cannot override those results. The final reviewer receives raw evidence without the grader verdicts to reduce anchoring and duplicated context. Final review uses these assessments instead of
+an unchecked narrative evidence audit.
+
+The run and dashboard expose `execution_status` independently from
+`verification_status`. Executed behavior cases can have unresolved verification;
+only fully covered passing judgments allow the workflow to complete. Promises
+to address a requirement in a future conversation are unresolved, not proof of
+completion. Unresolved judgments stop for more evidence rather than automatically
+rewriting the prompt. The existing one-repair limit applies to demonstrated failures.
+Legacy records without these fields display unknown and are not upgraded in place.
+
+Exact quote checking validates attribution, not truth or entailment. Requirement
+applicability and interpretation still rely on model judgment. These checks are
+classroom evidence, not production certification or a statistical reliability guarantee.
+The policy identity changed so older cached reviews cannot inherit this assurance.
+
+Regression fixtures retain the actual v2 false pass and the case-4/case-8 quote
+misattribution in `tests/fixtures/workshop-false-pass.json`. Offline contracts run
+with `python3 tests/test-workshop-evidence.py`. The opt-in
+`python3 tests/test-workshop-live-evidence.py --live` spends up to two calls with
+the configured script's $0.50 reported/reserved budget using Claude subscription
+auth, retains receipts, requires rejection of case-7's unsourced alternatives,
+and checks acceptance of an explicitly synthetic positive control. This tests
+the reviewer, not a fresh full generated-prompt build.
+
+Structured reviews use `profiles.workshop.review_effort` from routing JSON, defaulting
+to `medium`; the value is pinned in run identity. The 90-second call limit and
+whole-run token/cost limits still apply. No timeout counts as a semantic rejection.

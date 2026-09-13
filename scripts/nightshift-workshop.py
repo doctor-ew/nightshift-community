@@ -45,6 +45,62 @@ REVIEW_SCHEMA = {
 }
 
 
+ASSESSMENT_SCHEMA = {
+    'type': 'array', 'items': {'type': 'object', 'additionalProperties': False,
+    'required': ['case', 'requirement', 'verdict', 'quote', 'reason'],
+    'properties': {'case': {'type': 'string'}, 'requirement': {'type': 'string'},
+                   'verdict': {'enum': ['pass', 'fail', 'unresolved', 'not_applicable']},
+                   'quote': {'type': 'string', 'minLength': 1, 'maxLength': 240},
+                   'reason': {'type': 'string', 'minLength': 1, 'maxLength': 240}}}}
+GRADE_SCHEMA = {'type': 'object', 'additionalProperties': False,
+                'required': ['assessments'], 'properties': {'assessments': ASSESSMENT_SCHEMA}}
+FINAL_SCHEMA = {'type': 'object', 'additionalProperties': False,
+                'required': ['approved', 'oracle_valid', 'issues', 'assessments'],
+                'properties': {k: v for k, v in REVIEW_SCHEMA['properties'].items() if k != 'evidence_audit'} |
+                              {'assessments': ASSESSMENT_SCHEMA}}
+ASSESSMENT_INSTRUCTIONS = (
+    'Assess EVERY response against EVERY requirement, including requirements outside its assigned case criteria. '
+    'Return one assessment for each case/requirement pair. Verdict is pass, fail, unresolved, or not_applicable. '
+    'Quote an exact contiguous substring from THAT case response (not its input, expectation or another case), '
+    '1-240 characters. Explain the interpretation in at most 240 characters. '
+    'Use not_applicable only when the response does not trigger that requirement; assigned criteria cannot be '
+    'not_applicable. Sources and respectful tone apply wherever the response itself triggers them. '
+    'Named alternatives with capability claims require source URLs even in feature-scope or tone cases. '
+    'A promise to address a requirement in a later turn is unresolved, not demonstrated success. '
+    'Do not infer experiments from audience questions alone. Quotes prove attribution, not interpretation. '
+    'Return {"assessments":[{"case":string,"requirement":string,"verdict":string,"quote":string,"reason":string}]}. '
+)
+
+
+def validate_assessments(value, spec, cases, observations):
+    rows = value.get('assessments')
+    responses = {o['case']: o['response'] for o in observations}
+    expected = {(c['id'], r['id']) for c in cases for r in spec['requirements']}
+    assigned = {(c['id'], rid) for c in cases for rid in c['criteria']}
+    if len(responses) != len(cases) or set(responses) != {c['id'] for c in cases}:
+        stop('invalid observation coverage')
+    if not isinstance(rows, list) or len(rows) != len(expected):
+        stop('evidence coverage must include every case/requirement pair')
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {'case','requirement','verdict','quote','reason'}:
+            stop('invalid evidence assessment schema')
+        if any(not isinstance(row[k], str) for k in row): stop('invalid evidence field type')
+        pair = (row['case'], row['requirement'])
+        if pair not in expected or pair in seen: stop('unknown or duplicate evidence pair')
+        seen.add(pair)
+        if row['verdict'] not in {'pass','fail','unresolved','not_applicable'}:
+            stop('invalid evidence verdict')
+        if not row['quote'].strip() or len(row['quote']) > 240 or row['quote'] not in responses[row['case']]:
+            stop('evidence quote does not match cited response: ' + row['case'])
+        if not row['reason'].strip() or len(row['reason']) > 240: stop('invalid evidence explanation')
+        if pair in assigned and row['verdict'] == 'not_applicable':
+            stop('assigned criterion cannot be marked not applicable')
+    return [{'id': c['id'], 'passed': all(r['verdict'] in ('pass','not_applicable') for r in rows if r['case'] == c['id']),
+             'reason': '; '.join(r['requirement'] + ': ' + r['verdict'] for r in rows if r['case'] == c['id'])}
+            for c in cases]
+
+
 def digest(value):
     return hashlib.sha256(value if isinstance(value, bytes) else value.encode()).hexdigest()
 
@@ -134,7 +190,9 @@ class Run:
             stop('workshop requires an explicit Claude workshop route; re-run nightshift init --profile workshop')
         self.writer = args.model or route['writer_model']
         self.reviewer = route['reviewer_model']
-        identity = {'evidence_policy': 'source-integrity-v1', 'isolation': 'safe-mode-v1', 'writer': self.writer, 'reviewer': self.reviewer, 'auth': args.auth,
+        self.review_effort = route.get('review_effort', 'medium')
+        if self.review_effort not in ('low','medium','high','xhigh','max'): stop('invalid workshop review_effort')
+        identity = {'review_effort': self.review_effort, 'evidence_policy': 'quoted-evidence-v2', 'isolation': 'safe-mode-v1', 'writer': self.writer, 'reviewer': self.reviewer, 'auth': args.auth,
                     'limits': self.limits}
         if self.state.get('identity', identity) != identity:
             stop('runtime, evidence policy or budgets changed for retained exercise; preserve this run and start a new named exercise')
@@ -235,6 +293,8 @@ class Run:
                   dict(role='nightshift-workshop', provider='claude', model=self.writer,
                        status=getattr(self, 'lifecycle_status', 'running'), pid=os.getpid(),
                        failure=self.state.get('failure', ''),
+                       execution_status=self.state.get('execution_status', 'not_started'),
+                       verification_status=self.state.get('verification_status', 'unresolved'),
                        started_at=self.state['started_at'],
                        finished_at='' if getattr(self, 'lifecycle_status', 'running') == 'running' else datetime.now(timezone.utc).isoformat()))
             write(self.worktree / '.nightshift' / (self.task + '.md'),
@@ -301,8 +361,9 @@ class Run:
                 '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                 '--setting-sources', '', '--safe-mode', '--disable-slash-commands', '--no-session-persistence',
                 '--system-prompt', prompt, '--max-turns', '1', '--max-budget-usd', str(reserve)]
-        if structured and 'review' in name:
-            argv += ['--json-schema', json.dumps(REVIEW_SCHEMA)]
+        if structured and ('review' in name or name.startswith('grade-')):
+            schema = FINAL_SCHEMA if name.startswith('code-review-') else GRADE_SCHEMA if name.startswith('grade-') else REVIEW_SCHEMA
+            argv += ['--json-schema', json.dumps(schema), '--effort', getattr(self, 'review_effort', 'medium')]
             # Claude emits the schema-constrained result through a final output turn.
             argv[argv.index('--max-turns') + 1] = '2'
         if self.args.auth == 'api':
@@ -369,6 +430,23 @@ class Run:
             if health != {'ready': True}: stop(f'{role} model admission failed')
 
     def reviewed(self, name, payload):
+        if name.startswith('code-review-'):
+            value = self.call(name, self.reviewer,
+                'You are an independent reviewer in a fresh session. Review the implemented prompt against the spec. '
+                + EVIDENCE_POLICY + ASSESSMENT_INSTRUCTIONS +
+                'Independently inspect all responses; no grader verdicts are supplied. In addition to assessments, '
+                'return approved:boolean, oracle_valid:boolean, issues:[strings]. These are the only four top-level keys. '
+                'Set oracle_valid=false for expectations that contradict the spec or reward unsupported certainty. '
+                'Set approved=false for prompt defects, failed or unresolved assessments. Do not treat missing or '
+                'unresolved evidence as a reason to weaken the prompt.', payload)
+            write(self.artifacts / (name + '.json'), value)
+            if set(value) != {'approved','oracle_valid','issues','assessments'} or not isinstance(value['approved'], bool) or not isinstance(value['oracle_valid'], bool) or not isinstance(value['issues'], list) or any(not isinstance(i,str) for i in value['issues']):
+                stop('invalid final review schema')
+            results = validate_assessments(value, payload['spec'], payload['cases'], payload['observations'])
+            if not value['oracle_valid']: stop('invalid test oracle; no prompt repair attempted')
+            if any(r['verdict'] == 'unresolved' for r in value['assessments']):
+                stop('verification unresolved; more evidence is required, not a passing verdict')
+            return value['approved'] and all(r['passed'] for r in results)
         task = ('Review this proposed specification against the source brief only. No implementation or test results should exist at this stage. The supplied harness_constraints are already guaranteed by the runner; do not require them in behavioral criteria. Exclusions may restate these boundaries without adding functionality. Reject new functional demands or missing behavioral requirements from the brief. ' if name == 'spec-review' else
                 'Review these proposed scenarios against the approved specification only. No implementation or results should exist yet. Check positive/negative coverage, realistic inputs, and fair observable expectations. ' if name == 'scenario-review' else
                 'Review the implemented prompt against the approved specification and supplied behavior results. Check logical omissions and consistency; public cases are not production certification. ')
@@ -460,22 +538,29 @@ class Run:
             content = '\n'.join(lines) + '\n'
             prior_hash = self.state.get('prompt_sha256')
             if self.artifact.exists() and digest(self.artifact.read_bytes()) != prior_hash: stop('prompt changed outside this exercise')
+            self.state['execution_status'] = 'running'
+            self.state['verification_status'] = 'unresolved'
             write(self.artifact, content)
             self.state['prompt_sha256'] = digest(content); self.save()
             observations = []
             for i, case in enumerate(cases):
                 response = self.call(f'behavior-{attempt}-{i}', self.writer, content, case['input'], structured=False)
                 observations.append({'case':case['id'], 'response':response})
+            self.state['execution_status'] = 'completed'
+            self.state['verification_status'] = 'unresolved'; self.save()
             grade = self.call('grade-' + str(attempt), self.reviewer,
-                'Grade observed responses against the spec and each case expectation, not exact wording. '
-                'No implementation or test execution claims without supplied observations. ' + EVIDENCE_POLICY +
-                'Return {"results":[{"id":string,"passed":boolean,"reason":string}]}, exactly one per case.',
+                'Grade observed responses. ' + EVIDENCE_POLICY + ASSESSMENT_INSTRUCTIONS,
                 {'spec':spec, 'cases':cases, 'observations':observations})
-            results = grade.get('results')
-            if set(grade) != {'results'} or not isinstance(results,list) or len(results)!=8 or {r.get('id') for r in results}!={c['id'] for c in cases} or any(set(r)!={'id','passed','reason'} or not isinstance(r['passed'],bool) or not isinstance(r['reason'],str) for r in results): stop('invalid behavioral grading')
+            write(self.artifacts / f'ASSESSMENTS-{attempt}.json', grade)
+            if set(grade) != {'assessments'}: stop('invalid grading schema')
+            results = validate_assessments(grade, spec, cases, observations)
             write(self.artifacts / f'EVALUATION-{attempt}.json', {'prompt_sha256':digest(content), 'observations':observations, 'grade':grade})
-            approved = self.reviewed('code-review-' + str(attempt), {'spec':spec,'prompt':content,'cases':cases,'observations':observations,'grade':grade})
-            if approved and all(r['passed'] for r in results): break
+            if any(r['verdict'] == 'unresolved' for r in grade['assessments']):
+                stop('verification unresolved; more evidence is required, not a passing verdict')
+            approved = self.reviewed('code-review-' + str(attempt), {'spec':spec,'prompt':content,'cases':cases,'observations':observations})
+            if approved and all(r['passed'] for r in results):
+                self.state['verification_status'] = 'passed'; break
+            self.state['verification_status'] = 'failed'
             if attempt == 1: stop('behavior/review failed after one repair; previous evidence retained')
             self.state['repairs'] += 1; self.save()
         if digest(self.artifact.read_bytes()) != self.state['prompt_sha256'] or digest(spec_path.read_bytes()) != sha: stop('artifact drift')
@@ -504,7 +589,7 @@ class Run:
                 if existing.returncode == 0:
                     return 'Workshop verified; existing PR: ' + json.loads(existing.stdout)['url']
                 subprocess.run(['gh','pr','create','--title',self.task,'--body','Standalone prompt with approved spec and recorded workshop evaluation.'],cwd=self.worktree,check=True)
-        return f'Workshop complete: {self.artifact}\nEvidence: {self.artifacts}\nActive duration: {self.state["elapsed_seconds"]:.1f}s; calls: {len(self.state["calls"])}; input tokens (including cache): {self.state["input_tokens"]}; output: {self.state["output_tokens"]}; reported/reserved cost: ${self.state["cost_usd"]:.4f}.\nThis is classroom evidence, not production proof. No remote is needed unless --push is requested.'
+        return f'Execution completed; requirements verified against recorded classroom evidence: {self.artifact}\nEvidence: {self.artifacts}\nActive duration: {self.state["elapsed_seconds"]:.1f}s; calls: {len(self.state["calls"])}; input tokens (including cache): {self.state["input_tokens"]}; output: {self.state["output_tokens"]}; reported/reserved cost: ${self.state["cost_usd"]:.4f}.\nThis is classroom evidence, not production proof. No remote is needed unless --push is requested.'
 
 
 def main():

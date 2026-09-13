@@ -28,9 +28,12 @@ elif 'Independently author' in system:
  value={'cases':[dict(slot,input='Scenario '+str(i),expected='Respectful response') for i,slot in enumerate(json.loads(payload)['slots'])]}
 elif 'Implement only' in system: value={'lines':['Coach respectfully. '+str(i) for i in range(20)]}
 elif 'Grade observed' in system:
- value={'results':[dict(id='case-'+str(i+1),passed=mode!='reject',reason='Observed') for i in range(8)]}
+ value={'assessments':[dict(case=o['case'],requirement=r['id'],verdict='unresolved' if mode=='unresolved' else 'fail' if mode=='reject' else 'pass',quote=o['response'][:80],reason='Observed') for o in json.loads(payload)['observations'] for r in json.loads(payload)['spec']['requirements']]}
 elif 'independent reviewer' in system: value={'evidence_audit':'No source claims in this fixture.','approved':True,'oracle_valid':not ((mode=='invalid-oracle' and 'implemented prompt' in system) or (mode=='invalid-scenarios' and 'proposed scenarios' in system)),'issues':[]}
 else: value='What would you like to explore?'
+if 'independent reviewer' in system and 'Review the implemented prompt' in system:
+ value.pop('evidence_audit',None)
+ value['assessments']=[dict(case=o['case'],requirement=r['id'],verdict='pass',quote=o['response'][:80],reason='Observed') for o in json.loads(payload)['observations'] for r in json.loads(payload)['spec']['requirements']]
 if mode=='broken-json' and 'Review the implemented prompt' in system: value='truncated JSON response'
 if mode=='missing-oracle' and isinstance(value,dict) and 'oracle_valid' in value: value.pop('oracle_valid')
 print(json.dumps(dict(result=json.dumps(value) if isinstance(value,dict) else value,is_error=False,subtype='success',total_cost_usd=3 if mode=='overcost' else .01,usage=dict(input_tokens=100,cache_read_input_tokens=20,cache_creation_input_tokens=10,output_tokens=20),session_id='fixture')))
@@ -78,6 +81,7 @@ class WorkshopTest(unittest.TestCase):
         self.assertFalse((Path(s['worktree'])/'prompts/workshop-agent.md').exists())
         self.run_workshop('--approve-spec','incorrect');self.assertEqual(len(self.state()['calls']),4)
         self.approve();s=self.state();self.assertEqual(s['status'],'complete');self.assertEqual(len(s['calls']),17)
+        self.assertEqual(s['execution_status'],'completed');self.assertEqual(s['verification_status'],'passed')
         self.assertEqual(s['input_tokens'],17*130);self.assertEqual(s['output_tokens'],340)
         self.run_workshop();self.assertEqual(len(self.state()['calls']),17)
         self.assertFalse((self.project/'prompts').exists())
@@ -137,7 +141,8 @@ class WorkshopTest(unittest.TestCase):
         payload=json.loads(review_calls[0][-1])
         self.assertEqual(len(payload['observations']),8)
         self.assertEqual(len(payload['cases']),8)
-        self.assertTrue(all(r['passed'] for r in payload['grade']['results']))
+        self.assertNotIn('grade',payload)
+        self.assertTrue(all(r['verdict']=='pass' for r in s['cache']['grade-0']['assessments']))
         self.run_workshop(status=1)
         self.assertEqual(len(self.state()['calls']),17)
 
@@ -209,6 +214,19 @@ class WorkshopTest(unittest.TestCase):
         result=self.run_workshop(status=1)
         self.assertIn('evidence policy',result.stdout)
         self.assertEqual(len(self.state()['calls']),4)
+
+    def test_unresolved_is_separate_from_execution_completion(self):
+        self.env['FIXTURE_MODE']='unresolved';self.run_workshop();self.approve(status=1)
+        s=self.state()
+        self.assertEqual(s['execution_status'],'completed')
+        self.assertEqual(s['verification_status'],'unresolved')
+        self.assertEqual(s['repairs'],0)
+        self.assertEqual(len(s['calls']),16)
+        self.assertIn('verification unresolved',s['failure'])
+        data=json.loads(self.command(['bash',str(ROOT/'scripts/nightshift-dashboard.sh'),'--project',str(self.project),'--json']).stdout)
+        agent=next(r for r in data['rows'] if r['source']=='agent')
+        self.assertEqual(agent['execution_status'],'completed')
+        self.assertEqual(agent['verification_status'],'unresolved')
 
     def test_missing_receipt_is_charged_and_terminal(self):
         self.env['FIXTURE_MODE']='no-receipt';self.run_workshop(status=1)
