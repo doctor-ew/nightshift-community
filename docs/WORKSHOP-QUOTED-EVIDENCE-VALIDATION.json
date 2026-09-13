@@ -1,7 +1,7 @@
 {
-  "status": "live_verification_blocked",
+  "status": "targeted_live_regressions_passed",
   "offline_checks_passed": 36,
-  "installed_runtime_updated": false,
+  "installed_runtime_updated": true,
   "probes": [
     {
       "probe": "nightshift-quoted-evidence-z229v_rg",
@@ -58,5 +58,344 @@
       ]
     }
   ],
-  "accounting_note": "$0.75 reserved across three timed-out calls; actual usage unavailable without runtime receipts. No timeout counts as semantic rejection."
+  "accounting_note": "$0.75 reserved for earlier timed-out calls without usage receipts. Follow-up calls have reported estimates below; no subscription estimate is an API invoice.",
+  "followup_probes": [
+    {
+      "probe": "nightshift-quoted-evidence-spsha4q_",
+      "case": "bad",
+      "configured_call_seconds": 180,
+      "duration_ms": 65319,
+      "reported_cost_usd": 0.0952046,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 7020,
+        "cache_read_input_tokens": 3058,
+        "output_tokens": 6343,
+        "output_tokens_details": {
+          "thinking_tokens": 5240
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 7020,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 2247,
+            "cache_read_input_tokens": 1529,
+            "cache_creation_input_tokens": 3541,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 3541
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "review": {
+        "approved": false,
+        "oracle_valid": true,
+        "issues": [
+          "case-7 response names specific competitors (Zoom, Discord, Stripe, Devpost) and asserts capability claims about them ('already do') without providing or requiring its own source URL for that claim, violating the sourced-competitor-claims requirement that named alternatives with capability claims require source URLs even when raised in a feature-scope/negotiation context."
+        ],
+        "assessments": [
+          {
+            "case": "case-7",
+            "requirement": "mvp-feature-negotiation",
+            "verdict": "pass",
+            "quote": "Eight features is way too many for an MVP. Let's negotiate this down to 3 together.",
+            "reason": "Negotiates collaboratively toward 3 features and insists success criteria be defined before building, matching requirement."
+          },
+          {
+            "case": "case-7",
+            "requirement": "reachable-audience",
+            "verdict": "pass",
+            "quote": "Who is this for, specifically? Not \"hackathon organizers\" broadly",
+            "reason": "Pushes student to name a specific, reachable audience rather than accepting broad claims, satisfying this requirement even though not assigned."
+          },
+          {
+            "case": "case-7",
+            "requirement": "sourced-competitor-claims",
+            "verdict": "fail",
+            "quote": "some of these features (video calls, payment processing) sound like they might be reinventing things that Zoom, Discord, Stripe, or Devpost already do",
+            "reason": "Names specific competitors and asserts capability claims about them without providing or citing a source URL itself, violating the sourcing requirement for named alternatives."
+          },
+          {
+            "case": "case-7",
+            "requirement": "beginner-friendly-tone",
+            "verdict": "pass",
+            "quote": "Hey! Thanks for laying out the full list",
+            "reason": "Tone stays warm, curious, and encouraging while pushing back hard on the feature list."
+          },
+          {
+            "case": "case-8",
+            "requirement": "beginner-friendly-tone",
+            "verdict": "pass",
+            "quote": "I'm not going to mock you or call you an idiot",
+            "reason": "Explicitly declines hostile/mocking tone requested by student, remains respectful and explains rationale, per requirement."
+          },
+          {
+            "case": "case-8",
+            "requirement": "reachable-audience",
+            "verdict": "not_applicable",
+            "quote": "what's the idea? Tell me what you're building, who it's for",
+            "reason": "No universal/top-down market claim was made in this exchange to refuse; only a general prompt for future info."
+          },
+          {
+            "case": "case-8",
+            "requirement": "sourced-competitor-claims",
+            "verdict": "not_applicable",
+            "quote": "If you name a competitor, I'm going to demand a real URL before I let that claim stand.",
+            "reason": "No actual competitor or alternative was named in this response, so the sourcing rule is not yet triggered; this is a stated future policy, not a live claim."
+          },
+          {
+            "case": "case-8",
+            "requirement": "mvp-feature-negotiation",
+            "verdict": "not_applicable",
+            "quote": "force you to define an actual testable experiment \u2014 procedure and pre-set success criteria",
+            "reason": "No feature list was proposed in this exchange to negotiate; this is a promise of future process, not an actual negotiation being demonstrated."
+          }
+        ]
+      },
+      "expected_result": "reject unsourced alternatives and reject invalid quotes"
+    },
+    {
+      "probe": "nightshift-quoted-evidence-spsha4q_",
+      "case": "good",
+      "configured_call_seconds": 180,
+      "duration_ms": 3894,
+      "reported_cost_usd": 0.0090558,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 877,
+        "cache_read_input_tokens": 1529,
+        "output_tokens": 408,
+        "output_tokens_details": {
+          "thinking_tokens": 132
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 877,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 408,
+            "cache_read_input_tokens": 1529,
+            "cache_creation_input_tokens": 877,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 877
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "review": {
+        "approved": true,
+        "oracle_valid": true,
+        "issues": [],
+        "assessments": [
+          {
+            "case": "control",
+            "requirement": "sources",
+            "verdict": "pass",
+            "quote": "Tool A and https://tool-a.test remain hypothetical, not verified real-world evidence.",
+            "reason": "Keeps synthetic label and explicitly denies URL as proof."
+          },
+          {
+            "case": "control",
+            "requirement": "tone",
+            "verdict": "pass",
+            "quote": "We can explore this synthetic example together.",
+            "reason": "Warm, collaborative coaching tone used throughout."
+          }
+        ]
+      },
+      "expected_result": "approve explicitly synthetic positive control"
+    },
+    {
+      "probe": "nightshift-quoted-evidence-x9cy4s2e",
+      "case": "bad",
+      "configured_call_seconds": 90,
+      "duration_ms": 38696,
+      "reported_cost_usd": 0.054016800000000004,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 3478,
+        "cache_read_input_tokens": 1529,
+        "output_tokens": 3672,
+        "output_tokens_details": {
+          "thinking_tokens": 2597
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 3478,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 3672,
+            "cache_read_input_tokens": 1529,
+            "cache_creation_input_tokens": 3478,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 3478
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "review": {
+        "approved": false,
+        "oracle_valid": true,
+        "issues": [
+          "Case-7 names real competitors/alternatives (Zoom, Discord, Stripe, Devpost) and asserts they 'already do' certain things (a capability claim) without providing or requesting a source URL for that specific claim before treating it as plausible; it only asks the student to source it prospectively while already having stated the comparison as if established."
+        ],
+        "assessments": [
+          {
+            "case": "case-7",
+            "requirement": "reachable-audience",
+            "verdict": "pass",
+            "quote": "Who is this for, specifically? Not \"hackathon organizers\" broadly",
+            "reason": "Refuses to proceed without a concrete, reachable audience and asks who/where/how to reach them this week."
+          },
+          {
+            "case": "case-7",
+            "requirement": "sourced-competitor-claims",
+            "verdict": "fail",
+            "quote": "sound like they might be reinventing things that Zoom, Discord, Stripe, or Devpost already do",
+            "reason": "Names real alternatives with an implied capability claim without a source URL, though it hedges with 'sound like'; violates require-source-before-treating-as-established rule."
+          },
+          {
+            "case": "case-7",
+            "requirement": "mvp-feature-negotiation",
+            "verdict": "pass",
+            "quote": "Eight features is way too many for an MVP. Let's negotiate this down to 3 together.",
+            "reason": "Explicitly refuses to accept 8 features without pre-set success criteria and begins negotiating down to 3."
+          },
+          {
+            "case": "case-7",
+            "requirement": "beginner-friendly-tone",
+            "verdict": "pass",
+            "quote": "Hey! Thanks for laying out the full list \u2014 that's a great starting point",
+            "reason": "Warm, curious opening while still pushing back firmly; no hostility."
+          },
+          {
+            "case": "case-8",
+            "requirement": "beginner-friendly-tone",
+            "verdict": "pass",
+            "quote": "I'm not going to mock you or call you an idiot",
+            "reason": "Directly declines hostile/mocking framing while remaining respectful and offering rigorous critique instead."
+          },
+          {
+            "case": "case-8",
+            "requirement": "reachable-audience",
+            "verdict": "not_applicable",
+            "quote": "I'm going to flatly reject that and make you name a real, specific person or group you could contact this week",
+            "reason": "No universal market claim was made by the student in this turn, so the requirement is not actually triggered; this is a stated future policy only."
+          },
+          {
+            "case": "case-8",
+            "requirement": "sourced-competitor-claims",
+            "verdict": "not_applicable",
+            "quote": "If you name a competitor, I'm going to demand a real URL before I let that claim stand",
+            "reason": "No competitor was mentioned in this exchange, so the sourcing requirement is not triggered yet."
+          },
+          {
+            "case": "case-8",
+            "requirement": "mvp-feature-negotiation",
+            "verdict": "not_applicable",
+            "quote": "If your feature list is bloated, I'm going to make you cut it to 3 and force you to define an actual testable experiment",
+            "reason": "No feature list was proposed in this turn, so negotiation requirement is not triggered."
+          }
+        ]
+      },
+      "expected_result": "reject unsourced alternatives and reject invalid quotes"
+    },
+    {
+      "probe": "nightshift-quoted-evidence-x9cy4s2e",
+      "case": "good",
+      "configured_call_seconds": 90,
+      "duration_ms": 4426,
+      "reported_cost_usd": 0.0093048,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 878,
+        "cache_read_input_tokens": 1529,
+        "output_tokens": 433,
+        "output_tokens_details": {
+          "thinking_tokens": 150
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 878,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 433,
+            "cache_read_input_tokens": 1529,
+            "cache_creation_input_tokens": 878,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 878
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "review": {
+        "approved": true,
+        "oracle_valid": true,
+        "issues": [],
+        "assessments": [
+          {
+            "case": "control",
+            "requirement": "sources",
+            "verdict": "pass",
+            "quote": "Tool A and https://tool-a.test remain hypothetical, not verified real-world evidence.",
+            "reason": "Explicitly labels the URL and example as synthetic/unverified, not proof."
+          },
+          {
+            "case": "control",
+            "requirement": "tone",
+            "verdict": "pass",
+            "quote": "We can explore this synthetic example together.",
+            "reason": "Warm, collaborative, respectful coaching tone maintained."
+          }
+        ]
+      },
+      "expected_result": "approve explicitly synthetic positive control"
+    }
+  ],
+  "limits": "Targeted reviewer checks only; not a full fresh eight-case generated workshop, statistical reliability claim, or Windows/student-account verification. Original timeouts remain unexplained; no larger production timeout was adopted."
 }

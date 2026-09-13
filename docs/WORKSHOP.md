@@ -257,10 +257,11 @@ relying on prose instructions for JSON instead of schema-constrained output.
 
 ## Evidence-backed verification
 
-Status: implemented on the review branch; live verification blocked after three
-90-second reviewer timeouts. The operator's installed runtime was not updated
-with this contract. See `WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`. Offline checks
-validate host enforcement, not semantic reviewer reliability.
+Status: activated after 36 offline checks and targeted live regression checks.
+The standard 90-second-per-call probe rejected the known bad case and accepted
+the positive control. Three earlier timeouts are retained in
+`WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`; their cause is not established.
+This does not claim a full fresh generated workshop or statistical reliability.
 
 Each grader and final reviewer assesses the full case-by-requirement matrix,
 including requirements outside the case's assigned criterion. An assessment has
