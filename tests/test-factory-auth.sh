@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# These fixtures inspect raw provider/admission output.
+export NIGHTSHIFT_OUTPUT=verbose
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FACTORY="${REPO_DIR}/scripts/nightshift-factory.sh"

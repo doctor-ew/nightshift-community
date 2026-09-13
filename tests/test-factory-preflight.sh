@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # AC1-3: deterministic admission before any provider invocation; no ownership repair.
 set -euo pipefail
+# These fixtures inspect raw provider/admission output.
+export NIGHTSHIFT_OUTPUT=verbose
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 python3 - "$ROOT" <<'PY'
 import json, os, pathlib, shutil, subprocess, sys, tempfile

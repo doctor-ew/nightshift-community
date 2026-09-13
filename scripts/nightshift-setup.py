@@ -54,6 +54,17 @@ for key in ('provider', 'model', 'auth'):
         fail('CONFIG_INVALID', f'runtime.{key} must be a string')
 if runtime.get('provider', 'codex') not in ('codex', 'claude', 'local', 'ollama'):
     fail('CONFIG_INVALID', 'runtime.provider must be codex, claude, local, or ollama')
+if section('output').get('mode', 'concise') not in ('concise', 'verbose', 'quiet'):
+    fail('CONFIG_INVALID', 'output.mode must be concise, verbose, or quiet')
+models = section('runtime.models')
+for provider, model in models.items():
+    if provider not in ('codex', 'claude', 'local', 'ollama') or not isinstance(model, str):
+        fail('CONFIG_INVALID', 'runtime.models must map supported runtimes to model strings')
+for name, alias in section('runtime.aliases').items():
+    if (not name or not isinstance(alias, dict) or set(alias) != {'provider', 'model'}
+            or alias['provider'] not in ('codex', 'claude', 'local', 'ollama')
+            or not isinstance(alias['model'], str) or not alias['model'].strip()):
+        fail('CONFIG_INVALID', 'runtime.aliases entries require a supported provider and non-empty model')
 for key in ('local_model', 'file'):
     if key in section('routing') and not isinstance(section('routing')[key], str):
         fail('CONFIG_INVALID', f'routing.{key} must be a string')

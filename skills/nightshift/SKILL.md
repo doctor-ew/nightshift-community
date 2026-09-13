@@ -1,6 +1,6 @@
 ---
 name: nightshift
-description: Run a guarded, beads-backed engineering stage from nightshift in Codex or Codex driving a local Ollama model. Use for a nightshift ticket workflow, spec, adversarial verification, TDD implementation, review, drift, QA, preflight, deploy, or batch run.
+description: Get Nightshift help, explain changes, consult architect/dev/PM/UX, create planning artifacts, or run a guarded, beads-backed engineering stage from nightshift in Codex or Codex driving a local Ollama model. Use for a nightshift ticket workflow, spec, adversarial verification, TDD implementation, review, drift, QA, preflight, deploy, or batch run.
 ---
 
 # nightshift
@@ -25,9 +25,17 @@ call is required.
 
 Advanced form: `$nightshift <stage> <arguments>`
 
+Advisory commands: `help`, `explain`, `architect`, `dev`, `pm`,
+`ux-designer`, `architecture`, `ux`, and `bmad`. For these, read only the
+corresponding `~/.nightshift/commands/nightshift-<command>.md` (or
+`commands/nightshift-<command>.md` in a source checkout) and follow its scope.
+Do not set factory mode, start engineering, or apply the factory failure policy.
+Architecture and UX may write their specified planning documents; the others
+are read-only. These conversations are optional and do not add pipeline gates.
+
 Stages: `eng`, `product`, `adversarial`, `implement`, `review`, `drift`, `qa`,
 `preflight`, `deploy`, `batch`, and `spec`. If the first token is not one of
-those stage names, treat the entire input as an `eng` ticket reference.
+those stage or advisory names, treat the entire input as an `eng` ticket reference.
 
 The terminal launcher also accepts `nightshift batch <tickets-or-query>`, `--branch
 auto|<name>|none`, `--push`, and `--pr`. Preserve those factory options when reading
@@ -50,7 +58,8 @@ ticket. Batch completion is verification plus optional branch push/PR; do not
 run the deploy stage unless the caller explicitly invokes a deploy stage and
 passes the production confirmation gate.
 
-Read `AGENTS.md` first, then read `commands/nightshift-<stage>.md` in full. Treat the
+Read `AGENTS.md` first, then read `~/.nightshift/commands/nightshift-<stage>.md`
+(or `commands/nightshift-<stage>.md` in a source checkout) in full. Treat the
 argument portion as that command's `ARGUMENTS` value, execute its steps, and
 write its artifacts. If no stage is specified, use `eng`. For a factory run,
 set `AUTONOMOUS=true` and `NIGHTSHIFT_FACTORY_MODE=true` for every stage and delegate

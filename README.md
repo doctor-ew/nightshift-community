@@ -105,6 +105,72 @@ For a literal terminal one-call entrypoint, use the agent-agnostic launcher:
 nightshift gh:12
 ```
 
+The terminal launcher accepts a Markdown requirements file, a ticket reference,
+or a runtime followed by either input:
+
+```bash
+nightshift prompt.md
+nightshift codex prompt.md
+nightshift codex/qwen bd:bead-123
+nightshift codex/devstral prompt.md
+nightshift claude/sonnet gh:12
+nightshift local/qwen3-coder:30b prompt.md
+nightshift codex batch "gh:12,gh:13"
+```
+
+Source: `scripts/nightshift-factory.sh:66` (help) and
+`scripts/nightshift-factory.sh:122` (argument parsing).
+
+Omitting the runtime uses configured defaults, then Codex. An explicit runtime
+selects the main factory worker; specialist and independent-reviewer routing
+still comes from `routing.json`. The launcher does not automatically fall back
+to another runtime or paid API billing after a failure. Sources:
+`scripts/nightshift-factory.sh:230` (settings resolution),
+`scripts/nightshift-agent.sh:198` (role dispatch).
+
+Use `runtime.models` for each runtime's default model. The legacy `runtime.model`
+applies only to `runtime.provider`; changing providers cannot inherit another
+provider's model. A slash suffix selects a configured alias, or a literal model
+name when no alias matches. Explicit `--provider` and `--model` flags override
+the corresponding shorthand; `--model` bypasses suffix alias resolution.
+Sources: `scripts/nightshift-factory.sh:238` (settings resolution),
+`scripts/nightshift-setup.py:51` (runtime validation).
+
+The bundled `qwen` and `devstral` aliases select Codex's local Ollama adapter with
+`qwen3-coder:30b` and `devstral-small-2:24b`, respectively. They do not change the
+default runtime. Override them or add your own aliases in
+`~/.nightshift/.nightshift.toml` or the consumer project's `.nightshift.toml`.
+Project settings take precedence over global settings, then bundled aliases.
+For example:
+
+```toml
+[runtime]
+provider = "codex"
+
+[runtime.models]
+claude = "sonnet"
+local = "qwen3-coder:30b"
+
+[runtime.aliases.qwen]
+provider = "local"
+model = "qwen3-coder:30b"
+
+[runtime.aliases.devstral]
+provider = "local"
+model = "devstral-small-2:24b"
+```
+
+Source: `nightshift.toml:18` (alias),
+`scripts/nightshift-factory.sh:230` (settings precedence).
+
+Local runs require Ollama and an explicit or configured model. Install the
+chosen model first with `ollama pull qwen3-coder:30b` or
+`ollama pull devstral-small-2:24b`. Local factory inference
+does not imply that configured specialist roles, tools, or ticket sources are
+offline. Local-model workflow quality still needs evaluation for your workload.
+Sources: `scripts/nightshift-factory.sh:333` (local dispatch),
+[Ollama's Codex integration](https://docs.ollama.com/integrations/codex).
+
 Factory branch hygiene is enabled by default. To commit and push a fully
 verified ticket branch (without merging or deploying), opt in explicitly:
 
@@ -797,3 +863,62 @@ current-clock metadata is added.
 
 Run offline regression coverage separately with `bash evals/run-tests.sh`, which
 discovers the repository's `test-*.sh` suites. Reporting never runs those suites.
+
+## Advice, explanations, and planning
+
+Use `nightshift help` to find a workflow, or `nightshift explain <task-key or question>`
+to understand a change from its tracker, diff, artifacts, and recorded checks.
+`nightshift architect`, `nightshift dev`, `nightshift pm`, and
+`nightshift ux-designer` offer optional read-only consultations. Add your question
+after the command. They do not start an engineering run.
+
+`nightshift architecture <task-key or brief.md>` records ARCHITECTURE.md.
+`nightshift ux <task-key or brief.md>` records DESIGN.md and EXPERIENCE.md.
+Existing task documents stay in their task directory; unticketed briefs use
+`docs/planning/<brief-stem>/`. Product/spec verifies and incorporates accepted
+planning inputs before implementation. These documents do not satisfy a gate.
+
+All these terminal commands accept the configured runtime or an explicit selector,
+such as `nightshift codex/devstral explain bd:bead-123` or
+`nightshift codex/qwen architect "Compare these interfaces"`. Codex exposes
+`$nightshift <command> <request>`; Claude exposes `/nightshift-<command> <request>`.
+Advisory commands reject `--push` and `--pr`, disable the dashboard, and do not
+perform factory ticket admission or automatic project setup. Codex uses a
+read-only sandbox for consultations; Claude consultations expose only Read, Grep,
+and Glob, so live Git diffs may be unavailable. Architecture/UX permit scoped
+planning writes under the runtime's workspace permissions. The launcher may
+still record invocation metrics; read-only here describes the agent's work.
+
+`nightshift bmad <installed-skill-name or artifact-path>` is an optional read-only
+bridge: inspect available guidance or propose how supplied BMad planning output
+maps into Nightshift. It does not install BMad, run bmad-build, overwrite a spec,
+or replace routing and verification. Persist accepted inputs through architecture,
+UX, or product/spec. Nightshift remains usable with no BMad installation.
+
+Canonical contracts: [help](commands/nightshift-help.md),
+[explain](commands/nightshift-explain.md), [architecture](commands/nightshift-architecture.md),
+[UX](commands/nightshift-ux.md), and [BMad bridge](commands/nightshift-bmad.md).
+
+## Terminal output
+
+`--output concise|verbose|quiet` controls presentation independently of the task.
+Concise is the default for an installation with no saved preference: short progress,
+the final answer, and a path to full logs. Verbose streams all stdout/stderr live.
+Quiet prints the final answer and actionable failures, plus the log path. Runtime
+failures remain visible and provider process exit codes are preserved in every mode.
+A provider's zero exit is not proof of a passing engineering gate.
+
+Save `mode = "verbose"` under `[output]` in `~/.nightshift/.nightshift.toml`
+for a personal default, or in a consumer project's `.nightshift.toml` for that project.
+Precedence: per-run `--output`, `NIGHTSHIFT_OUTPUT`, project configuration, user
+configuration, then concise. `NIGHTSHIFT_HOME` relocates the user configuration and
+log home. Full stdout/stderr logs are retained in private `logs/run-*/` directories
+under that home; no automatic deletion is performed. Logs may contain private tool
+data. Manage them as local debugging artifacts.
+
+Explain reads a supplied brief first and summarizes its purpose, requirements,
+scope and next step. Run explanations follow linked evidence; explicit audits can
+investigate more deeply. Verbose output does not request a deeper investigation.
+Administrative commands such as setup, sync, version and dashboard retain their own
+output. See [output implementation](scripts/nightshift-output.py) and
+[explain contract](commands/nightshift-explain.md).
