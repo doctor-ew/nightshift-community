@@ -1,0 +1,45 @@
+{
+  "scope": "Independent final-review retry only; original failed run is unchanged",
+  "original_task": "workshop-cf7288cdfde0d6f4",
+  "auth": "subscription",
+  "estimated_cost_usd": 0.071766,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 10804,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 2098,
+    "output_tokens_details": {
+      "thinking_tokens": 1638
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 10804,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2098,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 10804,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 10804
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "review": {
+    "evidence_audit": "Prompt explicitly instructs: URLs are \"citation pointer[s], not proof,\" content stays \"unverified\" since the model \"cannot browse,\" reasoning must use conditional language, and synthetic/placeholder scenarios \"keep... clearly labeled as synthetic\" without implying real field evidence. It also forbids inventing competitor names/URLs and forbids treating any URL as face-value legitimate, while not demanding live browsing. Case-2 observation correctly treats the real devpost.com URL as an unverified citation pointer (\"if DevPost indeed lacks investor matchmaking...\"), avoiding false certainty. Case-4 and case-6 observations preserve synthetic/hypothetical labeling rather than asserting real competitors. Case-3 correctly demands procedure alongside pre-set criteria, not metrics alone. No case or expectation asks the model to accept a URL as proof, verify via browsing, or drop synthetic labeling. Expectations align with spec and evidence-handling rules throughout.",
+    "approved": true,
+    "oracle_valid": true,
+    "issues": []
+  }
+}

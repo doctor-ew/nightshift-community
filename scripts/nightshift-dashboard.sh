@@ -531,7 +531,7 @@ def classify_and_handle_json(path, checkout, ticket_hint, state_record=False):
             "finished_at": as_str(d.get("finished_at")) or "", "worktree": checkout,
             "flavor": "dispatcher lifecycle", "pr_url_text": None, "deferred_decisions": "",
             "attempted": "unknown", "budget": "unknown", "remaining": "unknown",
-            "reason": "Recorded dispatcher lifecycle; not an OS heartbeat.",
+            "reason": as_str(d.get("failure")) or "Recorded dispatcher lifecycle; not an OS heartbeat.",
             "next_action": "", "links": [make_link(os.path.basename(path), path)]})
         return
     if as_str(d.get("batch_id")) is not None and as_dict(d.get("statuses")) is not None:

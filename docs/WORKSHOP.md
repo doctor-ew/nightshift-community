@@ -206,3 +206,20 @@ The `source-integrity-v1` policy is pinned in each new run's identity. Older run
 cannot reuse cached results under this policy. Preserve their artifacts and use a
 new brief filename (tracked in Git) for a fresh exercise and spec approval. This
 update does not repair or retroactively certify previously completed prompts.
+
+
+## Inspecting a failed run
+
+The dashboard shows a failure reason on the failed agent card and in **Run overview**.
+For a workshop launched from the web, the launch record under
+`.git/nightshift-workshop/<task>.launch.json` contains its terminal `log` path.
+The state record `.git/nightshift-workshop/<task>.json` contains `failure` and
+per-call status. Model responses are retained in the worktree under
+`docs/<task>/calls/`. Malformed JSON errors now identify the failing stage and
+raw response path. Reviews request Claude schema-constrained output and allow
+at most two runtime turns for its structured response, within existing time,
+token, and cost limits. Invalid output never counts as approval.
+
+The recorded final-review check in `WORKSHOP-STRUCTURED-REVIEW-CHECK.json` used
+only the failed v2 exercise's final-review inputs. It passed with structured
+output; it does not rewrite the original failed run or certify the entire build.

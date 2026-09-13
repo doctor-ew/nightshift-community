@@ -31,6 +31,7 @@ elif 'Grade observed' in system:
  value={'results':[dict(id='case-'+str(i+1),passed=mode!='reject',reason='Observed') for i in range(8)]}
 elif 'independent reviewer' in system: value={'evidence_audit':'No source claims in this fixture.','approved':True,'oracle_valid':not ((mode=='invalid-oracle' and 'implemented prompt' in system) or (mode=='invalid-scenarios' and 'proposed scenarios' in system)),'issues':[]}
 else: value='What would you like to explore?'
+if mode=='broken-json' and 'Review the implemented prompt' in system: value='truncated JSON response'
 if mode=='missing-oracle' and isinstance(value,dict) and 'oracle_valid' in value: value.pop('oracle_valid')
 print(json.dumps(dict(result=json.dumps(value) if isinstance(value,dict) else value,is_error=False,total_cost_usd=3 if mode=='overcost' else .01,usage=dict(input_tokens=100,cache_read_input_tokens=20,cache_creation_input_tokens=10,output_tokens=20),session_id='fixture')))
 '''
@@ -155,6 +156,17 @@ class WorkshopTest(unittest.TestCase):
         self.run_workshop(status=1)
         self.assertIn('invalid review schema',self.state()['failure'])
         self.assertEqual(self.state()['repairs'],0)
+
+    def test_malformed_review_reports_stage_and_receipt(self):
+        self.env['FIXTURE_MODE']='broken-json'
+        self.run_workshop();self.approve(status=1)
+        s=self.state()
+        self.assertIn('code-review-0: runtime returned malformed JSON',s['failure'])
+        self.assertIn('code-review-0.stdout.json',s['failure'])
+        lifecycle=Path(s['worktree'])/'.nightshift/agents'/ (s['task']+'.json')
+        self.assertEqual(json.loads(lifecycle.read_text())['failure'],s['failure'])
+        result=self.command(['bash',str(ROOT/'scripts/nightshift-dashboard.sh'),'--project',str(self.project),'--json'])
+        self.assertIn('runtime returned malformed JSON',result.stdout)
 
     def test_prior_evidence_policy_cannot_reuse_cached_results(self):
         self.run_workshop()
