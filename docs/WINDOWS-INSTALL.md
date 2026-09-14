@@ -83,3 +83,8 @@ These checks do not constitute an actual WSL installation or a student API run.
 A fresh Windows/WSL installation and model run remain the release acceptance check.
 
 Tests: [`test-windows-installer.py`](../tests/test-windows-installer.py).
+
+Validation receipt: [Windows CI run 34795460326](https://github.com/doctor-ew/nightshift-community/actions/runs/34795460326)
+passed the PowerShell 7 and Windows PowerShell 5.1 contracts for commit `f9e2cae`.
+The local macOS run passed all four tests, including the two Bash bootstrap tests.
+This receipt covers the installer contracts, not an actual WSL provisioning/model run.
