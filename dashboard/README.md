@@ -16,13 +16,19 @@ The separate Agents section reads sanitized shared-dispatcher lifecycle records 
 times. A recorded running state may be stale after a hard kill; it is not an OS
 heartbeat. Custom telemetry directories are intentionally not scanned as new roots.
 
-The Python standard-library server serves only fixed bundle paths and `/api/state`.
-It accepts GET, exact loopback Host and same-origin browser access. No CORS, arbitrary
-file, state mutation, control-plane or remote-binding endpoint is provided. Evidence
-locations are displayed as text; opening files remains an explicit local operation.
+The server serves fixed bundle paths and bounded local evidence APIs. It requires
+an exact loopback Host and same-origin browser access, and enables no CORS.
+Workshop specs can be read through `/api/workshop/reviews` and approved through
+`POST /api/workshop/approve`. Approval requires a per-server token, explicit same-origin
+Origin header, the current spec digest, identical canonical/project copies, and an
+idle workshop lock. It writes a version-bound approval receipt and resumes the
+saved workshop via fixed argv, retaining the original auth, model, and budgets.
+The browser supplies no commands or runtime options. Concurrent approvals reuse
+the launch receipt; a retained startup log records failures. API runs require the
+dashboard process to have the original API key; there is no subscription fallback. Other mutation methods and arbitrary file paths are refused.
 The shared collector bounds scanning, records and file sizes and reports truncation.
 
-Runtime requires Git and Python 3, but no Node, package install, CDN or paid provider.
+Runtime requires Git and Python 3.11+, but no Node, package install, CDN or paid provider.
 The committed `dist/` bundle is rebuilt from `src/` using `npm ci && npm run build`
 inside `dashboard/`; exact versions and integrity hashes are in package-lock.json.
 `npm test` checks summary/filter semantics. Run `bash tests/test-dashboard-live.sh`

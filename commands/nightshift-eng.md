@@ -55,8 +55,8 @@ bash install.sh --auth subscription --with-hook
 Run `--check` first to audit what's missing without making changes.
 
 - **Symlink install** — keep the cloned repo around; `git pull` in it upgrades all installations in place.
-- **Required deps** (installer flags if absent): `bd`, `jq`, `python3`, `curl`, `git`
-- **Optional deps**: `gh`, `graphify`
+- **Required deps** (installer flags if absent): `jq`, `python3` (3.11+), `curl`, `git`
+- **Optional deps**: `bd` (not needed for file-ledger workshops), `gh`, `graphify`
 - **Scope-freeze hook** — won't fire until `nightshift-eng` writes `.active-scope-<task-key>`, so enabling globally from the start is safe.
 - **Project access** — authenticate GitHub for your own practice repository.
   Public installation does not require collaborator access to Nightshift.

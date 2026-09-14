@@ -88,6 +88,8 @@ def make_inventory(project, runtime, targets):
     if runtime in ('claude', 'all'):
         for source in commands:
             add('claude_commands', source, 'claude')
+    for source in commands:
+        add('shared', source, 'nightshift')
     add('shared', 'docs/PROJECT-CONTEXT.md', 'nightshift', 'docs/nightshift-project-context.md')
     add('shared', 'docs/BEHAVIOR-PROOF.md', 'nightshift', 'docs/nightshift-behavior-proof.md')
     add('shared', 'scripts/nightshift-contract.jq', 'nightshift')

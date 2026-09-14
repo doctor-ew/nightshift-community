@@ -258,8 +258,15 @@ echo
 bold "Dependencies"
 MISSING=0
 check_dep jq      "brew install jq" || MISSING=$((MISSING+1))
-check_dep python3 "ships with macOS / brew install python" || MISSING=$((MISSING+1))
-check_dep bd      "https://github.com/gastownhall/beads — required for beads mirroring" || MISSING=$((MISSING+1))
+if check_dep python3 "Python 3.11+; brew install python or install your distribution's Python 3.11+"; then
+  if ! python3 -c 'import sys, tomllib; assert sys.version_info >= (3, 11)' >/dev/null 2>&1; then
+    warn "Python 3.11+ is required; the macOS system Python is not sufficient."
+    MISSING=$((MISSING+1))
+  fi
+else
+  MISSING=$((MISSING+1))
+fi
+check_dep bd      "optional local ledger; Markdown workshops do not require beads" || true
 check_dep gh      "brew install gh — required for gh: ticket source" || true
 check_dep curl    "ships with macOS" || MISSING=$((MISSING+1))
 check_dep git     "brew install git" || MISSING=$((MISSING+1))

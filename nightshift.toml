@@ -12,6 +12,16 @@ health_path = "/health"
 [providers]
 routing_file = "routing.json"
 
+# Optional launcher aliases. Project or ~/.nightshift/.nightshift.toml settings
+# override these mappings. The default factory remains the configured runtime.
+[runtime.aliases.qwen]
+provider = "local"
+model = "qwen3-coder:30b"
+
+[runtime.aliases.devstral]
+provider = "local"
+model = "devstral-small-2:24b"
+
 [repair_budgets]
 implement = 3
 review = 3
@@ -33,3 +43,8 @@ infrastructure_failures = 2
 timeout_seconds = 120
 output_bytes = 1048576
 force_prompt = false
+
+# Display only; investigation scope and provider routing are independent.
+# Omit mode to inherit a saved user preference; otherwise defaults to concise.
+# [output]
+# mode = "concise"

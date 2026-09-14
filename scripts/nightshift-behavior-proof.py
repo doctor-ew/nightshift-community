@@ -1037,6 +1037,17 @@ class Proof:
         return self.receipt(state, gate, 'pass', 'proof_eligible', sorted(needed | deterministic))
 
 
+def resolved_runtime(name):
+    import importlib.util
+    module_spec = importlib.util.spec_from_file_location('nightshift_runtime', HERE / 'nightshift-runtime.py')
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    try:
+        return module.executable(name)
+    except (ValueError, OSError, subprocess.TimeoutExpired):
+        raise Blocked('runtime_unavailable') from None
+
+
 def subscription_env():
     env = dict(os.environ)
     for name in ('OPENAI_API_KEY', 'CODEX_API_KEY', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN',
@@ -1121,7 +1132,7 @@ def bounded_process(argv, cwd, env, timeout, limit, launched=None):
 
 
 def probe(runtime, policy, directory):
-    executable = shutil.which('claude')
+    executable = resolved_runtime('claude')
     if executable is None:
         raise Blocked('runtime_unavailable')
     executable = Path(executable).resolve(strict=True)
@@ -1156,7 +1167,7 @@ def runtime_fresh(seal):
     observed = seal.get('runtime_observed')
     if observed is None:
         return
-    executable = shutil.which('claude')
+    executable = resolved_runtime('claude')
     if executable is None or str(Path(executable).resolve()) != observed['executable'] or file_hash(Path(executable).resolve()) != observed['executable_sha256']:
         raise Blocked('runtime_changed')
 
@@ -1407,7 +1418,7 @@ def challenge_admission(proof, doc):
     provider = route['provider']
     if provider not in ('claude', 'codex', 'local'):
         raise Blocked('reviewer_provider_unknown')
-    executable = shutil.which('claude' if provider == 'claude' else 'codex')
+    executable = resolved_runtime('claude' if provider == 'claude' else 'codex')
     if executable is None:
         raise Blocked('reviewer_runtime_unavailable')
     executable = str(Path(executable).resolve(strict=True))

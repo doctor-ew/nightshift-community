@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# These fixtures inspect raw provider/admission output.
+export NIGHTSHIFT_OUTPUT=verbose
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FACTORY="${REPO_DIR}/scripts/nightshift-factory.sh"
@@ -97,6 +99,9 @@ for auth_status in '{}' 'not-json' '{"loggedIn":false}' '{"loggedIn":true,"authM
 done
 claude_api=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" gh:1 --provider claude --auth api --branch none 2>&1)
 assert_contains "$claude_api" 'ANTHROPIC_API_KEY=present'
+assert_contains "$claude_api" '/nightshift-eng gh:1 --branch none --auth api'
+assert_contains "$claude_api" 'Publication authorization: push=false, pr=false'
+assert_contains "$claude_api" 'an absent remote is not a blocker'
 git -C "$TMP_ROOT" init -q -b main
 if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch auto 2>&1); then fail 'unborn repository launched a model'; fi
 assert_contains "$blocked" 'BASE_MISSING'
@@ -108,7 +113,7 @@ printf '%s\n' '{"tickets":["gh:1"],"statuses":{"gh:1":{"status":"pending"}}}' > 
 cp "$REPO_DIR/nightshift.toml" "$TMP_ROOT/.nightshift.toml"
 claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
-assert_contains "$claude_output" '--print --dangerously-skip-permissions --model sonnet'
+assert_contains "$claude_output" '--print --output-format stream-json --verbose --dangerously-skip-permissions --model sonnet'
 assert_contains "$claude_output" '/nightshift-batch --resume batch-20260906-1323.json --branch auto --push --pr'
 case "$claude_output" in *'ANTHROPIC_API_KEY=present'*|*'OPENAI_API_KEY='*) fail 'Claude dispatch leaked API key or invoked Codex';; esac
 set +e

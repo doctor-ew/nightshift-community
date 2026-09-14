@@ -1,5 +1,7 @@
-"""Read-only loopback transport for the existing bounded Nightshift collector."""
+"""Loopback evidence transport with version-bound workshop spec approval."""
 import argparse
+import importlib.util
+import secrets
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +21,7 @@ class DashboardServer(ThreadingHTTPServer):
 
     def __init__(self, project, port):
         self.project = project
+        self.approval_token = secrets.token_urlsafe(32)
         self.snapshot = None
         self.collected_at = 0
         self.collect_lock = threading.Lock()
@@ -34,6 +37,12 @@ class DashboardServer(ThreadingHTTPServer):
                 self.collected_at = time.monotonic()
             return self.snapshot
 
+
+
+def review_module():
+    spec = importlib.util.spec_from_file_location('workshop_review', ROOT / 'scripts/nightshift-workshop-review.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
@@ -59,7 +68,13 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2}).encode(), 'application/json')
+            return
+        if self.path == '/api/workshop/reviews':
+            try:
+                self.reply(200, json.dumps(dict(reviews=review_module().list_reviews(self.server.project), token=self.server.approval_token)).encode(), 'application/json')
+            except (ValueError, OSError, subprocess.SubprocessError):
+                self.reply(503, b'Review collection unavailable')
             return
         if self.path == '/api/state':
             try:
@@ -79,7 +94,28 @@ class Handler(BaseHTTPRequestHandler):
     def reject_method(self):
         self.reply(405, b'Read-only dashboard; GET required')
 
-    do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = do_HEAD = reject_method
+    def do_POST(self):
+        if self.path != '/api/workshop/approve':
+            self.reject_method(); return
+        expected = '127.0.0.1:%d' % self.server.server_port
+        if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
+                or self.headers.get('Sec-Fetch-Site') == 'cross-site'
+                or not secrets.compare_digest(self.headers.get('X-Nightshift-Token', ''), self.server.approval_token)):
+            self.reply(403, b'Local same-origin approval required'); return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096 or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+                raise ValueError('Invalid request')
+            self.connection.settimeout(5)
+            body = json.loads(self.rfile.read(length))
+            if not isinstance(body, dict) or set(body) != {'task', 'sha256'} or not all(isinstance(v, str) for v in body.values()):
+                raise ValueError('Invalid approval')
+            result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            self.reply(200, json.dumps(result).encode(), 'application/json')
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')
+
+    do_PUT = do_PATCH = do_DELETE = do_OPTIONS = do_HEAD = reject_method
 
 
 if __name__ == '__main__':
