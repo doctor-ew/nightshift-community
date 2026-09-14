@@ -1,0 +1,26 @@
+name: windows-installer
+on:
+  push:
+    branches: ['nightshift/**', main]
+    paths: ['install.ps1', 'scripts/nightshift-windows*', 'tests/test-windows-installer.py', '.github/workflows/windows-installer.yml']
+  pull_request:
+    paths: ['install.ps1', 'scripts/nightshift-windows*', 'tests/test-windows-installer.py', '.github/workflows/windows-installer.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launcher-contracts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: PowerShell parsing, plan, and launcher contracts
+        shell: pwsh
+        run: python tests/test-windows-installer.py
+      - name: Windows PowerShell 5.1 compatibility
+        shell: pwsh
+        run: |
+          $env:PWSH = (Get-Command powershell.exe).Source
+          python tests/test-windows-installer.py

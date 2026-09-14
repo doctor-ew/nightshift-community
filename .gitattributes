@@ -1,0 +1,4 @@
+# Scripts are also executed inside WSL from Windows source checkouts.
+*.sh text eol=lf
+*.py text eol=lf
+*.ps1 text eol=lf

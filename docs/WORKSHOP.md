@@ -298,3 +298,5 @@ the reviewer, not a fresh full generated-prompt build.
 Structured reviews use `profiles.workshop.review_effort` from routing JSON, defaulting
 to `medium`; the value is pinned in run identity. The 90-second call limit and
 whole-run token/cost limits still apply. No timeout counts as a semantic rejection.
+
+Windows setup automation is available through [install.ps1](../install.ps1); see the [Windows installation guide](WINDOWS-INSTALL.md). This provides a PowerShell launcher backed by WSL, not a native Windows Python port.

@@ -956,3 +956,7 @@ For the standalone coaching-prompt exercise, see [the student workshop guide](do
 fresh tool-free stage sessions, explicit spec approval, eight behavior cases, one
 repair, and persistent time/call/cost limits. Use `--auth api` for sponsored credits.
 The standard engineering profile retains its existing proof requirements.
+
+### Windows installer
+
+For the full CLI from PowerShell, use the [Windows installer](docs/WINDOWS-INSTALL.md). It prepares Ubuntu through WSL and installs a `nightshift` launcher. Run `powershell -ExecutionPolicy Bypass -File .\install.ps1` from this checkout; add `-Plan` for a read-only preview. Implementation: [install.ps1](install.ps1).
