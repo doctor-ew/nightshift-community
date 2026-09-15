@@ -203,6 +203,23 @@ PROJECT_CONTEXT=$(python3 "$SCRIPT_DIR/nightshift-project-context.py" --project 
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 
+# Resolve trusted ticket identity from the explicit launcher input. Batch-level
+# provider work is shared orchestration; role dispatchers bind each active task.
+NIGHTSHIFT_TICKET_JSON=''
+NIGHTSHIFT_FACTORY_ATTRIBUTION=unattributed
+if [ "$ADVISORY" = false ] && [ "$MODE" = eng ]; then
+  if resolved_ticket="$(bash "$SCRIPT_DIR/nightshift-ticket-source.sh" --derive-id "$REF" --project "$PROJECT" 2>/dev/null)" &&
+     jq -e 'type == "object" and (.source | type == "string") and has("repository") and
+       (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+       (.source_id != null)' <<< "$resolved_ticket" >/dev/null 2>&1; then
+    NIGHTSHIFT_TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$resolved_ticket")"
+    NIGHTSHIFT_FACTORY_ATTRIBUTION=ticket
+  fi
+elif [ "$ADVISORY" = false ] && [ "$MODE" = batch ]; then
+  NIGHTSHIFT_FACTORY_ATTRIBUTION=shared
+fi
+export NIGHTSHIFT_TICKET_JSON
+
 # One run-scoped, private metrics context for this factory invocation,
 # propagated to role/worktree descendants through the environment. Metrics
 # are strictly observational: an unavailable or failed metrics home (no Git,
@@ -237,6 +254,9 @@ except (OSError, ValueError):
     pass  # Observations must not block engineering.
 PYTELEMETRY
 }
+FACTORY_METRICS_TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-factory-metrics.XXXXXX" 2>/dev/null || true)"
+FACTORY_PROVIDER_OUTPUT=''
+[ -z "$FACTORY_METRICS_TMP" ] || FACTORY_PROVIDER_OUTPUT="$FACTORY_METRICS_TMP/provider-output.jsonl"
 run_metrics_summary() {
   METRICS_FINALIZED=true
   case "$1" in
@@ -258,9 +278,52 @@ finish_metrics() {
   if [ "$METRICS_FINALIZED" = false ]; then
     run_metrics_summary interrupted
   fi
+  [ -z "$FACTORY_METRICS_TMP" ] || rm -rf -- "$FACTORY_METRICS_TMP"
   return "$result"
 }
 trap finish_metrics EXIT
+
+record_factory_provider_receipts() {
+  [ -n "$FACTORY_PROVIDER_OUTPUT" ] && [ -f "$FACTORY_PROVIDER_OUTPUT" ] || return 0
+  [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  case "$PROVIDER" in claude|codex) ;; *) return 0 ;; esac
+  local parsed="$FACTORY_METRICS_TMP/provider-usage.json"
+  local receipts="$FACTORY_METRICS_TMP/receipts.jsonl"
+  local receipt="$FACTORY_METRICS_TMP/receipt.json" status="$1"
+  python3 "$SCRIPT_DIR/nightshift-provider-usage.py" --provider "$PROVIDER" --input "$FACTORY_PROVIDER_OUTPUT" > "$parsed" 2>/dev/null || printf '[]\n' > "$parsed"
+  jq -e 'type == "array"' "$parsed" >/dev/null 2>&1 || printf '[]\n' > "$parsed"
+  [ "$(jq 'length' "$parsed")" -gt 0 ] || printf '[{}]\n' > "$parsed"
+  jq -c --arg ticket_json "$NIGHTSHIFT_TICKET_JSON" --arg attribution "$NIGHTSHIFT_FACTORY_ATTRIBUTION" \
+    --arg run_id "$NIGHTSHIFT_RUN_ID" --arg invocation_id "factory-$NIGHTSHIFT_RUN_ID" \
+    --arg provider "$PROVIDER" --arg selected_model "$MODEL" --arg status "$status" '
+    ($ticket_json | if . == "" then null else fromjson end) as $ticket |
+    to_entries[] | .key as $index | .value as $observation | {
+      schema_version:2,
+      ticket:(if $attribution == "ticket" then $ticket else null end),
+      attribution:$attribution,
+      run_id:$run_id,
+      invocation_id:$invocation_id,
+      receipt_id:($observation.receipt_id // ("provider-" + ($index | tostring))),
+      sequence:($observation.sequence // $index),
+      stream_epoch:($observation.stream_epoch // 0),
+      provider:$provider,
+      selected_model:(if $selected_model == "" then null else $selected_model end),
+      reported_model:($observation.reported_model // null),
+      stage:null,
+      status:$status,
+      role:"orchestrator",
+      coverage_scope:($observation.coverage_scope // "self"),
+      parent_invocation_id:($observation.parent_invocation_id // null),
+      included_invocation_ids:(if $observation | has("included_invocation_ids") then $observation.included_invocation_ids else null end),
+      child_kind:($observation.child_kind // "external_dispatch"),
+      usage:($observation.usage // null),
+      cost:($observation.cost // {provider_reported_estimate_usd:null,token_derived_estimate_usd:null,actual_billed_usd:null,pricing_sources:[]})
+    }' "$parsed" > "$receipts" 2>/dev/null || return 0
+  while IFS= read -r line; do
+    printf '%s\n' "$line" > "$receipt" || continue
+    python3 "$SCRIPT_DIR/nightshift-run-metrics.py" ingest --run-dir "$NIGHTSHIFT_RUN_DIR" --receipt-file "$receipt" >/dev/null 2>&1 || true
+  done < "$receipts"
+}
 
 # Typed, read-only admission receipt: baseline, local-input/ticket identity,
 # manifest and worktree-collision checks, in that fixed order, before any
@@ -478,7 +541,7 @@ ARGUMENTS: ${REF}"
   case "$MODE" in architecture|ux) ;; *) SANDBOX=read-only ;; esac
 fi
 COMMON=(--ask-for-approval never exec -C "$PROJECT" --sandbox "$SANDBOX")
-[ "${NIGHTSHIFT_OUTPUT_MODE:-verbose}" = verbose ] || COMMON+=(--json)
+if [ "$ADVISORY" = false ] || [ "${NIGHTSHIFT_OUTPUT_MODE:-verbose}" != verbose ]; then COMMON+=(--json); fi
 [ -n "$MODEL" ] && COMMON+=(--model "$MODEL")
 
 if [ "$PROVIDER" = "local" ]; then
@@ -529,14 +592,21 @@ fi
 CHILD_PID=""
 # shellcheck disable=SC2329 # invoked by signal traps
 handle_interruption() {
-  local signal="$1"
+  local signal="$1" interrupted_child="$CHILD_PID"
   echo "nightshift: interrupted by ${signal}; the $PROVIDER runtime was stopped before the factory completed." >&2
   if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
     kill -TERM "$CHILD_PID" 2>/dev/null || true
     wait "$CHILD_PID" 2>/dev/null || true
   fi
+  CHILD_PID=""
+  # Process-substitution tee may still be draining the provider pipe after the
+  # provider exits. Its status is observational and must not affect the run.
+  wait >/dev/null 2>&1 || true
   echo "nightshift: inspect the batch state and resume with 'nightshift batch --resume <batch-file> --branch ${BRANCH}'." >&2
-  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$CHILD_PID" ]; then
+  if [ -n "$interrupted_child" ]; then
+    record_factory_provider_receipts interrupted || true
+  fi
+  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$interrupted_child" ]; then
     python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
       --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
       --status interrupted >/dev/null 2>&1 || true
@@ -563,25 +633,48 @@ if [ "$PROVIDER" = claude ]; then
   [ "$ADVISORY" = true ] || CLAUDE_ARGS+=(--disallowedTools "Agent,Task")
   [ "$BRANCH" != none ] && CLAUDE_ARGS+=(--dangerously-skip-permissions)
   [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
-  (
-    cd "$PROJECT" || exit 66
-    if [ "$AUTH_MODE" = subscription ]; then
-      exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
-    else
-      exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
-    fi
-  ) &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    (
+      cd "$PROJECT" || exit 66
+      if [ "$AUTH_MODE" = subscription ]; then
+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      else
+        exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      fi
+    ) > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    (
+      cd "$PROJECT" || exit 66
+      if [ "$AUTH_MODE" = subscription ]; then
+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      else
+        exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      fi
+    ) &
+  fi
 elif [ "$PROVIDER" = "codex" ] && [ "$AUTH_MODE" = "subscription" ]; then
-  env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" &
+  fi
 else
-  codex "${COMMON[@]}" "$PROMPT" &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    codex "${COMMON[@]}" "$PROMPT" > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    codex "${COMMON[@]}" "$PROMPT" &
+  fi
 fi
 CHILD_PID=$!
 set +e
 wait "$CHILD_PID"
 CODEX_STATUS=$?
+# Do not parse the capture until process-substitution tee has reached EOF.
+# Capture completion remains observational and cannot replace provider status.
+wait >/dev/null 2>&1 || true
 set -e
 CHILD_PID=""
+record_factory_provider_receipts "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" || true
 if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
   python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
     --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
