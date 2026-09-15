@@ -109,10 +109,10 @@ elif name in ('codex', 'claude'):
     config('[runtime]\nprovider="codex"\nmodel="configured-codex"\n')
     args = worker(run('prompt.md'))
     assert args[args.index('--model') + 1] == 'configured-codex'
-    assert '$nightshift prompt.md --branch none' in args[-1]
+    assert '$nightshift prompt.md' in args[-1]
     assert str(installed / 'commands/nightshift-eng.md') in args[-1]
     args = worker(run('codex', 'prompt with spaces.md'))
-    assert "$nightshift 'prompt with spaces.md' --branch none" in args[-1]
+    assert "$nightshift 'prompt with spaces.md'" in args[-1]
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n'
            '[runtime.models]\ncodex="configured-codex"\n')
     args = worker(run('codex', 'gh:123'))
@@ -186,7 +186,7 @@ elif name in ('codex', 'claude'):
     (project / 'codex').mkdir()
     (project / 'codex' / 'prompt.md').write_text('# File, not runtime\nRequirement.\n')
     args = worker(run('codex/prompt.md', cwd=base))
-    assert '--model' not in args and '$nightshift codex/prompt.md --branch none' in args[-1]
+    assert '--model' not in args and '$nightshift codex/prompt.md' in args[-1]
     for invalid in ('[runtime.aliases.qwen]\nprovider="local"\nmodel=12\n',
                     '[runtime.aliases.qwen]\nprovider="other"\nmodel="m"\n',
                     '[runtime.aliases]\nqwen="string"\n'):

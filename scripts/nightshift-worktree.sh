@@ -264,7 +264,19 @@ else
   [[ "$target" != *$'\n'* && "$target" != *$'\r'* ]] || fail 'unsafe worktree path'
   [ ! -e "$target" ] && [ ! -L "$target" ] || fail "unowned target exists: $target"
   if git -C "$project" show-ref --verify --quiet "refs/heads/$branch"; then fail "unowned branch exists: $branch"; fi
-  if [ "$explicit" = false ]; then base=HEAD; base_sha=$(git -C "$project" rev-parse --verify 'HEAD^{commit}'); fi
+  if [ "$explicit" = false ]; then
+    # A prototype checkout is not the integration baseline for a new ticket.
+    base=$(git -C "$project" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)
+    if [ -n "$base" ]; then
+      remote_branch=${base#refs/remotes/origin/}
+      git -C "$project" fetch --no-tags origin "refs/heads/$remote_branch:$base" >&2 || fail 'cannot refresh default base; retry or supply --base REF'
+    elif [ -n "$(git -C "$project" remote)" ]; then
+      fail 'remote default branch is unknown; set origin/HEAD or supply --base REF'
+    else
+      base=HEAD
+    fi
+    base_sha=$(git -C "$project" rev-parse --verify "$base^{commit}") || fail 'default base is missing'
+  fi
   if [ -n "$required" ]; then
     git -C "$project" merge-base --is-ancestor "$required_sha" "$base_sha" || fail 'new base does not include required prerequisite'
   fi

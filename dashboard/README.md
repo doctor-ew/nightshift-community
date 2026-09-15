@@ -11,7 +11,7 @@ batch and gate claims independently, including concurrent and conflicting states
 Counts refer to source observations, not unique live agents. File modification time
 only sorts the display; it is not precedence or a heartbeat, and an in-progress
 receipt does not prove an agent is alive. History adds artifacts and ownership.
-The separate Agents section reads sanitized shared-dispatcher lifecycle records from
+The separate Agents section reads sanitized factory and shared-dispatcher lifecycle records from
 `.nightshift/agents/`, with role, provider, model, dispatcher PID and start/finish
 times. A recorded running state may be stale after a hard kill; it is not an OS
 heartbeat. Custom telemetry directories are intentionally not scanned as new roots.
@@ -38,3 +38,8 @@ Implementation references: `scripts/nightshift-dashboard.sh` (shared collector),
 `dashboard/server.py` (transport), `dashboard/src/app.jsx` (reactive UI).
 React effect cleanup follows https://react.dev/reference/react/useEffect;
 local bundling uses https://esbuild.github.io/api/.
+
+Factory workers also publish lifecycle records in the primary checkout before
+launching the provider. The Agents section therefore shows startup activity even
+before the first role dispatch. Success means the provider process exited cleanly;
+use the run and gate evidence to determine whether the ticket is complete.

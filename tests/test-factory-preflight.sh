@@ -31,7 +31,11 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
         calls.write_text('')
         before=inventory(p)
         r=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),ref,'--project',str(p),'--auth','subscription','--provider','codex','--branch',branch,*extra],env=env,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
-        assert inventory(p)==before,'AC2 caller source changed during admission'
+        after=inventory(p)
+        if r.returncode == 0:
+            # An admitted worker may publish lifecycle observations, never source edits.
+            after={k:v for k,v in after.items() if not k.startswith('.nightshift/agents/factory-')}
+        assert after==before,'AC2 caller source changed during admission'
         return r,calls.read_text()
     def blocked(label,p,ref,reason,branch='auto',extra=()):
         try:
@@ -83,6 +87,29 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
         value=json.loads(response.stdout)
         assert response.returncode!=0 and value.get('status')=='blocked','AC3 malformed resume must not silently admit zero tasks'
     except (AssertionError,ValueError) as e:failures.append(str(e))
+    # Remote integration contains a prerequisite absent from the caller prototype.
+    upstream=project('upstream')
+    git(upstream,'branch','-M','main')
+    caller=base/'prototype'
+    subprocess.run(['git','clone','-q',str(upstream),str(caller)],check=True)
+    git(caller,'config','user.name','fixture');git(caller,'config','user.email','fixture@local')
+    git(caller,'checkout','-qb','prototype')
+    original=git(caller,'rev-parse','HEAD').strip()
+    (upstream/'prerequisite.txt').write_text('merged prerequisite')
+    git(upstream,'add','.');git(upstream,'commit','-qm','prerequisite')
+    latest=git(upstream,'rev-parse','HEAD').strip()
+    prepare=['bash',str(root/'scripts/nightshift-worktree.sh'),'prepare']
+    result=subprocess.run(prepare+['remote-default','--project',str(caller)],capture_output=True,text=True,check=True)
+    receipt=json.loads(result.stdout)
+    assert receipt['base_sha']==latest and receipt['base_ref']=='refs/remotes/origin/main'
+    assert git(caller,'rev-parse','HEAD').strip()==original
+    assert (pathlib.Path(receipt['worktree'])/'prerequisite.txt').exists()
+    result=subprocess.run(prepare+['explicit-base','--project',str(caller),'--base','prototype'],capture_output=True,text=True,check=True)
+    assert json.loads(result.stdout)['base_sha']==original
+    git(caller,'symbolic-ref','--delete','refs/remotes/origin/HEAD')
+    result=subprocess.run(prepare+['unknown-base','--project',str(caller)],capture_output=True,text=True)
+    assert result.returncode!=0 and 'remote default branch is unknown' in result.stderr
+
 if failures:
     for failure in failures:print('FAIL:',failure,file=sys.stderr)
     raise SystemExit(1)
