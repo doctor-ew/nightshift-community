@@ -69,3 +69,43 @@ only regardless of other explicitly authorized runtime authentication paths.
 
 See [Behavioral proof](BEHAVIOR-PROOF.md) for scenarios, admission, evidence,
 private final cases and supported runtime limits.
+
+## Claude-only provider policy
+
+For a project restricted to Claude, add `policy` to the existing providers table
+in `.nightshift.toml` (do not duplicate the table):
+
+```toml
+[providers]
+policy = "claude-only"
+routing_file = "routing.json"
+```
+
+The default policy is `standard`. For one run:
+
+```bash
+nightshift jira:IF-301 --provider-policy claude-only --branch auto --push --pr
+```
+
+Claude-only selects Claude for the orchestrator and every managed role, including
+low-risk extraction that would otherwise select a local model. It uses a configured
+Claude route for each role; if no such route exists, it fails before provider launch.
+An explicit Codex/local orchestrator selection is rejected. Existing subscription
+and per-run API authentication rules still apply.
+
+A restriction in the project, primary checkout, global configuration, or inherited
+`NIGHTSHIFT_PROVIDER_POLICY` cannot be relaxed by a child or a `standard` override.
+Direct role invocations and worktrees resolve the policy as well. The factory
+propagates the effective policy to its workers. Invalid policy values fail closed.
+
+Reviews remain separate Claude invocations with no author-session resume and no
+session persistence. Receipts record `provider_policy:claude-only` and
+`review_independence:fresh-session`; behavioral challenge receipts also bind the
+policy to the approval. Tests, scope, author identity, evidence digests and bounded
+repair gates are unchanged. This policy provides session independence, not
+cross-provider diversity. It does not implement Azure AI Foundry.
+
+This is enforcement at Nightshift's managed provider launch boundaries, not an
+OS/network sandbox for arbitrary model-generated shell commands or independently
+started tools. Use workplace endpoint controls where an organization requires
+machine-wide provider restrictions.

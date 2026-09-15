@@ -108,6 +108,7 @@ def make_inventory(project, runtime, targets):
         add('claude_adapters', 'scripts/nightshift-project-context.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-behavior-proof.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-retry-budget.py', 'claude')
+        add('claude_adapters', 'scripts/nightshift-provider-policy.py', 'claude')
         for source in scripts + agents:
             add('claude_adapters', source, 'claude')
         add('claude_adapters', 'routing.json', 'claude', 'nightshift-routing.json')

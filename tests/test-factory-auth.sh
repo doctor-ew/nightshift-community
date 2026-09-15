@@ -124,3 +124,26 @@ claude_status=$?
 set -e
 [ "$claude_status" -eq 42 ] || fail 'Claude exit status was not preserved'
 printf 'PASS: Claude factory dispatch, resume, model, credentials, and exit status\n'
+
+# Explicit project policy dominates runtime selection and inherited CLI overrides.
+policy_project="$TMP_ROOT/claude-policy"
+mkdir -p "$policy_project"
+cp "$REPO_DIR/nightshift.toml" "$policy_project/.nightshift.toml"
+cp "$REPO_DIR/routing.json" "$policy_project/routing.json"
+python3 - "$policy_project/.nightshift.toml" <<'PYMODE'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]);p.write_text(p.read_text().replace('[providers]', '[providers]\npolicy = "claude-only"'))
+PYMODE
+policy_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none 2>&1)
+assert_contains "$policy_output" 'CLAUDE_ARGS='
+assert_contains "$policy_output" 'Provider policy: claude-only'
+for selected in codex local; do
+  if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none --provider "$selected" --model fixture --provider-policy standard 2>&1); then
+    fail 'explicit runtime bypassed Claude-only project policy'
+  fi
+  case "$blocked" in *'ARGS='*) fail 'disallowed runtime was launched';; esac
+done
+policy_cli=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch none --provider-policy claude-only 2>&1)
+assert_contains "$policy_cli" 'CLAUDE_ARGS='
+echo 'PASS: Claude-only factory policy and explicit runtime rejection'

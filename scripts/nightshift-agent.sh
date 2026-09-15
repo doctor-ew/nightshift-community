@@ -174,13 +174,11 @@ jq -e --arg r "$ROLE" --arg g "$GEAR" '
 ' "$ROUTING" >/dev/null || fail 'invalid routing or missing requested route'
 ROUTE="$(jq -c --arg r "$ROLE" --arg g "$GEAR" '.roles[$r].gears[$g]' "$ROUTING")"
 [ -z "$AUTO_ROUTE" ] || ROUTE="$AUTO_ROUTE"
-if [ "$ADV" = true ] && [ "$(jq -r '.adversarial.cross_provider' "$ROUTING")" = true ]; then
-  case "$AUTHOR" in claude|codex|local) ;; *) fail 'adversarial dispatch requires valid --author-provider';; esac
-  if [ "$(jq -r '.provider' <<< "$ROUTE")" = "$AUTHOR" ]; then
-    ROUTE="$(jq -c --arg p "$AUTHOR" '[.adversarial.routes[]? | select(.provider != $p)][0] // empty' "$ROUTING")"
-    [ -n "$ROUTE" ] || fail 'no different-provider adversarial route available'
-  fi
-fi
+PROVIDER_POLICY=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" mode) || fail 'invalid provider policy'
+POLICY_ARGS=(route --routing "$ROUTING" --role "$ROLE" --gear "$GEAR" --initial "$ROUTE" --author "$AUTHOR")
+[ "$ADV" = false ] || POLICY_ARGS+=(--adversarial)
+ROUTE=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" "${POLICY_ARGS[@]}") || fail 'no policy-permitted provider route'
+export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
 PROVIDER="$(jq -r '.provider' <<< "$ROUTE")"
 MODEL="$(jq -r '.model' <<< "$ROUTE")"
 if [ "$AUTH" = subscription ]; then
@@ -205,6 +203,9 @@ case "$PROVIDER:$ROLE" in
   codex:nightshift-architect|codex:nightshift-engineer|codex:nightshift-spec-writer|local:nightshift-architect|local:nightshift-engineer|local:nightshift-spec-writer) EXECUTION_CONTEXT+=$'\nRead-only proposal worker: return the plan in reason and a complete implementation patch in artifacts.diff for authorized controller integration. Do not write files, request sandbox escalation, or enter interactive plan mode.' ;;
 esac
 EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independent review, permanent-removal confirmation and production-deployment confirmation. Execution mode does not approve a failed gate.'
+if [ "$PROVIDER_POLICY" = claude-only ]; then
+  EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
+fi
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-agent.XXXXXX")"
@@ -225,7 +226,7 @@ case "$PROVIDER" in
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
-      CMD=(claude -p --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     fi;;
   codex|local)
     # OpenAI strict Structured Outputs excludes allOf/if/then. Supply its
@@ -310,7 +311,7 @@ else
 fi
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/contract" >/dev/null || fail 'invalid role contract'
 # Provenance belongs to the dispatcher, not the model.
-jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" '.artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
+jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" --arg policy "$PROVIDER_POLICY" --arg adversarial "$ADV" '.rules_fired += (if $policy == "claude-only" then ["provider_policy:claude-only"] + (if $adversarial == "true" then ["review_independence:fresh-session"] else [] end) else [] end) | .artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/normalized" >/dev/null || fail 'invalid normalized contract'
 publish "$TMP/normalized" || fail 'cannot publish output contract'
 [ "$(jq -r '.status' "$TMP/normalized")" != FAIL ] || exit 1

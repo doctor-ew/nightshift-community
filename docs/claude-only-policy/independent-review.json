@@ -1,0 +1,81 @@
+{
+  "status": "SUCCESS",
+  "reason": "Independent Claude review of the claude-only provider policy change (scripts/nightshift-provider-policy.py, tests/test-provider-policy.sh, plus the wiring diff in scripts/nightshift-agent.sh, nightshift-route.sh, nightshift-factory.sh, nightshift-behavior-proof.py, docs/CONFIGURATION.md, docs/BEHAVIOR-PROOF.md, commands/nightshift-adversarial.md). Traced every managed launch boundary by hand (no execution \u2014 the sandbox declined to approve running test-provider-policy.sh/test-agent-dispatch.sh/test-factory-auth.sh, so those remain unverified stub tests per the no-stub-as-proof instruction, not evidence I'm relying on).\n\nChecked and found consistent with the documented contract:\n- Precedence/composition: mode() in nightshift-provider-policy.py:14-41 unions NIGHTSHIFT_PROVIDER_POLICY, NIGHTSHIFT_HOME, project dir, git toplevel, and (via --git-common-dir) the primary checkout for a linked worktree, and returns 'claude-only' if present anywhere in that set \u2014 matches the documented \"restrictions compose, cannot be relaxed\" rule, and covers worktree inheritance (mode():21-28).\n- Invalid/forbidden-provider handling fails closed: any value outside ('standard','claude-only') raises ValueError (line 39-40); nightshift-agent.sh:177 and nightshift-factory.sh:288 both `|| exit`/`fail` on nonzero from the policy script; select_route() raises when claude-only has no configured Claude route (line 58) or a non-string/empty model (line 60), and main() catches ValueError/OSError/KeyError/TypeError/SubprocessError and returns exit 64 (lines 88-90) \u2014 no silent fallback to a forbidden provider anywhere in the paths I traced.\n- Automatic local routing (gear 0 for low-risk nightshift-code-fact-extractor) is correctly overridden under claude-only: nightshift-route.sh:21-22 always re-runs the selected gear-0 route through select_route, which substitutes a real claude gear (haiku at gear 1) and relabels gear\u21921 (nightshift-provider-policy.py:52-56).\n- Default-policy compatibility: with policy=='standard' and no --adversarial, select_route() returns the initial route unchanged; the adversarial cross-provider swap path (line 61-64) reproduces the pre-change bash logic in nightshift-agent.sh/nightshift-behavior-proof.py byte-for-byte in intent, so non-opted-in projects see no behavior change.\n- Factory CLI precedence (nightshift-factory.sh:277-341): --provider-policy cannot relax an inherited claude-only env value (280-283); an explicit --provider codex/local under claude-only is caught by the line-338 check, which runs after the model-alias substitution block (299-317) that is the only other place PROVIDER can change post-resolution, so there's no ordering gap that lets a forbidden provider slip through model-alias resolution.\n- Fresh same-provider review / no session resume: nightshift-agent.sh's claude launch branch now always adds --no-session-persistence (line ~229); challenge_admission/challenge_proof in nightshift-behavior-proof.py require 'review_independence:fresh-session' in rules_fired when policy is claude-only (line ~1524) and that tag is only emitted by nightshift-agent.sh when policy==claude-only AND --adversarial was set (the jq at line ~313), so a same-provider approval without the adversarial fresh-session flag cannot pass.\n- Approval reuse across a policy change is blocked by challenge_policy_current() (nightshift-behavior-proof.py, ~line 1409-1417), applied both to the \"not authoritative\" check (~838) and the \"challenge_stale\" check (~904), comparing the policy recorded on the receipt against a live re-resolution of mode() \u2014 an approval minted under one policy cannot be reused for finalize/seal validation under a different one.\n- Digest/identity/provenance binding: challenge_proof re-derives provider_policy(proof.project) at validation time and blocks with challenge_provenance_changed if it, the routing file's sha256, or the reviewer provider drifted from what challenge_admission recorded (~lines 1531-1533) \u2014 closes the TOCTOU window between admission and validation.\n\nNo confirmed or plausible blocking defect was found in this pass across the listed boundaries; the only items noted (redundant re-application of select_route() when routing through nightshift-route.sh then nightshift-agent.sh again, and non-cached importlib reloads of the policy module per call) are idempotent/inefficiency-only, not correctness bugs, so they are not reported as findings. Per the task's own caveat, this review does not claim OS/network isolation guarantees beyond Nightshift's managed launch boundary, matching what docs/CONFIGURATION.md states explicitly.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "nightshift/claude-only-policy",
+    "diff": "",
+    "model": "sonnet",
+    "provider": "claude"
+  },
+  "results": {
+    "claims": [
+      {
+        "claim": "select_route() forces claude-only routing and fails closed with no permitted Claude route",
+        "file": "scripts/nightshift-provider-policy.py",
+        "line": 48,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-provider-policy.py",
+          "scripts/nightshift-route.sh",
+          "scripts/nightshift-agent.sh"
+        ]
+      },
+      {
+        "claim": "mode() composes project/global/worktree/env policy restrictively and rejects invalid values",
+        "file": "scripts/nightshift-provider-policy.py",
+        "line": 14,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-provider-policy.py",
+          "tests/test-provider-policy.sh"
+        ]
+      },
+      {
+        "claim": "factory CLI cannot relax an inherited claude-only restriction and rejects an explicit non-claude provider",
+        "file": "scripts/nightshift-factory.sh",
+        "line": 277,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "claude launches under nightshift-agent.sh always disable session persistence and reviews require the fresh-session rule tag under claude-only",
+        "file": "scripts/nightshift-agent.sh",
+        "line": 206,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-agent.sh",
+          "scripts/nightshift-behavior-proof.py"
+        ]
+      },
+      {
+        "claim": "challenge_policy_current() blocks reuse of a challenge approval after the provider policy changes",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 1413,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ]
+      },
+      {
+        "claim": "challenge_proof revalidates routing digest and provider policy at finalize time to prevent provenance drift between admission and validation",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 1531,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ]
+      }
+    ]
+  },
+  "rules_fired": [
+    "provider_policy:claude-only",
+    "review_independence:fresh-session",
+    "independent_review",
+    "test_firewall_not_executed_as_proof",
+    "provider_policy:claude-only",
+    "review_independence:fresh-session"
+  ]
+}

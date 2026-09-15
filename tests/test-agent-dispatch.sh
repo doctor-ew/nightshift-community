@@ -8,6 +8,7 @@ mkdir -p "$TMP/runtime/scripts" "$TMP/bin" "$TMP/out dir"
 cp -R "$ROOT/agents" "$ROOT/contracts" "$TMP/runtime/"
 cp "$ROOT/routing.json" "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
@@ -248,6 +249,26 @@ for provider in codex claude; do
   AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider supervised mode retained" args 'join(" ") | contains("Execution mode: supervised.") and (contains("Execution mode: autonomous.") | not)'
 done
+# Policy applies to direct role calls, including automatic local gear and reviews.
+export MOCK_RESPONSE='{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"branch":"fixture","diff":"","provider":"claude","model":"fixture"},"rules_fired":[],"results":{"claims":[]}}'
+export NIGHTSHIFT_PROVIDER_POLICY=claude-only
+run nightshift-code-fact-extractor --gear auto --risk low --in "$INPUT" --out "$OUTPUT"
+check 'Claude-only never selects automatic local extraction' json '.artifacts.provider == "claude"'
+run nightshift-code-fact-extractor --gear 1 --adversarial --author-provider claude --in "$INPUT" --out "$OUTPUT"
+check 'Claude-only fresh same-provider review succeeds' test "$RC" -eq 0
+check 'Claude-only review provenance recorded' json '.artifacts.provider == "claude" and (.rules_fired | index("review_independence:fresh-session")) != null'
+check 'Claude review cannot resume author session' args 'index("--no-session-persistence") != null and index("--resume") == null and index("--continue") == null'
+run nightshift-code-fact-extractor --gear 1 --adversarial --in "$INPUT" --out "$OUTPUT"
+check 'Claude-only still requires author provenance' test "$RC" -ne 0
+cp "$TMP/runtime/routing.json" "$TMP/saved-routing.json"
+jq '.roles["nightshift-code-fact-extractor"].gears |= with_entries(.value={provider:"codex",model:"fixture"})' "$TMP/saved-routing.json" > "$TMP/runtime/routing.json"
+printf '%s\n' not-called > "$MOCK_LOG"
+run nightshift-code-fact-extractor --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'no permitted route fails before provider launch' test "$RC" -ne 0
+check 'no forbidden provider fallback' grep -qx not-called "$MOCK_LOG"
+cp "$TMP/saved-routing.json" "$TMP/runtime/routing.json"
+unset NIGHTSHIFT_PROVIDER_POLICY
+export MOCK_RESPONSE="$BASE_RESPONSE"
 # Run installed copies from an unrelated directory with all destinations private.
 for mode in copy symlink; do
   destination="$TMP/install-$mode"
@@ -258,6 +279,11 @@ for mode in copy symlink; do
     (cd "$TMP" && bash "$destination/runtime/scripts/nightshift-agent.sh" nightshift-engineer --task fixture --gear 1 --in "$INPUT" --out "$OUTPUT") > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
     check "$mode installed dispatch" test "$RC" -eq 0
     check "$mode installed normalized" json '.status == "SUCCESS"'
+    RC=0
+    (cd "$TMP" && NIGHTSHIFT_PROVIDER_POLICY=claude-only bash "$destination/runtime/scripts/nightshift-agent.sh" nightshift-engineer --task fixture --gear 1 --in "$INPUT" --out "$OUTPUT") > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
+    check "$mode installed restricted dispatch" test "$RC" -eq 0
+    check "$mode installed restricted provenance" json '.artifacts.provider == "claude" and (.rules_fired | index("provider_policy:claude-only")) != null'
+
   else
     check "$mode installation" false
   fi
