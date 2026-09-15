@@ -43,3 +43,17 @@ Factory workers also publish lifecycle records in the primary checkout before
 launching the provider. The Agents section therefore shows startup activity even
 before the first role dispatch. Success means the provider process exited cleanly;
 use the run and gate evidence to determine whether the ticket is complete.
+
+## Ticket actions
+
+The **Continue a ticket** section offers **Resume** and **Clean up** for recorded
+individual ticket runs. Resume performs safe artifact cleanup, then starts the
+launcher with the recorded provider, authentication, base, and publication
+settings. Clean up only reconciles artifacts. Neither action deletes files or
+bypasses source-change or live-worker checks. Finished tickets cannot be resumed
+from these controls.
+
+Actions require the local origin, a server token, and the current saved-settings
+hash. Repeat clicks reuse a live console launch. The console process must have
+the same credentials as a terminal run; missing Jira credentials block before
+any model starts. New terminal runs save only non-secret invocation settings.
