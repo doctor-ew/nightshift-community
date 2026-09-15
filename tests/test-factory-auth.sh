@@ -26,6 +26,7 @@ fi
 printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY:+present}"
 printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY:+present}"
 printf 'ARGS=%s\n' "$*"
+printf 'EXECUTION_MODE=%s/%s\n' "${AUTONOMOUS:-}" "${NIGHTSHIFT_FACTORY_MODE:-}"
 printf 'ROUTING_FILE=%s\n' "${NIGHTSHIFT_ROUTING_FILE:-}"
 exit "${CODEX_EXIT_STATUS:-0}"
 EOF
@@ -42,6 +43,7 @@ assert_contains "$configured" "ROUTING_FILE=$TMP_ROOT/routing.json"
 
 subscription=$(PATH="$TMP_ROOT/bin:$PATH" HOME="$TMP_ROOT/home" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" OPENAI_API_KEY=secret "$FACTORY" gh:1 --branch none 2>&1)
 assert_contains "$subscription" 'authentication: ChatGPT subscription'
+assert_contains "$subscription" 'EXECUTION_MODE=true/true'
 assert_contains "$subscription" 'OPENAI_API_KEY='
 assert_contains "$subscription" 'inner Nightshift factory worker'
 assert_contains "$subscription" 'Do not run the terminal launcher'

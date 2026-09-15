@@ -231,6 +231,23 @@ if [ -f "$MOCK_DESC_PID" ]; then
   esac
 else check 'descendant fixture created' false; fi
 MOCK_MODE=structured
+# Reproduce the architect stop: dispatch the real role prompt in each mode.
+export MOCK_RESPONSE="$BASE_RESPONSE"
+for provider in codex claude; do
+  jq --arg p "$provider" '.roles["nightshift-architect"].gears["1"]={provider:$p,model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/route.json"
+  mv "$TMP/route.json" "$TMP/runtime/routing.json"
+  AUTONOMOUS=true NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
+  check "$provider autonomous architect dispatch" test "$RC" -eq 0
+  check "$provider carries autonomous plan authority" args 'join(" ") | contains("Execution mode: autonomous.") and contains("without another plan-approval stop")'
+  check "$provider removes unconditional architect stop" args 'join(" ") | contains("Hard gate, not a suggestion") | not'
+  if [ "$provider" = codex ]; then
+    check 'Codex proposal instructions preserve sandbox' args '.[index("--sandbox")+1] == "read-only" and (join(" ") | contains("complete implementation patch in artifacts.diff"))'
+  fi
+  AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=true run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
+  check "$provider factory flag carries authority" args 'join(" ") | contains("Execution mode: autonomous.")'
+  AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
+  check "$provider supervised mode retained" args 'join(" ") | contains("Execution mode: supervised.") and (contains("Execution mode: autonomous.") | not)'
+done
 # Run installed copies from an unrelated directory with all destinations private.
 for mode in copy symlink; do
   destination="$TMP/install-$mode"

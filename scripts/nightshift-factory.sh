@@ -456,6 +456,11 @@ fi
 
 echo "nightshift: factory provider: $PROVIDER; model: ${MODEL:-runtime default}; no automatic factory fallback; role routing remains configured." >&2
 
+# Factory launches are autonomous; propagate the mode to every role dispatcher.
+# Advisory commands retain their separate interaction policy.
+if [ "$ADVISORY" = false ]; then
+  export AUTONOMOUS=true NIGHTSHIFT_FACTORY_MODE=true
+fi
 CHILD_PID=""
 # shellcheck disable=SC2329 # invoked by signal traps
 handle_interruption() {

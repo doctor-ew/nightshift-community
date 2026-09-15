@@ -1,0 +1,26 @@
+{
+  "status": "SUCCESS",
+  "reason": "Implementation Plan\n\nBlast Radius\n- Files: fixture_source_fixture.py\n- Modules: bounded runtime fixture\n- Downstream: no shared contracts or consumers identified\n\nSequence\n1. Replace the verified answer value from 0 with 42.\n\nRisks\n- Scope drift: mitigated by proposing only the approved one-line source change.\n- Test-firewall violation: mitigated by not reading or running tests or test output.\n\nSizing\n- Comet (< 2 hrs)\n\nRead-only proposal prepared for authorized controller integration; no workspace files were modified.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "diff --git a/fixture_source_fixture.py b/fixture_source_fixture.py\n--- a/fixture_source_fixture.py\n+++ b/fixture_source_fixture.py\n@@ -1 +1 @@\n-answer = 0\n+answer = 42\n",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "spec-first",
+    "implementation-plan",
+    "autonomous-execution",
+    "read-only-proposal-worker",
+    "test-firewall",
+    "scope-preservation",
+    "no-worker-dispatch",
+    "no-additional-approval"
+  ],
+  "results": {
+    "files_changed": [
+      "fixture_source_fixture.py"
+    ]
+  }
+}

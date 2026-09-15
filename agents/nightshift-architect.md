@@ -96,10 +96,21 @@ Present the plan before writing any code:
 - Comet (< 2 hrs) | Moon (half day) | Planet (1–2 days) | Gas Giant (3+ days)
 ```
 
-**Enter plan mode now** (`EnterPlanMode`), present the plan, then stop. Do not write a line of
-code until the plan is approved and plan mode is exited. Hard gate, not a suggestion.
+Follow the execution mode supplied by the dispatcher or controlling session:
 
-Save the plan under `docs/<task-key>/`.
+- **Autonomous/factory:** record the plan and proceed within the approved spec. Do not
+  request another plan approval or stop merely because the change spans multiple files.
+- **Supervised:** present the plan and wait for approval unless the controlling session
+  already supplied it. Reuse existing authorization rather than asking again.
+
+Save the plan under `docs/<task-key>/` when writes are permitted. A read-only proposal
+worker returns the plan in its structured report and the implementation patch in
+`artifacts.diff`; the authorized controller persists and applies them. Do not attempt
+filesystem writes, enter an interactive plan mode, or request sandbox escalation from
+that worker. Read-only access limits execution, not preparation of an authorized patch.
+
+Neither mode waives scope, test-firewall, behavioral-proof, independent-review,
+permanent-removal, or production-deployment gates.
 
 ### Step 3 — Implement, one file at a time
 
