@@ -47,6 +47,48 @@ function WorkshopReviews() {
   </section>;
 }
 
+function TicketActions() {
+  const [data, setData] = useState({ tickets: [] }), [busy, setBusy] = useState(''), [message, setMessage] = useState('');
+  useEffect(() => {
+    let disposed = false;
+    async function refresh() {
+      try {
+        const response = await fetch('/api/tickets', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Ticket actions unavailable. Restart the console to load its latest version.');
+        const value = await response.json();
+        if (!disposed) setData(value);
+      } catch (error) { if (!disposed) setMessage(error.message); }
+    }
+    refresh(); const timer = setInterval(refresh, 3000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, []);
+  async function act(ticket, operation) {
+    setBusy(ticket.task); setMessage('');
+    try {
+      const response = await fetch('/api/tickets/' + operation, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': data.token },
+        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256 }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not continue this ticket.');
+      setMessage(ticket.task + ': ' + result.message);
+      if (result.status === 'running') setData(current => ({ ...current, tickets: current.tickets.map(t => t.task === ticket.task ? { ...t, running: true } : t) }));
+    } catch (error) { setMessage(error.message); }
+    finally { setBusy(''); }
+  }
+  if (!data.tickets.length && !message) return null;
+  return <section className="workspace" aria-label="Resume tickets"><h2>Continue a ticket</h2>
+    <p>Resume preserves existing work and checks for live workers before starting. Clean up prepares the ticket without starting a model.</p>
+    {message && <p role="status">{message}</p>}
+    <div className="cards">{data.tickets.map(ticket => <article className="run" key={ticket.task}>
+      <h3>{ticket.task}</h3><p>{ticket.settings.provider} · {ticket.settings.policy} · {ticket.settings.auth}</p>
+      <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
+      {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
+      <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Finished' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
+      <button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Clean up</button></div>
+    </article>)}</div>
+  </section>;
+}
+
 function TicketUsage({ reports = [] }) {
   const number = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : 'Unknown';
   const money = value => typeof value === 'number' && Number.isFinite(value) ? '$' + value.toFixed(6) : 'Unknown';
@@ -109,6 +151,7 @@ function App() {
       ['Complete',current.filter(r=>r.state==='complete').length,'complete'],
       ['Checkouts',data?.checkouts.length || 0,'all']
     ].map(([label,value,filter])=><button className="stat" key={label} onClick={()=>{setState(filter);setHistory(false);setPage(0);}}><span>{label}</span><strong>{data?value:'—'}</strong><small>{label==='Checkouts'?'registered worktrees':'source observations'}</small></button>)}</section>
+    <TicketActions />
     <TicketUsage reports={data?.ticket_usage || []} />
     <section className="workspace" aria-label="Agents"><div className="section-title"><div><h2>Agents <span className="badge busy">{agents.filter(a=>a.state==='running').length} recorded running</span></h2><p>Factory and role lifecycle records. A running record is not a verified OS heartbeat; interrupted processes may leave stale records.</p></div><label>Agent state <select value={agentState} onChange={e=>{setAgentState(e.target.value);setAgentPage(0);}}>{['all','running','success','failed','interrupted'].map(s=><option key={s}>{s}</option>)}</select></label></div>
       {!filteredAgents.length && <div className="empty"><h3>No agent records in this view</h3><p>Factory runs and role invocations publish local lifecycle evidence here.</p></div>}

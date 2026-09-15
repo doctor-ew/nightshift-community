@@ -39,6 +39,12 @@ class DashboardServer(ThreadingHTTPServer):
 
 
 
+def action_module():
+    spec = importlib.util.spec_from_file_location('console_actions', ROOT / 'scripts/nightshift-console-actions.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
 def review_module():
     spec = importlib.util.spec_from_file_location('workshop_review', ROOT / 'scripts/nightshift-workshop-review.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -68,13 +74,19 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
                 self.reply(200, json.dumps(dict(reviews=review_module().list_reviews(self.server.project), token=self.server.approval_token)).encode(), 'application/json')
             except (ValueError, OSError, subprocess.SubprocessError):
                 self.reply(503, b'Review collection unavailable')
+            return
+        if self.path == '/api/tickets':
+            try:
+                self.reply(200, json.dumps(dict(tickets=action_module().list_tickets(self.server.project), token=self.server.approval_token)).encode(), 'application/json')
+            except (ValueError, OSError, subprocess.SubprocessError):
+                self.reply(503, b'Ticket actions unavailable')
             return
         if self.path == '/api/state':
             try:
@@ -95,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path != '/api/workshop/approve':
+        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -110,7 +122,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict) or set(body) != {'task', 'sha256'} or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
-            result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            if self.path == '/api/workshop/approve':
+                result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            else:
+                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1])
             self.reply(200, json.dumps(result).encode(), 'application/json')
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')

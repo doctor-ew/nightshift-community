@@ -249,6 +249,7 @@ try:
     record = dict(role='nightshift-factory', provider=provider, model=model,
                   gear='', started_at=started, pid=int(pid), status=status,
                   finished_at='' if status == 'running' else datetime.now(timezone.utc).isoformat())
+    record['ticket'] = json.loads(os.environ.get('NIGHTSHIFT_TICKET_JSON') or 'null')
     fd, temporary = tempfile.mkstemp(prefix='.factory-', dir=directory)
     with os.fdopen(fd, 'w') as stream:
         json.dump(record, stream)
@@ -595,6 +596,16 @@ else
 fi
 
 echo "nightshift: factory provider: $PROVIDER; model: ${MODEL:-runtime default}; no automatic factory fallback; role routing remains configured." >&2
+
+# Save non-secret invocation policy for explicit console resume actions.
+if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ "$BRANCH" = auto ] && [ -n "$NIGHTSHIFT_TICKET_JSON" ]; then
+  CONSOLE_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
+  CONSOLE_SETTINGS=$(jq -cn --arg ref "$REF" --arg provider "$PROVIDER" --arg model "$MODEL" \
+    --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
+    --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
+    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
+  python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS" || true
+fi
 
 # Factory launches are autonomous; propagate the mode to every role dispatcher.
 # Advisory commands retain their separate interaction policy.

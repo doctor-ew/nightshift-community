@@ -97,6 +97,18 @@ class ServerTests(unittest.TestCase):
         (folder/'SPEC.md').write_text('Changed')
         self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],409)
 
+    def test_ticket_action_authentication(self):
+        data=json.loads(self.request('/api/tickets')[1])
+        self.assertEqual(data['tickets'], [])
+        body=json.dumps({'task':'42','sha256':'unknown'})
+        headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup'):
+            self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
+            wrong=dict(headers,Origin='https://evil.example')
+            self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
+            self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
+            self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
+
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:
             self.assertEqual(self.request('/api/state', method)[0], 405)
