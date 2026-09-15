@@ -60,10 +60,11 @@ Exit code mirrors the reason: `0` ok · `64` USAGE · `65` SPEC_INPUT_INVALID ·
 Rejected admission never automatically invokes setup. Run `nightshift setup`
 explicitly to configure an incomplete project, then retry admission.
 
-The top-level provider has its own observation with unknown usage when its output
-is opaque. Child usage remains available per observation but is not presented as
-a complete run total. Model fields are routing-validated selected identifiers;
-`reported_model` remains null without a provider-reported identity.
+The top-level provider has its own observation. Claude stream JSON and Codex JSONL
+are captured at the existing process boundary and parsed as data; captured stdout
+is never evaluated as shell code. Missing or invalid provider usage creates an
+expected-but-unmeasured receipt instead of a fabricated zero. Selected model fields
+remain routing provenance. Only a provider-reported model is pricing identity.
 
 ## Run metrics
 
@@ -119,13 +120,54 @@ complete coverage. A missing or unavailable metrics context (no Git, ownership/s
 rejection) reports `repair_count: null` — unknown, never assumed zero. This does not
 read, alter, or duplicate the existing per-issue adversarial repair budget policy.
 
-`usage` aggregates only `input_tokens`/`output_tokens` actually present in a provider's
-own structured envelope: today that means Claude's raw JSON `usage` object, inspected
-before the dispatcher's `.structured_output`/`.result` projection discards it. Codex's
-`--json` event stream has no documented structured token-usage event observed at this
-provider boundary yet, so Codex/local usage stays `null` rather than guessed.
-`usage.complete` is `false` whenever any recorded observation is missing a token
-count, so a partial sum is never mistaken for a complete one.
+The legacy run summary continues to aggregate its original `input_tokens` and
+`output_tokens` fields. Version 2 accounting receipts add the non-overlapping
+`fresh_input`, `cache_read_input`, `cache_write_input`, and `output` categories.
+`reasoning_output` is retained as an output subcategory and is not added twice.
+For Codex, fresh input is provider input less cache reads and cache writes; provider
+input plus output remains the total. Inconsistent or missing categories are unknown,
+not zero.
+
+## Ticket accounting receipts
+
+The factory binds a directly launched ticket from the explicit normalized ticket
+reference. Batch-level orchestration is `shared`; each role invocation binds its
+explicit `--task`. Work without a resolved identity is `unattributed`. Shared and
+unattributed receipts remain visible in run summaries but never contribute to a
+ticket total. A GitHub ticket identity includes the normalized `owner/repository`,
+preventing equal issue numbers in different repositories from colliding.
+
+Provider observations are normalized by:
+
+```text
+python3 scripts/nightshift-provider-usage.py --provider PROVIDER --input FILE
+```
+
+The dispatcher then supplies trusted run, invocation, role, stage, selected-model,
+and ticket fields to the sealed ingestion boundary:
+
+```text
+python3 scripts/nightshift-run-metrics.py ingest --run-dir DIR --receipt-file FILE
+```
+
+Receipts are immutable and allowlisted. Their identity is `(run_id, invocation_id,
+receipt_id, sequence)`. Exact replay is idempotent; conflicting payloads are excluded
+from additive totals and reported as incomplete. Inclusive observations suppress
+only explicitly included children and known SDK-internal children. Unproven overlap
+is reported as `nonadditive_observed`.
+
+Persisted ticket totals can be rebuilt and read after restart with:
+
+```text
+python3 scripts/nightshift-run-metrics.py ticket-report --project DIR \
+  --source gh --repository owner/repository --source-id 35
+```
+
+`ticket-report` replays every authoritative receipt before returning JSON and
+refreshes `summary.json` atomically. Reports distinguish provider-reported client
+estimates, token-derived estimates, and authoritative billed cost. Missing usage,
+model identity, pricing, orchestration coverage, or readable receipts is exposed in
+the `completeness` counters and makes the corresponding total incomplete.
 
 ### Dispatcher observations
 
@@ -173,9 +215,8 @@ recorded.
   explicit `REF[,REF...]` list) are not expanded by the preflight check — it reports
   `INPUT_RESOLUTION_REQUIRED` and asks for an explicit list, since expansion is itself
   a live network operation reserved for the actual run.
-- Token usage is `null` for every provider/model combination that does not expose a
-  documented structured usage field at the dispatcher's current provider boundary
-  (today, that is Codex and local/Ollama).
+- Local/Ollama usage remains `null` unless its boundary gains a verified structured
+  usage contract.
 - No Git repository means no persisted run receipt; `--branch none` in a non-Git
   project is otherwise fully supported.
 - A hard process kill (`SIGKILL`) cannot run any exit trap, so no `interrupted`
@@ -218,3 +259,33 @@ they are done:
   `docs/EFFICIENCY-ROADMAP.md` for sequencing)
 
 See `docs/EFFICIENCY-ROADMAP.md` for how this ticket's output feeds those.
+
+## Console reporting
+
+The console includes a **Ticket cost and tokens** section. It reads the shared
+`ticket-metrics` summaries, so totals include completed observations across
+worktrees, retries, and factory runs. Stage breakdowns are available under each
+ticket. Reports update when workers finish; a running worker's unreported usage
+is not a zero-cost observation.
+
+Provider-reported estimates, token-priced estimates, and actual billed amounts
+remain separate. Subscription usage estimates do not establish an invoice charge.
+Unknown amounts display as **Unknown**. Incomplete coverage displays as **Partial
+usage**, including imported historical runs with missing role observations.
+
+New role lifecycle records include normalized `usage_observations` after the
+worker returns. The authoritative aggregate remains the shared ticket ledger,
+which handles duplicate receipts and uncertain parent/child overlap.
+
+## Interrupted ticket cleanup
+
+Run `nightshift cleanup IF-302` from the consumer repository to reconcile a
+retained ticket worktree. Factory startup invokes the same command automatically
+after an artifact-only worktree collision, then repeats read-only preflight.
+
+Cleanup requires a valid ownership receipt and no live worker. It preserves a
+private recovery snapshot under the Git common directory, leaves the artifacts
+in place, and records fingerprints permitting unchanged reuse. It does not
+commit drafts, delete files, reset branches, or stop processes. Source edits,
+staged changes, deleted files, and unknown ownership require separate review.
+A suspended process still counts as live.

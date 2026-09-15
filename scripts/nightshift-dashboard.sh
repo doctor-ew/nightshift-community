@@ -727,10 +727,33 @@ def rel_label(path):
 data_rows.sort(key=lambda r: (r["ticket"], r["source"], r["checkout"]))
 error_rows.sort(key=lambda r: (r["ticket"], r["source"], r["checkout"]))
 
+# Ticket accounting is shared across worktrees and persists across retries.
+ticket_usage = []
+metrics_root = known_root(os.path.join(COMMON, "nightshift", "ticket-metrics"))
+if metrics_root:
+    ARTIFACT_ROOTS.append(metrics_root)
+    entries, truncated = safe_listdir(metrics_root, [metrics_root])
+    if truncated:
+        note_truncation(metrics_root)
+    for entry in entries:
+        summary = os.path.join(entry.path, "summary.json")
+        text, error = read_bounded(summary)
+        if error:
+            continue
+        try:
+            report = json.loads(text)
+            if (isinstance(report, dict) and report.get("schema_version") == 2
+                    and isinstance(report.get("ticket"), dict)
+                    and isinstance(report.get("usage"), dict)
+                    and isinstance(report.get("cost"), dict)):
+                ticket_usage.append(report)
+        except (ValueError, RecursionError):
+            continue
+
 if os.environ.get("NIGHTSHIFT_DASHBOARD_FORMAT") == "json":
     # Same collector and bounds as static mode; no separate filesystem API.
     sys.stdout.write(json.dumps({"generated_at": GENERATED_AT, "root": ROOT,
-        "checkouts": list(checkout_reals), "rows": data_rows,
+        "checkouts": list(checkout_reals), "rows": data_rows, "ticket_usage": ticket_usage,
         "errors": error_rows, "warnings": warnings}, ensure_ascii=True))
     sys.exit(0)
 

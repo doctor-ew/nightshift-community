@@ -47,6 +47,27 @@ function WorkshopReviews() {
   </section>;
 }
 
+function TicketUsage({ reports = [] }) {
+  const number = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : 'Unknown';
+  const money = value => typeof value === 'number' && Number.isFinite(value) ? '$' + value.toFixed(6) : 'Unknown';
+  return <section className="workspace" aria-label="Ticket usage"><h2>Ticket cost and tokens</h2>
+    <p>Known totals across runs and retries. Provider estimates are not subscription charges. Usage updates when each worker finishes.</p>
+    {!reports.length && <div className="empty"><h3>No usage recorded yet</h3><p>Earlier runs may have no accounting receipts. Missing usage and prices are unknown, not zero.</p></div>}
+    <div className="cards">{reports.map((r, i) => <article className="run" key={i}>
+      <div className="run-head"><h3>{r.ticket?.source}:{r.ticket?.source_id}</h3><span className={'badge ' + (r.usage?.complete ? 'done' : 'warn')}>{r.usage?.complete ? 'Tokens complete' : 'Partial usage'}</span></div>
+      <p>{r.ticket?.repository} · {number(r.run_count)} runs</p>
+      <p><strong>Tokens: {number(r.usage?.known_subtotal?.total)}</strong></p>
+      <p><strong>Provider estimate: {money(r.cost?.provider_reported_estimate_usd)} USD</strong></p>
+      <p>Token-priced estimate: {money(r.cost?.token_derived_estimate_usd)} USD · Actual billed: {money(r.cost?.actual_billed_usd)} USD</p>
+      <details><summary>Token categories and stage breakdown</summary>
+        <p>Fresh input: {number(r.usage?.known_subtotal?.fresh_input)} · Cache read: {number(r.usage?.known_subtotal?.cache_read_input)} · Cache write: {number(r.usage?.known_subtotal?.cache_write_input)} · Output: {number(r.usage?.known_subtotal?.output)}</p>
+        {Object.entries(r.breakdowns?.stage || {}).map(([stage, values]) => <p key={stage}>{stage}: {number(values.known_subtotal?.total)} tokens · {money(values.cost?.provider_reported_estimate_usd)} USD estimate</p>)}
+        <p>Unmeasured orchestrators: {number(r.completeness?.unmeasured_orchestrator_count)} · Uncertain overlaps: {number(r.completeness?.overlap_unknown_count)}</p>
+      </details>
+    </article>)}</div>
+  </section>;
+}
+
 function App() {
   const [data, setData] = useState(null), [error, setError] = useState('');
   const [query, setQuery] = useState(''), [state, setState] = useState('all'), [provider, setProvider] = useState('all');
@@ -88,6 +109,7 @@ function App() {
       ['Complete',current.filter(r=>r.state==='complete').length,'complete'],
       ['Checkouts',data?.checkouts.length || 0,'all']
     ].map(([label,value,filter])=><button className="stat" key={label} onClick={()=>{setState(filter);setHistory(false);setPage(0);}}><span>{label}</span><strong>{data?value:'—'}</strong><small>{label==='Checkouts'?'registered worktrees':'source observations'}</small></button>)}</section>
+    <TicketUsage reports={data?.ticket_usage || []} />
     <section className="workspace" aria-label="Agents"><div className="section-title"><div><h2>Agents <span className="badge busy">{agents.filter(a=>a.state==='running').length} recorded running</span></h2><p>Factory and role lifecycle records. A running record is not a verified OS heartbeat; interrupted processes may leave stale records.</p></div><label>Agent state <select value={agentState} onChange={e=>{setAgentState(e.target.value);setAgentPage(0);}}>{['all','running','success','failed','interrupted'].map(s=><option key={s}>{s}</option>)}</select></label></div>
       {!filteredAgents.length && <div className="empty"><h3>No agent records in this view</h3><p>Factory runs and role invocations publish local lifecycle evidence here.</p></div>}
       <div className="cards">{filteredAgents.slice(safeAgentPage*12,(safeAgentPage+1)*12).map((agent,index)=><article className="run" key={(agent.links?.[0]?.href || agent.ticket)+index}><div className="run-head"><h3>{agent.ticket}</h3><span className={'badge '+(agent.state==='running'?'busy':agent.state==='success'?'done':'warn')}>{agent.state}</span></div><div className="run-meta"><span>{agent.provider}</span><span>{agent.model}</span><span>PID {agent.pid}</span></div><p className="path" title={agent.checkout}>{agent.checkout}</p><p className="next">Started {agent.started_at}</p>{agent.ticket === 'nightshift-workshop' && <p>Execution: {agent.execution_status || 'unknown'} · Requirements verification: {agent.verification_status || 'unknown'}</p>}{agent.finished_at && <p>Finished {agent.finished_at}</p>}{agent.state === 'failed' && <p role="alert" className="reason">{(agent.ticket === 'nightshift-workshop' && rows.find(r => r.source === 'gate' && r.gate === 'workshop' && r.checkout === agent.checkout && r.reason)?.reason) || agent.reason}</p>}<details><summary>Lifecycle source</summary><code className="repo">{agent.links?.[0]?.href}</code></details></article>)}</div>
