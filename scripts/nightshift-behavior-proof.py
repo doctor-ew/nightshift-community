@@ -835,7 +835,7 @@ class Proof:
                 identity_key = public.get('attempt_id') if isinstance(public, dict) else None
                 challenge = state['challenges'].get(identity_key)
                 if (challenge is None or not challenge['approved'] or challenge['input_sha256'] != semantics(doc)
-                        or public != challenge['receipt']):
+                        or public != challenge['receipt'] or not challenge_policy_current(self.project, challenge)):
                     raise Blocked('challenge_not_authoritative')
             old = state.get('seal')
             if (old is not None and old['scenario_sha256'] == digest(doc) and old['spec_sha256'] == spec_sha
@@ -901,7 +901,8 @@ class Proof:
                 raise Blocked('locked_tests_changed')
         if self.challenge_needed(doc):
             challenge = state['challenges'].get(seal['challenge'])
-            if challenge is None or not challenge['approved'] or challenge['input_sha256'] != semantics(doc):
+            if (challenge is None or not challenge['approved'] or challenge['input_sha256'] != semantics(doc)
+                    or not challenge_policy_current(self.project, challenge)):
                 raise Blocked('challenge_stale')
         now = snapshot(self.project, self.task, scope)
         changed = {path for path in set(now) | set(seal['baseline']) if now.get(path) != seal['baseline'].get(path)}
@@ -1401,8 +1402,21 @@ def run_proof(proof, gate):
             return result
 
 
+def provider_policy(project):
+    try:
+        return module('nightshift_provider_policy', 'nightshift-provider-policy.py').mode(project)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        raise Blocked('provider_policy_invalid') from None
+
+
+def challenge_policy_current(project, challenge):
+    return challenge['receipt'].get('provider_policy', 'standard') == provider_policy(project)
+
+
 def challenge_admission(proof, doc):
     env = subscription_env()
+    policy = provider_policy(proof.project)
+    env['NIGHTSHIFT_PROVIDER_POLICY'] = policy
     routing_path = Path(env.get('NIGHTSHIFT_ROUTING_FILE', str(HERE.parent / 'routing.json'))).resolve(strict=True)
     routing = read_json(routing_path)
     selected = bounded_process(['bash', str(HERE / 'nightshift-route.sh'), 'nightshift-behavior-reviewer',
@@ -1411,9 +1425,12 @@ def challenge_admission(proof, doc):
         raise Blocked('reviewer_route_unavailable')
     route = parse_json(selected['stdout'])
     gear = route['gear']
-    if routing['adversarial']['cross_provider'] and route['provider'] == doc['author']['provider']:
-        route = next((item for item in routing['adversarial']['routes'] if item['provider'] != doc['author']['provider']), None)
-    if route is None or route['provider'] == doc['author']['provider']:
+    try:
+        route = module('nightshift_provider_policy', 'nightshift-provider-policy.py').select_route(
+            routing, 'nightshift-behavior-reviewer', gear, policy, doc['author']['provider'], True, route)
+    except (ValueError, KeyError, TypeError):
+        raise Blocked('independent_reviewer_unavailable') from None
+    if route['provider'] == doc['author']['provider'] and policy != 'claude-only':
         raise Blocked('independent_reviewer_unavailable')
     provider = route['provider']
     if provider not in ('claude', 'codex', 'local'):
@@ -1436,7 +1453,7 @@ def challenge_admission(proof, doc):
                 raise Blocked('reviewer_authentication')
         elif b'ChatGPT' not in auth['stdout'] + auth['stderr']:
             raise Blocked('reviewer_authentication')
-    return {'provider': provider, 'model': route['model'], 'gear': gear,
+    return {'provider': provider, 'model': route['model'], 'gear': gear, 'provider_policy': policy,
             'routing_path': str(routing_path), 'routing_sha256': file_hash(routing_path)}
 
 
@@ -1478,6 +1495,7 @@ def challenge_proof(proof, args):
                 '--launch-receipt', str(launch_path)]
         env = subscription_env()
         env['NIGHTSHIFT_PROJECT_DIR'] = str(proof.project)
+        env['NIGHTSHIFT_PROVIDER_POLICY'] = selected['provider_policy']
         transport = bounded_process(argv, proof.project, env, proof.policy['timeout_seconds'], proof.policy['output_bytes'])
         try:
             launch = read_json(launch_path)
@@ -1504,13 +1522,16 @@ def challenge_proof(proof, args):
             result = report['results']
             strings(result['scenario_ids'], True)
             provider = report['artifacts']['provider']
-            if (report['status'] != 'SUCCESS' or provider == doc['author']['provider']
+            if (report['status'] != 'SUCCESS'
+                    or (provider == doc['author']['provider'] and selected['provider_policy'] != 'claude-only')
+                    or (selected['provider_policy'] == 'claude-only' and 'review_independence:fresh-session' not in report['rules_fired'])
                     or provider not in ('claude', 'codex', 'local')
                     or set(result['scenario_ids']) != {case['id'] for case in doc['cases']}
                     or result['reviewed_input_sha256'] != semantics(doc)
                     or not isinstance(result['findings'], list) or result['decision'] not in ('approve', 'repair')):
                 raise Blocked('challenge_invalid')
-            if provider != selected['provider'] or file_hash(Path(selected['routing_path'])) != selected['routing_sha256']:
+            if (provider != selected['provider'] or file_hash(Path(selected['routing_path'])) != selected['routing_sha256']
+                    or provider_policy(proof.project) != selected['provider_policy']):
                 raise Blocked('challenge_provenance_changed')
             for finding in result['findings']:
                 exact(finding, ('scenario_id', 'code', 'reason'))
@@ -1526,6 +1547,8 @@ def challenge_proof(proof, args):
         retry.proof_account(state, proof.policy, 'finalize', attempt, 'development', outcome)
         receipt = proof.publish(state, 'development', outcome, reason)
         receipt.update({'attempt_id': attempt, 'reviewed_input_sha256': semantics(doc),
+                        'provider_policy': selected['provider_policy'],
+                        'review_independence': 'fresh-session' if selected['provider_policy'] == 'claude-only' else 'cross-provider',
                         'reviewer_provider': provider if provider in ('claude', 'codex', 'local') else None,
                         'evidence_sha256': digest(report) if report is not None else hashlib.sha256(transport['stdout']).hexdigest()})
         state['challenges'][attempt] = {'approved': approved, 'input_sha256': semantics(doc), 'receipt': receipt,

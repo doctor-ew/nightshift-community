@@ -68,6 +68,7 @@ APPROVE_SPEC=""
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
+PROVIDER_POLICY_OPTION=""
 NIGHTSHIFT_HOME_DIR="${NIGHTSHIFT_HOME:-${HOME}/.nightshift}"
 AUTH_CONFIG="${NIGHTSHIFT_HOME_DIR}/config"
 
@@ -100,6 +101,7 @@ Options:
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
+  --provider-policy standard|claude-only  Restrict all managed provider calls
   --provider codex|claude|ollama|local  Runtime (default: configured, then codex)
   --gear auto|0|1|2|3|4       Role-router gear preference
   --risk low|standard|high    Role-router risk class
@@ -120,6 +122,7 @@ while [ "$#" -gt 0 ]; do
     --retry-review) RETRY_REVIEW=true ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
+    --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
     --provider) shift; PROVIDER="${1:-}" ;;
     --model) shift; MODEL="${1:-}" ;;
     --gear) shift; export NIGHTSHIFT_GEAR="${1:-}" ;;
@@ -273,6 +276,22 @@ GLOBAL_SETTINGS="$(bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$NIGHTSHIFT
 PROJECT_SETTINGS="$SETTINGS_JSON"
 BUNDLED_ALIASES="$(python3 -c 'import json,sys,tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb")).get("runtime", {}).get("aliases", {})))' "$SOURCE_DIR/nightshift.toml")"
 SETTINGS_JSON="$(jq -cn --argjson aliases "$BUNDLED_ALIASES" --argjson global "$GLOBAL_SETTINGS" --argjson project "$SETTINGS_JSON" '{runtime:{aliases:$aliases}} * $global * $project')"
+# Resolve policy before choosing or probing a runtime. CLI cannot relax a
+# project/global or inherited restriction.
+case "$PROVIDER_POLICY_OPTION" in
+  '') ;;
+  standard|claude-only)
+    if [ "${NIGHTSHIFT_PROVIDER_POLICY:-standard}" != claude-only ]; then
+      export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY_OPTION"
+    fi ;;
+  *) echo 'invalid provider policy' >&2; exit 64 ;;
+esac
+PROVIDER_POLICY=$(python3 "$SCRIPT_DIR/nightshift-provider-policy.py" mode --project "$PROJECT") || exit $?
+export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
+echo "nightshift: provider policy: $PROVIDER_POLICY" >&2
+if [ "$PROVIDER_POLICY" = claude-only ] && [ -z "$PROVIDER" ]; then
+  PROVIDER=claude
+fi
 [ -n "$PROVIDER" ] || PROVIDER="$(jq -r '.runtime.provider // "codex"' <<< "$SETTINGS_JSON")"
 [ "$PROVIDER" != ollama ] || PROVIDER=local
 # Aliases are data from the merged project/global manifest, never model-family
@@ -318,6 +337,9 @@ fi
 case "$PROVIDER" in codex|claude|local) ;; *) echo "Unknown provider: $PROVIDER" >&2; exit 64 ;; esac
 [ -n "$BRANCH" ] || { echo "--branch requires auto, none, or a branch name." >&2; exit 64; }
 [ "$OPEN_PR" = "false" ] || [ "$PUSH" = "true" ] || { echo "--pr requires --push." >&2; exit 64; }
+if [ "$PROVIDER_POLICY" = claude-only ] && [ "$PROVIDER" != claude ]; then
+  echo 'nightshift: claude-only policy prohibits the selected provider' >&2; exit 64
+fi
 RUNTIME_CLI=codex
 [ "$PROVIDER" = claude ] && RUNTIME_CLI=claude
 command -v "$RUNTIME_CLI" >/dev/null 2>&1 || { echo "$RUNTIME_CLI is required but was not found on PATH." >&2; exit 69; }
@@ -391,7 +413,10 @@ Resolved factory policy: work only in clean isolated ticket worktrees; preserve 
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
-Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, including its read-only Codex verifier subprocess for cross-provider adversarial review. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
+Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, with independent review according to the active provider policy. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
+if [ "$PROVIDER_POLICY" = claude-only ]; then
+  PROMPT+=$'\nProvider policy: claude-only. Use only Claude for authoring and every reviewer. Never launch Codex, Ollama, or another provider, including via tools or subagents. Route reviews through the shared dispatcher with author provenance. The explicit policy permits a fresh isolated Claude reviewer session; never resume an author session for review. Record same-provider session independence, not cross-provider diversity. Preserve all evidence, test and repair gates.'
+fi
 if [ "$PROVIDER" = local ]; then
   PROMPT+="
 

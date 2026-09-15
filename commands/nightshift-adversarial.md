@@ -80,7 +80,10 @@ Dispatch all extractor calls through `scripts/nightshift-dispatch-bounded.sh` (w
 Do not infer authorship from the current runtime. If prior author provenance is
 missing, block verification until authorship is established. Explicit adversarial
 review using another role also passes `--adversarial`. Missing alternate providers
-are a blocked gate, never permission for same-provider review. The dispatcher
+are a blocked gate under the default policy. When the explicit provider policy is
+`claude-only`, use a fresh Claude reviewer invocation through the dispatcher and
+record session independence rather than cross-provider diversity. Never reuse the
+author session or change policy merely to make a failed review pass. The dispatcher
 publishes normalized JSON: `status`, `summary`, `findings`, `evidence`, and its own
 `_provenance`; parse the report from these fields rather than provider event logs.
 Carry this provenance into citations and the stage receipt. A failed or blocked

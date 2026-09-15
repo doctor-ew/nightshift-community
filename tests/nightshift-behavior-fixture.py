@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
 class PrototypeFixture:
     """Offline transport fixture; all proof state comes from public CLI operations."""
-    def __init__(self, root, base, cases=1, output='{"choice":"allow"}', timeout=2, cap=1048576, multiturn=False):
+    def __init__(self, root, base, cases=1, output='{"choice":"allow"}', timeout=2, cap=1048576, multiturn=False, author_provider='codex'):
         self.root=Path(root).resolve();self.base=Path(base).resolve();self.project=self.base/'project';self.project.mkdir()
         self.task='prototype';self.directory=self.project/'docs'/self.task;self.directory.mkdir(parents=True)
         self.binary=self.base/'bin';self.binary.mkdir();self.calls=self.base/'provider-calls.jsonl'
@@ -134,7 +134,7 @@ class PrototypeFixture:
             runtime['profile']='claude-subscription-multiturn-text-v1'
             private['cases']=[self.multiturn_case(c) for c in private['cases']]
         self.private.write_bytes(canonical(attest(private)))
-        public={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':'codex','author_id':'public-prototype-author'},'applicability':dict(app),'runtime':runtime,'prototype_files':['reviewer-prompt.md'],'cases':[case('public-'+str(i+1),'public') for i in range(cases)],'heldout':{'manifest_sha256':digest(self.private),'case_ids':['private-1'],'author':private['author'],'prepared_at':'2026-09-08T00:00:00+00:00'}}
+        public={'version':1,'task':self.task,'ac_ids':['AC-1'],'author':{'provider':author_provider,'author_id':'public-prototype-author'},'applicability':dict(app),'runtime':runtime,'prototype_files':['reviewer-prompt.md'],'cases':[case('public-'+str(i+1),'public') for i in range(cases)],'heldout':{'manifest_sha256':digest(self.private),'case_ids':['private-1'],'author':private['author'],'prepared_at':'2026-09-08T00:00:00+00:00'}}
         if multiturn:
             public['cases']=[self.multiturn_case(c) for c in public['cases']]
         self.scenarios=self.directory/'behavior-scenarios.json';self.scenarios.write_bytes(canonical(attest(public)))

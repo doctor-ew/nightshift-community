@@ -11,10 +11,12 @@ START=1
 if [ "$ROLE" = nightshift-code-fact-extractor ] && [ "$RISK" = low ] && [ "$ADV" = false ]; then START=0; fi
 GEAR=$((START + ATTEMPT - 1))
 [ "$GEAR" -le 4 ] || GEAR=4
-jq -e -c --arg role "$ROLE" --argjson gear "$GEAR" --arg risk "$RISK" \
+SELECTED=$(jq -e -c --arg role "$ROLE" --argjson gear "$GEAR" --arg risk "$RISK" \
   --argjson attempt "$ATTEMPT" --arg model "${NIGHTSHIFT_LOCAL_MODEL:-qwen2.5-coder:14b}" '
   if .roles[$role] == null then error("unknown role") else
     (if $gear == 0 then {provider:"local",model:$model} else .roles[$role].gears[($gear|tostring)] end) as $route |
     if ($route.provider != "local" and $route.provider != "codex" and $route.provider != "claude") or ($route.model|type) != "string" or ($route.model|length) == 0
     then error("invalid route") else $route + {gear:$gear,risk:$risk,attempt:$attempt,reason:"deterministic risk/role/attempt policy"} end
-  end' "${NIGHTSHIFT_ROUTING_FILE:-$ROOT/routing.json}"
+  end' "${NIGHTSHIFT_ROUTING_FILE:-$ROOT/routing.json}")
+python3 "$ROOT/scripts/nightshift-provider-policy.py" route --routing "${NIGHTSHIFT_ROUTING_FILE:-$ROOT/routing.json}" \
+  --role "$ROLE" --gear "$GEAR" --initial "$SELECTED"
