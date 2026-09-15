@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cleanup-test-') as temp:
     stub=binary/'claude'
     stub.write_text('#!/bin/sh\nif [ "$1" = auth ]; then echo \'{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}\'; else echo \'{"type":"result","subtype":"success"}\'; fi\n')
     stub.chmod(0o755)
-    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp)/'home'))
+    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp)/'home'))
     result=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),'gh:42','--project',str(project),'--provider','claude','--branch','auto'],env=env,capture_output=True,text=True)
     assert result.returncode==0,result.stderr
     assert 'resumable' in result.stderr,result.stderr
