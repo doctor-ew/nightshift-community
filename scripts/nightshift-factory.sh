@@ -60,6 +60,7 @@ REF=""
 MODE="eng"
 ADVISORY=false
 BRANCH="auto"
+BASE_REF=""
 PUSH="false"
 OPEN_PR="false"
 BATCH_ARGS=()
@@ -110,6 +111,7 @@ Options:
   --dashboard-browser once|off  Open only on dashboard start (default: once)
   --auth subscription|api    Authentication (default: subscription; api is a per-run opt-in)
   --branch auto|NAME         Isolated ticket branch (default: auto)
+  --base REF                 Explicit engineering worktree base (default: remote default branch)
   --push                     Commit verified changes and push the ticket branch
   --pr                       Open a PR after --push; never merges or deploys
   -h, --help                 Show this help
@@ -131,6 +133,7 @@ while [ "$#" -gt 0 ]; do
     --dashboard-browser) shift; DASHBOARD_BROWSER="${1:-}" ;;
     --auth) shift; AUTH_MODE="${1:-}"; AUTH_EXPLICIT=true ;;
     --branch) shift; BRANCH="${1:-}" ;;
+    --base) shift; BASE_REF="${1:?--base requires a ref}" ;;
     --push) PUSH="true" ;;
     --pr) OPEN_PR="true" ;;
     --batch-n|--resume)
@@ -209,8 +212,38 @@ NIGHTSHIFT_RUN_ID="$(jq -r '.run_id // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null |
 NIGHTSHIFT_RUN_DIR="$(jq -r '.run_dir // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
 export NIGHTSHIFT_RUN_ID NIGHTSHIFT_RUN_DIR
 METRICS_FINALIZED=false
+FACTORY_TELEMETRY_STARTED=""
+factory_telemetry() {
+  [ -n "$FACTORY_TELEMETRY_STARTED" ] || return 0
+  python3 - "$PROJECT" "$$" "$PROVIDER" "${MODEL:-runtime default}" "$FACTORY_TELEMETRY_STARTED" "$1" <<'PYTELEMETRY' || true
+import json, os, sys, tempfile
+from pathlib import Path
+from datetime import datetime, timezone
+project, pid, provider, model, started, status = sys.argv[1:]
+state = Path(project) / '.nightshift'
+directory = state / 'agents'
+try:
+    if state.is_symlink() or directory.is_symlink():
+        raise ValueError('symlink state directory')
+    directory.mkdir(parents=True, exist_ok=True)
+    record = dict(role='nightshift-factory', provider=provider, model=model,
+                  gear='', started_at=started, pid=int(pid), status=status,
+                  finished_at='' if status == 'running' else datetime.now(timezone.utc).isoformat())
+    fd, temporary = tempfile.mkstemp(prefix='.factory-', dir=directory)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(record, stream)
+    os.replace(temporary, directory / ('factory-' + pid + '.json'))
+except (OSError, ValueError):
+    pass  # Observations must not block engineering.
+PYTELEMETRY
+}
 run_metrics_summary() {
   METRICS_FINALIZED=true
+  case "$1" in
+    provider_exited_0) factory_telemetry success ;;
+    provider_exited_nonzero) factory_telemetry failed ;;
+    *) factory_telemetry "$1" ;;
+  esac
   [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
   if [ -z "${NIGHTSHIFT_RUN_DIR:-}" ]; then
     printf '%s\n' '{"schema_version":1,"metrics_available":false,"reason":"PERSISTENCE_UNAVAILABLE"}' >&2
@@ -392,28 +425,35 @@ else
   QUOTED_REF=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$REF")
   REQUEST="\$nightshift ${QUOTED_REF}"
 fi
-REQUEST+=" --branch ${BRANCH}"
 if [ "$PROVIDER" = claude ]; then
   if [ "$MODE" = batch ]; then
-    REQUEST="/nightshift-batch ${BATCH_ARGS[*]} --branch ${BRANCH}"
+    REQUEST="/nightshift-batch ${BATCH_ARGS[*]}"
   else
-    REQUEST="/nightshift-eng ${REF} --branch ${BRANCH}"
+    REQUEST="/nightshift-eng ${QUOTED_REF}"
   fi
 fi
+# Factory publication options are policy, not engineering-stage arguments.
+if [ "$MODE" = batch ]; then
+  [ -z "$BASE_REF" ] || { echo '--base is supported for individual tickets only.' >&2; exit 64; }
+  REQUEST+=" --branch ${BRANCH}"
+  [ "$PUSH" = "true" ] && REQUEST+=" --push"
+  [ "$OPEN_PR" = "true" ] && REQUEST+=" --pr"
+elif [ -n "$BASE_REF" ]; then
+  QUOTED_BASE=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$BASE_REF")
+  REQUEST+=" --base ${QUOTED_BASE}"
+fi
 if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth api"; fi
-[ "$PUSH" = "true" ] && REQUEST+=" --push"
-[ "$OPEN_PR" = "true" ] && REQUEST+=" --pr"
 # This Codex process is the factory worker. A literal command alone is ambiguous
 # to an agent that also has the terminal launcher on PATH, which can recurse.
 PROMPT="You are the inner Nightshift factory worker. Execute this requested Nightshift workflow directly by following its installed skill and command instructions: ${REQUEST}
 
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
-Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
-Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, with independent review according to the active provider policy. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
+Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, with independent review according to the active provider policy. Do not use native Agent or Task tools to launch roles; every role must pass through the shared dispatcher so policy, contracts, and lifecycle records are enforced. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   PROMPT+=$'\nProvider policy: claude-only. Use only Claude for authoring and every reviewer. Never launch Codex, Ollama, or another provider, including via tools or subagents. Route reviews through the shared dispatcher with author provenance. The explicit policy permits a fresh isolated Claude reviewer session; never resume an author session for review. Record same-provider session independence, not cross-provider diversity. Preserve all evidence, test and repair gates.'
 fi
@@ -507,6 +547,11 @@ handle_interruption() {
 trap 'handle_interruption SIGINT' INT
 trap 'handle_interruption SIGTERM' TERM
 
+if [ "$ADVISORY" = false ]; then
+  FACTORY_TELEMETRY_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  factory_telemetry running
+fi
+
 if [ "$PROVIDER" = claude ]; then
   CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
@@ -515,6 +560,7 @@ if [ "$PROVIDER" = claude ]; then
       *) CLAUDE_ARGS+=(--tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob") ;;
     esac
   fi
+  [ "$ADVISORY" = true ] || CLAUDE_ARGS+=(--disallowedTools "Agent,Task")
   [ "$BRANCH" != none ] && CLAUDE_ARGS+=(--dangerously-skip-permissions)
   [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
   (

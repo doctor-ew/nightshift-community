@@ -85,6 +85,7 @@ if [ "${1:-}" = auth ]; then
   printf '%s\n' "${CLAUDE_LOGIN_STATUS:-{\"loggedIn\":true,\"authMethod\":\"claude.ai\",\"apiProvider\":\"firstParty\"}}"
   exit 0
 fi
+sleep "${CLAUDE_TEST_DELAY:-0}"
 printf 'CLAUDE_CWD=%s\n' "$PWD"
 printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY:+present}"
 printf 'CLAUDE_ARGS=%s\n' "$*"
@@ -101,7 +102,7 @@ for auth_status in '{}' 'not-json' '{"loggedIn":false}' '{"loggedIn":true,"authM
 done
 claude_api=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" gh:1 --provider claude --auth api --branch none 2>&1)
 assert_contains "$claude_api" 'ANTHROPIC_API_KEY=present'
-assert_contains "$claude_api" '/nightshift-eng gh:1 --branch none --auth api'
+assert_contains "$claude_api" '/nightshift-eng gh:1 --auth api'
 assert_contains "$claude_api" 'Publication authorization: push=false, pr=false'
 assert_contains "$claude_api" 'an absent remote is not a blocker'
 git -C "$TMP_ROOT" init -q -b main
@@ -115,7 +116,7 @@ printf '%s\n' '{"tickets":["gh:1"],"statuses":{"gh:1":{"status":"pending"}}}' > 
 cp "$REPO_DIR/nightshift.toml" "$TMP_ROOT/.nightshift.toml"
 claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
-assert_contains "$claude_output" '--print --output-format stream-json --verbose --dangerously-skip-permissions --model sonnet'
+assert_contains "$claude_output" '--print --output-format stream-json --verbose --disallowedTools Agent,Task --dangerously-skip-permissions --model sonnet'
 assert_contains "$claude_output" '/nightshift-batch --resume batch-20260906-1323.json --branch auto --push --pr'
 case "$claude_output" in *'ANTHROPIC_API_KEY=present'*|*'OPENAI_API_KEY='*) fail 'Claude dispatch leaked API key or invoked Codex';; esac
 set +e
@@ -147,3 +148,35 @@ done
 policy_cli=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch none --provider-policy claude-only 2>&1)
 assert_contains "$policy_cli" 'CLAUDE_ARGS='
 echo 'PASS: Claude-only factory policy and explicit runtime rejection'
+
+# The individual stage receives only options its parser supports.
+args_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --provider claude --project "$TMP_ROOT" --base main --push --pr 2>&1)
+assert_contains "$args_output" '/nightshift-eng gh:1 --base main'
+assert_contains "$args_output" 'Publication authorization: push=true, pr=true'
+assert_contains "$args_output" '--disallowedTools Agent,Task'
+case "$args_output" in *'/nightshift-eng gh:1 --branch'*|*'/nightshift-eng gh:1 --base main --push'*) fail 'factory flags leaked into stage parser';; esac
+python3 - "$TMP_ROOT/.nightshift/agents" <<'PYRECORD'
+import json, pathlib, sys
+records = [json.loads(p.read_text()) for p in pathlib.Path(sys.argv[1]).glob('factory-*.json')]
+assert records and all(r['role'] == 'nightshift-factory' for r in records)
+assert any(r['provider'] == 'claude' and r['finished_at'] for r in records)
+assert all(r['status'] != 'running' for r in records)
+PYRECORD
+printf 'PASS: engineering arguments, native delegation restriction, factory lifecycle\n'
+
+# Observe startup before the stub provider returns, then verify terminal state.
+PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" CLAUDE_TEST_DELAY=3 "$FACTORY" gh:1 --provider claude --project "$TMP_ROOT" --branch none > "$TMP_ROOT/live.log" 2>&1 &
+live_pid=$!
+python3 - "$TMP_ROOT/.nightshift/agents" <<'PYLIVE'
+import json, pathlib, sys, time
+folder=pathlib.Path(sys.argv[1])
+for attempt in range(100):
+    records=[json.loads(p.read_text()) for p in folder.glob('factory-*.json')]
+    if any(r['status']=='running' and not r['finished_at'] for r in records):
+        break
+    time.sleep(0.1)
+else:
+    raise AssertionError('factory was invisible while provider was running')
+PYLIVE
+wait "$live_pid"
+printf 'PASS: factory visible before first role dispatch\n'

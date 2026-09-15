@@ -109,3 +109,24 @@ This is enforcement at Nightshift's managed provider launch boundaries, not an
 OS/network sandbox for arbitrary model-generated shell commands or independently
 started tools. Use workplace endpoint controls where an organization requires
 machine-wide provider restrictions.
+
+## Factory worktree base and role reporting
+
+New ticket worktrees use the branch referenced by `refs/remotes/origin/HEAD`,
+refreshed from the remote before creation. They do not inherit a prototype
+checkout merely because the command was started there. Repositories without
+remotes use `HEAD`. If a remote exists but its default branch is unknown,
+preparation stops with a request for an explicit base.
+
+Use `nightshift <ticket-ref> --base <ref>` to select a prerequisite branch or
+another verified base. Existing owned worktrees retain their recorded base;
+Nightshift does not reset them when the remote advances.
+
+The launcher consumes `--branch`, `--push`, and `--pr` and supplies publication
+policy separately from the engineering stage arguments. A factory run never
+invokes the deployment stage or merges its PR.
+
+Claude factory workers disable native `Agent` and `Task` tools. All role calls
+must use `scripts/nightshift-agent.sh` for provider policy, contract validation,
+and dashboard lifecycle reporting. The factory itself also appears in Agents
+while preparing the first stage.
