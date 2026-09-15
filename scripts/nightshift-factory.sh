@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
-    version|init|setup|dashboard|sync|--sync|--help|-h|"") ;;
+    version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-output.py" "$SCRIPT_PATH" "$@" ;;
   esac
 fi
@@ -36,7 +36,7 @@ if [ "${1:-}" = --sync ]; then
 fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
-    version|init|setup|dashboard|--help|-h|"") ;;
+    version|init|setup|cleanup|dashboard|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --run "$@" ;;
   esac
 fi
@@ -45,10 +45,12 @@ if [ "${1:-}" = sync ]; then
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
+if [ "${1:-}" = "cleanup" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$@"; fi
 if [ "${1:-}" = "init" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-init.py" "$@"; fi
 if [ "${1:-}" = "setup" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-setup.sh" "$@"; fi
 if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-dashboard.sh" --serve "$@"; fi
 
+export NIGHTSHIFT_FACTORY_PID="$$"
 PROJECT="$(pwd)"
 PROVIDER=""
 MODEL=""
@@ -81,6 +83,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift batch <tickets-or-query> [options]
        nightshift [runtime/model] <help|explain|architect|dev|pm|ux-designer|architecture|ux|bmad> [request] [options]
        nightshift init [runtime/model] [DIR] [--include FILE]
+       nightshift cleanup TASK [--project DIR]
        nightshift setup [--project DIR]
        nightshift dashboard [--project DIR] [--port PORT]
 
@@ -353,6 +356,15 @@ set +e
 ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
 set -e
 ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION" 2>/dev/null || echo '')"
+if [ "$ADMISSION_REASON" = WORKTREE_COLLISION ]; then
+  while IFS= read -r task; do
+    python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$task" --project "$PROJECT" >&2 || true
+  done < <(jq -r '.tasks[]' <<< "$ADMISSION")
+  set +e
+  ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
+  set -e
+  ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION")"
+fi
 if [ "$ADVISORY" = false ] && [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
   bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
 fi

@@ -113,6 +113,7 @@ if [ "$operation" = check ]; then
     fi
     dirty=fail
     if [ -d "$recorded_target" ] && [ -z "$(git -C "$recorded_target" status --porcelain --untracked-files=all 2>/dev/null)" ]; then dirty=pass; fi
+    if [ "$dirty" = fail ] && python3 "$(dirname "$0")/nightshift-cleanup.py" "$task" --project "$recorded_target" --check >/dev/null 2>&1; then dirty=pass; fi
     jq -cn --arg task "$task" --arg branch "$branch" --arg worktree "$recorded_target" \
       --arg base_ref "$recorded_base" --arg base_sha "$recorded_sha" \
       --arg base_match "$base_match" --arg ancestry "$ancestry" --arg root_match "$root_match" --arg dirty "$dirty" \
@@ -254,7 +255,7 @@ if [ -e "$receipt" ]; then
     operation=prepare
   fi
   if [ "$operation" = prepare ]; then
-    [ -z "$(git -C "$target" status --porcelain --untracked-files=all)" ] || fail "dirty worktree cannot be reused: $target"
+    [ -z "$(git -C "$target" status --porcelain --untracked-files=all)" ] || python3 "$(dirname "$0")/nightshift-cleanup.py" "$task" --project "$target" --check >/dev/null 2>&1 || fail "dirty worktree cannot be reused: $target"
   fi
 else
   [ "$operation" = prepare ] || fail "no ownership receipt for $task"

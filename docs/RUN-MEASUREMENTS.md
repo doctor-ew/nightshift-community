@@ -276,3 +276,16 @@ usage**, including imported historical runs with missing role observations.
 New role lifecycle records include normalized `usage_observations` after the
 worker returns. The authoritative aggregate remains the shared ticket ledger,
 which handles duplicate receipts and uncertain parent/child overlap.
+
+## Interrupted ticket cleanup
+
+Run `nightshift cleanup IF-302` from the consumer repository to reconcile a
+retained ticket worktree. Factory startup invokes the same command automatically
+after an artifact-only worktree collision, then repeats read-only preflight.
+
+Cleanup requires a valid ownership receipt and no live worker. It preserves a
+private recovery snapshot under the Git common directory, leaves the artifacts
+in place, and records fingerprints permitting unchanged reuse. It does not
+commit drafts, delete files, reset branches, or stop processes. Source edits,
+staged changes, deleted files, and unknown ownership require separate review.
+A suspended process still counts as live.
