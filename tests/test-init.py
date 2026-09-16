@@ -82,8 +82,45 @@ class InitTest(unittest.TestCase):
         self.run_init()
         subprocess.run(['git', '-C', str(self.project), 'add', 'unrelated.txt'], env=self.env, check=True)
         before = self.git('diff', '--cached')
-        self.run_init(status=64)
+        head = self.git('rev-parse', 'HEAD')
+        self.run_init()
+        self.assertEqual(head, self.git('rev-parse', 'HEAD'))
         self.assertEqual(before, self.git('diff', '--cached'))
+
+    def test_initialization_preserves_partial_stage(self):
+        self.git('init', '-b', 'main')
+        self.git('add', 'unrelated.txt')
+        self.git('commit', '-m', 'baseline')
+        (self.project / 'unrelated.txt').write_text('staged version')
+        self.git('add', 'unrelated.txt')
+        (self.project / 'unrelated.txt').write_text('unstaged version')
+        staged = self.git('diff', '--cached')
+        unstaged = self.git('diff')
+        self.run_init('claude')
+        self.assertEqual(staged, self.git('diff', '--cached'))
+        self.assertEqual(unstaged, self.git('diff'))
+        self.assertEqual(set(self.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').splitlines()),
+                         {'.nightshift.toml', 'routing.json'})
+
+    def test_unborn_repository_preserves_staged_file(self):
+        self.git('init', '-b', 'main')
+        self.git('add', 'unrelated.txt')
+        staged = self.git('diff', '--cached')
+        self.run_init('claude', '--include', 'brief.md')
+        self.assertEqual(staged, self.git('diff', '--cached'))
+        self.assertEqual(set(self.git('ls-tree', '--name-only', 'HEAD').splitlines()),
+                         {'.nightshift.toml', 'routing.json', 'brief.md'})
+
+    def test_staged_initialization_file_rejected_without_mutation(self):
+        self.run_init()
+        config = self.project / '.nightshift.toml'
+        config.write_text(config.read_text() + '\n# user edit\n')
+        self.git('add', '.nightshift.toml')
+        staged = self.git('diff', '--cached')
+        head = self.git('rev-parse', 'HEAD')
+        self.run_init('claude', status=64)
+        self.assertEqual(staged, self.git('diff', '--cached'))
+        self.assertEqual(head, self.git('rev-parse', 'HEAD'))
 
     def test_outside_include_rejected_without_git(self):
         (self.base / 'outside.md').write_text('outside')
