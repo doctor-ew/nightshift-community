@@ -143,7 +143,7 @@ def record(scenario, root=ROOT):
         scripts = box / 'scripts'
         scripts.mkdir()
         for name in ('controller.sh', 'policy.sh', 'isolate.sh', 'credentials.sh', 'agent.sh', 'contract.jq',
-                     'project-context.py', 'behavior-proof.py', 'retry-budget.py',
+                     'project-context.py', 'behavior-proof.py', 'retry-budget.py', 'provider-policy.py',
                      'state-dir.sh', 'lock-field.sh', 'tdd-spec-lock.sh', 'scope-activate.sh'):
             shutil.copyfile(Path(root) / 'scripts' / ('nightshift-' + name), scripts / ('nightshift-' + name))
         # Copy only dispatcher assets, never repository tests or user configuration.

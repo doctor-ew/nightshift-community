@@ -531,15 +531,28 @@ def classify_and_handle_json(path, checkout, ticket_hint, state_record=False):
             "finished_at": as_str(d.get("finished_at")) or "", "worktree": checkout,
             "execution_status": as_str(d.get("execution_status")) or "unknown",
             "verification_status": as_str(d.get("verification_status")) or "unknown",
-            "flavor": "dispatcher lifecycle", "pr_url_text": None, "deferred_decisions": "",
+            "flavor": "worker lifecycle", "pr_url_text": None, "deferred_decisions": "",
             "attempted": "unknown", "budget": "unknown", "remaining": "unknown",
-            "reason": as_str(d.get("failure")) or "Recorded dispatcher lifecycle; not an OS heartbeat.",
+            "reason": as_str(d.get("failure")) or "Recorded worker lifecycle; not an OS heartbeat.",
             "next_action": "", "links": [make_link(os.path.basename(path), path)]})
         return
     if as_str(d.get("batch_id")) is not None and as_dict(d.get("statuses")) is not None:
         handle_batch_file(path, checkout, ARTIFACT_ROOTS)
         return
     ticket_present = "ticket" in d
+    # Role contracts carry task identity in docs/<task>, not in the JSON body.
+    # Preserve failed attempts as evidence even when the factory exits normally.
+    if (ticket_hint and os.path.basename(path).endswith('.out.json')
+            and d.get('status') in ('FAIL', 'BLOCKED')
+            and as_str(d.get('reason')) and as_dict(d.get('artifacts')) is not None):
+        total_records += 1
+        receipt = dict(d, ticket=ticket_hint, status='blocked',
+                       gate=os.path.basename(path)[:-len('.out.json')],
+                       provider=as_str(d['artifacts'].get('provider')) or 'unknown')
+        row = build_gate_row(ticket_hint, receipt, checkout, path)
+        row['flavor'] = 'Recorded role failure; inspect later attempts before retrying.'
+        data_rows.append(row)
+        return
     gate_present = "gate" in d or "failed_gate" in d
     status_present = "status" in d
     if not (ticket_present and (gate_present or status_present)):
@@ -662,6 +675,41 @@ for checkout in checkout_reals:
                 handle_batch_file(path, checkout, ARTIFACT_ROOTS)
             elif path.endswith(".json"):
                 classify_and_handle_json(path, checkout, None, state_record=True)
+            elif (os.path.dirname(path) == state_dir and path.endswith('.md')
+                  and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', os.path.basename(path)[:-3])):
+                text, err = read_bounded(path)
+                if not err:
+                    if total_records < MAX_TOTAL_RECORDS:
+                        total_records += 1
+                        tracker_row = build_gate_row(os.path.basename(path)[:-3], {}, checkout, path)
+                        tracker_row.update(source='artifacts', state='n/a', state_bucket='artifacts')
+                        ticket_url = re.search(r'^\*\*URL:\*\*\s+(https?://\S+)\s*$', text, re.M)
+                        tracker_row['ticket_url'] = ticket_url[1] if ticket_url else None
+                        pipeline = re.search(r'^## Pipeline Stages\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+                        tracker_row['pipeline_steps'] = []
+                        if pipeline:
+                            for line in pipeline[1].splitlines():
+                                match = re.match(r'^\s*(✅|❌|🚫|⬜|🔄|⏳)\s*(.+)', line)
+                                if not match:
+                                    continue
+                                icon, detail = match.groups()
+                                stage = re.search(r'/nightshift-(adversarial|implement|review|drift|qa|preflight|deploy)\b', detail)
+                                if stage or detail.startswith('Spec approved'):
+                                    tracker_row['pipeline_steps'].append({
+                                        'stage': stage[1] if stage else 'product',
+                                        'state': {'✅': 'passed', '❌': 'failed', '🚫': 'blocked',
+                                                  '⬜': 'pending', '🔄': 'running', '⏳': 'running'}[icon],
+                                        'detail': detail})
+                        data_rows.append(tracker_row)
+                    receipt = re.search(r'^## Failure / Block Receipt\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+                    if receipt and total_records < MAX_TOTAL_RECORDS:
+                        total_records += 1
+                        stage = re.search(r'^- Stage: (.+)$', receipt[1], re.M)
+                        row = build_gate_row(os.path.basename(path)[:-3],
+                            {'status': 'blocked', 'gate': stage[1] if stage else 'recorded blocker',
+                             'reason': receipt[1].strip()}, checkout, path)
+                        row['flavor'] = 'Recorded tracker blocker; retained as historical evidence.'
+                        data_rows.append(row)
 
     docs_dir = known_root(os.path.join(checkout, "docs"))
     if docs_dir:
@@ -727,10 +775,33 @@ def rel_label(path):
 data_rows.sort(key=lambda r: (r["ticket"], r["source"], r["checkout"]))
 error_rows.sort(key=lambda r: (r["ticket"], r["source"], r["checkout"]))
 
+# Ticket accounting is shared across worktrees and persists across retries.
+ticket_usage = []
+metrics_root = known_root(os.path.join(COMMON, "nightshift", "ticket-metrics"))
+if metrics_root:
+    ARTIFACT_ROOTS.append(metrics_root)
+    entries, truncated = safe_listdir(metrics_root, [metrics_root])
+    if truncated:
+        note_truncation(metrics_root)
+    for entry in entries:
+        summary = os.path.join(entry.path, "summary.json")
+        text, error = read_bounded(summary)
+        if error:
+            continue
+        try:
+            report = json.loads(text)
+            if (isinstance(report, dict) and report.get("schema_version") == 2
+                    and isinstance(report.get("ticket"), dict)
+                    and isinstance(report.get("usage"), dict)
+                    and isinstance(report.get("cost"), dict)):
+                ticket_usage.append(report)
+        except (ValueError, RecursionError):
+            continue
+
 if os.environ.get("NIGHTSHIFT_DASHBOARD_FORMAT") == "json":
     # Same collector and bounds as static mode; no separate filesystem API.
     sys.stdout.write(json.dumps({"generated_at": GENERATED_AT, "root": ROOT,
-        "checkouts": list(checkout_reals), "rows": data_rows,
+        "checkouts": list(checkout_reals), "rows": data_rows, "ticket_usage": ticket_usage,
         "errors": error_rows, "warnings": warnings}, ensure_ascii=True))
     sys.exit(0)
 

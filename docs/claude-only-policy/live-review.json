@@ -1,0 +1,31 @@
+{
+  "status": "SUCCESS",
+  "reason": "Synthetic provider-policy verification completed. Mathematical fact verified: 2 + 2 = 4 is correct.",
+  "attempts": 1,
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "inline",
+    "diff": "No diff for synthetic provider-policy check"
+  },
+  "rules_fired": [
+    "provider-policy-claude-only",
+    "synthetic-verification",
+    "independent-review",
+    "provider_policy:claude-only",
+    "review_independence:fresh-session"
+  ],
+  "results": {
+    "claims": [
+      {
+        "claim": "2 + 2 = 4",
+        "file": "inline",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "inline"
+        ]
+      }
+    ]
+  }
+}

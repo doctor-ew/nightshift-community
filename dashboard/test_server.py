@@ -9,6 +9,7 @@ import stat
 import tempfile
 import time
 import unittest
+from urllib.parse import quote
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +97,74 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(job['status'],'exited')
         (folder/'SPEC.md').write_text('Changed')
         self.assertEqual(self.request('/api/workshop/approve','POST',headers,body)[0],409)
+
+    def test_ticket_action_authentication(self):
+        data=json.loads(self.request('/api/tickets')[1])
+        self.assertEqual(data['tickets'], [])
+        body=json.dumps({'task':'42','sha256':'unknown'})
+        headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup'):
+            self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
+            wrong=dict(headers,Origin='https://evil.example')
+            self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
+            self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
+            self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
+
+    def test_role_failure_is_visible_and_evidence_is_plain_text(self):
+        folder = self.repo / 'docs' / 'task-a'
+        folder.mkdir(parents=True)
+        receipt = folder / 'implementation.out.json'
+        receipt.write_text(json.dumps({'status': 'FAIL', 'reason': 'Write permission denied',
+                                      'artifacts': {'provider': 'claude'}, 'attempts': 2}))
+        snapshot = json.loads(self.request('/api/state')[1])
+        row = next(r for r in snapshot['rows'] if r['source'] == 'gate')
+        self.assertEqual((row['ticket'], row['state'], row['gate']), ('task-a', 'blocked', 'implementation'))
+        self.assertEqual(row['reason'], 'Write permission denied')
+        endpoint = '/api/evidence?uri=' + quote(row['links'][0]['href'], safe='')
+        code, body, headers = self.request(endpoint)
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)['reason'], 'Write permission denied')
+        self.assertTrue(headers['Content-Type'].startswith('text/plain'))
+        self.assertEqual(self.request('/evidence?uri=' + quote(row['links'][0]['href'], safe=''))[0], 200)
+        self.assertEqual(self.request(endpoint, headers={'Sec-Fetch-Site': 'cross-site'})[0], 403)
+        secret = self.repo / 'secret.txt'
+        secret.write_text('PRIVATE')
+        self.assertEqual(self.request('/api/evidence?uri=' + quote(secret.as_uri(), safe=''))[0], 404)
+        receipt.unlink()
+        receipt.symlink_to(secret)
+        self.assertEqual(self.request(endpoint)[0], 404)
+
+    def test_evidence_rejects_retargeted_parent(self):
+        folder = self.repo / 'docs' / 'task-a'
+        folder.mkdir(parents=True)
+        (folder / 'SPEC.md').write_text('Public evidence')
+        snapshot = json.loads(self.request('/api/state')[1])
+        row = next(r for r in snapshot['rows'] if r['source'] == 'artifacts')
+        endpoint = '/api/evidence?uri=' + quote(row['links'][0]['href'], safe='')
+        folder.rename(self.repo / 'original')
+        secret = self.repo / 'private'
+        secret.mkdir()
+        (secret / 'SPEC.md').write_text('PRIVATE')
+        folder.symlink_to(secret, target_is_directory=True)
+        self.assertEqual(self.request(endpoint)[0], 404)
+
+    def test_tracker_blocker_survives_finished_ownership(self):
+        tracker = self.repo / '.nightshift' / 'task-a.md'
+        tracker.write_text('# Task\n**URL:** https://example.atlassian.net/browse/task-a\n## Pipeline Stages\n✅ Spec approved\n🚫 /nightshift-implement — build\n⬜ /nightshift-review\n\n## Failure / Block Receipt\n- Stage: implementation\n'
+                           '- Outcome: SKIPPED\n- Root cause: prerequisite naming unresolved\n')
+        ownership = self.repo / '.git' / 'nightshift' / 'worktrees'
+        ownership.mkdir(parents=True)
+        (ownership / 'task-a.json').write_text(json.dumps({'task': 'task-a', 'status': 'finished'}))
+        rows = json.loads(self.request('/api/state')[1])['rows']
+        blocker = next(r for r in rows if r['source'] == 'gate')
+        self.assertEqual(blocker['ticket'], 'task-a')
+        self.assertEqual(blocker['state'], 'blocked')
+        self.assertIn('prerequisite naming unresolved', blocker['reason'])
+        timeline = next(r['pipeline_steps'] for r in rows if r.get('pipeline_steps'))
+        self.assertEqual(next(r['ticket_url'] for r in rows if r.get('ticket_url')),
+                         'https://example.atlassian.net/browse/task-a')
+        self.assertEqual([(step['stage'], step['state']) for step in timeline],
+                         [('product', 'passed'), ('implement', 'blocked'), ('review', 'pending')])
 
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:

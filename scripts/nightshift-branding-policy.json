@@ -46,7 +46,7 @@
     {
       "rule": "provider-executor",
       "path": "scripts/nightshift-agent.sh",
-      "context": "      CMD=(claude -p --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
+      "context": "      CMD=(claude -p --no-session-persistence --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
       "reason": "The existing dispatcher implements the routed provider invocation using the selected role and model."
     },
     {

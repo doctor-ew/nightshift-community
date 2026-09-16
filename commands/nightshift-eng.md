@@ -6,6 +6,25 @@ argument-hint: "<REF-or-task-key> — e.g., gh:12, jira:MVP-1, MVP-1 (resume), b
 
 # /nightshift-eng — Pipeline Orchestrator
 
+## Factory execution contract
+
+When `NIGHTSHIFT_FACTORY_MODE=true`, the launcher's resolved branch and publication
+policy takes precedence over the supervised pipeline below. Factory options
+`--branch`, `--push`, and `--pr` belong to the launcher, not this stage's parser.
+With branch=none, skip worktree preparation and use the caller checkout.
+Otherwise use the shared worktree helper; its default is the refreshed remote
+integration branch. Preserve an explicit `--base` and check prerequisite ancestry
+before drafting a spec. Do not delete or recreate worktrees to change their base.
+
+Execute each stage's canonical instructions. Dispatch every role through
+`scripts/nightshift-agent.sh`; never use native Agent/Task tools or invoke a
+provider directly. This is required for provider policy and dashboard reporting.
+
+After verification, follow the launcher's publication policy: only commit and
+push when push=true, and only open a PR when pr=true. Do not invoke the deploy
+stage, merge, or deploy. Record the delivery result, then proceed to Step 10.
+The supervised deployment steps below do not apply to factory runs.
+
 Authentication is invocation-scoped: initialize `STAGE_AUTH=subscription` and
 set it to `api` only after parsing an explicit `--auth api` in this invocation's
 arguments. Remove that option from the ticket key. Never import authentication

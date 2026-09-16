@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
-    version|init|setup|dashboard|sync|--sync|--help|-h|"") ;;
+    version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-output.py" "$SCRIPT_PATH" "$@" ;;
   esac
 fi
@@ -36,7 +36,7 @@ if [ "${1:-}" = --sync ]; then
 fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
-    version|init|setup|dashboard|--help|-h|"") ;;
+    version|init|setup|cleanup|dashboard|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --run "$@" ;;
   esac
 fi
@@ -45,10 +45,12 @@ if [ "${1:-}" = sync ]; then
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
+if [ "${1:-}" = "cleanup" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$@"; fi
 if [ "${1:-}" = "init" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-init.py" "$@"; fi
 if [ "${1:-}" = "setup" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-setup.sh" "$@"; fi
 if [ "${1:-}" = "dashboard" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-dashboard.sh" --serve "$@"; fi
 
+export NIGHTSHIFT_FACTORY_PID="$$"
 PROJECT="$(pwd)"
 PROVIDER=""
 MODEL=""
@@ -60,6 +62,7 @@ REF=""
 MODE="eng"
 ADVISORY=false
 BRANCH="auto"
+BASE_REF=""
 PUSH="false"
 OPEN_PR="false"
 BATCH_ARGS=()
@@ -68,6 +71,7 @@ APPROVE_SPEC=""
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
+PROVIDER_POLICY_OPTION=""
 NIGHTSHIFT_HOME_DIR="${NIGHTSHIFT_HOME:-${HOME}/.nightshift}"
 AUTH_CONFIG="${NIGHTSHIFT_HOME_DIR}/config"
 
@@ -79,6 +83,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift batch <tickets-or-query> [options]
        nightshift [runtime/model] <help|explain|architect|dev|pm|ux-designer|architecture|ux|bmad> [request] [options]
        nightshift init [runtime/model] [DIR] [--include FILE]
+       nightshift cleanup TASK [--project DIR]
        nightshift setup [--project DIR]
        nightshift dashboard [--project DIR] [--port PORT]
 
@@ -100,6 +105,7 @@ Options:
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
+  --provider-policy standard|claude-only  Restrict all managed provider calls
   --provider codex|claude|ollama|local  Runtime (default: configured, then codex)
   --gear auto|0|1|2|3|4       Role-router gear preference
   --risk low|standard|high    Role-router risk class
@@ -108,6 +114,7 @@ Options:
   --dashboard-browser once|off  Open only on dashboard start (default: once)
   --auth subscription|api    Authentication (default: subscription; api is a per-run opt-in)
   --branch auto|NAME         Isolated ticket branch (default: auto)
+  --base REF                 Explicit engineering worktree base (default: remote default branch)
   --push                     Commit verified changes and push the ticket branch
   --pr                       Open a PR after --push; never merges or deploys
   -h, --help                 Show this help
@@ -120,6 +127,7 @@ while [ "$#" -gt 0 ]; do
     --retry-review) RETRY_REVIEW=true ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
+    --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
     --provider) shift; PROVIDER="${1:-}" ;;
     --model) shift; MODEL="${1:-}" ;;
     --gear) shift; export NIGHTSHIFT_GEAR="${1:-}" ;;
@@ -128,6 +136,7 @@ while [ "$#" -gt 0 ]; do
     --dashboard-browser) shift; DASHBOARD_BROWSER="${1:-}" ;;
     --auth) shift; AUTH_MODE="${1:-}"; AUTH_EXPLICIT=true ;;
     --branch) shift; BRANCH="${1:-}" ;;
+    --base) shift; BASE_REF="${1:?--base requires a ref}" ;;
     --push) PUSH="true" ;;
     --pr) OPEN_PR="true" ;;
     --batch-n|--resume)
@@ -197,6 +206,23 @@ PROJECT_CONTEXT=$(python3 "$SCRIPT_DIR/nightshift-project-context.py" --project 
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 
+# Resolve trusted ticket identity from the explicit launcher input. Batch-level
+# provider work is shared orchestration; role dispatchers bind each active task.
+NIGHTSHIFT_TICKET_JSON=''
+NIGHTSHIFT_FACTORY_ATTRIBUTION=unattributed
+if [ "$ADVISORY" = false ] && [ "$MODE" = eng ]; then
+  if resolved_ticket="$(bash "$SCRIPT_DIR/nightshift-ticket-source.sh" --derive-id "$REF" --project "$PROJECT" 2>/dev/null)" &&
+     jq -e 'type == "object" and (.source | type == "string") and has("repository") and
+       (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+       (.source_id != null)' <<< "$resolved_ticket" >/dev/null 2>&1; then
+    NIGHTSHIFT_TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$resolved_ticket")"
+    NIGHTSHIFT_FACTORY_ATTRIBUTION=ticket
+  fi
+elif [ "$ADVISORY" = false ] && [ "$MODE" = batch ]; then
+  NIGHTSHIFT_FACTORY_ATTRIBUTION=shared
+fi
+export NIGHTSHIFT_TICKET_JSON
+
 # One run-scoped, private metrics context for this factory invocation,
 # propagated to role/worktree descendants through the environment. Metrics
 # are strictly observational: an unavailable or failed metrics home (no Git,
@@ -206,8 +232,42 @@ NIGHTSHIFT_RUN_ID="$(jq -r '.run_id // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null |
 NIGHTSHIFT_RUN_DIR="$(jq -r '.run_dir // ""' <<< "$RUN_METRICS_INIT" 2>/dev/null || echo '')"
 export NIGHTSHIFT_RUN_ID NIGHTSHIFT_RUN_DIR
 METRICS_FINALIZED=false
+FACTORY_TELEMETRY_STARTED=""
+factory_telemetry() {
+  [ -n "$FACTORY_TELEMETRY_STARTED" ] || return 0
+  python3 - "$PROJECT" "$$" "$PROVIDER" "${MODEL:-runtime default}" "$FACTORY_TELEMETRY_STARTED" "$1" <<'PYTELEMETRY' || true
+import json, os, sys, tempfile
+from pathlib import Path
+from datetime import datetime, timezone
+project, pid, provider, model, started, status = sys.argv[1:]
+state = Path(project) / '.nightshift'
+directory = state / 'agents'
+try:
+    if state.is_symlink() or directory.is_symlink():
+        raise ValueError('symlink state directory')
+    directory.mkdir(parents=True, exist_ok=True)
+    record = dict(role='nightshift-factory', provider=provider, model=model,
+                  gear='', started_at=started, pid=int(pid), status=status,
+                  finished_at='' if status == 'running' else datetime.now(timezone.utc).isoformat())
+    record['ticket'] = json.loads(os.environ.get('NIGHTSHIFT_TICKET_JSON') or 'null')
+    fd, temporary = tempfile.mkstemp(prefix='.factory-', dir=directory)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(record, stream)
+    os.replace(temporary, directory / ('factory-' + pid + '.json'))
+except (OSError, ValueError):
+    pass  # Observations must not block engineering.
+PYTELEMETRY
+}
+FACTORY_METRICS_TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-factory-metrics.XXXXXX" 2>/dev/null || true)"
+FACTORY_PROVIDER_OUTPUT=''
+[ -z "$FACTORY_METRICS_TMP" ] || FACTORY_PROVIDER_OUTPUT="$FACTORY_METRICS_TMP/provider-output.jsonl"
 run_metrics_summary() {
   METRICS_FINALIZED=true
+  case "$1" in
+    provider_exited_0) factory_telemetry success ;;
+    provider_exited_nonzero) factory_telemetry failed ;;
+    *) factory_telemetry "$1" ;;
+  esac
   [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
   if [ -z "${NIGHTSHIFT_RUN_DIR:-}" ]; then
     printf '%s\n' '{"schema_version":1,"metrics_available":false,"reason":"PERSISTENCE_UNAVAILABLE"}' >&2
@@ -222,9 +282,52 @@ finish_metrics() {
   if [ "$METRICS_FINALIZED" = false ]; then
     run_metrics_summary interrupted
   fi
+  [ -z "$FACTORY_METRICS_TMP" ] || rm -rf -- "$FACTORY_METRICS_TMP"
   return "$result"
 }
 trap finish_metrics EXIT
+
+record_factory_provider_receipts() {
+  [ -n "$FACTORY_PROVIDER_OUTPUT" ] && [ -f "$FACTORY_PROVIDER_OUTPUT" ] || return 0
+  [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  case "$PROVIDER" in claude|codex) ;; *) return 0 ;; esac
+  local parsed="$FACTORY_METRICS_TMP/provider-usage.json"
+  local receipts="$FACTORY_METRICS_TMP/receipts.jsonl"
+  local receipt="$FACTORY_METRICS_TMP/receipt.json" status="$1"
+  python3 "$SCRIPT_DIR/nightshift-provider-usage.py" --provider "$PROVIDER" --input "$FACTORY_PROVIDER_OUTPUT" > "$parsed" 2>/dev/null || printf '[]\n' > "$parsed"
+  jq -e 'type == "array"' "$parsed" >/dev/null 2>&1 || printf '[]\n' > "$parsed"
+  [ "$(jq 'length' "$parsed")" -gt 0 ] || printf '[{}]\n' > "$parsed"
+  jq -c --arg ticket_json "$NIGHTSHIFT_TICKET_JSON" --arg attribution "$NIGHTSHIFT_FACTORY_ATTRIBUTION" \
+    --arg run_id "$NIGHTSHIFT_RUN_ID" --arg invocation_id "factory-$NIGHTSHIFT_RUN_ID" \
+    --arg provider "$PROVIDER" --arg selected_model "$MODEL" --arg status "$status" '
+    ($ticket_json | if . == "" then null else fromjson end) as $ticket |
+    to_entries[] | .key as $index | .value as $observation | {
+      schema_version:2,
+      ticket:(if $attribution == "ticket" then $ticket else null end),
+      attribution:$attribution,
+      run_id:$run_id,
+      invocation_id:$invocation_id,
+      receipt_id:($observation.receipt_id // ("provider-" + ($index | tostring))),
+      sequence:($observation.sequence // $index),
+      stream_epoch:($observation.stream_epoch // 0),
+      provider:$provider,
+      selected_model:(if $selected_model == "" then null else $selected_model end),
+      reported_model:($observation.reported_model // null),
+      stage:null,
+      status:$status,
+      role:"orchestrator",
+      coverage_scope:($observation.coverage_scope // "self"),
+      parent_invocation_id:($observation.parent_invocation_id // null),
+      included_invocation_ids:(if $observation | has("included_invocation_ids") then $observation.included_invocation_ids else null end),
+      child_kind:($observation.child_kind // "external_dispatch"),
+      usage:($observation.usage // null),
+      cost:($observation.cost // {provider_reported_estimate_usd:null,token_derived_estimate_usd:null,actual_billed_usd:null,pricing_sources:[]})
+    }' "$parsed" > "$receipts" 2>/dev/null || return 0
+  while IFS= read -r line; do
+    printf '%s\n' "$line" > "$receipt" || continue
+    python3 "$SCRIPT_DIR/nightshift-run-metrics.py" ingest --run-dir "$NIGHTSHIFT_RUN_DIR" --receipt-file "$receipt" >/dev/null 2>&1 || true
+  done < "$receipts"
+}
 
 # Typed, read-only admission receipt: baseline, local-input/ticket identity,
 # manifest and worktree-collision checks, in that fixed order, before any
@@ -254,6 +357,15 @@ set +e
 ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
 set -e
 ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION" 2>/dev/null || echo '')"
+if [ "$ADMISSION_REASON" = WORKTREE_COLLISION ]; then
+  while IFS= read -r task; do
+    python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$task" --project "$PROJECT" >&2 || true
+  done < <(jq -r '.tasks[]' <<< "$ADMISSION")
+  set +e
+  ADMISSION="$(preflight_admission)"; ADMISSION_STATUS=$?
+  set -e
+  ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION")"
+fi
 if [ "$ADVISORY" = false ] && [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
   bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
 fi
@@ -273,6 +385,22 @@ GLOBAL_SETTINGS="$(bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$NIGHTSHIFT
 PROJECT_SETTINGS="$SETTINGS_JSON"
 BUNDLED_ALIASES="$(python3 -c 'import json,sys,tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb")).get("runtime", {}).get("aliases", {})))' "$SOURCE_DIR/nightshift.toml")"
 SETTINGS_JSON="$(jq -cn --argjson aliases "$BUNDLED_ALIASES" --argjson global "$GLOBAL_SETTINGS" --argjson project "$SETTINGS_JSON" '{runtime:{aliases:$aliases}} * $global * $project')"
+# Resolve policy before choosing or probing a runtime. CLI cannot relax a
+# project/global or inherited restriction.
+case "$PROVIDER_POLICY_OPTION" in
+  '') ;;
+  standard|claude-only)
+    if [ "${NIGHTSHIFT_PROVIDER_POLICY:-standard}" != claude-only ]; then
+      export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY_OPTION"
+    fi ;;
+  *) echo 'invalid provider policy' >&2; exit 64 ;;
+esac
+PROVIDER_POLICY=$(python3 "$SCRIPT_DIR/nightshift-provider-policy.py" mode --project "$PROJECT") || exit $?
+export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
+echo "nightshift: provider policy: $PROVIDER_POLICY" >&2
+if [ "$PROVIDER_POLICY" = claude-only ] && [ -z "$PROVIDER" ]; then
+  PROVIDER=claude
+fi
 [ -n "$PROVIDER" ] || PROVIDER="$(jq -r '.runtime.provider // "codex"' <<< "$SETTINGS_JSON")"
 [ "$PROVIDER" != ollama ] || PROVIDER=local
 # Aliases are data from the merged project/global manifest, never model-family
@@ -318,6 +446,9 @@ fi
 case "$PROVIDER" in codex|claude|local) ;; *) echo "Unknown provider: $PROVIDER" >&2; exit 64 ;; esac
 [ -n "$BRANCH" ] || { echo "--branch requires auto, none, or a branch name." >&2; exit 64; }
 [ "$OPEN_PR" = "false" ] || [ "$PUSH" = "true" ] || { echo "--pr requires --push." >&2; exit 64; }
+if [ "$PROVIDER_POLICY" = claude-only ] && [ "$PROVIDER" != claude ]; then
+  echo 'nightshift: claude-only policy prohibits the selected provider' >&2; exit 64
+fi
 RUNTIME_CLI=codex
 [ "$PROVIDER" = claude ] && RUNTIME_CLI=claude
 command -v "$RUNTIME_CLI" >/dev/null 2>&1 || { echo "$RUNTIME_CLI is required but was not found on PATH." >&2; exit 69; }
@@ -370,28 +501,38 @@ else
   QUOTED_REF=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$REF")
   REQUEST="\$nightshift ${QUOTED_REF}"
 fi
-REQUEST+=" --branch ${BRANCH}"
 if [ "$PROVIDER" = claude ]; then
   if [ "$MODE" = batch ]; then
-    REQUEST="/nightshift-batch ${BATCH_ARGS[*]} --branch ${BRANCH}"
+    REQUEST="/nightshift-batch ${BATCH_ARGS[*]}"
   else
-    REQUEST="/nightshift-eng ${REF} --branch ${BRANCH}"
+    REQUEST="/nightshift-eng ${QUOTED_REF}"
   fi
 fi
+# Factory publication options are policy, not engineering-stage arguments.
+if [ "$MODE" = batch ]; then
+  [ -z "$BASE_REF" ] || { echo '--base is supported for individual tickets only.' >&2; exit 64; }
+  REQUEST+=" --branch ${BRANCH}"
+  [ "$PUSH" = "true" ] && REQUEST+=" --push"
+  [ "$OPEN_PR" = "true" ] && REQUEST+=" --pr"
+elif [ -n "$BASE_REF" ]; then
+  QUOTED_BASE=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$BASE_REF")
+  REQUEST+=" --base ${QUOTED_BASE}"
+fi
 if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth api"; fi
-[ "$PUSH" = "true" ] && REQUEST+=" --push"
-[ "$OPEN_PR" = "true" ] && REQUEST+=" --pr"
 # This Codex process is the factory worker. A literal command alone is ambiguous
 # to an agent that also has the terminal launcher on PATH, which can recurse.
 PROMPT="You are the inner Nightshift factory worker. Execute this requested Nightshift workflow directly by following its installed skill and command instructions: ${REQUEST}
 
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
-Resolved factory policy: work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
-Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, including its read-only Codex verifier subprocess for cross-provider adversarial review. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
+Authorized role dispatch is different from recursive factory startup: use the installed scripts/nightshift-agent.sh for schema-validated role calls, with independent review according to the active provider policy. Do not use native Agent or Task tools to launch roles; every role must pass through the shared dispatcher so policy, contracts, and lifecycle records are enforced. Do not launch Codex directly. Preserve author-provider provenance, subscription authentication, independent review and bounded repair attempts. A role worker must not invoke another role worker or factory. This authorization does not permit same-provider self-approval or a gate bypass."
+if [ "$PROVIDER_POLICY" = claude-only ]; then
+  PROMPT+=$'\nProvider policy: claude-only. Use only Claude for authoring and every reviewer. Never launch Codex, Ollama, or another provider, including via tools or subagents. Route reviews through the shared dispatcher with author provenance. The explicit policy permits a fresh isolated Claude reviewer session; never resume an author session for review. Record same-provider session independence, not cross-provider diversity. Preserve all evidence, test and repair gates.'
+fi
 if [ "$PROVIDER" = local ]; then
   PROMPT+="
 
@@ -413,7 +554,7 @@ ARGUMENTS: ${REF}"
   case "$MODE" in architecture|ux) ;; *) SANDBOX=read-only ;; esac
 fi
 COMMON=(--ask-for-approval never exec -C "$PROJECT" --sandbox "$SANDBOX")
-[ "${NIGHTSHIFT_OUTPUT_MODE:-verbose}" = verbose ] || COMMON+=(--json)
+if [ "$ADVISORY" = false ] || [ "${NIGHTSHIFT_OUTPUT_MODE:-verbose}" != verbose ]; then COMMON+=(--json); fi
 [ -n "$MODEL" ] && COMMON+=(--model "$MODEL")
 
 if [ "$PROVIDER" = "local" ]; then
@@ -456,6 +597,16 @@ fi
 
 echo "nightshift: factory provider: $PROVIDER; model: ${MODEL:-runtime default}; no automatic factory fallback; role routing remains configured." >&2
 
+# Save non-secret invocation policy for explicit console resume actions.
+if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ "$BRANCH" = auto ] && [ -n "$NIGHTSHIFT_TICKET_JSON" ]; then
+  CONSOLE_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
+  CONSOLE_SETTINGS=$(jq -cn --arg ref "$REF" --arg provider "$PROVIDER" --arg model "$MODEL" \
+    --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
+    --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
+    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
+  python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS" || true
+fi
+
 # Factory launches are autonomous; propagate the mode to every role dispatcher.
 # Advisory commands retain their separate interaction policy.
 if [ "$ADVISORY" = false ]; then
@@ -464,14 +615,21 @@ fi
 CHILD_PID=""
 # shellcheck disable=SC2329 # invoked by signal traps
 handle_interruption() {
-  local signal="$1"
+  local signal="$1" interrupted_child="$CHILD_PID"
   echo "nightshift: interrupted by ${signal}; the $PROVIDER runtime was stopped before the factory completed." >&2
   if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
     kill -TERM "$CHILD_PID" 2>/dev/null || true
     wait "$CHILD_PID" 2>/dev/null || true
   fi
+  CHILD_PID=""
+  # Process-substitution tee may still be draining the provider pipe after the
+  # provider exits. Its status is observational and must not affect the run.
+  wait >/dev/null 2>&1 || true
   echo "nightshift: inspect the batch state and resume with 'nightshift batch --resume <batch-file> --branch ${BRANCH}'." >&2
-  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$CHILD_PID" ]; then
+  if [ -n "$interrupted_child" ]; then
+    record_factory_provider_receipts interrupted || true
+  fi
+  if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "$interrupted_child" ]; then
     python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
       --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
       --status interrupted >/dev/null 2>&1 || true
@@ -482,6 +640,11 @@ handle_interruption() {
 trap 'handle_interruption SIGINT' INT
 trap 'handle_interruption SIGTERM' TERM
 
+if [ "$ADVISORY" = false ]; then
+  FACTORY_TELEMETRY_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  factory_telemetry running
+fi
+
 if [ "$PROVIDER" = claude ]; then
   CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
@@ -490,27 +653,51 @@ if [ "$PROVIDER" = claude ]; then
       *) CLAUDE_ARGS+=(--tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob") ;;
     esac
   fi
+  [ "$ADVISORY" = true ] || CLAUDE_ARGS+=(--disallowedTools "Agent,Task")
   [ "$BRANCH" != none ] && CLAUDE_ARGS+=(--dangerously-skip-permissions)
   [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
-  (
-    cd "$PROJECT" || exit 66
-    if [ "$AUTH_MODE" = subscription ]; then
-      exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
-    else
-      exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
-    fi
-  ) &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    (
+      cd "$PROJECT" || exit 66
+      if [ "$AUTH_MODE" = subscription ]; then
+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      else
+        exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      fi
+    ) > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    (
+      cd "$PROJECT" || exit 66
+      if [ "$AUTH_MODE" = subscription ]; then
+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      else
+        exec claude "${CLAUDE_ARGS[@]}" -- "$PROMPT"
+      fi
+    ) &
+  fi
 elif [ "$PROVIDER" = "codex" ] && [ "$AUTH_MODE" = "subscription" ]; then
-  env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    env -u OPENAI_API_KEY codex "${COMMON[@]}" "$PROMPT" &
+  fi
 else
-  codex "${COMMON[@]}" "$PROMPT" &
+  if [ -n "$FACTORY_PROVIDER_OUTPUT" ]; then
+    codex "${COMMON[@]}" "$PROMPT" > >(tee "$FACTORY_PROVIDER_OUTPUT") &
+  else
+    codex "${COMMON[@]}" "$PROMPT" &
+  fi
 fi
 CHILD_PID=$!
 set +e
 wait "$CHILD_PID"
 CODEX_STATUS=$?
+# Do not parse the capture until process-substitution tee has reached EOF.
+# Capture completion remains observational and cannot replace provider status.
+wait >/dev/null 2>&1 || true
 set -e
 CHILD_PID=""
+record_factory_provider_receipts "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" || true
 if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
   python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \
     --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \

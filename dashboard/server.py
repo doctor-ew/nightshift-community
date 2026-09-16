@@ -3,11 +3,14 @@ import argparse
 import importlib.util
 import secrets
 import json
+import os
+import stat
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import subprocess
 import threading
 import time
+from urllib.parse import parse_qs, urlsplit, unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -37,6 +40,41 @@ class DashboardServer(ThreadingHTTPServer):
                 self.collected_at = time.monotonic()
             return self.snapshot
 
+    def evidence(self, uri):
+        snapshot = json.loads(self.collect())
+        allowed = {link['href'] for row in snapshot.get('rows', [])
+                   for link in row.get('links', []) if link and link.get('href')}
+        parsed = urlsplit(uri)
+        if uri not in allowed or parsed.scheme != 'file' or parsed.netloc:
+            raise ValueError('Unknown evidence')
+        path = Path(unquote(parsed.path))
+        if not path.is_absolute() or '..' in path.parts:
+            raise ValueError('Unsafe evidence path')
+        # Open every component without following links, including parent directories.
+        fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in path.parts[1:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                os.close(fd)
+                fd = child
+            file_fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+            with os.fdopen(file_fd, 'rb') as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_size > 1_048_576:
+                    raise ValueError('Evidence is not a bounded regular file')
+                content = stream.read(1_048_577)
+                if len(content) > 1_048_576:
+                    raise ValueError('Evidence is too large')
+                return content
+        finally:
+            os.close(fd)
+
+
+
+def action_module():
+    spec = importlib.util.spec_from_file_location('console_actions', ROOT / 'scripts/nightshift-console-actions.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
 
 
 def review_module():
@@ -68,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 1, 'evidence_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -76,13 +114,28 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError, subprocess.SubprocessError):
                 self.reply(503, b'Review collection unavailable')
             return
+        if self.path == '/api/tickets':
+            try:
+                self.reply(200, json.dumps(dict(tickets=action_module().list_tickets(self.server.project), token=self.server.approval_token)).encode(), 'application/json')
+            except (ValueError, OSError, subprocess.SubprocessError):
+                self.reply(503, b'Ticket actions unavailable')
+            return
         if self.path == '/api/state':
             try:
                 self.reply(200, self.server.collect(), 'application/json')
             except (subprocess.SubprocessError, ValueError, OSError):
                 self.reply(503, b'{"error":"State collection unavailable; retry shortly"}', 'application/json')
             return
-        asset = ASSETS.get(self.path)
+        if urlsplit(self.path).path == '/api/evidence':
+            try:
+                query = parse_qs(urlsplit(self.path).query, strict_parsing=True)
+                if set(query) != {'uri'} or len(query['uri']) != 1:
+                    raise ValueError('Invalid evidence request')
+                self.reply(200, self.server.evidence(query['uri'][0]))
+            except (ValueError, OSError, subprocess.SubprocessError):
+                self.reply(404, b'Evidence unavailable or outside collected artifacts')
+            return
+        asset = ASSETS.get('/') if urlsplit(self.path).path == '/evidence' else ASSETS.get(self.path)
         if asset is None:
             self.reply(404, b'Not found')
             return
@@ -95,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path != '/api/workshop/approve':
+        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -110,7 +163,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict) or set(body) != {'task', 'sha256'} or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
-            result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            if self.path == '/api/workshop/approve':
+                result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            else:
+                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1])
             self.reply(200, json.dumps(result).encode(), 'application/json')
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')

@@ -195,6 +195,23 @@ class BehaviorProofPrototype(unittest.TestCase):
 
     def fixture(self,**kwargs):return self.builder.PrototypeFixture(ROOT,self.base,**kwargs)
 
+    def test_claude_only_challenge_requires_opt_in_and_cannot_be_reused_under_standard(self):
+        fixture=self.fixture(timeout=15,author_provider='claude')
+        rejected=fixture.call('challenge','--scenarios',fixture.scenarios,'--out',fixture.challenge)
+        self.assertNotEqual(rejected.returncode,0,'Default still requires a different reviewer provider')
+        fixture.env['NIGHTSHIFT_PROVIDER_POLICY']='claude-only'
+        fixture.seal()
+        receipt=json.loads(fixture.challenge.read_text())
+        self.assertEqual(receipt['provider_policy'],'claude-only')
+        self.assertEqual(receipt['review_independence'],'fresh-session')
+        self.assertEqual(receipt['reviewer_provider'],'claude')
+        argv=fixture.model_calls()[-1]['argv']
+        self.assertIn('--no-session-persistence',argv)
+        self.assertNotIn('--resume',argv)
+        self.assertEqual(fixture.call('run','--gate','development').returncode,0)
+        fixture.env['NIGHTSHIFT_PROVIDER_POLICY']='standard'
+        self.assertNotEqual(fixture.call('gate','--gate','development').returncode,0)
+
     def test_real_stub_execution_oracle_and_idempotent_reuse(self):
         fixture=self.fixture();fixture.seal()
         initial=len(fixture.model_calls())

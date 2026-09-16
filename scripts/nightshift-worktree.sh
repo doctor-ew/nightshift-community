@@ -113,6 +113,7 @@ if [ "$operation" = check ]; then
     fi
     dirty=fail
     if [ -d "$recorded_target" ] && [ -z "$(git -C "$recorded_target" status --porcelain --untracked-files=all 2>/dev/null)" ]; then dirty=pass; fi
+    if [ "$dirty" = fail ] && python3 "$(dirname "$0")/nightshift-cleanup.py" "$task" --project "$recorded_target" --check >/dev/null 2>&1; then dirty=pass; fi
     jq -cn --arg task "$task" --arg branch "$branch" --arg worktree "$recorded_target" \
       --arg base_ref "$recorded_base" --arg base_sha "$recorded_sha" \
       --arg base_match "$base_match" --arg ancestry "$ancestry" --arg root_match "$root_match" --arg dirty "$dirty" \
@@ -254,7 +255,7 @@ if [ -e "$receipt" ]; then
     operation=prepare
   fi
   if [ "$operation" = prepare ]; then
-    [ -z "$(git -C "$target" status --porcelain --untracked-files=all)" ] || fail "dirty worktree cannot be reused: $target"
+    [ -z "$(git -C "$target" status --porcelain --untracked-files=all)" ] || python3 "$(dirname "$0")/nightshift-cleanup.py" "$task" --project "$target" --check >/dev/null 2>&1 || fail "dirty worktree cannot be reused: $target"
   fi
 else
   [ "$operation" = prepare ] || fail "no ownership receipt for $task"
@@ -264,7 +265,19 @@ else
   [[ "$target" != *$'\n'* && "$target" != *$'\r'* ]] || fail 'unsafe worktree path'
   [ ! -e "$target" ] && [ ! -L "$target" ] || fail "unowned target exists: $target"
   if git -C "$project" show-ref --verify --quiet "refs/heads/$branch"; then fail "unowned branch exists: $branch"; fi
-  if [ "$explicit" = false ]; then base=HEAD; base_sha=$(git -C "$project" rev-parse --verify 'HEAD^{commit}'); fi
+  if [ "$explicit" = false ]; then
+    # A prototype checkout is not the integration baseline for a new ticket.
+    base=$(git -C "$project" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)
+    if [ -n "$base" ]; then
+      remote_branch=${base#refs/remotes/origin/}
+      git -C "$project" fetch --no-tags origin "refs/heads/$remote_branch:$base" >&2 || fail 'cannot refresh default base; retry or supply --base REF'
+    elif [ -n "$(git -C "$project" remote)" ]; then
+      fail 'remote default branch is unknown; set origin/HEAD or supply --base REF'
+    else
+      base=HEAD
+    fi
+    base_sha=$(git -C "$project" rev-parse --verify "$base^{commit}") || fail 'default base is missing'
+  fi
   if [ -n "$required" ]; then
     git -C "$project" merge-base --is-ancestor "$required_sha" "$base_sha" || fail 'new base does not include required prerequisite'
   fi

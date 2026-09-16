@@ -64,6 +64,23 @@ class Dashboard(unittest.TestCase):
                     if p.is_file() and not p.is_symlink():
                         result[str(p)] = (hashlib.sha256(p.read_bytes()).hexdigest(), p.stat().st_mtime_ns)
         return result
+    def test_ticket_usage_summary_and_symlink_boundary(self):
+        report = dict(schema_version=2, ticket={'source':'jira','source_id':'IF-302'},
+                      usage={'known_subtotal':{'total':123},'complete':False},
+                      cost={'provider_reported_estimate_usd':0.02,'actual_billed_usd':None})
+        root=self.repo/'.git/nightshift/ticket-metrics'
+        summary=self.write('.git/nightshift/ticket-metrics/fixture/summary.json',report)
+        before=summary.read_bytes()
+        result=subprocess.run(['bash',str(SCRIPT),'--project',str(self.repo),'--json'],capture_output=True,text=True,check=True)
+        data=json.loads(result.stdout)
+        self.assertEqual(data['ticket_usage'],[report])
+        self.assertEqual(summary.read_bytes(),before)
+        outside=self.repo/'outside';outside.mkdir()
+        (outside/'summary.json').write_text(json.dumps(report))
+        (root/'escape').symlink_to(outside,target_is_directory=True)
+        result=subprocess.run(['bash',str(SCRIPT),'--project',str(self.repo),'--json'],capture_output=True,text=True,check=True)
+        self.assertEqual(len(json.loads(result.stdout)['ticket_usage']),1)
+
     def test_empty_and_usage(self):
         self.assertTrue(os.access(SCRIPT, os.X_OK), 'installed entrypoint must be executable')
         _, doc = self.render(); self.assertRegex(doc.visible.lower(), 'no |empty|unknown')

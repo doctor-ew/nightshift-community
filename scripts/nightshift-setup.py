@@ -58,6 +58,8 @@ if runtime.get('provider', 'codex') not in ('codex', 'claude', 'local', 'ollama'
     fail('CONFIG_INVALID', 'runtime.provider must be codex, claude, local, or ollama')
 if section('output').get('mode', 'concise') not in ('concise', 'verbose', 'quiet'):
     fail('CONFIG_INVALID', 'output.mode must be concise, verbose, or quiet')
+if section('providers').get('policy', 'standard') not in ('standard', 'claude-only'):
+    fail('CONFIG_INVALID', 'providers.policy must be standard or claude-only')
 models = section('runtime.models')
 for provider, model in models.items():
     if provider not in ('codex', 'claude', 'local', 'ollama') or not isinstance(model, str):

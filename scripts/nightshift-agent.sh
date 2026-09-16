@@ -13,6 +13,7 @@ RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE='' STAG
 TELEMETRY_FILE='' TELEMETRY_STARTED='' TELEMETRY_STATUS=failed
 INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
+ACCOUNTING_EMITTED=false TICKET_JSON='null' ATTRIBUTION=unattributed
 ERROR=''
 # Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
 # telemetry file above: a run-local, typed record of this one invocation for
@@ -46,6 +47,57 @@ emit_observation() {
     ${USAGE_INPUT:+--input-tokens "$USAGE_INPUT"} ${USAGE_OUTPUT:+--output-tokens "$USAGE_OUTPUT"} \
     >/dev/null 2>&1 || true
 }
+emit_accounting_receipts() {
+  [ "$ACCOUNTING_EMITTED" = false ] || return 0
+  ACCOUNTING_EMITTED=true
+  [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
+
+  local parsed="$TMP/provider-usage.json" receipts="$TMP/accounting-receipts.jsonl"
+  local status="$1" stage selected_model
+  [ -n "$TMP" ] && [ -f "$TMP/stdout" ] || return 0
+  case "$PROVIDER" in claude|codex) ;; *) return 0 ;; esac
+  python3 "$ROOT/scripts/nightshift-provider-usage.py" --provider "$PROVIDER" --input "$TMP/stdout" > "$parsed" 2>/dev/null || printf '[]\n' > "$parsed"
+  jq -e 'type == "array"' "$parsed" >/dev/null 2>&1 || printf '[]\n' > "$parsed"
+  [ "$(jq 'length' "$parsed")" -gt 0 ] || printf '[{}]\n' > "$parsed"
+  stage="$(role_stage "$ROLE")"
+  if [ -z "$stage" ] && [ -n "$STAGE_OVERRIDE" ]; then
+    case "$STAGE_OVERRIDE" in product|adversarial|implement|review|drift|preflight|deploy) stage="$STAGE_OVERRIDE" ;; esac
+  fi
+  selected_model="$MODEL"
+  jq -c --argjson ticket "$TICKET_JSON" --arg attribution "$ATTRIBUTION" \
+    --arg run_id "$NIGHTSHIFT_RUN_ID" --arg invocation_id "$INVOCATION_ID" \
+    --arg provider "$PROVIDER" --arg selected_model "$selected_model" --arg stage "$stage" \
+    --arg status "$status" --arg role "$ROLE" '
+    to_entries[] | .key as $index | .value as $observation | {
+      schema_version:2,
+      ticket:(if $attribution == "ticket" then $ticket else null end),
+      attribution:$attribution,
+      run_id:$run_id,
+      invocation_id:$invocation_id,
+      receipt_id:($observation.receipt_id // ("provider-" + ($index | tostring))),
+      sequence:($observation.sequence // $index),
+      stream_epoch:($observation.stream_epoch // 0),
+      provider:$provider,
+      selected_model:(if $selected_model == "" then null else $selected_model end),
+      reported_model:($observation.reported_model // null),
+      stage:(if $stage == "" then null else $stage end),
+      status:$status,
+      role:$role,
+      coverage_scope:($observation.coverage_scope // "self"),
+      parent_invocation_id:($observation.parent_invocation_id // null),
+      included_invocation_ids:(if $observation | has("included_invocation_ids") then $observation.included_invocation_ids else null end),
+      child_kind:($observation.child_kind // "none"),
+      usage:($observation.usage // null),
+      cost:($observation.cost // {provider_reported_estimate_usd:null,token_derived_estimate_usd:null,actual_billed_usd:null,pricing_sources:[]})
+    }' "$parsed" > "$receipts" 2>/dev/null || return 0
+
+  local receipt="$TMP/accounting-receipt.json"
+  while IFS= read -r line; do
+    printf '%s\n' "$line" > "$receipt" || continue
+    python3 "$ROOT/scripts/nightshift-run-metrics.py" ingest --run-dir "$NIGHTSHIFT_RUN_DIR" --receipt-file "$receipt" >/dev/null 2>&1 || true
+  done < "$receipts"
+}
 telemetry() (
   # Observational only: any filesystem/serialization failure is non-fatal.
   set -e
@@ -66,9 +118,14 @@ telemetry() (
     --arg gear "$GEAR" --arg start "$TELEMETRY_STARTED" --arg finish "$finished" \
     --arg status "$1" --argjson pid "$$" \
     '{role:$role,provider:$provider,model:$model,gear:$gear,started_at:$start,finished_at:$finish,status:$status,pid:$pid}' > "$temporary"
+  if [ -n "$TMP" ] && [ -f "$TMP/provider-usage.json" ]; then
+    jq --slurpfile observations "$TMP/provider-usage.json" '. + {usage_observations:$observations[0]}' "$temporary" > "$temporary.usage"
+    mv -f -- "$temporary.usage" "$temporary"
+  fi
   mv -f -- "$temporary" "$TELEMETRY_FILE"
 )
 cleanup() {
+  emit_accounting_receipts "$TELEMETRY_STATUS" || true
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
   emit_observation "$TELEMETRY_STATUS" || true
   [ -z "$TMP" ] || rm -rf -- "$TMP"; [ -z "$PUBLISH" ] || rm -f -- "$PUBLISH"
@@ -135,6 +192,27 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -z "$ERROR" ] || fail "$ERROR"
+# Single-ticket factories supply trusted identity even when a stage omits --task.
+if [ -z "$TASK_KEY" ] && [ -n "${NIGHTSHIFT_TICKET_JSON:-}" ]; then
+  TASK_KEY=$(jq -er '.source_id | select(type == "string" and length > 0)' <<< "$NIGHTSHIFT_TICKET_JSON" 2>/dev/null || true)
+fi
+if [ -n "$TASK_KEY" ]; then
+  METRICS_PROJECT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  if [ -n "${NIGHTSHIFT_TICKET_JSON:-}" ] &&
+     jq -e --arg task "$TASK_KEY" 'type == "object" and (.source | type == "string") and
+       has("repository") and
+       (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+       ((.source_id | tostring) == $task)' <<< "$NIGHTSHIFT_TICKET_JSON" >/dev/null 2>&1; then
+    TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$NIGHTSHIFT_TICKET_JSON")"
+    ATTRIBUTION=ticket
+  elif resolved_ticket="$(bash "$ROOT/scripts/nightshift-ticket-source.sh" --derive-id "$TASK_KEY" --project "$METRICS_PROJECT" 2>/dev/null)" &&
+       jq -e 'type == "object" and (.source | type == "string") and has("repository") and
+         (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+         (.source_id != null)' <<< "$resolved_ticket" >/dev/null 2>&1; then
+    TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$resolved_ticket")"
+    ATTRIBUTION=ticket
+  fi
+fi
 case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
@@ -174,13 +252,11 @@ jq -e --arg r "$ROLE" --arg g "$GEAR" '
 ' "$ROUTING" >/dev/null || fail 'invalid routing or missing requested route'
 ROUTE="$(jq -c --arg r "$ROLE" --arg g "$GEAR" '.roles[$r].gears[$g]' "$ROUTING")"
 [ -z "$AUTO_ROUTE" ] || ROUTE="$AUTO_ROUTE"
-if [ "$ADV" = true ] && [ "$(jq -r '.adversarial.cross_provider' "$ROUTING")" = true ]; then
-  case "$AUTHOR" in claude|codex|local) ;; *) fail 'adversarial dispatch requires valid --author-provider';; esac
-  if [ "$(jq -r '.provider' <<< "$ROUTE")" = "$AUTHOR" ]; then
-    ROUTE="$(jq -c --arg p "$AUTHOR" '[.adversarial.routes[]? | select(.provider != $p)][0] // empty' "$ROUTING")"
-    [ -n "$ROUTE" ] || fail 'no different-provider adversarial route available'
-  fi
-fi
+PROVIDER_POLICY=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" mode) || fail 'invalid provider policy'
+POLICY_ARGS=(route --routing "$ROUTING" --role "$ROLE" --gear "$GEAR" --initial "$ROUTE" --author "$AUTHOR")
+[ "$ADV" = false ] || POLICY_ARGS+=(--adversarial)
+ROUTE=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" "${POLICY_ARGS[@]}") || fail 'no policy-permitted provider route'
+export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
 PROVIDER="$(jq -r '.provider' <<< "$ROUTE")"
 MODEL="$(jq -r '.model' <<< "$ROUTE")"
 if [ "$AUTH" = subscription ]; then
@@ -205,6 +281,9 @@ case "$PROVIDER:$ROLE" in
   codex:nightshift-architect|codex:nightshift-engineer|codex:nightshift-spec-writer|local:nightshift-architect|local:nightshift-engineer|local:nightshift-spec-writer) EXECUTION_CONTEXT+=$'\nRead-only proposal worker: return the plan in reason and a complete implementation patch in artifacts.diff for authorized controller integration. Do not write files, request sandbox escalation, or enter interactive plan mode.' ;;
 esac
 EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independent review, permanent-removal confirmation and production-deployment confirmation. Execution mode does not approve a failed gate.'
+if [ "$PROVIDER_POLICY" = claude-only ]; then
+  EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
+fi
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-agent.XXXXXX")"
@@ -225,7 +304,7 @@ case "$PROVIDER" in
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
-      CMD=(claude -p --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     fi;;
   codex|local)
     # OpenAI strict Structured Outputs excludes allOf/if/then. Supply its
@@ -310,7 +389,7 @@ else
 fi
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/contract" >/dev/null || fail 'invalid role contract'
 # Provenance belongs to the dispatcher, not the model.
-jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" '.artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
+jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" --arg policy "$PROVIDER_POLICY" --arg adversarial "$ADV" '.rules_fired += (if $policy == "claude-only" then ["provider_policy:claude-only"] + (if $adversarial == "true" then ["review_independence:fresh-session"] else [] end) else [] end) | .artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/normalized" >/dev/null || fail 'invalid normalized contract'
 publish "$TMP/normalized" || fail 'cannot publish output contract'
 [ "$(jq -r '.status' "$TMP/normalized")" != FAIL ] || exit 1

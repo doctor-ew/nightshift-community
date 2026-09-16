@@ -45,7 +45,11 @@ and `evidence_sha256`. It records actual independent review, not a generated
 approval placeholder. Existing independent classification review is sufficient
 for ordinary deterministic or documentation-only cases; no extra model call is
 needed merely to fill these fields. Author identities contain `provider` and
-`author_id`. Typed prototype challenge also requires a different provider.
+`author_id`. Typed prototype challenge also requires a different provider under the default
+policy. Explicit `providers.policy = "claude-only"` permits a fresh Claude reviewer
+session; the dispatcher and authoritative challenge receipt record this policy and
+session-independence basis. A policy change invalidates reuse of that challenge.
+Same-author classification and evidence remain prohibited.
 
 The review digest uses canonical UTF-8 JSON with sorted keys, compact separators,
 non-ASCII text preserved and nonfinite numbers rejected. Replace only top-level
