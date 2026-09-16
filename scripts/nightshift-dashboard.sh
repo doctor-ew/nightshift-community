@@ -540,6 +540,19 @@ def classify_and_handle_json(path, checkout, ticket_hint, state_record=False):
         handle_batch_file(path, checkout, ARTIFACT_ROOTS)
         return
     ticket_present = "ticket" in d
+    # Role contracts carry task identity in docs/<task>, not in the JSON body.
+    # Preserve failed attempts as evidence even when the factory exits normally.
+    if (ticket_hint and os.path.basename(path).endswith('.out.json')
+            and d.get('status') in ('FAIL', 'BLOCKED')
+            and as_str(d.get('reason')) and as_dict(d.get('artifacts')) is not None):
+        total_records += 1
+        receipt = dict(d, ticket=ticket_hint, status='blocked',
+                       gate=os.path.basename(path)[:-len('.out.json')],
+                       provider=as_str(d['artifacts'].get('provider')) or 'unknown')
+        row = build_gate_row(ticket_hint, receipt, checkout, path)
+        row['flavor'] = 'Recorded role failure; inspect later attempts before retrying.'
+        data_rows.append(row)
+        return
     gate_present = "gate" in d or "failed_gate" in d
     status_present = "status" in d
     if not (ticket_present and (gate_present or status_present)):
@@ -662,6 +675,24 @@ for checkout in checkout_reals:
                 handle_batch_file(path, checkout, ARTIFACT_ROOTS)
             elif path.endswith(".json"):
                 classify_and_handle_json(path, checkout, None, state_record=True)
+            elif (os.path.dirname(path) == state_dir and path.endswith('.md')
+                  and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', os.path.basename(path)[:-3])):
+                text, err = read_bounded(path)
+                if not err:
+                    if total_records < MAX_TOTAL_RECORDS:
+                        total_records += 1
+                        tracker_row = build_gate_row(os.path.basename(path)[:-3], {}, checkout, path)
+                        tracker_row.update(source='artifacts', state='n/a', state_bucket='artifacts')
+                        data_rows.append(tracker_row)
+                    receipt = re.search(r'^## Failure / Block Receipt\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+                    if receipt and total_records < MAX_TOTAL_RECORDS:
+                        total_records += 1
+                        stage = re.search(r'^- Stage: (.+)$', receipt[1], re.M)
+                        row = build_gate_row(os.path.basename(path)[:-3],
+                            {'status': 'blocked', 'gate': stage[1] if stage else 'recorded blocker',
+                             'reason': receipt[1].strip()}, checkout, path)
+                        row['flavor'] = 'Recorded tracker blocker; retained as historical evidence.'
+                        data_rows.append(row)
 
     docs_dir = known_root(os.path.join(checkout, "docs"))
     if docs_dir:

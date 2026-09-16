@@ -1,6 +1,18 @@
 export const active = new Set(['running', 'in_progress']);
 export const attention = new Set(['blocked', 'failed', 'needs-decision']);
 export const modified = row => Math.max(0, ...(row.links || []).filter(Boolean).map(link => link.modified_at || 0));
+export function ticketFailures(rows, task) {
+  return rows.filter(row => row.ticket === task && row.source === 'gate' && attention.has(row.state))
+    .sort((a, b) => modified(b) - modified(a));
+}
+export function evidenceUrl(href) {
+  if (typeof href !== 'string') return null;
+  if (href.startsWith('file:///')) return '/evidence?uri=' + encodeURIComponent(href);
+  try {
+    const url = new URL(href);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
+}
 export function currentRows(rows) {
   // File mtime orders presentation only. Never use it to supersede another gate,
   // batch or attempt's claim; concurrent and contradictory evidence stays visible.
