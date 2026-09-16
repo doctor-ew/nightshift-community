@@ -1,9 +1,9 @@
 # nightshift
 
-For the engineer pilot and Hack-her-thon, start with the
-[pilot quickstart](docs/PILOT-QUICKSTART.md). Use main; local-model upgrades and
-ACP remain experimental. Fresh-machine, independently reviewed end-to-end
-validation is still required before claiming beginner readiness.
+**New to Nightshift? Start with the [developer walkthrough](docs/DEVELOPER-QUICKSTART.md).**
+It covers installation, project initialization, Claude-only and mixed-provider
+setups, ticket credentials, CLI flags, the console, and recovery.
+For a mentored practice session, see the [pilot checklist](docs/PILOT-QUICKSTART.md).
 
 A source-agnostic engineering pipeline with an optional Beads ledger for Codex, Claude Code, and
 Codex driving local models.
@@ -23,6 +23,10 @@ spec through ship.
 
 /nightshift-batch <keys|query>  triage → run each ticket through /nightshift-eng autonomously → retro
 ```
+
+The terminal factory (`nightshift <REF>`) finishes with verification and optional
+branch push/PR. It does not merge or deploy. The diagram also lists the standalone
+deployment stage, which must be invoked separately.
 
 Each stage is a standalone slash command and gates the next. The orchestrator (`/nightshift-eng`)
 is resumable across sessions via `.nightshift/<task-key>.md` (with a compatibility reader for
@@ -215,13 +219,16 @@ nightshift batch --resume batch-YYYYMMDD-HHMM.json --push
 `minor`, or `major` changes that value. A build identifier appends the selected
 Git revision's UTC commit time, such as `0.1.0.2026-09-06-2312`.
 
-Every factory invocation checks `origin/main` and prints the available build.
-Create or refresh a dedicated test worktree without modifying the caller's
-checkout:
+Factory invocations check the configured update channel. `stable` follows release
+tags; `branch:main` follows main. Check or apply an update explicitly:
 
 ```bash
-nightshift sync --branch integration/nightshift
+nightshift sync --check
+nightshift sync --apply
 ```
+
+Active runs can defer update application. Choose the channel at installation with
+`--update-channel branch:main`; keep the source checkout for symlink installs.
 
 Branch-enabled runs deliberately use Codex's Git-metadata-capable sandbox;
 pass `--branch none` when you need a workspace-write-only run with no branch,
@@ -235,7 +242,7 @@ Other modes:
 
 | Flag | What it does |
 |---|---|
-| `--check` | Dry-run; report deps + conflicts + hook status |
+| `--check` | Audit installed assets without repairing them |
 | `--copy` | Plain copy instead of symlinks |
 | `--with-hook` | Wire the scope-freeze + spec-guardrail (PreToolUse) and nightshift-stop-hook (Stop) into `~/.claude/settings.json` |
 | `--runtime codex` | Install the Codex skill plus the shared `~/.nightshift` runtime |
@@ -310,35 +317,19 @@ Optional:
 - [`graphify`](https://github.com/safishamsi/graphify) — optional structural grounding pass
   during nightshift-product / nightshift-adversarial. Skipped silently if not on PATH.
 
-`install.sh --check` reports what's missing.
+The installer checks dependencies; `install.sh --check` audits installed assets.
 
 ---
 
-## Recommended Claude Code settings
+## Provider and model settings
 
-nightshift's stages are long, multi-turn runs that benefit from explicit context
-discipline. Add these to `~/.claude/settings.json` to align Claude Code's defaults with
-the pipeline's compaction strategy (see `docs/PIPELINE.md`):
+Choose `--provider-policy claude-only` when every managed call must use Claude.
+Choosing `--provider claude` alone selects the coordinator; standard role routing
+can still select another provider. Configure specialist models in `routing.json`.
+`--model` selects the factory model, not every specialist model.
 
-```json
-{
-  "env": {
-    "MAX_THINKING_TOKENS": "10000",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
-  }
-}
-```
-
-| Var | What it does |
-|---|---|
-| `MAX_THINKING_TOKENS=10000` | Caps extended-thinking budget per turn. Default 31999 burns ~70% more on internal reasoning than most pipeline stages need. |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50` | Triggers auto-compaction at 50% of the context window instead of the default 95% — early enough that compaction lands near a stage boundary marker rather than mid-stage. |
-| `CLAUDE_CODE_SUBAGENT_MODEL=haiku` | Subagents invoked by the `Task` tool (used heavily by nightshift-code-fact-extractor) run on Haiku. ~80% cheaper, sufficient for read-and-summarize work. |
-
-These are the values nightshift's authors run with. None are required — the pipeline
-works at Claude Code defaults. They just make each stage cheaper and the compaction
-strategy land on the boundaries the pipeline marks for it.
+See the [developer walkthrough](docs/DEVELOPER-QUICKSTART.md) for complete
+single-provider and mixed-provider setup instructions.
 
 ---
 
