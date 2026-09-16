@@ -683,6 +683,21 @@ for checkout in checkout_reals:
                         total_records += 1
                         tracker_row = build_gate_row(os.path.basename(path)[:-3], {}, checkout, path)
                         tracker_row.update(source='artifacts', state='n/a', state_bucket='artifacts')
+                        pipeline = re.search(r'^## Pipeline Stages\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+                        tracker_row['pipeline_steps'] = []
+                        if pipeline:
+                            for line in pipeline[1].splitlines():
+                                match = re.match(r'^\s*(✅|❌|🚫|⬜|🔄|⏳)\s*(.+)', line)
+                                if not match:
+                                    continue
+                                icon, detail = match.groups()
+                                stage = re.search(r'/nightshift-(adversarial|implement|review|drift|qa|preflight|deploy)\b', detail)
+                                if stage or detail.startswith('Spec approved'):
+                                    tracker_row['pipeline_steps'].append({
+                                        'stage': stage[1] if stage else 'product',
+                                        'state': {'✅': 'passed', '❌': 'failed', '🚫': 'blocked',
+                                                  '⬜': 'pending', '🔄': 'running', '⏳': 'running'}[icon],
+                                        'detail': detail})
                         data_rows.append(tracker_row)
                     receipt = re.search(r'^## Failure / Block Receipt\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
                     if receipt and total_records < MAX_TOTAL_RECORDS:

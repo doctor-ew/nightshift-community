@@ -26,6 +26,12 @@ tracker documents, role inputs and outputs, and receipts. Ticket cards provide
 direct spec and recorded PR links. The file viewer supports copying and downloading
 the original contents and formats JSON for reading. Workflow approval remains in
 the existing version-bound workshop review controls.
+Ticket timelines use the explicit stage markers in each tracker. Missing stage
+evidence is not counted as progress. A resumed run labels its retained stage
+as last recorded until new stage evidence arrives. Factory exit and finished
+checkout ownership do not establish ticket completion; conflicting completion
+and blocker records remain visible. Agent history, usage, and detailed run
+observations are collapsed below the ticket and artifact views.
 The separate Agents section reads sanitized factory and shared-dispatcher lifecycle records from
 `.nightshift/agents/`, with role, provider, model, dispatcher PID and start/finish
 times. A recorded running state may be stale after a hard kill; it is not an OS

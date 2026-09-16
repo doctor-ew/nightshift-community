@@ -1,6 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentRows, filterRows, ticketFailures, evidenceUrl } from './src/model.mjs';
+import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary } from './src/model.mjs';
+test('blocker card preserves multiline reason and offers the recorded unblock action', () => {
+  const result = blockerSummary('- Stage: implement\n- Root cause: Name unresolved\n  in prerequisite.\n- Unblock path: Record a naming decision.\n- Other: retained evidence');
+  assert.equal(result.reason, 'Name unresolved\n  in prerequisite.');
+  assert.equal(result.next, 'Record a naming decision.');
+  assert.equal(blockerSummary('Permission denied').reason, 'Permission denied');
+});
+test('timeline does not turn process exit or finished ownership into completion', () => {
+  const rows = [{ticket:'task-a', source:'artifacts', pipeline_steps:[
+    {stage:'product', state:'passed'}, {stage:'implement', state:'blocked'}, {stage:'review', state:'pending'}
+  ]}, {ticket:'task-a', source:'ownership', state:'finished'}, {ticket:'nightshift-factory', source:'agent', state:'success'}];
+  const ended = ticketProgress(rows, {task:'task-a', finished:true});
+  assert.equal(ended.status, 'Blocked');
+  assert.equal(ended.stage, 'implement');
+  assert.equal(ended.complete, false);
+  const resumed = ticketProgress(rows, {task:'task-a', running:true});
+  assert.equal(resumed.status, 'Running');
+  assert.equal(resumed.stageLabel, 'Last recorded stage');
+});
+test('completion requires delivery evidence and conflicting failures remain visible', () => {
+  const ticket = {task:'task-a', finished:true};
+  assert.equal(ticketProgress([], ticket).status, 'Run ended · outcome unconfirmed');
+  const rows = [{ticket:'task-a', source:'batch', state:'complete'}];
+  assert.equal(ticketProgress(rows, ticket).complete, true);
+  rows.push({ticket:'task-a', source:'gate', state:'blocked', reason:'Retained failure'});
+  assert.equal(ticketProgress(rows, ticket).status, 'Conflicting outcomes');
+  assert.equal(ticketProgress(rows, ticket).complete, false);
+});
 test('ticket blockers retain reasons without confusing factory exit with completion', () => {
   const rows = [
     {ticket:'task-a', source:'gate', state:'blocked', reason:'Write permission denied'},

@@ -5,6 +5,27 @@ export function ticketFailures(rows, task) {
   return rows.filter(row => row.ticket === task && row.source === 'gate' && attention.has(row.state))
     .sort((a, b) => modified(b) - modified(a));
 }
+export function ticketProgress(rows, ticket) {
+  const related = rows.filter(row => row.ticket === ticket.task);
+  const trackers = related.filter(row => row.pipeline_steps?.length);
+  const failures = ticketFailures(rows, ticket.task);
+  const complete = related.some(row => row.source === 'batch' && row.state === 'complete');
+  const steps = trackers.flatMap(row => row.pipeline_steps);
+  const stopped = steps.find(step => ['blocked', 'failed'].includes(step.state));
+  const running = steps.find(step => step.state === 'running');
+  const passed = steps.filter(step => step.state === 'passed').at(-1);
+  const blocker = failures.length > 0 || !!stopped;
+  const status = ticket.running ? 'Running' : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const stage = running || stopped || passed;
+  return {trackers, failures, status, tone: ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
+    stage: stage?.stage || failures[0]?.gate || null,
+    stageLabel: ticket.running && !running ? 'Last recorded stage' : blocker ? 'Stopped at' : 'Last recorded stage',
+    complete: complete && !blocker};
+}
+export function blockerSummary(reason = '') {
+  const field = label => reason.split(/\n(?=- )/).find(part => part.startsWith('- ' + label + ':'))?.slice(label.length + 3).trim();
+  return {reason: field('Root cause') || reason, next: field('Unblock path') || 'Resolve the blocker before resuming. Retrying unchanged may fail again.'};
+}
 export function evidenceUrl(href) {
   if (typeof href !== 'string') return null;
   if (href.startsWith('file:///')) return '/evidence?uri=' + encodeURIComponent(href);

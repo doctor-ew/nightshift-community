@@ -150,7 +150,7 @@ class ServerTests(unittest.TestCase):
 
     def test_tracker_blocker_survives_finished_ownership(self):
         tracker = self.repo / '.nightshift' / 'task-a.md'
-        tracker.write_text('# Task\n## Failure / Block Receipt\n- Stage: implementation\n'
+        tracker.write_text('# Task\n## Pipeline Stages\n✅ Spec approved\n🚫 /nightshift-implement — build\n⬜ /nightshift-review\n\n## Failure / Block Receipt\n- Stage: implementation\n'
                            '- Outcome: SKIPPED\n- Root cause: prerequisite naming unresolved\n')
         ownership = self.repo / '.git' / 'nightshift' / 'worktrees'
         ownership.mkdir(parents=True)
@@ -160,6 +160,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(blocker['ticket'], 'task-a')
         self.assertEqual(blocker['state'], 'blocked')
         self.assertIn('prerequisite naming unresolved', blocker['reason'])
+        timeline = next(r['pipeline_steps'] for r in rows if r.get('pipeline_steps'))
+        self.assertEqual([(step['stage'], step['state']) for step in timeline],
+                         [('product', 'passed'), ('implement', 'blocked'), ('review', 'pending')])
 
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:

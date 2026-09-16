@@ -11,3 +11,29 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 .artifact-row { display: grid; grid-template-columns: minmax(100px, 1fr) 3fr; gap: 16px; padding: 12px 16px; border-bottom: 1px solid #293342; font-size: 13px; }
 .artifact-row span { color: #9ba4b3; overflow-wrap: anywhere; }
 .evidence-document { white-space: pre-wrap; overflow-wrap: anywhere; padding: 24px; background: #141a23; border: 1px solid #293342; border-radius: 10px; font-size: 14px; line-height: 1.7; }
+.ticket-list { display: grid; gap: 20px; }
+.ticket-focus { padding: 28px; border-top: 2px solid #89bfa6; }
+.ticket-focus h3 { font-size: 25px; letter-spacing: -.5px; }
+.ticket-focus .eyebrow { margin: 0 0 8px; }
+.current-stage { font-size: 17px; margin: 20px 0; color: #c0cbd8; }
+.current-stage strong { color: #f0f4f8; }
+.ticket-timeline { padding: 18px 0; border-top: 1px solid #293342; border-bottom: 1px solid #293342; }
+.ticket-timeline ol { display: flex; list-style: none; padding: 0; margin: 0; overflow-x: auto; }
+.step { position: relative; flex: 1; min-width: 102px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.step:after { content: ''; position: absolute; top: 15px; left: 38px; right: 8px; height: 1px; background: #344353; }
+.step:last-child:after { display: none; }
+.step-dot { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #425064; border-radius: 50%; background: #1c2531; color: #9ba4b3; }
+.step small { color: #8a9aaf; text-transform: capitalize; }
+.step.passed .step-dot { color: #a8e4c7; border-color: #417963; background: #19382e; }
+.step.failed .step-dot,.step.blocked .step-dot { color: #ffcb8d; border-color: #ba8650; background: #453020; }
+.step.failed strong,.step.blocked strong { color: #ffcb8d; }
+.step.running .step-dot { color: #bae1ff; border-color: #74acd6; background: #203a50; }
+.timeline-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-top: 18px; font-size: 11px; color: #8a9aaf; }
+.disclosure { border: 1px solid #293342; border-radius: 10px; padding: 18px; }
+.disclosure > summary { font-size: 15px; color: #d5deea; }
+.disclosure > .stats { margin-top: 20px; }
+.recovery-actions { margin: 0; }
+.ticket-focus .run-footer { align-items: flex-start; }
+.outcome-summary { color: #a8e4c7; }
+.receipt-text { white-space: pre-wrap; }
+@media(max-width:520px) { .ticket-focus { padding: 18px; } .current-stage { font-size: 15px; } }
