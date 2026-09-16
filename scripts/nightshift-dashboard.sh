@@ -683,6 +683,8 @@ for checkout in checkout_reals:
                         total_records += 1
                         tracker_row = build_gate_row(os.path.basename(path)[:-3], {}, checkout, path)
                         tracker_row.update(source='artifacts', state='n/a', state_bucket='artifacts')
+                        ticket_url = re.search(r'^\*\*URL:\*\*\s+(https?://\S+)\s*$', text, re.M)
+                        tracker_row['ticket_url'] = ticket_url[1] if ticket_url else None
                         pipeline = re.search(r'^## Pipeline Stages\s*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
                         tracker_row['pipeline_steps'] = []
                         if pipeline:

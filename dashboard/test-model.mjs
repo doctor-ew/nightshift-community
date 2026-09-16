@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary } from './src/model.mjs';
+import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary, ticketSourceLink } from './src/model.mjs';
+test('ticket source links preserve recorded external URLs and local evidence', () => {
+  const ticket = {task:'task-a', settings:{ref:'jira:task-a'}};
+  const rows = [{ticket:'task-a', ticket_url:'https://example.atlassian.net/browse/task-a', links:[{label:'task-a.md',href:'file:///tmp/task-a.md'}]}];
+  assert.equal(ticketSourceLink(rows, ticket).href, rows[0].ticket_url);
+  rows[0].ticket_url = 'https://github.com/example/project/issues/12';
+  assert.equal(ticketSourceLink(rows, ticket).label, 'Open ticket');
+  rows[0].ticket_url = 'javascript:alert(1)';
+  assert.equal(ticketSourceLink(rows, ticket).label, 'Open local record');
+  ticket.settings.ref = 'spec:task-a.md';
+  assert.equal(ticketSourceLink(rows, ticket).label, 'Open source');
+  assert.equal(ticketSourceLink([], {task:'missing'}), null);
+});
 test('blocker card preserves multiline reason and offers the recorded unblock action', () => {
   const result = blockerSummary('- Stage: implement\n- Root cause: Name unresolved\n  in prerequisite.\n- Unblock path: Record a naming decision.\n- Other: retained evidence');
   assert.equal(result.reason, 'Name unresolved\n  in prerequisite.');

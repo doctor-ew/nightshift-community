@@ -26,6 +26,10 @@ tracker documents, role inputs and outputs, and receipts. Ticket cards provide
 direct spec and recorded PR links. The file viewer supports copying and downloading
 the original contents and formats JSON for reading. Workflow approval remains in
 the existing version-bound workshop review controls.
+Ticket cards link to the recorded tracker source URL for Jira or GitHub. When
+the source is local, the card links to the collected source file or local record.
+The interface checks server capability before displaying file links; an outdated
+server displays an explicit update notice instead of broken viewer links.
 Ticket timelines use the explicit stage markers in each tracker. Missing stage
 evidence is not counted as progress. A resumed run labels its retained stage
 as last recorded until new stage evidence arrives. Factory exit and finished

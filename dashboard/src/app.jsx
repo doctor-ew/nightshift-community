@@ -1,7 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl } from './model.mjs';
+import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink } from './model.mjs';
 import './app.css';
+
+function ConsoleVersion({ children }) {
+  const [ready, setReady] = useState(false), [error, setError] = useState('');
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/identity', {cache: 'no-store', signal: controller.signal})
+      .then(async response => {
+        if (!response.ok) throw new Error('This console server needs to be restarted to support the updated interface.');
+        const identity = await response.json();
+        if (identity.evidence_api !== 1) throw new Error('This console server needs to be restarted to open specs and artifacts.');
+        setReady(true);
+      }).catch(e => { if (e.name !== 'AbortError') setError(e.message); });
+    return () => controller.abort();
+  }, []);
+  if (error) return <main><header><div className="brand">nightshift</div></header><section className="workspace"><h1>Console update needed</h1><p role="alert">{error}</p><p>Your files and running workers are unaffected. Open the console URL printed by your latest Nightshift run, or restart this console server.</p></section></main>;
+  return ready ? children : <main><p>Connecting to the console…</p></main>;
+}
 
 function WorkshopReviews() {
   const [items, setItems] = useState([]), [token, setToken] = useState(''), [error, setError] = useState('');
@@ -129,6 +146,7 @@ function TicketActions({ rows }) {
     {message && <p role="status">{message}</p>}
     <div className="ticket-list">{data.tickets.map(ticket => {
       const progress = ticketProgress(rows, ticket);
+      const sourceLink = ticketSourceLink(rows, ticket);
       const failures = progress.failures;
       const blocked = !ticket.running && failures.length > 0;
       const blocker = blockerSummary(failures[0]?.reason);
@@ -146,7 +164,7 @@ function TicketActions({ rows }) {
       {blocked && <div className="failure-summary" role="status"><h4>Why it stopped</h4><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
       <details><summary>Run settings</summary><p>{ticket.settings.provider} · {ticket.settings.policy} · {ticket.settings.auth}</p></details>
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
-      <div className="artifact-actions">{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open spec'}} />)}{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
+      <div className="artifact-actions"><EvidenceLink link={sourceLink} />{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open spec'}} />)}{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
       {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
       <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
       <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
@@ -236,4 +254,4 @@ function App() {
     <footer>Local evidence. Version-bound spec approval. <span>Nightshift</span></footer>
   </main>;
 }
-createRoot(document.getElementById('root')).render(window.location.pathname === '/evidence' ? <EvidenceViewer /> : <App />);
+createRoot(document.getElementById('root')).render(<ConsoleVersion>{window.location.pathname === '/evidence' ? <EvidenceViewer /> : <App />}</ConsoleVersion>);

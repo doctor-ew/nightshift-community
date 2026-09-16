@@ -37,16 +37,9 @@ def belongs(url, project):
         try:
             with opener.open(url.rstrip('/') + '/api/identity', timeout=1) as response:
                 identity = json.loads(response.read(16384))
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                return False
-            # Compatibility with already-running dashboards from older installs.
-            with opener.open(url.rstrip('/') + '/api/state', timeout=2) as response:
-                state = json.loads(response.read(1048576))
-            return (state.get('root') == str(project)
-                    and isinstance(state.get('rows'), list)
-                    and isinstance(state.get('checkouts'), list)
-                    and 'generated_at' in state)
+        except urllib.error.HTTPError:
+            # Legacy state-only servers cannot serve the current evidence UI.
+            return False
         config = project / '.nightshift.toml'
         workshop = config.is_file() and tomllib.loads(config.read_text()).get('workflow', {}).get('profile') == 'workshop'
         return (identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
