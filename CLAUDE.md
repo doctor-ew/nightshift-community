@@ -1,6 +1,9 @@
 # nightshift — project notes for AI agents
 
-This repo is the source for the `/nightshift-*` Claude Code skills. See `README.md` for the
+Last reviewed: 2026-09-20.
+
+This repo contains the runtime-neutral nightshift core and its Claude Code, Codex,
+and local-model adapters. See `README.md` for the
 full pipeline overview and `docs/PIPELINE.md` / `docs/ARCHITECTURE.md` for design
 rationale.
 
@@ -9,17 +12,11 @@ Keep its autonomy and destructive-action policy aligned with this file.
 
 ## How this repo tracks its own work
 
-nightshift uses [`bd`](https://github.com/gastownhall/beads) to track its own dev
-work (worktree support, batched extractor, etc.) in `.beads/`.
-
-```bash
-bd ready              # find available work
-bd show <id>          # view issue details (e.g. bd show dp-q1s)
-bd update <id> --claim  # claim atomically
-bd close <id>         # close on ship
-```
-
-Issue prefix is `dp` (nightshift).
+Beads (`bd`) is an optional local engineering ledger; upstream tickets remain
+authoritative. This checkout has no initialized beads directory. Do not assume
+a local issue prefix or available beads tasks. Use the configured upstream ticket
+source, and use beads only when available. Sources: `AGENTS.md`,
+`commands/nightshift-product.md`.
 
 ## Everything nightshift installs is `nightshift-` prefixed
 
@@ -35,7 +32,7 @@ stop — vendor it instead.
 
 ## Agent roles live in `agents/`
 
-The `/nightshift-*` commands delegate to five roles: `nightshift-spec-writer`, `nightshift-code-fact-extractor`,
+The `/nightshift-*` commands delegate to roles including `nightshift-spec-writer`, `nightshift-code-fact-extractor`,
 `nightshift-engineer`, `nightshift-architect`, `nightshift-run-all-tests`. Their prompts are in `agents/` and
 install to `~/.claude/agents/`.
 
@@ -73,10 +70,21 @@ the README's "Hard rules":
 
 nightshift is *not* opinionated about:
 
-- **Pushing.** `git push` is always the engineer's call. No skill in this repo pushes
-  autonomously; no agent contract in this repo should mandate it either.
+- **Pushing.** Factory runs may commit and push verified ticket branches when
+  requested with `--branch auto --push`; `--pr` also opens a pull request. These
+  flags do not authorize a production deployment. Source: `AGENTS.md`.
 - **Replacing other agent context.** This file supplements `~/.claude/CLAUDE.md` and
   the user's memory system — it doesn't override them.
 - **TodoWrite / TaskCreate / MEMORY.md.** Use them when they fit. Beads is for tracked
   engineering work with an external-ref shape; ephemeral session state belongs in
   tasks, and cross-session knowledge belongs in memory.
+
+<!-- mex-agent:skills:start -->
+## MEX agent skills
+- At the start of every session, read `.mex/AGENTS.md` and `.mex/ROUTER.md` before project work; follow `ROUTER.md` to load only the relevant context.
+- Use `/mex-inbox` for durable governed Spec proposals and `/mex-relay` for durable team handoffs. Invoke them automatically when intent clearly matches; explicit invocation remains available.
+- When MEX context materially influences an answer or implementation, include one concise acknowledgement: `MEX context used: <specific records/files/entities consulted>.`
+- Do not claim an author, date, or historical event unless the retrieved data actually provides it.
+- After a MEX write, say exactly what changed and its sharing boundary: a local draft is checkout-only and nothing is shared; a canonical artifact is written to the working tree and requires commit/push to share.
+- Skill activation is not approval for canonical actions.
+<!-- mex-agent:skills:end -->

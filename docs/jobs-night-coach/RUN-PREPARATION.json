@@ -1,0 +1,18 @@
+{
+  "status": "awaiting_execution_choices",
+  "prd": "/Users/doctorew/shuttlebay/nightshift-community/docs/jobs-night-coach/PRD.md",
+  "nightshift_source_commit": "254ab8c1ba6dc442c03ce265d49b33c47e10e1fc",
+  "installed_runtime": "/Users/doctorew/shuttlebay/nightshift-community-runtime",
+  "installed_runtime_commit": "64b447da9c23021da6f331d2a9d2cc70e96083d1",
+  "installed_efficiency_adapter_present": false,
+  "rtk_on_path": false,
+  "jev_key_present": false,
+  "factory_started": false,
+  "run_id": null,
+  "pending": [
+    "destination repository",
+    "delivery format",
+    "build runtime/authentication"
+  ],
+  "measurement_plan": "Retain factory run receipt and independent gate evidence; report incomplete accounting explicitly. One build is not a savings comparison."
+}
