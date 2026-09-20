@@ -60,3 +60,13 @@ export function filterRows(rows, query, state, provider) {
     && (state === 'all' || (state === 'active' ? active.has(row.state) : state === 'attention' ? attention.has(row.state) : row.state === state))
     && (provider === 'all' || row.provider === provider));
 }
+
+// Planned stages are visible before any tracker exists; no success is inferred.
+export function ticketTimeline(rows, ticket) {
+  const recorded = rows.filter(row => row.ticket === ticket.task).flatMap(row => row.pipeline_steps || []);
+  return ['product', 'adversarial', 'implement', 'review', 'drift', 'qa'].map(stage =>
+    recorded.find(step => step.stage === stage) || {stage, state:'pending', detail:'No stage evidence recorded yet'});
+}
+export function ticketUsage(reports, ticket) {
+  return reports.filter(report => report.ticket?.source_id === ticket.task);
+}
