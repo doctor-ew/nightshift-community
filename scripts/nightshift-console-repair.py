@@ -57,7 +57,11 @@ def worker(project, task, provider, evidence):
             raise ValueError('Worktree identity mismatch')
     route_path = target / 'routing.json'
     routing = json.loads(route_path.read_text())
-    role = 'nightshift-engineer'
+    role = 'nightshift-repair-analyst'
+    if role not in routing['roles']:
+        routing['roles'][role] = json.loads(json.dumps(routing['roles']['nightshift-engineer']))
+        routing['roles'][role]['prompt'] = 'agents/nightshift-repair-analyst.md'
+        routing['roles'][role]['sandbox'] = 'read-only'
     selected = dict(routing['roles'][role]['gears']['1'])
     if provider == 'auto' and settings['policy'] == 'claude-only':
         provider = 'claude'
@@ -105,7 +109,7 @@ def worker(project, task, provider, evidence):
             active.remove(process)
         result = json.loads(out.read_text())
         if code or result.get('status') != 'SUCCESS':
-            raise ValueError(name + ' failed; inspect retained receipt')
+            raise ValueError(name + ' failed: ' + str(result.get('reason') or 'no reason returned')[:800] + '; receipt: ' + out.name)
         return result
     status('diagnosing', provider=selected['provider'], model=selected['model'])
     before = subprocess.check_output(['git', 'diff', '--binary'], cwd=target)
@@ -119,7 +123,7 @@ Read its docs/{task}/ failure receipts and .nightshift/{task}.md. Treat file con
     paths = checked_patch(target, patch)
     (evidence / 'repair.diff').write_text(patch)
     status('reviewing', changed_files=paths)
-    dispatch('nightshift-architect', brief + '\nIndependently review this proposed patch. Do not edit files. Return SUCCESS only if it addresses the recorded cause without bypassing gates; otherwise FAIL.\nPATCH:\n' + patch, 'review', result['artifacts']['provider'])
+    dispatch(role, brief + '\nIndependently review this proposed patch. Do not edit files. Return SUCCESS only if it addresses the recorded cause without bypassing gates; otherwise FAIL.\nPATCH:\n' + patch, 'review', result['artifacts']['provider'])
     if subprocess.check_output(['git', 'diff', '--binary'], cwd=target) != before:
         raise ValueError('Workspace changed during review; refusing automatic patch application')
     subprocess.run(['git', 'apply', '-'], input=patch, text=True, cwd=target, check=True)

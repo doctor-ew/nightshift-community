@@ -215,7 +215,7 @@ if [ -n "$TASK_KEY" ]; then
     ATTRIBUTION=ticket
   fi
 fi
-case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
   [ ! -e "$LAUNCH_RECEIPT" ] && [ ! -L "$LAUNCH_RECEIPT" ] || fail 'launch receipt already exists'
@@ -307,6 +307,8 @@ case "$PROVIDER" in
     if [ "$ROLE" = nightshift-behavior-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    elif [ "$ROLE" = nightshift-repair-analyst ]; then
+      CMD=(claude -p --tools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
       CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     fi;;

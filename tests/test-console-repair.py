@@ -39,7 +39,9 @@ class RepairTests(unittest.TestCase):
         # Simulates only transport; exercises the real worker's patch/review/verify/resume ordering.
         script='''import json,os,sys
 from pathlib import Path
-a=sys.argv;out=Path(a[a.index('--out')+1]);kind=out.stem
+a=sys.argv
+assert a[1] == ('nightshift-run-all-tests' if 'verification.json' in a[a.index('--out')+1] else 'nightshift-repair-analyst'), 'repair must not dispatch proof-gated implementation roles'
+out=Path(a[a.index('--out')+1]);kind=out.stem
 with open(os.environ['ORDER'],'a') as f:f.write(kind+'\\n')
 if kind==os.environ.get('FAIL_PHASE'):out.write_text(json.dumps({'status':'FAIL'}));sys.exit(1)
 out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','diff':os.environ['PATCH']},'results':{'files_changed':['file.txt']}}))

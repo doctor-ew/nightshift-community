@@ -300,5 +300,15 @@ for mode in copy symlink; do
     check "$mode installation" false
   fi
 done
+# Repair diagnosis must work before proof, while implementation still fails closed.
+export MOCK_RESPONSE="$BASE_RESPONSE" MOCK_MODE=structured MOCK_EXIT=0
+jq '.roles["nightshift-repair-analyst"].gears["1"]={provider:"claude",model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/repair-route.json"
+export NIGHTSHIFT_ROUTING_FILE="$TMP/repair-route.json"
+run nightshift-repair-analyst --task missing-proof --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'repair analyst admitted without development proof' test "$RC" -eq 0
+check 'repair analyst has only read tools' args 'index("--tools") as $i | $i != null and .[$i+1] == "Read,Glob,Grep"'
+run nightshift-engineer --task missing-proof --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'engineer still requires development proof' test "$RC" -ne 0
+unset NIGHTSHIFT_ROUTING_FILE
 printf 'Dispatch assertions: %s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

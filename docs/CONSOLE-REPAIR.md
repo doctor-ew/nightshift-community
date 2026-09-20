@@ -11,3 +11,5 @@ Bounds: three repair attempts per ticket; 15 minutes for diagnosis/review/verifi
 Validation: worker tests exercise patch traversal/symlink/structural rejection and prove verification failure prevents resume; action tests cover policy, duplicate clicks, stale settings and Stop; dashboard HTTP tests cover same-origin controls and evidence access. Browser rendering verified the repair button and all four provider options. No claim of universal successful autonomous repair is made.
 
 Implementation: scripts/nightshift-console-actions.py, scripts/nightshift-console-repair.py, dashboard/server.py, dashboard/src/app.jsx.
+
+Diagnosis and independent patch review use the read-only nightshift-repair-analyst role, with configurable routing. They do not require an implementation proof receipt. Engineer and architect dispatch still require development proof; repair never manufactures that receipt. Missing independently authored held-out evidence still needs the product evaluation workflow and cannot be fabricated by a repair patch.
