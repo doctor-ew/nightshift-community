@@ -140,6 +140,17 @@ for provider in codex local; do
   check "$provider read-only and final message flags" args 'index("read-only") != null and index("--output-schema") != null and index("--output-last-message") != null'
   if [ "$provider" = local ]; then check 'OSS flags' args 'index("--oss") != null and index("ollama") != null'; fi
 done
+route local
+check 'local defaults disable unsupported thinking' args 'index("model_reasoning_effort=\"none\"") != null'
+jq '.local={backend:"omlx",base_url:"http://127.0.0.1:8000/v1",context_window:32768}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
+OMLX_API_KEY=fixture-key normal
+check 'oMLX role succeeds through local contract' json '.status == "SUCCESS" and .artifacts.provider == "local"'
+check 'oMLX uses process scoped provider without Ollama' args 'index("model_provider=\"omlx\"") != null and index("--oss") == null and index("model_context_window=32768") != null'
+check 'oMLX key absent from argv' args 'all(.[]; contains("fixture-key")|not)'
+jq '.local.base_url="https://external.invalid/v1"' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
+normal
+check 'oMLX rejects nonlocal endpoint' test "$RC" -ne 0
+jq 'del(.local)' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
 route claude
 MOCK_MODE=result; normal; check 'Claude result string normalization' json '.status == "SUCCESS"'
 MOCK_MODE=direct; normal; check 'direct contract normalization' json '.status == "SUCCESS"'

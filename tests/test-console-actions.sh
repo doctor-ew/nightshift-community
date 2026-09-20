@@ -41,6 +41,23 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
         if module.state(project,'42')['launch']['status']=='exited':break
         time.sleep(.02)
     assert module.state(project,'42')['launch']['exit_code']==0
+    repair=pathlib.Path(temp)/'repair.py'
+    repair.write_text('import time\ntime.sleep(30)\n')
+    module.REPAIR=repair
+    try:module.action(project,'42',state['sha256'],'repair',provider='local');raise AssertionError('restricted provider accepted')
+    except ValueError:pass
+    try:module.action(project,'42',state['sha256'],'repair',provider='shell');raise AssertionError('unknown provider accepted')
+    except ValueError:pass
+    started=module.action(project,'42',state['sha256'],'repair',provider='claude')
+    assert started['status']=='running'
+    job=module.state(project,'42')['launch'];assert job['operation']=='repair' and pathlib.Path(job['evidence']).is_dir()
+    assert module.action(project,'42',state['sha256'],'repair',provider='claude')['status']=='running'
+    assert module.state(project,'42')['launch']['pid']==job['pid']
+    assert module.action(project,'42',state['sha256'],'stop')['status']=='stopping'
+    for _ in range(100):
+        if not module.state(project,'42')['running']:break
+        time.sleep(.02)
+    assert not module.state(project,'42')['running']
     agents=target/'.nightshift/agents';agents.mkdir(parents=True)
     (agents/'active.json').write_text(json.dumps(dict(status='running',pid=os.getpid())))
     try:module.action(project,'42',state['sha256'],'resume');raise AssertionError('live worker accepted')

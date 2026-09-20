@@ -44,6 +44,12 @@ class DashboardServer(ThreadingHTTPServer):
         snapshot = json.loads(self.collect())
         allowed = {link['href'] for row in snapshot.get('rows', [])
                    for link in row.get('links', []) if link and link.get('href')}
+        for ticket in action_module().list_tickets(self.project):
+            job = ticket.get('launch') or {}
+            if job.get('log'): allowed.add(Path(job['log']).as_uri())
+            if job.get('evidence'):
+                for name in ('status.json', 'repair.diff', 'proposal.json', 'review.json', 'verification.json'):
+                    allowed.add((Path(job['evidence']) / name).as_uri())
         parsed = urlsplit(uri)
         if uri not in allowed or parsed.scheme != 'file' or parsed.netloc:
             raise ValueError('Unknown evidence')
@@ -106,7 +112,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 1, 'evidence_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'evidence_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -148,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup'):
+        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -161,12 +167,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
-            if not isinstance(body, dict) or set(body) != {'task', 'sha256'} or not all(isinstance(v, str) for v in body.values()):
+            allowed = {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
             if self.path == '/api/workshop/approve':
                 result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
             else:
-                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1])
+                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1], provider=body.get('provider', 'auto'))
             self.reply(200, json.dumps(result).encode(), 'application/json')
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')

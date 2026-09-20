@@ -20,8 +20,8 @@ Execute each stage's canonical instructions. Dispatch every role through
 `scripts/nightshift-agent.sh`; never use native Agent/Task tools or invoke a
 provider directly. This is required for provider policy and dashboard reporting.
 
-After verification, follow the launcher's publication policy: only commit and
-push when push=true, and only open a PR when pr=true. Do not invoke the deploy
+Local evidence checkpoints and TDD lock commits are authorized during the run.
+After verification, push only when push=true, and open a PR only when pr=true. Do not invoke the deploy
 stage, merge, or deploy. Record the delivery result, then proceed to Step 10.
 The supervised deployment steps below do not apply to factory runs.
 

@@ -18,7 +18,7 @@ spec.loader.exec_module(module)
 
 class Startup(unittest.TestCase):
     def test_legacy_console_is_not_reused(self):
-        identity = {'service':'nightshift-dashboard', 'root':'/tmp', 'ticket_actions_api':1}
+        identity = {'service':'nightshift-dashboard', 'root':'/tmp', 'ticket_actions_api':2}
         with patch.object(module.urllib.request, 'build_opener') as opener:
             opener.return_value.open.return_value = io.BytesIO(json.dumps(identity).encode())
             self.assertFalse(module.belongs('http://127.0.0.1:8765', Path('/tmp')))

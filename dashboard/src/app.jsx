@@ -11,7 +11,7 @@ function ConsoleVersion({ children }) {
       .then(async response => {
         if (!response.ok) throw new Error('This console server needs to be restarted to support the updated interface.');
         const identity = await response.json();
-        if (identity.evidence_api !== 1) throw new Error('This console server needs to be restarted to open specs and artifacts.');
+        if (identity.evidence_api !== 1 || identity.ticket_actions_api !== 2) throw new Error('This console server needs to be restarted to open specs and artifacts.');
         setReady(true);
       }).catch(e => { if (e.name !== 'AbortError') setError(e.message); });
     return () => controller.abort();
@@ -114,6 +114,7 @@ function ArtifactLibrary({ rows }) {
 
 function TicketActions({ rows }) {
   const [data, setData] = useState({ tickets: [] }), [busy, setBusy] = useState(''), [message, setMessage] = useState('');
+  const [providers, setProviders] = useState({});
   useEffect(() => {
     let disposed = false;
     async function refresh() {
@@ -132,7 +133,7 @@ function TicketActions({ rows }) {
     try {
       const response = await fetch('/api/tickets/' + operation, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': data.token },
-        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256 }) });
+        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not continue this ticket.');
       setMessage(ticket.task + ': ' + result.message);
@@ -166,6 +167,8 @@ function TicketActions({ rows }) {
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
       <div className="artifact-actions"><EvidenceLink link={sourceLink} />{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open spec'}} />)}{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
       {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
+      {ticket.repair && <div className="repair-status" role="status"><strong>Repair: {ticket.repair.phase}</strong><p>{ticket.repair.message || ''}</p>{ticket.repair.changed_files?.map(path => <div key={path}>{path}</div>)}{ticket.launch?.log && <EvidenceLink link={{href: 'file://' + ticket.launch.log, label: 'Repair log'}} />}{ticket.launch?.evidence && <EvidenceLink link={{href: 'file://' + ticket.launch.evidence + '/status.json', label: 'Repair evidence'}} />}</div>}
+      <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={!!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
       <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
       <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
       {!!artifacts.length && <details><summary>Files and evidence ({artifacts.length})</summary>{artifacts.map((link, i) => <div className="evidence" key={i}><EvidenceLink link={link} /></div>)}</details>}

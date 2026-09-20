@@ -315,7 +315,58 @@ case "$PROVIDER" in
     jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
     CMD=(codex exec --json --skip-git-repo-check --sandbox read-only --output-schema "$TMP/provider.schema.json" --output-last-message "$TMP/final")
     if [ "$PROVIDER" = codex ] && [ "$AUTH" = subscription ]; then CMD+=(-c 'forced_login_method="chatgpt"' -c 'model_provider="openai"'); fi
-    if [ "$PROVIDER" = local ]; then CMD+=(--oss --local-provider ollama -m "$MODEL"); else CMD+=(--model "$MODEL"); fi
+    if [ "$PROVIDER" = local ]; then
+      LOCAL_BACKEND=$(jq -r '.local.backend // "ollama"' "$ROUTING")
+      LOCAL_EFFORT=$(jq -r '.local.reasoning_effort // "none"' "$ROUTING")
+      case "$LOCAL_EFFORT" in none|minimal|low|medium|high|xhigh) ;; *) fail 'invalid local reasoning effort';; esac
+      CMD+=(-m "$MODEL" -c "model_reasoning_effort=\"$LOCAL_EFFORT\"")
+      case "$LOCAL_BACKEND" in
+        ollama) CMD+=(--oss --local-provider ollama);;
+        omlx)
+          # Process-scoped provider settings; never rewrite the user's Codex config.
+          LOCAL_CONFIG=$(python3 - "$ROUTING" <<'PYLOCAL'
+import json, sys, urllib.parse
+c=json.load(open(sys.argv[1])).get('local', {})
+u=c.get('base_url', 'http://127.0.0.1:8000/v1')
+p=urllib.parse.urlsplit(u)
+if p.scheme != 'http' or p.hostname not in ('127.0.0.1', 'localhost', '::1') or p.username or p.password or p.query or p.fragment:
+    sys.exit('oMLX endpoint must be an HTTP loopback URL without credentials')
+w=c.get('context_window', 32768)
+if type(w) is not int or not 4096 <= w <= 131072:
+    sys.exit('invalid local context window')
+print(json.dumps({'url':u, 'window':w}))
+PYLOCAL
+          ) || fail 'invalid oMLX configuration'
+          # Optional existing private oMLX settings supply authentication locally.
+          # Only the key travels in the child environment; never in argv or receipts.
+          if [ -z "${OMLX_API_KEY:-}" ]; then
+            OMLX_SETTINGS=$(jq -r '.local.auth_settings_file // empty' "$ROUTING")
+            if [ -n "$OMLX_SETTINGS" ]; then
+              OMLX_API_KEY=$(python3 - "$OMLX_SETTINGS" <<'PYKEY'
+import json, os, stat, sys
+try:
+    fd=os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as f:
+        st=os.fstat(f.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            raise ValueError()
+        key=json.load(f)['auth']['api_key']
+        if not isinstance(key,str) or not key: raise ValueError()
+        print(key,end='')
+except Exception:
+    sys.exit('cannot read private oMLX authentication settings')
+PYKEY
+              ) || fail 'oMLX authentication unavailable'
+            fi
+          fi
+          export OMLX_API_KEY
+          CMD+=(-c 'model_provider="omlx"' -c 'model_providers.omlx.name="oMLX"'
+            -c "model_providers.omlx.base_url=$(jq -c .url <<< "$LOCAL_CONFIG")"
+            -c 'model_providers.omlx.env_key="OMLX_API_KEY"'
+            -c "model_context_window=$(jq -r .window <<< "$LOCAL_CONFIG")");;
+        *) fail 'unsupported local backend';;
+      esac
+    else CMD+=(--model "$MODEL"); fi
     CMD+=("$PROMPT");;
 esac
 # Bash job control isolates each background job in its own process group on

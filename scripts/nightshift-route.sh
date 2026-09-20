@@ -14,7 +14,7 @@ GEAR=$((START + ATTEMPT - 1))
 SELECTED=$(jq -e -c --arg role "$ROLE" --argjson gear "$GEAR" --arg risk "$RISK" \
   --argjson attempt "$ATTEMPT" --arg model "${NIGHTSHIFT_LOCAL_MODEL:-qwen2.5-coder:14b}" '
   if .roles[$role] == null then error("unknown role") else
-    (if $gear == 0 then {provider:"local",model:$model} else .roles[$role].gears[($gear|tostring)] end) as $route |
+    (if $gear == 0 then {provider:"local",model:(.local.model // $model)} else .roles[$role].gears[($gear|tostring)] end) as $route |
     if ($route.provider != "local" and $route.provider != "codex" and $route.provider != "claude") or ($route.model|type) != "string" or ($route.model|length) == 0
     then error("invalid route") else $route + {gear:$gear,risk:$risk,attempt:$attempt,reason:"deterministic risk/role/attempt policy"} end
   end' "${NIGHTSHIFT_ROUTING_FILE:-$ROOT/routing.json}")

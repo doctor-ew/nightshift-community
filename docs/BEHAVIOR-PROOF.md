@@ -320,3 +320,12 @@ A policy-only reseal retains failed-prompt restrictions; it cannot authorize
 resampling unchanged failed work. A separately authorized format-contract change
 requires the reviewed scenario amendment described above. Preserve every earlier
 failure and budget receipt when publishing the continuation.
+
+## New prompt artifact ordering
+
+For a greenfield prompt task, `commands/nightshift-spec.md` Step 3.5 permits
+preparing only the declared minimal prompt candidate before design validation.
+It remains unapproved and must not be executed in that phase. This resolves the
+existence/hash prerequisite without weakening design challenge, private held-out
+commitments, budget pinning, or development/final proof. Application code and
+harness implementation still follow approved scope and the ordinary build gates.

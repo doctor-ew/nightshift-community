@@ -14,10 +14,12 @@ Forward the explicit option to every nested stage; a resumed run must opt in aga
 
 The spec is the contract for everything downstream. No code without a spec.
 
-> **HARD STOP — THE SPEC PHASE IS READ-ONLY.**
-> Do not write code, edit implementation files, or run git commands that change state. The
-> phase prepares specification/scenario documents and their review evidence. Conditional
-> design review is permitted; prototype execution and production edits belong to implementation.
+> **SCOPE — specification and bounded prototype preparation only.**
+> Do not build application code or run the prototype in this phase. Prepare
+> specification/scenario documents and review evidence. For a new prompt-based
+> artifact only, Step 3.5 permits the exact declared prototype prompt files needed
+> for design validation. Those files are unapproved candidates, not implementation
+> completion or behavioral proof. All execution and acceptance gates remain required.
 
 Normally invoked by `/nightshift-product` Step 7, which supplies ticket content, engineer notes, and
 the verification manifest. It also runs standalone.
@@ -136,6 +138,24 @@ Codex/local always run read-only. Spec file writes need a separately authorized
 integration; missing output files are failures even when the model claims success.
 
 ---
+
+## Step 3.5 — Prepare a missing prompt prototype for design validation
+
+When required prototype cases declare prompt files that do not yet exist, first
+record the exact paths and their purpose in the draft spec's Files to Change table
+and `prototype_files`. Dispatch an authoring role through `nightshift-agent.sh`
+to produce only those minimal prompt candidates from the approved requirements.
+The controller may integrate its returned patch only at those declared paths.
+No surrounding app, harness, production code, or prototype execution is permitted.
+Do not use empty placeholders, invented hashes, or fabricated held-out commitments.
+Record actual author-provider provenance for the candidate and its reviewed digest.
+
+This is a narrow prerequisite to validate/challenge, not a passed product or
+implementation gate. Obtain independently prepared held-out commitment metadata
+and sufficient initial proof policy before validation. Preserve private fixture
+isolation. After preparation, perform every validation, independent design challenge,
+adversarial, lock/seal, development, and final gate normally. A later change of
+candidate/scenarios must follow the existing revalidation and budget rules.
 
 ## Step 4 — Validate behavioral coverage and present for approval
 
