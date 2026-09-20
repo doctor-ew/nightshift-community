@@ -84,12 +84,30 @@ def state(project, task):
             pass
     ownership = directory(project).parent / 'worktrees' / (task + '.json')
     finished = ownership.exists() and read(ownership).get('status') == 'finished'
+    # CLI factories do not create a dashboard launch record. Match their
+    # lifecycle record to this ticket and verify the PID's command line.
+    if not running:
+        for agent_path in (Path(project).resolve() / '.nightshift/agents').glob('factory-*.json'):
+            try:
+                agent = read(agent_path)
+                if (agent.get('status') != 'running'
+                        or agent.get('ticket', {}).get('source_id') != task):
+                    continue
+                pid = agent.get('pid')
+                if type(pid) is not int or pid <= 0:
+                    continue
+                command = subprocess.check_output(['ps', '-p', str(pid), '-o', 'command='], text=True)
+                if 'nightshift-factory.sh' in command and record['settings']['ref'] in command:
+                    running = True
+                    break
+            except (OSError, ValueError, subprocess.SubprocessError):
+                continue
     repair = None
     if job and job.get('evidence'):
         evidence = Path(job['evidence'])
         if evidence.parent == directory(project) and (evidence / 'status.json').exists():
             repair = read(evidence / 'status.json')
-    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair)
+    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime)
 
 
 def list_tickets(project):
@@ -101,7 +119,7 @@ def list_tickets(project):
             result.append(state(project, path.stem))
         except (OSError, ValueError, KeyError):
             continue
-    return result
+    return sorted(result, key=lambda item: (item['running'], item['updated_at']), reverse=True)
 
 
 def action(project, task, expected, operation, provider="auto"):

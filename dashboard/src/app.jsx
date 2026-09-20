@@ -143,7 +143,7 @@ function TicketActions({ rows }) {
   }
   if (!data.tickets.length && !message) return null;
   return <section className="workspace" aria-label="Ticket status"><h2>Your tickets</h2>
-    <p>Follow each ticket from its recorded stages to the result and delivered files.</p>
+    <p>Active and newest tickets appear first. Earlier tickets retain their own outcomes; a previous failure does not describe a new run.</p>
     {message && <p role="status">{message}</p>}
     <div className="ticket-list">{data.tickets.map(ticket => {
       const progress = ticketProgress(rows, ticket);
@@ -155,7 +155,7 @@ function TicketActions({ rows }) {
       const specs = artifacts.filter(link => link.label === 'SPEC.md');
       const prs = [...new Set(rows.filter(row => row.ticket === ticket.task).map(row => row.pr_url_text).filter(Boolean))];
       return <article className="run ticket-focus" key={ticket.task}>
-      <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
+      <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3><p>{ticket.settings.ref}</p></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
       <p className="current-stage">{progress.stage ? <>{progress.stageLabel}: <strong>{progress.stage}</strong></> : ticket.running ? 'Starting · waiting for stage evidence' : 'No stage evidence recorded yet'}</p>
       {progress.trackers.map((tracker, index) => <div key={index} className="ticket-timeline">
         <ol aria-label={'Recorded stages for ' + ticket.task}>{tracker.pipeline_steps.map((step, i) => <li className={'step ' + step.state} key={i} title={step.detail}><span className="step-dot" aria-hidden="true">{step.state === 'passed' ? '✓' : ['failed', 'blocked'].includes(step.state) ? '!' : i + 1}</span><strong>{step.stage === 'product' ? 'Spec' : step.stage === 'qa' ? 'QA' : step.stage === 'deploy' ? 'Deploy (optional)' : step.stage[0].toUpperCase() + step.stage.slice(1)}</strong><small>{step.state === 'pending' ? 'Not recorded' : step.state}</small></li>)}</ol>

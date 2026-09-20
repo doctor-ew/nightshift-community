@@ -15,6 +15,19 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
     settings=dict(ref='gh:42',provider='claude',model='sonnet',policy='claude-only',auth='subscription',branch='auto',base='',push=True,pr=True)
     module.save(project,'42',settings)
     state=module.state(project,'42');assert not state['running']
+    module.save(project,'fresh',dict(settings,ref='spec:docs/fresh.md'))
+    assert module.list_tickets(project)[0]['task']=='fresh', 'newest ticket must precede old failures'
+    factory_agents=project/'.nightshift/agents';factory_agents.mkdir(parents=True)
+    sleeper=subprocess.Popen(['bash','-c','sleep 3; :','nightshift-factory.sh',settings['ref']])
+    try:
+        (factory_agents/'factory-test.json').write_text(json.dumps(dict(status='running',pid=sleeper.pid,ticket=dict(source_id='42'))))
+        assert module.state(project,'42')['running'], 'CLI factory must be recognized'
+        assert module.list_tickets(project)[0]['task']=='42', 'live ticket must appear first'
+        assert not module.state(project,'fresh')['running'], 'different ticket must not inherit running status'
+    finally:
+        sleeper.terminate();sleeper.wait()
+    assert not module.state(project,'42')['running'], 'stale lifecycle must not imply running'
+
     try:module.action(project,'42','stale','resume');raise AssertionError('stale settings accepted')
     except ValueError:pass
     assert module.action(project,'42',state['sha256'],'cleanup')['status']=='ready'
