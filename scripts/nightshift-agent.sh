@@ -6,6 +6,8 @@ if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
   exit 64
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NIGHTSHIFT_ROUTING_FILE=$(python3 "$ROOT/scripts/nightshift-routing-path.py" "$ROOT") || exit 64
+export NIGHTSHIFT_ROUTING_FILE
 SECONDS=0
 ROLE="${1:-}"; [ "$#" -eq 0 ] || shift
 GEAR=${NIGHTSHIFT_GEAR:-1} INPUT='' OUTPUT='' AUTHOR='' ADV=false PROVIDER='' MODEL='' TMP='' PUBLISH='' CHILD=''

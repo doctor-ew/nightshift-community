@@ -2,6 +2,8 @@
 # Pure bounded routing policy: no provider invocation and no filesystem writes.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+NIGHTSHIFT_ROUTING_FILE=$(python3 "$ROOT/scripts/nightshift-routing-path.py" "$ROOT") || exit 64
+export NIGHTSHIFT_ROUTING_FILE
 ROLE=${1:-} RISK=${2:-standard} ATTEMPT=${3:-1} ADV=${4:-false}
 case "$RISK" in low|standard|high) ;; *) echo 'invalid risk' >&2; exit 64;; esac
 case "$ATTEMPT" in 1|2|3) ;; *) echo 'attempt must be 1..3' >&2; exit 64;; esac
