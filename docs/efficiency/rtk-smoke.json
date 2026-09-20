@@ -1,0 +1,58 @@
+{
+  "kind": "synthetic-filter-interface-smoke",
+  "date": "2026-09-20",
+  "platform": "macOS arm64",
+  "provenance": {
+    "version": "v0.49.0",
+    "url": "https://github.com/rtk-ai/rtk/releases/download/v0.49.0/rtk-aarch64-apple-darwin.tar.gz",
+    "digest": "sha256:bbbfebabb22686993a80da731aa4d5d35116fb8ae24abb00608efa028e13ae01"
+  },
+  "billing_or_ticket_savings_verified": false,
+  "cases": [
+    {
+      "filter": "pytest",
+      "exit": 0,
+      "input_bytes": 4505,
+      "output_bytes": 18,
+      "output": "Pytest: 100 passed",
+      "synthetic": true,
+      "input": "============================= test session starts ==============================\nplatform darwin -- Python 3.14.7\ncollected 100 items\ntests/test_example.py::test_case_0 PASSED\ntests/test_example.py::test_case_1 PASSED\ntests/test_example.py::test_case_2 PASSED\ntests/test_example.py::test_case_3 PASSED\ntests/test_example.py::test_case_4 PASSED\ntests/test_example.py::test_case_5 PASSED\ntests/test_example.py::test_case_6 PASSED\ntests/test_example.py::test_case_7 PASSED\ntests/test_example.py::test_case_8 PASSED\ntests/test_example.py::test_case_9 PASSED\ntests/test_example.py::test_case_10 PASSED\ntests/test_example.py::test_case_11 PASSED\ntests/test_example.py::test_case_12 PASSED\ntests/test_example.py::test_case_13 PASSED\ntests/test_example.py::test_case_14 PASSED\ntests/test_example.py::test_case_15 PASSED\ntests/test_example.py::test_case_16 PASSED\ntests/test_example.py::test_case_17 PASSED\ntests/test_example.py::test_case_18 PASSED\ntests/test_example.py::test_case_19 PASSED\ntests/test_example.py::test_case_20 PASSED\ntests/test_example.py::test_case_21 PASSED\ntests/test_example.py::test_case_22 PASSED\ntests/test_example.py::test_case_23 PASSED\ntests/test_example.py::test_case_24 PASSED\ntests/test_example.py::test_case_25 PASSED\ntests/test_example.py::test_case_26 PASSED\ntests/test_example.py::test_case_27 PASSED\ntests/test_example.py::test_case_28 PASSED\ntests/test_example.py::test_case_29 PASSED\ntests/test_example.py::test_case_30 PASSED\ntests/test_example.py::test_case_31 PASSED\ntests/test_example.py::test_case_32 PASSED\ntests/test_example.py::test_case_33 PASSED\ntests/test_example.py::test_case_34 PASSED\ntests/test_example.py::test_case_35 PASSED\ntests/test_example.py::test_case_36 PASSED\ntests/test_example.py::test_case_37 PASSED\ntests/test_example.py::test_case_38 PASSED\ntests/test_example.py::test_case_39 PASSED\ntests/test_example.py::test_case_40 PASSED\ntests/test_example.py::test_case_41 PASSED\ntests/test_example.py::test_case_42 PASSED\ntests/test_example.py::test_case_43 PASSED\ntests/test_example.py::test_case_44 PASSED\ntests/test_example.py::test_case_45 PASSED\ntests/test_example.py::test_case_46 PASSED\ntests/test_example.py::test_case_47 PASSED\ntests/test_example.py::test_case_48 PASSED\ntests/test_example.py::test_case_49 PASSED\ntests/test_example.py::test_case_50 PASSED\ntests/test_example.py::test_case_51 PASSED\ntests/test_example.py::test_case_52 PASSED\ntests/test_example.py::test_case_53 PASSED\ntests/test_example.py::test_case_54 PASSED\ntests/test_example.py::test_case_55 PASSED\ntests/test_example.py::test_case_56 PASSED\ntests/test_example.py::test_case_57 PASSED\ntests/test_example.py::test_case_58 PASSED\ntests/test_example.py::test_case_59 PASSED\ntests/test_example.py::test_case_60 PASSED\ntests/test_example.py::test_case_61 PASSED\ntests/test_example.py::test_case_62 PASSED\ntests/test_example.py::test_case_63 PASSED\ntests/test_example.py::test_case_64 PASSED\ntests/test_example.py::test_case_65 PASSED\ntests/test_example.py::test_case_66 PASSED\ntests/test_example.py::test_case_67 PASSED\ntests/test_example.py::test_case_68 PASSED\ntests/test_example.py::test_case_69 PASSED\ntests/test_example.py::test_case_70 PASSED\ntests/test_example.py::test_case_71 PASSED\ntests/test_example.py::test_case_72 PASSED\ntests/test_example.py::test_case_73 PASSED\ntests/test_example.py::test_case_74 PASSED\ntests/test_example.py::test_case_75 PASSED\ntests/test_example.py::test_case_76 PASSED\ntests/test_example.py::test_case_77 PASSED\ntests/test_example.py::test_case_78 PASSED\ntests/test_example.py::test_case_79 PASSED\ntests/test_example.py::test_case_80 PASSED\ntests/test_example.py::test_case_81 PASSED\ntests/test_example.py::test_case_82 PASSED\ntests/test_example.py::test_case_83 PASSED\ntests/test_example.py::test_case_84 PASSED\ntests/test_example.py::test_case_85 PASSED\ntests/test_example.py::test_case_86 PASSED\ntests/test_example.py::test_case_87 PASSED\ntests/test_example.py::test_case_88 PASSED\ntests/test_example.py::test_case_89 PASSED\ntests/test_example.py::test_case_90 PASSED\ntests/test_example.py::test_case_91 PASSED\ntests/test_example.py::test_case_92 PASSED\ntests/test_example.py::test_case_93 PASSED\ntests/test_example.py::test_case_94 PASSED\ntests/test_example.py::test_case_95 PASSED\ntests/test_example.py::test_case_96 PASSED\ntests/test_example.py::test_case_97 PASSED\ntests/test_example.py::test_case_98 PASSED\ntests/test_example.py::test_case_99 PASSED\n============================= 100 passed in 0.05s ==============================\n"
+    },
+    {
+      "filter": "cargo-test",
+      "exit": 0,
+      "input_bytes": 156,
+      "output_bytes": 37,
+      "output": "cargo test: 2 passed (1 suite, 0.00s)",
+      "synthetic": true,
+      "input": "running 2 tests\ntest tests::one ... ok\ntest tests::two ... ok\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n"
+    },
+    {
+      "filter": "vitest",
+      "exit": 0,
+      "input_bytes": 159,
+      "output_bytes": 30,
+      "output": "PASS (2) FAIL (0)\n\nTime: 250ms",
+      "synthetic": true,
+      "input": " RUN  v3.0.0 /tmp/project\n\n \u2713 tests/math.test.ts (2 tests) 4ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)\n   Start at  12:00:00\n   Duration  250ms\n"
+    },
+    {
+      "filter": "tsc",
+      "exit": 0,
+      "input_bytes": 0,
+      "output_bytes": 0,
+      "output": "",
+      "synthetic": true,
+      "input": ""
+    },
+    {
+      "filter": "git-status",
+      "exit": 0,
+      "input_bytes": 190,
+      "output_bytes": 187,
+      "output": "On branch main\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n\tmodified:   src/app.py\nUntracked files:\n\tnew-file.py\nno changes added to commit",
+      "synthetic": true,
+      "input": "On branch main\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n\tmodified:   src/app.py\n\nUntracked files:\n\tnew-file.py\n\nno changes added to commit\n"
+    }
+  ]
+}

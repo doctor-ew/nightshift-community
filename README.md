@@ -951,3 +951,13 @@ The standard engineering profile retains its existing proof requirements.
 ### Windows installer
 
 For the full CLI from PowerShell, use the [Windows installer](docs/WINDOWS-INSTALL.md). It prepares Ubuntu through WSL and installs a `nightshift` launcher. Run `powershell -ExecutionPolicy Bypass -File .\install.ps1` from this checkout; add `-Plan` for a read-only preview. Implementation: [install.ps1](install.ps1).
+
+### Default-on efficiency adapters
+
+`nightshift exec -- COMMAND ARGS` captures commands once, retains private raw
+streams, and filters eligible successful test/build output when RTK is available.
+`nightshift evaluate --input FILE` optionally evaluates explicitly approved
+evidence using configurable Jev shadow judgments; it never approves pipeline gates.
+Opt out with `NIGHTSHIFT_RTK_ENABLED=false` or `NIGHTSHIFT_JEV_ENABLED=false`.
+Missing optional components produce visible fallback/skip receipts.
+See [installation, limits, configuration, and examples](docs/EFFICIENCY-ADAPTERS.md).

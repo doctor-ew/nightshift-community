@@ -1,353 +1,115 @@
-# Epic: Replace cxeng with a measured, configurable engineering workflow on Azure Foundry
+# Epic: Nightshift efficiency with RTK and Jev
 
-Status: **Draft for planning; no implementation or savings claimed**  
-Created: 2026-09-20  
-Destination: Local planning artifact; upstream project and ticket destination TBD  
-Owner, sponsor, budget, target repositories, Azure region, and timeline: TBD
+Status: Core implementation verified (NJ-01–06); empirical savings and experiments pending.
+Updated: 2026-09-20. Scope: this Nightshift repository and its existing runtimes.
 
 ## Outcome
 
-Deliver a work-ready replacement for cxeng that preserves the required engineering stages and evidence, uses configurable Azure Foundry model/runtime integrations, and measures cost and elapsed time per independently accepted ticket. Evaluate Jev as an optional component for focused judgments, routing, and browser interaction. Adopt it only where controlled experiments demonstrate benefit without unacceptable quality loss.
+Reduce cost and time per independently accepted ticket with RTK output compression and Jev evaluation. Preserve raw evidence, command outcomes, existing review gates, configurable providers, and explicit opt-outs. Azure/Foundry and the work cxeng migration are separate work and are not dependencies of this epic. The historical filename is retained to preserve existing links.
 
-This epic covers the full proposal discussed: baseline measurement, migration architecture, Foundry integration, skill execution, execution tools, Jev evaluation, workflow routing, the third-party gateway, browser QA, and staged rollout. It does not authorize a production deployment or transmission of company data to an external Jev service.
+## Architecture and defaults
 
-All task IDs below are local planning labels, not published issues or Beads IDs. The eventual upstream tracker remains the source of truth. Every task is open.
+- RTK: default enabled when available, restricted to verified command families. Missing RTK falls back visibly to normal execution. Preserve full output and the real exit status; expose a raw-output bypass. Do not filter machine protocols, exact source inspection, or authoritative review diffs.
+- Jev: default enabled once configured, initially shadow evaluation only. Record judgments without changing review/test/drift gates. Missing credentials, malformed results, or service failure produce an unavailable/skipped receipt; normal engineering gates still run. Provide project and per-run opt-outs.
+- Independent controls: compression, evaluation, and experimental decision/tool routing must be independently selectable. Do not install global hooks or switch the coding provider to use either feature.
+- External evaluation: configure endpoint, model, credential environment variable, bounded timeout and input limits. Credentials and raw request bodies must not appear in receipts. Use only approved evaluation data; this epic is not authorization to send arbitrary repository contents externally.
+- Preserve existing accounting provenance. Compression byte ratios and estimated token savings are not billed-dollar savings. Retain failed attempts, retries, and human intervention in comparisons.
 
-## Why this work
+The core adapters implement these defaults. See the [operating guide](EFFICIENCY-ADAPTERS.md) and [verification report](efficiency/VERIFICATION.md) for supported paths and limits.
 
-We need evidence that a replacement reduces engineering cost and time while preserving correctness. The current cost split, human supervision burden, and failure distribution at work have not been measured in this discussion. No absolute savings target or ROI claim is justified yet.
+## Evidence and limits
 
-Jev returns typed choices, scores, and probability judgments rather than generating implementation text. This suggests bounded decisions and evaluation as initial uses, with general models retained for authoring and substantive reasoning. This placement is an architectural proposal, not proof of performance on company engineering work. [S1]
+RTK filters shell-command output locally; filters may truncate matches, trim tracebacks, and reduce diff context. Its reported savings are output-byte reduction, and token counts are estimates. This motivates an allowlist and raw evidence retention. [R1, R2]
 
-Foundry supports managed agents as well as model access from agents hosted elsewhere. A dedicated hosted agent per skill is therefore an option to evaluate, not a prerequisite for the migration. [S5]
+Jev returns typed choices/scores/judgments. LangChain's promising cost and latency results cover five weather-agent examples with repeated judgments, not representative code-review accuracy. Use shadow evaluation and independent labels before allowing decisions to affect work. [J1, J2]
 
-## Evidence and its limits
+The third-party Jev gateway can skip generation only for closed argument schemas; ordinary open-ended arguments still need a generation model. Its documented tradeoffs include network latency and mixed benchmark outcomes. Browser Use demonstrates bounded action selection but still requires independent outcome verification. Both remain separate experiments. [J3, J4]
 
-| Evidence | What it supports | What it does not establish |
+## Tasks and acceptance criteria
+
+All IDs below are local planning labels, not published tracker issues. They supersede the previous FJ planning sequence. No task is complete without verification evidence.
+
+| ID | Task | Dependencies |
 |---|---|---|
-| LangChain reports about 0.44 seconds and $0.00035 per Jev evaluation, with full agreement on repeated binary judgments in its experiment. It used five fixed weather-agent examples, repeated 100 times. [S2] | A focused evaluator pilot is worth considering. | Accuracy on code, architectural decisions, security review, or hundreds of distinct engineering cases. |
-| Browser Use selects operations and observed elements with Jev, using another model when text generation is needed. It documents narrow performance measurements and independent verification. [S3] | A constrained browser-action experiment. | Broad UI reliability or replacement of outcome assertions. |
-| The gateway can bypass the generation model for fully closed argument schemas; open-ended arguments still require generation. Its Claude Code path uses hints and explicitly discourages expecting cost/latency savings. It documents added network latency and mixed small-benchmark results. [S4] | A separate, controlled gateway comparison. | A universal drop-in saving across skills, clients, or providers. |
-| The reviewed Jev integration lists external service endpoints. [S4] | An external-service integration candidate. | Jev availability in the company's Foundry region, private hosting, or Azure-only processing. |
+| NJ-01 | Define configuration, raw evidence, and measurement contracts | None |
+| NJ-02 | Implement RTK execution wrapper and raw bypass | NJ-01 |
+| NJ-03 | Integrate RTK guidance/capability into Nightshift runtime | NJ-02 |
+| NJ-04 | Implement configurable Jev shadow evaluator | NJ-01 |
+| NJ-05 | Integrate evaluation receipts and opt-outs | NJ-04 |
+| NJ-06 | Verify failure behavior and document operation | NJ-03, NJ-05 |
+| NJ-07 | Run controlled cost/quality comparison | NJ-06 |
+| NJ-08 | Pilot bounded Jev workflow routing | NJ-07 |
+| NJ-09 | Benchmark third-party jev-gateway separately | NJ-07 |
+| NJ-10 | Benchmark bounded browser QA | NJ-07 |
+| NJ-11 | Record adoption decisions and rollout | NJ-07; disposition of NJ-08–10 |
 
-Treat these as source-reported findings, not independently reproduced results. Archive source revisions during the pilot because product behavior and documentation can change. Avoid interpreting repeatability as correctness.
+### NJ-01 — Configuration and evidence contracts
 
-## Proposed architecture
+Acceptance: separate project/environment/per-run settings with documented precedence; default-on when configured/available; visible bypass/unavailable states; bounded resources; immutable run-specific raw output and receipts; distinguish real command status from adapter status. Preserve existing model/auth/billing selection. Record version/provenance and unknown costs honestly.
+Validation: configuration fixtures including opt-outs, invalid values, unavailable tools, and incomplete accounting.
 
-These are proposed responsibilities, not descriptions of an implemented replacement:
+### NJ-02 — RTK wrapper
 
-1. **Workflow runner:** stage transitions, durable progress, retries, budgets, evidence, and resume behavior.
-2. **Versioned skills:** instructions, required inputs, output contracts, tool permissions, and completion criteria. Keep business workflow instructions independent of the model provider.
-3. **Foundry adapter:** configured model deployments, authentication, request/response translation, timeouts, usage collection, and explicit failure handling.
-4. **Execution environment:** isolated repository access and bounded tools for search, edits, builds, tests, and source-control operations. Model inference alone is not the proposed execution environment.
-5. **Optional decision/evaluation adapter:** Jev or another evaluator behind a replaceable contract; initially observational.
-6. **Evidence and observability:** correlated stage/run records, actual tool outcomes, independent review, usage, and attributable human effort.
+Acceptance: execute eligible commands once, preserve raw stdout/stderr and exit status, return compressed agent-facing output with evidence paths. Restrict supported commands and bypass unsafe/machine-parsed/exact-evidence forms. Filtering failure must not re-execute a command. Missing RTK must preserve ordinary behavior. No global hook installation.
+Validation: offline fake RTK/command fixtures exercising success, failure, bypass, filter failure, missing binary, raw recovery, quoting, and secrets in configuration.
 
-Start by evaluating one runner with shared configured model deployments. Split skills into separately hosted agents only where lifecycle, scaling, permissions, or ownership justify that decision. Foundry's documented hosting choices support evaluating both approaches. [S5]
+### NJ-03 — Runtime integration
 
-Use deterministic checks for mechanically verifiable facts. Do not ask Jev to infer whether a test command passed when the recorded exit status is available. Jev may flag a semantic evidence gap; it must not manufacture missing evidence or grant authorization.
+Acceptance: expose the wrapper through the normal Nightshift command surface and runtime instructions; use capability detection; preserve provider-neutral role prompts; independent project/per-run opt-outs. No claim that native non-shell tools are automatically compressed.
+Validation: launcher/help/instruction tests and representative supported command smoke tests without paid model calls.
 
-## Scope and boundaries
+### NJ-04 — Jev adapter
 
-In scope:
+Acceptance: configurable service/model/credential reference; typed rubric and explicit input artifact; bounded payload and network timeout; validate result shape; record input/rubric hashes, status, latency, model provenance, and available usage. No raw prompts or keys in receipts. No silent truncation or invented cost/confidence. Shadow-only output cannot become a PASS gate.
+Validation: mocked service fixtures for success, malformed JSON/schema, timeout, HTTP error, oversized input, missing credentials, disabled mode, and endpoint validation.
 
-- Inventory and preserve the work team's required cxeng behavior.
-- Measure the current baseline and compare a Foundry-backed replacement.
-- Keep model/provider choice, budgets, authentication, and fallback configurable.
-- Preserve independent tests, review, drift checks, and deployment policy.
-- Test Jev for intake classification, evidence-gap screening, failure classification, regression scoring, bounded routing, and browser action selection.
-- Independently test the third-party gateway; do not combine its results with a custom Jev integration.
-- Document operating costs, human effort, maintenance burden, rollback, and adoption decisions.
+### NJ-05 — Evaluation integration
 
-Out of scope unless separately approved:
+Acceptance: supported Nightshift invocation with default-on configured evaluation, explicit opt-out, and visible unavailable/skipped receipts. Use explicit evidence inputs rather than indiscriminately uploading the repository or transcript. Preserve independent engineering gates and ordinary run exit status. A service outage must not pass or fail an engineering gate.
+Validation: end-to-end offline evaluation invocation and receipt checks for enabled/disabled/unavailable cases.
 
-- Replacing substantive code/security review with a Jev score.
-- Training a new model or claiming private Jev hosting is available.
-- Migrating every team or repository before a representative pilot passes.
-- Changing production deployment authorization or deleting retained evidence.
-- Making Jev, LangSmith, or any one generation model mandatory for the workflow.
+### NJ-06 — Verification and operating guide
 
-## Decisions to resolve
+Acceptance: appropriate regression tests, review findings resolved, setup/opt-out/raw-recovery documentation, config examples grounded in implemented interfaces, and clear distinction between mocked integration and live service verification. No live spend or company-data use inferred from implementation approval.
+Validation: targeted suites plus existing affected launcher/provider checks; retain results and remaining limits in an implementation report.
 
-| Decision | Owner | Resolved by |
-|---|---|---|
-| Upstream tracker/project and target work repositories | Sponsor | FJ-01 |
-| Required cxeng stages, integrations, and compatibility | Engineering owner | FJ-01 |
-| Azure-only requirement versus permitted external processing | Company data/security owner | FJ-02 |
-| Foundry region, supported deployments, identity, quotas, and billing | Azure owner | FJ-02, FJ-05 |
-| Existing runner versus Foundry-hosted runner; agent-per-skill exceptions | Architecture owner | FJ-04 |
-| Model choices, budget limits, and fallback policy | Engineering/Azure owners | FJ-05 |
-| Quality tolerances, minimum benefit, and acceptable payback period | Sponsor and independent reviewers | FJ-03, FJ-07 |
-| Human-time valuation and subscription/API accounting | Sponsor/finance | FJ-03 |
+### NJ-07 — Controlled comparison
 
-Do not treat missing answers as approval. External Jev experiments may use approved synthetic/public fixtures while company-data eligibility remains unresolved; they cannot establish company-workload performance by themselves.
+Acceptance: compare baseline, RTK only, Jev only, and both on equivalent starting revisions with pinned versions/models and independent acceptance. Start with 30–50 representative labeled runs where feasible, separating synthetic data from field evidence. Freeze rubrics and thresholds before held-out runs. Measure accepted-ticket cost/time, input/cache/output usage, retries, human intervention, lost evidence, false accepts/rejects, abstentions, and service overhead. Report failures and unknown billing, not just successful runs or byte savings.
+Validation: independently inspect disagreements and reconcile metrics to retained receipts. Pilot sample size is not proof of rare-error safety. Live benchmark depends on credentials, budget, and approved data; leave explicitly pending if unavailable.
 
-## Measurement and adoption contract
+### NJ-08 — Bounded workflow routing
 
-Proposed primary measures:
+Acceptance: select one evidenced semantic decision (intake specialist, scope escalation, or existing recovery route); use deterministic logic where sufficient; preserve budgets and authorization; calibrated abstention and fallback; reversible opt-out. No default gate authority from shadow-evaluation success alone.
+Validation: held-out cases including ambiguous and confidently wrong decisions. Adopt/narrow/reject based on total outcomes.
 
-- Total experiment spend divided by independently accepted tickets, retaining spend on failed attempts in the numerator.
-- Fully loaded cost per accepted ticket, including attributable engineer time, model/API spend, execution infrastructure, and an explicit allocation of ongoing integration overhead.
-- Time to acceptance, p50 and p95 when sample size supports them; also report failures and censored runs rather than excluding them.
-- Human intervention minutes, repair loops, unnecessary escalations, and missed failures.
-- Raw fresh/cache input, cache-write where available, output/reasoning usage where separately reported, provider-reported model, retries, and billing mode.
-- For evaluators: false accepts, false rejects, abstentions, agreement with independent labels, and performance by failure category.
+### NJ-09 — Gateway experiment
 
-Keep authoritative billed amounts, provider estimates, and token-derived estimates separate. Missing usage is unknown, not zero. The local cost policy and measurement documents already describe these distinctions; assess reuse rather than building competing accounting semantics. [S6, S7]
+Acceptance: pin/audit gateway; verify actual Nightshift client compatibility; compare off/on in isolated equivalent runs; account for direct/forced/hint/passthrough modes, cache changes, latency, retries, and success rates. Never infer subscription bill savings from token reductions alone.
+Validation: hidden acceptance checks across bug and feature work; explicit adopt/narrow/defer/reject decision. Not required for core RTK/evaluation delivery.
 
-An illustrative bound: if judgment calls represent 10% of total cost, a 90% reduction in that component yields 9% total savings before new overhead. This is arithmetic, not a forecast. Reductions in rework must be measured separately.
+### NJ-10 — Browser experiment
 
-Adoption thresholds must be recorded before held-out evaluation. A 30–50-run initial dataset is proposed for feasibility and error discovery, not proof of safety or rare-error rates. Expand it if the adoption decision requires stronger evidence. Do not tune against the final held-out set.
+Acceptance: bounded approved UI tasks, observed controls, separately attributable text generation, independent outcome assertions, and handling of stale state/unsupported widgets. Preserve permissions and log timing boundaries.
+Validation: repeated tasks and failure cases against the existing browser approach; explicit adopt/narrow/defer/reject decision. Not required for core delivery.
 
-## Task sequence
+### NJ-11 — Adoption and rollout
 
-| ID | Task | Dependencies | Track |
-|---|---|---|---|
-| FJ-01 | Inventory cxeng and define migration parity | None | Core |
-| FJ-02 | Resolve data boundary and Azure feasibility | FJ-01 | Core |
-| FJ-03 | Establish baseline accounting and experiment measures | FJ-01 | Core |
-| FJ-04 | Define runner, skill, and adapter contracts | FJ-01, FJ-02 | Core |
-| FJ-05 | Implement and verify Foundry inference adapter | FJ-03, FJ-04 | Core |
-| FJ-06 | Implement isolated execution and resumable workflow | FJ-04, FJ-05 | Core |
-| FJ-07 | Build labeled evaluation corpus and freeze criteria | FJ-02, FJ-03 | Shared |
-| FJ-08 | Port one complete engineering slice | FJ-06, FJ-07 | Core |
-| FJ-09 | Implement optional Jev decision/evaluation adapter | FJ-02, FJ-04, FJ-07 | Experiment |
-| FJ-10 | Run Jev evaluator in shadow mode | FJ-08, FJ-09 | Experiment |
-| FJ-11 | Pilot intake and failure routing | FJ-10 | Conditional |
-| FJ-12 | Benchmark jev-gateway separately | FJ-02, FJ-03, FJ-07 | Optional |
-| FJ-13 | Benchmark bounded browser QA | FJ-02, FJ-03, FJ-07, FJ-09 | Optional |
-| FJ-14 | Produce economics and quality decision | FJ-08, FJ-10; disposition of FJ-11–13 | Decision |
-| FJ-15 | Complete selected migration and controlled rollout | FJ-14 | Core |
+Acceptance: separate decisions for RTK, Jev evaluation, routing, gateway, and browser work; retain default-on configured evaluation and allowlisted compression with explicit opt-outs where verification supports rollout; document rejected/deferred experiments. Include integration maintenance cost and rollback instructions. Preserve existing gates and production approval requirements.
+Validation: limited cohort evidence and exercised disable/raw-recovery paths. Do not claim savings or whole-epic completion before NJ-07 and the decision record exist.
 
-### FJ-01 — Inventory cxeng and define migration parity
+## Completion
 
-Deliverable: A migration inventory and selected pilot workload.
-
-Acceptance criteria:
-
-- Identify required stages, skills, tools, ticket systems, repository conventions, authentication, and human approval points from the actual work installation.
-- Map each capability to retain, adapt, retire by explicit decision, or defer; record the owner of each decision.
-- Select representative bug-fix, feature, and failure-recovery cases and document their acceptance evidence.
-- Confirm upstream tracker, target repositories, and baseline version. Do not copy personal environment assumptions into company configuration.
-
-Validation: Walk through one historical accepted ticket and one failed ticket against the inventory.
-
-### FJ-02 — Resolve data boundary and Azure feasibility
-
-Deliverable: Recorded deployment/data decision with evidence and unresolved constraints.
-
-Acceptance criteria:
-
-- Verify available Foundry region, models, quotas, authentication, execution hosting options, and company access requirements.
-- Establish whether prompts, code, tool results, and traces may reach each proposed external endpoint; document retention and logging requirements.
-- Verify Jev hosting options with authoritative evidence; absence of evidence must not become a claim of Azure/private availability.
-- If external Jev is disallowed, preserve the Foundry migration and record a no-adopt or approved alternative-evaluator path.
-- Define permitted pilot datasets and the people authorized to approve company-data use.
-
-Validation: Review by the Azure and company data owners; synthetic fixtures alone do not satisfy a company-data approval.
-
-### FJ-03 — Establish baseline accounting and experiment measures
-
-Deliverable: Baseline report and reusable measurement contract.
-
-Acceptance criteria:
-
-- Measure the existing workflow before changing its decisions; capture run/stage identity, outcome, timing, retry cost, usage provenance, and human interventions.
-- Separate subscription costs, API consumption, infrastructure, estimates, and actual bills; report unknown values explicitly.
-- Include unsuccessful attempts and interrupted runs in aggregate costs and outcome counts.
-- Record caching effects, model identity, configuration versions, and workload categories so comparisons are interpretable.
-- Agree minimum material benefit, quality tolerances, pilot spend cap, and how human time is valued before comparative runs.
-
-Validation: Reconcile a sample report to underlying run evidence and available billing records; demonstrate an incomplete-usage case.
-
-### FJ-04 — Define runner, skill, and adapter contracts
-
-Deliverable: Architecture decision and versioned interface specifications.
-
-Acceptance criteria:
-
-- Define skill inputs, outputs, evidence requirements, failure states, permissions, and ownership.
-- Separate orchestration, model inference, tool execution, and semantic evaluation responsibilities.
-- Define configured provider/model selection and explicit fallback; record why any skill requires a distinct hosted agent.
-- Specify durable state, resume behavior, idempotency, cancellation, budget accounting, and retry exhaustion.
-- Define optional evaluator outcomes including abstention/unavailable; evaluator failure cannot silently become a passing gate.
-
-Validation: Tabletop successful, failed, interrupted, and resumed tickets without relying on provider-specific role instructions.
-
-### FJ-05 — Implement and verify Foundry inference adapter
-
-Deliverable: Configurable adapter and deployment-specific verification receipt.
-
-Acceptance criteria:
-
-- Implement the agreed interface against explicitly configured Foundry deployments and company-approved identity.
-- Record active billing mode and model provenance; do not silently substitute subscription or API billing.
-- Handle throttling, authentication failure, timeouts, cancellation, malformed outputs, and unavailable deployment without hiding errors or losing accounting.
-- Verify the required tool-call and output-contract behavior on each selected deployment; do not infer compatibility from API naming alone.
-- Keep credentials out of artifacts and retain bounded, attributable retry records.
-
-Validation: Offline contract/error tests plus an approved live smoke test with receipts and measured cost.
-
-### FJ-06 — Implement isolated execution and resumable workflow
-
-Deliverable: Pilot runner with bounded execution tools and durable evidence.
-
-Acceptance criteria:
-
-- Provide isolated checkout/worktree or equivalent execution state with scoped repository permissions.
-- Execute the selected build/test/search/edit/source-control tools and retain real outcomes.
-- Preserve stage ordering, independent review, drift checks, and company deployment policy.
-- Resume after interruption without duplicating irreversible side effects or resetting consumed budgets.
-- Keep authorization enforcement in executable policy; model confidence cannot expand tool permissions.
-
-Validation: Exercise successful execution, test failure, review rejection, exhausted repair budget, interrupted resume, and denied operation.
-
-### FJ-07 — Build labeled evaluation corpus and freeze criteria
-
-Deliverable: Versioned corpus, rubric, split manifest, and preregistered comparison plan.
-
-Acceptance criteria:
-
-- Start with 30–50 representative historical runs where available; explicitly label synthetic or public substitutes.
-- Include known omissions, incorrect acceptance claims, tool failures, unnecessary actions, and successful cases across selected task categories.
-- Have independent reviewers label focused questions and resolve or retain disagreements explicitly.
-- Separate rubric development, threshold calibration, and held-out evaluation by ticket family to reduce leakage.
-- Freeze scoring, tolerances, timeout budgets, model versions, comparison procedure, and expansion criteria before held-out runs.
-
-Validation: Audit labels against source evidence and verify no target answer/held-out verdict reaches the evaluated agent.
-
-### FJ-08 — Port one complete engineering slice
-
-Deliverable: A Foundry-backed ticket flow compared with the existing workflow.
-
-Acceptance criteria:
-
-- Complete intake through specification, implementation, tests, review, and handoff for the selected pilot slice.
-- Preserve the agreed cxeng acceptance behavior and emit reviewable artifacts at every required stage.
-- Compare against the baseline using independent acceptance and equivalent starting revisions, budgets, and task inputs.
-- Record all failures, interventions, configuration differences, and remaining parity gaps.
-
-Validation: Independent end-to-end review of accepted and failed pilot runs. A successful model call does not satisfy this task.
-
-### FJ-09 — Implement optional Jev decision/evaluation adapter
-
-Deliverable: Replaceable adapter disabled by default for workflow control.
-
-Acceptance criteria:
-
-- Support agreed bounded choice/score/judgment requests with versioned state and rubric provenance.
-- Validate responses; record latency, cost provenance, confidence, timeout, and abstention without treating confidence as verified correctness.
-- Send only permitted data and retain payload/provenance records according to the FJ-02 policy.
-- Bound request size and detect missing/truncated evidence; abstain rather than silently score incomplete state as complete.
-- Demonstrate workflow operation with Jev disabled or unavailable.
-
-Validation: Contract tests for malformed output, timeout, missing evidence, and denied data egress, plus an approved live evaluation fixture.
-
-### FJ-10 — Run Jev evaluator in shadow mode
-
-Deliverable: Held-out evaluator report and adopt/narrow/reject decision.
-
-Acceptance criteria:
-
-- Score focused criteria such as evidence support, apparent acceptance-criteria coverage, and trace/task alignment without changing workflow behavior.
-- Compare with independent labels and the existing evaluator under the same evidence and rubric.
-- Report false accepts, false rejects, abstentions, latency, cost, and results by failure category with sample-size limitations.
-- Distinguish repeatability from correctness and repeat judgments only when the measurement question requires it.
-- Recommend the narrowest justified use; do not replace independent engineering gates based solely on this pilot.
-
-Validation: Review held-out disagreement cases and verify no shadow result influenced execution or ground-truth labeling.
-
-### FJ-11 — Pilot intake and failure routing
-
-Deliverable: One bounded, reversible routing experiment.
-
-Acceptance criteria:
-
-- Choose one decision supported by FJ-10 evidence: intake specialist selection, scope escalation, or classification into an existing recovery path.
-- Prefer deterministic routing where existing facts suffice; document why semantic classification is needed for the selected case.
-- Restrict choices to configured allowed paths; preserve budgets, required review, and authorization.
-- Calibrate abstention/fallback thresholds on development data and freeze them before evaluation.
-- Measure total accepted-ticket cost/time, wrong-route recovery, and unnecessary escalation against the baseline; retain a disable switch.
-
-Validation: Held-out comparison including ambiguous cases, service failure, misleading tool output, and confidently incorrect decisions.
-
-### FJ-12 — Benchmark jev-gateway separately
-
-Deliverable: Client-specific compatibility and economics report; no default rollout.
-
-Acceptance criteria:
-
-- Pin a reviewed gateway revision and inspect credential forwarding, data sent to Jev, context handling, and logging before approved use.
-- Verify the actual work client and Foundry authentication/wire protocol; documented generic compatibility is insufficient.
-- Compare gateway off/on using equivalent clean starting states, randomized run order, fixed budgets, and independent hidden acceptance checks.
-- Record direct, forced, hint, and passthrough frequencies; separate saved model calls from calls that still invoke the generation model.
-- Include added latency, cache changes, retries, acceptance rate, and full cost; do not promote token reductions alone as savings.
-- Mark unsupported or uneconomic client paths as rejected without blocking the core migration.
-
-Validation: Reproducible receipts across bug and feature cases; ensure one run cannot inspect another run's solution.
-
-### FJ-13 — Benchmark bounded browser QA
-
-Deliverable: A narrow UI experiment and supported-widget inventory.
-
-Acceptance criteria:
-
-- Select approved repeatable UI tasks and compare against the current browser approach under equivalent conditions.
-- Use observed controls and constrained actions; keep text generation separately attributable.
-- Verify outcomes with assertions independent of the model's completion choice.
-- Include stale page state, loading, unexpected dialogs, and unsupported controls with bounded failure behavior.
-- Report success rate, elapsed time, calls, generation cost, and intervention; define timing boundaries including setup separately.
-- Preserve application permissions and prevent benchmark runs from performing unapproved irreversible actions.
-
-Validation: Repeated controlled tasks and failure cases, with traces and independent outcome evidence.
-
-### FJ-14 — Produce economics and quality decision
-
-Deliverable: Decision memo for the Foundry replacement and each Jev experiment independently.
-
-Acceptance criteria:
-
-- Compare baseline, Foundry-only, and each measured Jev variant without conflating model, prompt, runner, or gateway changes.
-- Include implementation/maintenance cost, infrastructure, subscriptions/API costs, human effort, unknowns, and uncertainty.
-- Report quality and time alongside cost; identify whether the apparent saving survives failed attempts and recovery.
-- Mark each candidate adopt, narrow, investigate further, or reject with supporting evidence and an owner.
-- If integration cost is known and recurring net savings are positive, estimate payback; otherwise report payback as unknown or absent.
-- Explicitly disposition optional experiments as completed, deferred, or rejected rather than leaving ambiguous dependencies.
-
-Validation: Independent review of calculations and evidence. No rollout on an unmeasured savings claim.
-
-### FJ-15 — Complete selected migration and controlled rollout
-
-Deliverable: Work-ready selected scope, operating guide, rollback procedure, and acceptance report.
-
-Acceptance criteria:
-
-- Complete remaining agreed parity work and migrate only approved repositories, skills, and integrations.
-- Use versioned configuration, explicit deployment/model selection, spend limits, and observable fallback.
-- Document setup, identity, billing, incident handling, failure receipts, resume, and restoration of the previous workflow.
-- Start with a limited cohort and compare live accepted-ticket quality/cost/time with the frozen baseline and rollback triggers.
-- Enable only experiments adopted by FJ-14; rejection of Jev does not invalidate a successful Foundry migration.
-- Obtain explicit production approval immediately before any production deployment, with exact target and command presented.
-
-Validation: Acceptance by the work engineering owner, exercised rollback/resume, and retained independent verification receipts.
-
-## Epic completion criteria
-
-- The agreed replacement scope completes real work tickets with independent acceptance evidence.
-- Foundry hosting/inference, tool execution, identity, data boundary, and operational ownership are resolved and documented.
-- Cost and elapsed-time comparisons retain failed work, human intervention, and accounting uncertainty.
-- Every Jev experiment has an explicit evidence-backed disposition; universal adoption is not required.
-- Required gates and authorization remain intact, and the previous workflow can be restored.
-- No task or epic is marked complete solely because a plan, adapter smoke test, or favorable token chart exists.
+Core implementation milestone: NJ-01–06 completed and [verified](efficiency/VERIFICATION.md) on 2026-09-20. Empirical savings/adoption milestone: NJ-07 and NJ-11 evidenced, with NJ-08–10 explicitly dispositioned. This separation allows useful code to ship without fabricating live benchmark evidence.
 
 ## Sources
 
-External sources were reviewed during the 2026-09-20 discussion. Capabilities and reported results must be revalidated and pinned when implementation starts.
+- R1: [RTK README](https://github.com/rtk-ai/rtk).
+- R2: [RTK savings explanation](https://github.com/rtk-ai/rtk/blob/develop/docs/guide/resources/savings-explained.md).
+- J1: [TypeSafe primitives](https://docs.typesafe.ai/introduction).
+- J2: [LangChain evaluation](https://www.langchain.com/blog/jev-agent-evals-langsmith).
+- J3: [Jev gateway](https://github.com/vinilana/jev-gateway).
+- J4: [Browser Use Jev](https://github.com/browser-use/jev-ultrafast).
+- Local design: [cost policy](NIGHTSHIFT-COST-POLICY.md), [run measurements](RUN-MEASUREMENTS.md), [efficiency roadmap](EFFICIENCY-ROADMAP.md).
 
-- **S1 — TypeSafe:** [Jev introduction and typed primitives](https://docs.typesafe.ai/introduction).
-- **S2 — LangChain:** [Jev-as-a-Judge for Agent Evals](https://www.langchain.com/blog/jev-agent-evals-langsmith). Narrow weather-agent evaluation, source-reported results.
-- **S3 — Browser Use:** [jev-ultrafast README and evidence limits](https://github.com/browser-use/jev-ultrafast).
-- **S4 — Third-party gateway:** [jev-gateway README](https://github.com/vinilana/jev-gateway), particularly hosting endpoints, routing modes, Claude Code, tradeoffs, and benchmark limitations. This is not a TypeSafe-endorsed integration according to its README.
-- **S5 — Microsoft:** [Foundry Agent Service overview](https://learn.microsoft.com/en-us/azure/ai-foundry/agents/overview).
-- **S6 — Local policy:** [Authentication and usage policy](NIGHTSHIFT-COST-POLICY.md), especially accounting meanings. A design input, not evidence of the work installation's behavior.
-- **S7 — Local measurement design:** [Run measurements](RUN-MEASUREMENTS.md) and [efficiency roadmap](EFFICIENCY-ROADMAP.md). Assess current implementation and reuse before assigning changes; historical issue references are not newly created tasks.
+Sources reviewed in the planning conversation on 2026-09-20; pin and reverify implementation-specific APIs and binaries before integration.

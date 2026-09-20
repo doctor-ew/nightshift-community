@@ -280,6 +280,8 @@ fi
 case "$PROVIDER:$ROLE" in
   codex:nightshift-architect|codex:nightshift-engineer|codex:nightshift-spec-writer|local:nightshift-architect|local:nightshift-engineer|local:nightshift-spec-writer) EXECUTION_CONTEXT+=$'\nRead-only proposal worker: return the plan in reason and a complete implementation patch in artifacts.diff for authorized controller integration. Do not write files, request sandbox escalation, or enter interactive plan mode.' ;;
 esac
+EXECUTION_CONTEXT+="
+Efficiency helper: python3 \"$ROOT/scripts/nightshift-efficiency.py\" exec -- COMMAND ARGS captures bounded test/build output once and retains raw evidence. RTK defaults on when available; exact reads, diffs and machine output bypass filtering. Jev is shadow-only and cannot replace review or authorize gates."
 EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independent review, permanent-removal confirmation and production-deployment confirmation. Execution mode does not approve a failed gate.'
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'

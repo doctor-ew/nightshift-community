@@ -1,0 +1,13 @@
+{
+  "rtk": {"enabled": true, "timeout_seconds": 10},
+  "exec": {"timeout_seconds": 900, "max_bytes": 67108864},
+  "jev": {
+    "enabled": true,
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-latest",
+    "key_env": "TYPESAFE_API_KEY",
+    "timeout_seconds": 20,
+    "max_bytes": 262144,
+    "allow_loopback": false
+  }
+}

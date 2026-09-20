@@ -54,6 +54,14 @@ PYSEMANTIC
   exit $?
 fi
 
+# RTK is a cheap PATH lookup: never trust a 24-hour negative or removed binary.
+if [ "${2:-}" = rtk ] && { [ "${1:-}" = --has ] || [ "${1:-}" = --which ]; }; then
+  RTK_PATH="$(command -v rtk 2>/dev/null || true)"
+  if [ "${1:-}" = --has ]; then [ -n "$RTK_PATH" ]; exit $?; fi
+  printf '%s\n' "$RTK_PATH"
+  exit 0
+fi
+
 CACHE_DIR="${NIGHTSHIFT_CACHE_DIR:-$HOME/.nightshift}"
 CACHE_FILE="$CACHE_DIR/capabilities"
 TTL=86400
@@ -161,3 +169,6 @@ if [ -n "$QMODE" ]; then
 fi
 
 grep -v '^#' "$CACHE_FILE" 2>/dev/null
+
+# RTK remains a live resolution even when other capabilities use their cache.
+printf 'NIGHTSHIFT_RTK="%s"\n' "$(command -v rtk 2>/dev/null || true)"

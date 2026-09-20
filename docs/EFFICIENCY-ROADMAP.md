@@ -29,6 +29,14 @@ This is the "establish baseline" ticket referenced by the hardening roadmap; the
 tickets below are the measured, targeted work that baseline makes possible. None of
 them are scoped or implemented by #8.
 
+## RTK and Jev integration
+
+The [Nightshift RTK/Jev epic](FOUNDRY-JEV-EPIC.md) now owns output compression,
+default-on configured shadow evaluation, explicit opt-outs, and controlled savings
+comparisons. Azure/Foundry is outside that epic. Its NJ-01–06 implementation
+milestone is separate from live benchmarking and adoption; no savings are claimed
+by this planning entry.
+
 ## Follow-ons this baseline unblocks
 
 - [#9 Bounded handoffs](https://github.com/doctor-ew/nightshift-community/issues/9) —
