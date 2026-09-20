@@ -14,6 +14,21 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
     target=pathlib.Path(receipt['worktree']);docs=target/'docs/42';docs.mkdir(parents=True);(docs/'SPEC.md').write_text('retained spec')
     settings=dict(ref='gh:42',provider='claude',model='sonnet',policy='claude-only',auth='subscription',branch='auto',base='',push=True,pr=True)
     module.save(project,'42',settings)
+    budget_dir=module.directory(project)
+    module.atomic(budget_dir/'broken.repair-budget.json',dict(attempts=3,limit=3))
+    for i in range(3):
+        folder=budget_dir/('broken-repair-'+str(i));folder.mkdir()
+        module.atomic(folder/'status.json',dict(phase='blocked'))
+        module.atomic(folder/'proposal.json',dict(status='FAIL',reason='required development proof is missing, stale or blocked',rules_fired=['dispatcher_failure'],artifacts=dict(provider='',model='')))
+    bp,budget=module.repair_budget(budget_dir,'broken')
+    assert budget['attempts']==3 and budget['proof_gate_bug_reconciliation']['credited_attempts']==3
+    module.atomic(bp,budget)
+    budget['attempts']=6;module.atomic(bp,budget)
+    try:module.repair_budget(budget_dir,'broken');raise AssertionError('repeated credits allowed')
+    except ValueError:pass
+    module.atomic(budget_dir/'real.repair-budget.json',dict(attempts=3,limit=3))
+    try:module.repair_budget(budget_dir,'real');raise AssertionError('unproven failures credited')
+    except ValueError:pass
     state=module.state(project,'42');assert not state['running']
     module.save(project,'fresh',dict(settings,ref='spec:docs/fresh.md'))
     assert module.list_tickets(project)[0]['task']=='fresh', 'newest ticket must precede old failures'

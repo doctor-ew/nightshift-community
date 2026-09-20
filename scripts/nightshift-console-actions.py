@@ -122,6 +122,41 @@ def list_tickets(project):
     return sorted(result, key=lambda item: (item['running'], item['updated_at']), reverse=True)
 
 
+def repair_budget(path, task):
+    """One-time reconciliation of the prelaunch proof-gate bug; never reset attempts."""
+    budget_path = path / (task + '.repair-budget.json')
+    budget = read(budget_path) if budget_path.exists() else dict(attempts=0, limit=3)
+    used = budget.get('attempts')
+    if type(used) is not int or used < 0:
+        raise ValueError('Invalid repair budget')
+    if 'proof_gate_bug_reconciliation' not in budget:
+        evidence = []
+        for folder in sorted(path.glob(task + '-repair-*')):
+            try:
+                receipt = read(folder / 'proposal.json')
+                status = read(folder / 'status.json')
+                if (status.get('phase') == 'blocked'
+                        and receipt.get('status') == 'FAIL'
+                        and receipt.get('reason') == 'required development proof is missing, stale or blocked'
+                        and receipt.get('rules_fired') == ['dispatcher_failure']
+                        and receipt.get('artifacts', {}).get('provider') == ''
+                        and receipt.get('artifacts', {}).get('model') == ''
+                        and not (folder / 'review.json').exists()
+                        and not (folder / 'repair.diff').exists()):
+                    evidence.append(dict(path=str(folder / 'proposal.json'), sha256=hashlib.sha256((folder / 'proposal.json').read_bytes()).hexdigest()))
+            except (OSError, ValueError, KeyError):
+                continue
+        budget['proof_gate_bug_reconciliation'] = dict(
+            reason='Pre-provider rejection caused by implementation-role diagnosis bug; fixed in fbb3300',
+            credited_attempts=min(used, len(evidence), 3), evidence=evidence)
+    credits = budget['proof_gate_bug_reconciliation'].get('credited_attempts', 0)
+    if type(credits) is not int or not 0 <= credits <= min(used, 3):
+        raise ValueError('Invalid repair budget reconciliation')
+    if used - credits >= 3:
+        raise ValueError('Repair budget exhausted (three charged attempts); inspect retained evidence')
+    return budget_path, budget
+
+
 def action(project, task, expected, operation, provider="auto"):
     if operation not in ('cleanup', 'resume', 'repair', 'stop'):
         raise ValueError('Invalid operation')
@@ -172,11 +207,9 @@ def action(project, task, expected, operation, provider="auto"):
             if settings[key]: argv += ['--' + key]
         evidence = None
         if operation == 'repair':
-            budget_path = path / (task + '.repair-budget.json')
-            used = read(budget_path).get('attempts', 0) if budget_path.exists() else 0
-            if type(used) is not int or not 0 <= used < 3:
-                raise ValueError('Repair budget exhausted (three attempts); inspect retained evidence')
-            atomic(budget_path, dict(attempts=used + 1, limit=3))
+            budget_path, budget = repair_budget(path, task)
+            budget['attempts'] += 1
+            atomic(budget_path, budget)
             evidence = tempfile.mkdtemp(prefix=task+'-repair-', dir=path)
             atomic(Path(evidence) / 'status.json', dict(phase='starting', provider=provider))
             argv = [sys.executable, str(REPAIR), '--project', str(project),
