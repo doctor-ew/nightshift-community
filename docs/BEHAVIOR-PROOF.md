@@ -301,6 +301,20 @@ prototype before applying another prompt repair, so the repair remains counted.
 
 ## Explicit cumulative policy amendments
 
+The separate adversarial-dispatch retry ledger supports an operator-invoked
+`nightshift-retry-budget.py authorize-continuation` action with `--state`,
+`--decision`, `--expected-sha256` (the exact current ledger bytes), and
+`--attempts` (one to three). Use it only following explicit user authorization
+to continue a stopped review. The dispatcher never invokes this action itself.
+It records the decision path/hash, prior ledger hash and counters, and new
+absolute review ceilings in `continuations`; original counters, attempts and
+base limits remain intact. Replaying the same decision cannot replenish calls.
+Every additional dispatch consumes the allowance, including successful calls.
+Pending calls and exhausted infrastructure limits are ineligible. This action
+does not approve a gate or amend the separate behavior-proof policy below.
+The decision file is an audit record, not an authentication boundary against
+processes already able to write the ledger. Preserve it with the run evidence.
+
 A pinned policy cannot be changed by editing configuration and rerunning. The
 `amend-policy --evidence <path>` operation records an explicitly authorized,
 independently reviewed increase before a new challenge and seal. It permits only

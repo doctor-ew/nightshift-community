@@ -102,6 +102,63 @@ def transaction(path, initial, secure_root=None, readonly=False):
         yield state, save
 
 
+def retry_limits(state):
+    limits = dict(state['limits'])
+    if state.get('continuations'):
+        limits.update(state['continuations'][-1]['ceilings'])
+    return limits
+
+
+def authorize_continuation(path, decision, expected_sha256, attempts=3):
+    """Explicit operator action; never called automatically by a dispatcher.
+
+    Retains original limits/counters and grants at most three further dispatches.
+    The decision file records user authorization; it is not an authentication
+    boundary against a process which already has write access to this ledger.
+    """
+    path, decision = Path(path).absolute(), Path(decision).absolute()
+    if type(attempts) is not int or not 1 <= attempts <= 3:
+        raise ValueError('continuation requires one to three attempts')
+    if path.resolve() != path or decision.resolve() != decision:
+        raise ValueError('symlink continuation paths refused')
+    decision_bytes = decision.read_bytes()
+    if not decision_bytes.strip() or len(decision_bytes) > 65536:
+        raise ValueError('bounded nonempty authorization decision required')
+    decision_hash = hashlib.sha256(decision_bytes).hexdigest()
+    with (path.parent / '.adversarial-invocation.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not path.is_file():
+            raise ValueError('existing retry ledger required')
+        with transaction(path, lambda: {}) as (state, save):
+            for entry in state.get('continuations', []):
+                if entry['decision_sha256'] == decision_hash:
+                    if entry['before_sha256'] != expected_sha256 or entry['additional_attempts'] != attempts:
+                        raise ValueError('authorization replay parameters changed')
+                    return state
+            if hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256:
+                raise ValueError('stale retry ledger; inspect current evidence')
+            if ('budget' in state or state.get('version') != 1 or
+                    state.get('next_action') != 'stop' or
+                    'pending' in state['attempts'].values()):
+                raise ValueError('only a stopped, finalized retry ledger is eligible')
+            if state['infrastructure_failures'] >= state['limits']['infrastructure']:
+                raise ValueError('infrastructure exhaustion requires diagnosis, not additional reviews')
+            prior = retry_limits(state)
+            if state['substantive_failures'] < prior['substantive'] and state['total'] < prior['total']:
+                raise ValueError('ledger has no exhausted review allowance')
+            state.setdefault('continuations', []).append({
+                'decision_path': str(decision), 'decision_sha256': decision_hash,
+                'before_sha256': expected_sha256, 'additional_attempts': attempts,
+                'previous_next_action': state['next_action'],
+                'previous_counts': {k: state[k] for k in
+                                    ('total', 'substantive_failures', 'infrastructure_failures')},
+                'ceilings': {'total': state['total'] + attempts,
+                             'substantive': state['substantive_failures'] + attempts}})
+            state['next_action'] = 'repair_spec_before_retry'
+            save()
+            return state
+
+
 def account(path, attempt, category):
     with transaction(path, lambda: {
             'version': 1, 'infrastructure_failures': 0, 'substantive_failures': 0,
@@ -127,9 +184,10 @@ def account(path, attempt, category):
                   'unknown': 'diagnose_before_retry',
                   'schema': 'repair_transport_before_retry',
                   'substantive': 'repair_spec_before_retry'}.get(category, 'continue')
-        if (state['infrastructure_failures'] >= state['limits']['infrastructure'] or
-                state['substantive_failures'] >= state['limits']['substantive'] or
-                state['total'] >= state['limits']['total']):
+        limits = retry_limits(state)
+        if (state['infrastructure_failures'] >= limits['infrastructure'] or
+                state['substantive_failures'] >= limits['substantive'] or
+                state['total'] >= limits['total']):
             action = 'stop'
         state['next_action'] = action
         save()
@@ -338,6 +396,20 @@ def run_dispatch(arguments):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == 'authorize-continuation':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--state', required=True)
+        parser.add_argument('--decision', required=True)
+        parser.add_argument('--expected-sha256', required=True)
+        parser.add_argument('--attempts', type=int, default=3)
+        args = parser.parse_args(sys.argv[2:])
+        try:
+            print(json.dumps(authorize_continuation(args.state, args.decision,
+                                                   args.expected_sha256, args.attempts)))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            print('nightshift: continuation refused: ' + str(error), file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] == 'dispatch':
         try:
             sys.exit(run_dispatch(sys.argv[2:]))
