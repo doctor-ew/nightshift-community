@@ -57,6 +57,16 @@ class ProgressTests(unittest.TestCase):
         with patch.object(m, 'process_identity', return_value=old):
             self.assertFalse(m.progress(self.root, self.task)['running'])
 
+    def test_startup_before_worktree_exists(self):
+        owner = self.common / 'nightshift/worktrees' / (self.task + '.json')
+        owner.rename(owner.with_suffix('.retained'))
+        self.agent(ticket={'source_id': self.task})
+        with patch.object(m, 'process_identity', return_value=self.identity):
+            self.assertTrue(m.progress(self.root, self.task)['running'])
+        self.agent()
+        with patch.object(m, 'process_identity', return_value=self.identity):
+            self.assertEqual(m.progress(self.root, self.task)['workers'], [])
+
     def test_task_isolation(self):
         self.agent(ticket={'source_id': 'other-ticket'})
         with patch.object(m, 'process_identity', return_value=self.identity):

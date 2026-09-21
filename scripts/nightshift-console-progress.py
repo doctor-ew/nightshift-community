@@ -81,11 +81,15 @@ def progress(project, task, launch=None, running=False):
                   last_activity_at=None, last_activity_age_seconds=None, latest_event=None, evidence=[], running=False, activity=None, next='Await next recorded pipeline event')
     common = common_dir(project)
     console = common / 'nightshift/console'
+    owner_pending = False
     try:
         owner = record(common / 'nightshift/worktrees' / (task + '.json'))
         target = Path(owner['worktree']).absolute()
         if owner.get('task') != task or target.resolve() != target or common_dir(target) != common:
             return result
+    except FileNotFoundError:
+        target = Path(project).resolve()
+        owner_pending = True
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         return result
     try:
@@ -117,7 +121,7 @@ def progress(project, task, launch=None, running=False):
                 explicit = agent.get('ticket', {}).get('source_id')
                 if explicit and explicit != task:
                     continue
-                if root != roots[0] and explicit != task:
+                if (owner_pending or root != roots[0]) and explicit != task:
                     continue
                 role = agent.get('role', '')
                 if not re.fullmatch(r'nightshift-[a-z0-9-]+', role):
