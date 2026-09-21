@@ -15,3 +15,11 @@ The retained Devstral run uses explicit line references for evidence, response f
 ## Current result
 
 No configuration has passed the full live calibration yet. Devstral accepted 78/80 controls but missed both semantic negative probes. Qwen3-Coder-Next correctly rejected the ownership probe, but the complete line-ID run stopped on duplicate criterion IDs after three valid controls passed. These are retained failures, not application proof. The local server logs report structured output requires the missing xgrammar dependency; response_format alone is not currently enforced. The Jobs Night batch remains blocked, with original proof state and counters unchanged.
+
+## Frontier harness repair
+
+Commit 410a8cc adds the native Codex subscription evaluator and a configuration allowlist for Claude/Codex routing. Independent adapter and routing review passed; 30 evaluator tests, 125 dispatcher assertions, provider-policy tests and seven gear-router assertions passed.
+
+The retained codex-frontier-results.json contains 80 evaluated public controls, 13 actual evaluator CLI invocations and no unknown verdicts. All 63 established negatives and all six gap probes were rejected. Five originally labeled good controls passed; six were rejected. These disagreements are retained, not relabeled or approved. Independent review confirmed the c1 fixture contradicts the prompt's AND-splitting requirement and omits frequency/maintenance distinctions. The other rejected controls require consumer review. Calibration is not application proof.
+
+The harness transport is repaired. Consumer design/fixtures still need independent correction before implementation proof. User then asked about a fresh start; no application restart was launched pending reset scope. Local investigation remains deferred.
