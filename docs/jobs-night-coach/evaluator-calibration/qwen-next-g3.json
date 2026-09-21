@@ -1,0 +1,64 @@
+{
+  "kind": "public synthetic checker calibration; not application proof",
+  "live": true,
+  "scenario_sha256": "9566d3456a4105104d95fc8f800734e4ed7b4d82b71f076394a36b703ab02aba",
+  "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+  "provider": "local",
+  "model": "Qwen3-Coder-Next-MLX-4bit",
+  "response_format": "none",
+  "normalization": "json-or-single-fence-v1",
+  "launches": 1,
+  "results": [
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g3-entailment-overclaim.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "4b24640f88181aab2805819b076a48ba3de30e0ea48e729b69ace5a73cdaf943",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "fail",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6290,
+        "output_tokens": 365
+      },
+      "duration_seconds": 42.886928999912925,
+      "binding_sha256": "5088da207c829ee678ab1c825afb5b0c00163ff2c94166619d513afa59cc4e15",
+      "public_verdict": {
+        "binding_sha256": "5088da207c829ee678ab1c825afb5b0c00163ff2c94166619d513afa59cc4e15",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "fail",
+            "quote": "Rationale: The seeker owns and architects the organisation's SQL platform [R-P4].",
+            "reason": "Rationale claims 'The seeker owns and architects the organisation's SQL platform [R-P4]', but R-P4 only states 'Wrote SQL queries against a volunteer scheduling database'\u2014no evidence of ownership, architecture, or organizational scope."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Rationale: PowerBI dashboards [R-P3] are related but different from the Tableau work the component states; Tableau is not shown.",
+            "reason": "Correctly labels JD-P1 as 'transferable experience' (PowerBI \u2260 Tableau) and refrains from coaching, edits, or hiring recommendations per alignment-only scope."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Both resume and JD status marked 'read'; all sections (summary, experience, projects, skills, education, certifications) are inventoried without repeating contact details."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 6 JD components",
+            "reason": "All 6 JD components (JD-P1 to JD-P5, with JD-P2 split into SQL and R/Python subcomponents) are covered with correct Types, statuses, and verbatim excerpts matching source text."
+          }
+        ]
+      },
+      "public_transport": "   {\"id\":\"chatcmpl-9fe16bc7\",\"object\":\"chat.completion\",\"created\":1789962707,\"model\":\"Qwen3-Coder-Next-MLX-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"binding_sha256\\\": \\\"5088da207c829ee678ab1c825afb5b0c00163ff2c94166619d513afa59cc4e15\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"fail\\\",\\n      \\\"quote\\\": \\\"L25\\\",\\n      \\\"reason\\\": \\\"Rationale claims 'The seeker owns and architects the organisation's SQL platform [R-P4]', but R-P4 only states 'Wrote SQL queries against a volunteer scheduling database'\u2014no evidence of ownership, architecture, or organizational scope.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L18\\\",\\n      \\\"reason\\\": \\\"Correctly labels JD-P1 as 'transferable experience' (PowerBI \u2260 Tableau) and refrains from coaching, edits, or hiring recommendations per alignment-only scope.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Both resume and JD status marked 'read'; all sections (summary, experience, projects, skills, education, certifications) are inventoried without repeating contact details.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L65\\\",\\n      \\\"reason\\\": \\\"All 6 JD components (JD-P1 to JD-P5, with JD-P2 split into SQL and R/Python subcomponents) are covered with correct Types, statuses, and verbatim excerpts matching source text.\\\"\\n    }\\n  ]\\n}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6290,\"completion_tokens\":365,\"total_tokens\":6655,\"input_tokens\":6290,\"output_tokens\":365,\"prompt_tokens_details\":{\"cached_tokens\":4096},\"model_load_duration\":13.99,\"total_time\":28.74}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "fail",
+      "accepted": true
+    }
+  ],
+  "passed": true,
+  "count": 1
+}

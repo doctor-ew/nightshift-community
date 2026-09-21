@@ -1,0 +1,181 @@
+{
+  "kind": "public synthetic checker calibration; not application proof",
+  "live": true,
+  "scenario_sha256": "9566d3456a4105104d95fc8f800734e4ed7b4d82b71f076394a36b703ab02aba",
+  "engine_sha256": "44d7c8a401fbb8a404792aff5e246b17197d92ea3bf7aa79196380342e48d975",
+  "provider": "local",
+  "model": "Qwen3-Coder-Next-MLX-4bit",
+  "response_format": "none",
+  "normalization": "json-or-single-fence-v1",
+  "launches": 4,
+  "results": [
+    {
+      "group": "good",
+      "file": "jn1-c1-full-text-technical.good.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "a6c4bc53965ac13f712ba35f689c38358c8eafd06a9acc22f06efdd10e8f7c6f",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6305,
+        "output_tokens": 309
+      },
+      "duration_seconds": 11.825367207988165,
+      "binding_sha256": "abf16ab56e888052f42eee4c0ce131be72bd73a77d83cec421904e85fa6f4924",
+      "public_verdict": {
+        "binding_sha256": "abf16ab56e888052f42eee4c0ce131be72bd73a77d83cec421904e85fa6f4924",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Rationale: PowerBI dashboards [R-P3] are related but different from the Tableau work the component states; Tableau is not shown.",
+            "reason": "Rationale correctly states Tableau is not shown and avoids inventing skills; all match statuses follow source text without overclaiming."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Next action: Confirm with the seeker whether any Tableau use exists outside the resume text.",
+            "reason": "Next actions only request confirmation of missing source text (Tableau, schedule, A/B testing), no coaching prompts, edits, or applications."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Both sources marked 'read'; Section A correctly reflects full inspection of all resume sections and JD components."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 6 JD components",
+            "reason": "All 6 JD components covered with correct Types, verbatim excerpts, and statuses aligned to source text; no unsupported inferences."
+          }
+        ]
+      },
+      "public_transport": " {\"id\":\"chatcmpl-1c779f00\",\"object\":\"chat.completion\",\"created\":1789963075,\"model\":\"Qwen3-Coder-Next-MLX-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"binding_sha256\\\": \\\"abf16ab56e888052f42eee4c0ce131be72bd73a77d83cec421904e85fa6f4924\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L18\\\",\\n      \\\"reason\\\": \\\"Rationale correctly states Tableau is not shown and avoids inventing skills; all match statuses follow source text without overclaiming.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L19\\\",\\n      \\\"reason\\\": \\\"Next actions only request confirmation of missing source text (Tableau, schedule, A/B testing), no coaching prompts, edits, or applications.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Both sources marked 'read'; Section A correctly reflects full inspection of all resume sections and JD components.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L65\\\",\\n      \\\"reason\\\": \\\"All 6 JD components covered with correct Types, verbatim excerpts, and statuses aligned to source text; no unsupported inferences.\\\"\\n    }\\n  ]\\n}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6305,\"completion_tokens\":309,\"total_tokens\":6614,\"input_tokens\":6305,\"output_tokens\":309,\"prompt_tokens_details\":{\"cached_tokens\":4096},\"total_time\":11.79}}",
+      "engine_sha256": "44d7c8a401fbb8a404792aff5e246b17197d92ea3bf7aa79196380342e48d975",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c10-resume-unread-jd-read.good.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "ca0745801033d3ec79acf3337348d56fd7e5c23901b1e1115e69e3f8356fa050",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4378,
+        "output_tokens": 329
+      },
+      "duration_seconds": 9.552602709038183,
+      "binding_sha256": "eb6d8cbbd971d0071635420acd8ab09babffaf4ca3e730122b4e920a4769e313",
+      "public_verdict": {
+        "binding_sha256": "eb6d8cbbd971d0071635420acd8ab09babffaf4ca3e730122b4e920a4769e313",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Status: not assessed",
+            "reason": "Both components correctly use Status: not assessed with Evidence: none found in inspected text, and rationale correctly cites resume not being read\u2014no unsupported claims or fabricated evidence."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Rationale: The resume was not read, so no comparison is possible.",
+            "reason": "Next action correctly requests resume text for assessment; no coaching prompts, resume edits, ATS scores, or hiring recommendations are present."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: not read",
+            "reason": "Resume status explicitly marked 'not read', JD status 'read', and locator scheme noted; no false claims about resume content or access capability."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Both JD components (JD-P1 and JD-P2) are covered with correct Type, Requirement text, Status, and rationale; denominator correctly states 2 JD components."
+          }
+        ]
+      },
+      "public_transport": " {\"id\":\"chatcmpl-c10791e2\",\"object\":\"chat.completion\",\"created\":1789963085,\"model\":\"Qwen3-Coder-Next-MLX-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"binding_sha256\\\": \\\"eb6d8cbbd971d0071635420acd8ab09babffaf4ca3e730122b4e920a4769e313\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L17\\\",\\n      \\\"reason\\\": \\\"Both components correctly use Status: not assessed with Evidence: none found in inspected text, and rationale correctly cites resume not being read\u2014no unsupported claims or fabricated evidence.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L18\\\",\\n      \\\"reason\\\": \\\"Next action correctly requests resume text for assessment; no coaching prompts, resume edits, ATS scores, or hiring recommendations are present.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Resume status explicitly marked 'not read', JD status 'read', and locator scheme noted; no false claims about resume content or access capability.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L32\\\",\\n      \\\"reason\\\": \\\"Both JD components (JD-P1 and JD-P2) are covered with correct Type, Requirement text, Status, and rationale; denominator correctly states 2 JD components.\\\"\\n    }\\n  ]\\n}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4378,\"completion_tokens\":329,\"total_tokens\":4707,\"input_tokens\":4378,\"output_tokens\":329,\"prompt_tokens_details\":{\"cached_tokens\":2048},\"total_time\":9.53}}",
+      "engine_sha256": "44d7c8a401fbb8a404792aff5e246b17197d92ea3bf7aa79196380342e48d975",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c11-partial-jd-unreadable.good.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "4ad92e9b0a9f9cb61affefa9b443e72da7f4cf9c293a28d9899d23ce223e81a5",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4373,
+        "output_tokens": 316
+      },
+      "duration_seconds": 9.302939292043447,
+      "binding_sha256": "167bb956760bec52b61469a86cd3ec3c5f4a0ea13ca6aeaea9369bd67d55ddd7",
+      "public_verdict": {
+        "binding_sha256": "167bb956760bec52b61469a86cd3ec3c5f4a0ea13ca6aeaea9369bd67d55ddd7",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Rationale: The Experience paragraph shows preparing weekly payroll reports [R-P2].",
+            "reason": "Rationale correctly cites [R-P2] as direct support for JD-P1; no invented skills, outcomes, or ownership; match is stated at actual strength."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Next action: None needed.",
+            "reason": "Next action is 'None needed', which stays within alignment; no coaching prompts, edits, drafts, or hiring recommendations are present."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Job description: partially read (JD-P2 not inspected)",
+            "reason": "Resume and JD status correctly reflect read/partially read per supplied text; JD-P2 explicitly noted as not inspected."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 1 JD components",
+            "reason": "Denominator: 1 JD components correctly counts only JD-P1 (JD-P2 unreadable and thus excluded per contract rules)."
+          }
+        ]
+      },
+      "public_transport": " {\"id\":\"chatcmpl-39274791\",\"object\":\"chat.completion\",\"created\":1789963094,\"model\":\"Qwen3-Coder-Next-MLX-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"binding_sha256\\\": \\\"167bb956760bec52b61469a86cd3ec3c5f4a0ea13ca6aeaea9369bd67d55ddd7\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L18\\\",\\n      \\\"reason\\\": \\\"Rationale correctly cites [R-P2] as direct support for JD-P1; no invented skills, outcomes, or ownership; match is stated at actual strength.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L19\\\",\\n      \\\"reason\\\": \\\"Next action is 'None needed', which stays within alignment; no coaching prompts, edits, drafts, or hiring recommendations are present.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L7\\\",\\n      \\\"reason\\\": \\\"Resume and JD status correctly reflect read/partially read per supplied text; JD-P2 explicitly noted as not inspected.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L27\\\",\\n      \\\"reason\\\": \\\"Denominator: 1 JD components correctly counts only JD-P1 (JD-P2 unreadable and thus excluded per contract rules).\\\"\\n    }\\n  ]\\n}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4373,\"completion_tokens\":316,\"total_tokens\":4689,\"input_tokens\":4373,\"output_tokens\":316,\"prompt_tokens_details\":{\"cached_tokens\":2048},\"total_time\":9.28}}",
+      "engine_sha256": "44d7c8a401fbb8a404792aff5e246b17197d92ea3bf7aa79196380342e48d975",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c12-contact-privacy-and-scope.good.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "d201c86675c8a3c3e4f951ae02dea856a50dfec98e3eeb7611e91f6aaf0c9bd1",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "unknown",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4666,
+        "output_tokens": 389
+      },
+      "duration_seconds": 10.843500250019133,
+      "binding_sha256": "275bfa4c6402a8ae00a84d263ddb797c2607a187d6a322c5db2cf6361cad3d0f",
+      "public_verdict": null,
+      "public_transport": " {\"id\":\"chatcmpl-4b7248fb\",\"object\":\"chat.completion\",\"created\":1789963105,\"model\":\"Qwen3-Coder-Next-MLX-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"binding_sha256\\\": \\\"275bfa4c6402a8ae00a84d263ddb797c2607a187d6a322c5db2cf6361cad3d0f\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L18\\\",\\n      \\\"reason\\\": \\\"Rationale correctly cites [R-P3] as direct support for bank reconciliation; no invented skills, outcomes, or ownership.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L25\\\",\\n      \\\"reason\\\": \\\"Missing evidence status for JD-P2 is correctly attributed to absence of sales tax filing evidence in supplied text; no fabricated gaps.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L19\\\",\\n      \\\"reason\\\": \\\"Next action for JD-P1 is 'None needed'; for JD-P2 it's confirming source text\u2014no coaching prompts, edits, or applications.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L6\\\",\\n      \\\"reason\\\": \\\"Resume and JD status both marked 'read'; all resume sections (Contact, Summary, Experience, Education) inventoried without repeating contact details.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"line_id\\\": \\\"L35\\\",\\n      \\\"reason\\\": \\\"Both JD components (JD-P1, JD-P2) are covered; JD-P1 matched, JD-P2 marked missing evidence\u2014no omitted components or unsupported inferences.\\\"\\n    }\\n  ]\\n}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4666,\"completion_tokens\":389,\"total_tokens\":5055,\"input_tokens\":4666,\"output_tokens\":389,\"prompt_tokens_details\":{\"cached_tokens\":2048},\"total_time\":10.82}}",
+      "engine_sha256": "44d7c8a401fbb8a404792aff5e246b17197d92ea3bf7aa79196380342e48d975",
+      "expected": "pass",
+      "accepted": false
+    }
+  ]
+}

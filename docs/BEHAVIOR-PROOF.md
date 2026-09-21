@@ -400,10 +400,22 @@ Use a semantic criterion for required prose when a case legitimately has no bloc
 
 The semantic evaluator receives the source map, actual input, system prompt,
 conversation history, actual completion and sealed criteria. Its strict transport verdict must echo the payload hash, cover every criterion
-exactly once, and provide a status (`pass`, `fail`, `unknown`), a completion line
-ID and a reason. Numbered completion lines are bound into the payload. The
+exactly once, and provide exactly `id`, `status` (`pass`, `fail`, `unknown`),
+`line_id` and `reason`. The requested `line_id` field accepts only a completion
+line key such as `L23` (empty only for fail/unknown omissions), never literal text.
+The controller resolves this to the canonical `quote` field for verification.
+Legacy transport items with `quote` instead of `line_id` remain compatible: they
+accept a line ID or an exact unique completion-line value. Mixing both fields in
+one item is rejected. Numbered
+completion lines are bound into the payload. Literal compatibility accepts only
+an entire nonblank original completion line of at most 160 characters whose
+`completion_lines` value occurs once in the mapping. A truncated preview of a
+longer original line is not accepted as literal evidence; use its line ID. Paraphrases, partial matches, ambiguous repeated values
+and multiline text are rejected; use the line ID to disambiguate repeated lines.
+Existing ID strings are reserved solely as IDs in both forms: if line `L2`
+contains the text `L1`, use `L2` to cite that text; `L1` always selects line one. The
 controller resolves each selected line to its actual first 160 characters before
-strict quotation validation; unknown line IDs are rejected. Raw line-reference
+strict quotation validation; unknown references are rejected. Original transport
 and resolved quotation verdicts are retained privately. Recheck reparses the raw
 provider response using sealed normalization and compares both derived verdicts.
 Only all-pass admits the case. Missing fields, duplicate keys, unsupported quotes,

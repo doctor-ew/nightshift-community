@@ -85,6 +85,49 @@ class Boundaries(unittest.TestCase):
         with patch.object(p,'resolved_runtime',return_value='claude'),patch.object(p,'bounded_process',side_effect=[auth,output]) as process,patch.object(e.time,'monotonic',side_effect=[100,100,109,110]):
             value=e.judge(c,payload,{},dict(p.DEFAULTS,timeout_seconds=10),lambda:None,p)
         self.assertEqual(process.call_args_list[1].args[3],1)
+    def test_exact_unique_line_compatibility(self):
+        completion='Supported choice: allow.\nRepeated evidence\nRepeated evidence\n   \n'+'x'*160
+        payload=e.prepare(contract(),'[S1] Allowed choice is allow.',completion,'system',[])
+        permitted={'',*payload['completion_lines'],*e.unique_line_values(payload['completion_lines'],payload['completion'])}
+        for reference in ('L1','Supported choice: allow.','x'*160):
+            value=valid(payload)
+            for item in value['criteria']:item['quote']=reference
+            self.assertIn(reference,permitted)
+            self.assertEqual(e.verdict(e.resolve_verdict(value,payload),payload),'pass')
+        for reference in ('allow','Supported choice: allow','Supported choice: permitted.','Repeated evidence','   ','L999','x'*161,'Supported choice: allow.\nRepeated evidence'):
+            value=valid(payload);value['criteria'][0]['quote']=reference
+            self.assertNotIn(reference,permitted)
+            with self.assertRaises(ValueError,msg=reference):e.resolve_verdict(value,payload)
+        truncated=e.prepare(contract(),'[S1] Allowed choice is allow.','x'*161,'system',[])
+        value=valid(truncated)
+        for item in value['criteria']:item['quote']='x'*160
+        with self.assertRaises(ValueError):e.resolve_verdict(value,truncated)
+        self.assertNotIn('x'*160,e.unique_line_values(truncated['completion_lines'],truncated['completion']))
+        for item in value['criteria']:item['quote']='L1'
+        self.assertEqual(e.verdict(e.resolve_verdict(value,truncated),truncated),'pass')
+        # A line ID remains unambiguous even when its text occurs more than once.
+        value=valid(payload)
+        for item in value['criteria']:item['quote']='L2'
+        self.assertEqual(e.verdict(e.resolve_verdict(value,payload),payload),'pass')
+        value['criteria'][0].update(status='fail',quote='')
+        self.assertEqual(e.verdict(e.resolve_verdict(value,payload),payload),'fail')
+    def test_requested_line_id_schema_and_reserved_legacy_ids(self):
+        payload=e.prepare(contract(),'[S1] Allowed choice is allow.','Supported choice: allow.\nL1\nRepeated\nRepeated','system',[])
+        item_schema=e.schema(payload['completion_lines'])['properties']['criteria']['items']
+        self.assertEqual(set(item_schema['required']),{'id','status','line_id','reason'})
+        self.assertNotIn('quote',item_schema['properties'])
+        self.assertEqual(item_schema['properties']['line_id']['enum'],['','L1','L2','L3','L4'])
+        for field in ('line_id','quote'):
+            value=valid(payload)
+            value['criteria']=[{'id':x['id'],'status':x['status'],field:'L1','reason':x['reason']} for x in value['criteria']]
+            self.assertEqual(e.resolve_verdict(value,payload)['criteria'][0]['quote'],'Supported choice: allow.')
+            for item in value['criteria']:item[field]='L2'
+            self.assertEqual(e.resolve_verdict(value,payload)['criteria'][0]['quote'],'L1')
+        for reference in ('Supported choice: allow.','Repeated','L999','L1\nL2'):
+            value=valid(payload);value['criteria'][0].pop('quote');value['criteria'][0]['line_id']=reference
+            with self.assertRaises(ValueError):e.resolve_verdict(value,payload)
+        value=valid(payload);value['criteria'][0]['line_id']='L1'
+        with self.assertRaises(ValueError):e.resolve_verdict(value,payload)
     def test_verdict_bound_to_actual_complete_matrix(self):
         payload=e.prepare(contract(),'[S1] Allowed choice is allow.','allow','system',[])
         self.assertEqual(e.verdict(valid(payload),payload),'pass')
@@ -154,6 +197,11 @@ class Integration(unittest.TestCase):
                 payload=json.loads(body['messages'][1]['content'])
                 value=valid(payload, 'unknown' if outer.mode=='unknown' else 'pass')
                 for item in value['criteria']:item['quote']='L1'
+                if outer.mode=='literal':
+                    for item in value['criteria']:item['quote']=payload['completion_lines']['L1']
+                if outer.mode in ('line_id','invalid_line_id'):
+                    for item in value['criteria']:item['line_id']=item.pop('quote')
+                    if outer.mode=='invalid_line_id':value['criteria'][0]['line_id']='L999999'
                 if outer.mode=='bad_reference':value['criteria'][0]['quote']='L999999'
                 if outer.mode=='fail':value['criteria'][-1]['status']='fail'
                 message={'content':json.dumps(value)}
@@ -271,6 +319,40 @@ class Integration(unittest.TestCase):
             if target!='private_generation':path.write_bytes(original_bytes)
         self.statepath.write_text(json.dumps(original))
         self.assertEqual(self.fx.call('gate','--gate','development').returncode,0)
+    def test_literal_transport_replay_and_coherent_substring_tamper(self):
+        self.mode='literal';result,_=self.run_gate();self.assertEqual(result.returncode,0,result.stdout)
+        self.assertEqual(self.fx.call('gate','--gate','development').returncode,0)
+        state=self.state();reference=state['observations'][-1]['evaluations'][0]['evidence']
+        path=Path(reference['path']);stored=json.loads(path.read_text())
+        self.assertEqual(stored['result']['transport_verdict']['criteria'][0]['quote'],self.fx.response.read_text())
+        self.assertEqual(stored['result']['verdict']['criteria'][0]['quote'],self.fx.response.read_text())
+        # Alter raw and both derived verdicts together and update the file digest.
+        # An exact substring is valid quotation text but not a whole-line reference.
+        for name in ('transport_verdict','verdict'):
+            stored['result'][name]['criteria'][0]['quote']='allow'
+        envelope=json.loads(stored['result']['raw'])
+        envelope['choices'][0]['message']['content']=json.dumps(stored['result']['transport_verdict'])
+        stored['result']['raw']=json.dumps(envelope)
+        raw=fixture.canonical(stored);path.write_bytes(raw);reference['sha256']=hashlib.sha256(raw).hexdigest()
+        self.statepath.write_text(json.dumps(state))
+        self.assertNotEqual(self.fx.call('gate','--gate','development').returncode,0)
+    def test_line_id_transport_replay_and_invalid_reference(self):
+        self.mode='line_id';result,_=self.run_gate();self.assertEqual(result.returncode,0,result.stdout)
+        self.assertEqual(self.fx.call('gate','--gate','development').returncode,0)
+        state=self.state();reference=state['observations'][-1]['evaluations'][0]['evidence']
+        path=Path(reference['path']);stored=json.loads(path.read_text())
+        self.assertEqual(stored['result']['transport_verdict']['criteria'][0]['line_id'],'L1')
+        self.assertNotIn('line_id',stored['result']['verdict']['criteria'][0])
+        stored['result']['transport_verdict']['criteria'][0]['line_id']='L999999'
+        envelope=json.loads(stored['result']['raw']);envelope['choices'][0]['message']['content']=json.dumps(stored['result']['transport_verdict'])
+        stored['result']['raw']=json.dumps(envelope)
+        raw=fixture.canonical(stored);path.write_bytes(raw);reference['sha256']=hashlib.sha256(raw).hexdigest()
+        self.statepath.write_text(json.dumps(state))
+        self.assertNotEqual(self.fx.call('gate','--gate','development').returncode,0)
+        self.mode='invalid_line_id'
+        payload=e.prepare(contract(),'[S1] Allowed choice is allow.','allow','system',[])
+        result=e.judge(contract(),payload,json.loads(self.route.read_text()),dict(p.DEFAULTS),lambda:None,p)
+        self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_quote_reference')
     def test_multiturn_generation_history_rechecked(self):
         public=json.loads(self.fx.scenarios.read_text());private=json.loads(self.fx.private.read_text())
         for doc in (public,private):

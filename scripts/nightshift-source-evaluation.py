@@ -23,11 +23,12 @@ SYSTEM = ('Evaluate the supplied completion against EVERY criterion and supplied
           'Use unknown if evidence is insufficient. Every criterion needs an evidence line and a reason. '
           'Echo binding_sha256 exactly. Passing requires all criteria pass. '
           'Output a JSON object with EXACT shape: {"binding_sha256":"copied hash","criteria":'
-          '[{"id":"criterion id","status":"pass or fail or unknown","quote":"L1","reason":"brief justification"}]}. '
-          'Include every criterion exactly once. Every item MUST contain id, status, quote, reason. '
-          'The quote field MUST be a line ID from completion_lines, such as L23, never copied or paraphrased text. '
+          '[{"id":"criterion id","status":"pass or fail or unknown","line_id":"L1","reason":"brief justification"}]}. '
+          'Include every criterion exactly once. Every item MUST contain id, status, line_id, reason. '
+          'The line_id field MUST contain only a key from completion_lines, such as L23. '
+          'Never put source text, copied quotes, paraphrases, or combined lines in line_id. '
           'Choose the line containing the criterion-specific evidence; the controller resolves the exact text. '
-          'Only for fail/unknown due to omitted evidence may quote be an empty string. '
+          'Only for fail/unknown due to omitted evidence may line_id be an empty string. '
           'Keep reasons nonblank and at most 240 characters.')
 
 ID = re.compile(r'\[([A-Za-z0-9][A-Za-z0-9_.-]{0,79})\]')
@@ -165,10 +166,25 @@ def prepare(contract,input_text,completion,system_prompt,history):
     return value
 
 
-def schema(lines=None):
+def unique_line_values(lines,completion=None):
+    """Literal compatibility is whole-value equality, with unique source identity."""
+    if not isinstance(lines,dict) or any(not isinstance(line,str) for line in lines.values()):
+        raise ValueError('evaluation_quote_reference')
+    counts={}
+    for line in lines.values(): counts[line]=counts.get(line,0)+1
+    complete_lines=set(completion.splitlines()) if isinstance(completion,str) else set()
+    return {line for line,count in counts.items()
+            if line not in lines and line in complete_lines and count==1 and line.strip() and len(line)<=160 and line.splitlines()==[line]}
+
+
+def schema(lines=None,completion=None):
+    reference={'enum':['',*lines]} if lines is not None else {'pattern':r'^(?:L[1-9][0-9]*|)$'}
     return {'type':'object','additionalProperties':False,'required':['binding_sha256','criteria'], 'properties':{
-        'binding_sha256':{'type':'string'},'criteria':{'type':'array','items':{'type':'object','additionalProperties':False,
-        'required':['id','status','quote','reason'],'properties':{key:{'type':'string',**({'enum':['pass','fail','unknown']} if key=='status' else ({'enum':['',*lines]} if lines is not None else {'maxLength':160,'pattern':r'^[^\r\n]*$'}) if key=='quote' else {'minLength':1,'maxLength':240,'pattern':r'\S'} if key=='reason' else {})} for key in ('id','status','quote','reason')}}}}}
+        'binding_sha256':{'type':'string'},'criteria':{'type':'array','items':{
+            'type':'object','additionalProperties':False,'required':['id','status','line_id','reason'],
+            'properties':{'id':{'type':'string'},'status':{'type':'string','enum':['pass','fail','unknown']},
+                          'line_id':{'type':'string',**reference},
+                          'reason':{'type':'string','minLength':1,'maxLength':240,'pattern':r'\S'}}}}}}
 
 
 def verdict(value,payload):
@@ -190,16 +206,21 @@ def verdict(value,payload):
 
 
 def resolve_verdict(value,payload):
-    """Resolve model-selected line IDs; never repair or paraphrase model text."""
+    """Resolve IDs or unique exact line values; never repair or paraphrase text."""
     exact(value,('binding_sha256','criteria'))
     if not isinstance(value['criteria'],list): raise ValueError('evaluation_verdict')
+    lines=payload['completion_lines']; literals=unique_line_values(lines,payload['completion'])
     resolved={'binding_sha256':value['binding_sha256'],'criteria':[]}
     for item in value['criteria']:
-        exact(item,('id','status','quote','reason'))
-        reference=item['quote']
-        if not isinstance(reference,str) or (reference and reference not in payload['completion_lines']):
+        field='line_id' if isinstance(item,dict) and 'line_id' in item else 'quote'
+        exact(item,('id','status',field,'reason'))
+        reference=item[field]
+        if (not isinstance(reference,str) or (reference and reference not in lines
+                and (field=='line_id' or reference not in literals))):
             raise ValueError('evaluation_quote_reference')
-        resolved['criteria'].append(dict(item,quote=payload['completion_lines'][reference] if reference else ''))
+        # Existing ID strings always mean IDs, including in legacy quote items.
+        resolved['criteria'].append({'id':item['id'],'status':item['status'],
+            'quote':lines[reference] if reference in lines else reference,'reason':item['reason']})
     return resolved
 
 
@@ -256,7 +277,7 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
                 key=p.read_json(config['auth_settings_file'])['auth']['api_key']
             if key: headers['Authorization']='Bearer '+key
             body={'model':model,'messages':[{'role':'system','content':SYSTEM},{'role':'user','content':prompt}], 'temperature':0,'max_tokens':4096,'stream':False,
-                  'response_format':{'type':'json_schema','json_schema':{'name':'source_verdict','strict':True,'schema':schema(payload['completion_lines'])}}}
+                  'response_format':{'type':'json_schema','json_schema':{'name':'source_verdict','strict':True,'schema':schema(payload['completion_lines'],payload['completion'])}}}
             if 'reasoning_effort' in config:
                 effort=config['reasoning_effort']
                 if not ((isinstance(effort,str) and 0<len(effort.strip())<=64) or (type(effort) in (int,float) and math.isfinite(effort))):
