@@ -166,6 +166,22 @@ class ServerTests(unittest.TestCase):
         self.assertEqual([(step['stage'], step['state']) for step in timeline],
                          [('product', 'passed'), ('implement', 'blocked'), ('review', 'pending')])
 
+    def test_plain_and_prefixed_product_tracker_stages(self):
+        tracker = self.repo / '.nightshift' / 'plain.md'
+        tracker.parent.mkdir(exist_ok=True)
+        tracker.write_text('# Plain\n## Pipeline Stages\n❌ product — design repair\n⬜ adversarial\n⬜ implement\n⬜ review\n⬜ drift\n⬜ qa\n')
+        other = self.repo / '.nightshift' / 'prefixed.md'
+        other.write_text('# Prefixed\n## Pipeline Stages\n⏳ /nightshift-product — drafting\n')
+        code, body, _ = self.request('/api/state')
+        self.assertEqual(code, 200)
+        rows = json.loads(body)['rows']
+        steps = next(r['pipeline_steps'] for r in rows if r.get('ticket') == 'plain' and r.get('pipeline_steps'))
+        self.assertEqual([s['stage'] for s in steps], ['product','adversarial','implement','review','drift','qa'])
+        self.assertEqual(steps[0]['state'], 'failed')
+        prefixed = next(r['pipeline_steps'] for r in rows if r.get('ticket') == 'prefixed' and r.get('pipeline_steps'))
+        self.assertEqual(prefixed[0]['stage'], 'product')
+        self.assertEqual(prefixed[0]['state'], 'running')
+
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:
             self.assertEqual(self.request('/api/state', method)[0], 405)

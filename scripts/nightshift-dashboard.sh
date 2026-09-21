@@ -693,7 +693,7 @@ for checkout in checkout_reals:
                                 if not match:
                                     continue
                                 icon, detail = match.groups()
-                                stage = re.search(r'/nightshift-(adversarial|implement|review|drift|qa|preflight|deploy)\b', detail)
+                                stage = re.match(r'(?:(?:/)?nightshift-)?(product|adversarial|implement|review|drift|qa|preflight|deploy)\b', detail)
                                 if stage or detail.startswith('Spec approved'):
                                     tracker_row['pipeline_steps'].append({
                                         'stage': stage[1] if stage else 'product',
