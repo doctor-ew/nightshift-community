@@ -5,7 +5,7 @@ Updated: 2026-09-20. Scope: this Nightshift repository and its existing runtimes
 
 ## Outcome
 
-Reduce cost and time per independently accepted ticket with RTK output compression and Jev evaluation. Preserve raw evidence, command outcomes, existing review gates, configurable providers, and explicit opt-outs. Azure/Foundry and the work cxeng migration are separate work and are not dependencies of this epic. The historical filename is retained to preserve existing links.
+Reduce cost and time per independently accepted ticket with RTK output compression and Jev evaluation. Preserve raw evidence, command outcomes, existing review gates, configurable providers, and explicit opt-outs. Azure/Foundry and the workplace pipeline migration are separate work and are not dependencies of this epic. The historical filename is retained to preserve existing links.
 
 ## Architecture and defaults
 
