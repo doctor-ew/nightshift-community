@@ -147,10 +147,22 @@
       "prompt": "agents/nightshift-behavior-reviewer.md",
       "sandbox": "read-only",
       "gears": {
-        "1": {"provider": "claude", "model": "sonnet"},
-        "2": {"provider": "claude", "model": "sonnet"},
-        "3": {"provider": "claude", "model": "opus"},
-        "4": {"provider": "claude", "model": "opus"}
+        "1": {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        "2": {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        "3": {
+          "provider": "claude",
+          "model": "opus"
+        },
+        "4": {
+          "provider": "claude",
+          "model": "opus"
+        }
       }
     },
     "nightshift-run-all-tests": {
@@ -175,6 +187,29 @@
         }
       },
       "$comment": "Runs commands and parses output. No design role — effort does not need to rise with gear."
+    },
+    "nightshift-repair-analyst": {
+      "prompt": "agents/nightshift-repair-analyst.md",
+      "sandbox": "read-only",
+      "gears": {
+        "1": {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        "2": {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        "3": {
+          "provider": "claude",
+          "model": "sonnet"
+        },
+        "4": {
+          "provider": "claude",
+          "model": "opus"
+        }
+      },
+      "$comment": "Gear is the escalation axis (Phase 2, dp-ocw). Effort rises with gear; provider may also change."
     }
   },
   "adversarial": {

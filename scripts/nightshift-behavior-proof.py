@@ -259,10 +259,17 @@ def applicability(value):
 
 
 def assertion(value):
-    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'json_equals', 'json_field_equals',
+    if not isinstance(value, dict) or value.get('op') not in ('text_equals', 'text_contains', 'text_section_contains', 'json_equals', 'json_field_equals',
                                                                              'json_field_length_at_most', 'json_field_nonempty'):
         raise Invalid('invalid_oracle')
-    exact(value, ('op', 'value', 'field') if value['op'].startswith('json_field_') else ('op', 'value'))
+    exact(value, ('op', 'value', 'start', 'end') if value['op'] == 'text_section_contains' else ('op', 'value', 'field') if value['op'].startswith('json_field_') else ('op', 'value'))
+    if value['op'] == 'text_section_contains':
+        for key in ('start', 'end'):
+            text(value[key], False)
+            if len(value[key].splitlines()) != 1:
+                raise Invalid('invalid_section_marker')
+        if value['start'] == value['end']:
+            raise Invalid('invalid_section_marker')
     if value['op'].startswith('text_'):
         text(value['value'], False)
     if value['op'].startswith('json_field_'):
@@ -456,6 +463,12 @@ def evaluate(completion, case, normalization='none'):
             return completion == item['value']
         if op == 'text_contains':
             return item['value'] in completion
+        if op == 'text_section_contains':
+            lines = completion.splitlines()
+            if lines.count(item['start']) != 1 or lines.count(item['end']) != 1:
+                return False
+            start, end = lines.index(item['start']), lines.index(item['end'])
+            return start < end and item['value'] in '\n'.join(lines[start + 1:end])
         value = parsed
         if op.startswith('json_field_'):
             for key in item['field']:
@@ -1586,7 +1599,7 @@ class Arguments(argparse.ArgumentParser):
 
 def arguments():
     parser = Arguments(add_help=False)
-    parser.add_argument('operation', choices=('validate', 'challenge', 'seal', 'record-red', 'record-final', 'run', 'gate', 'status', 'expose', 'amend-policy'))
+    parser.add_argument('operation', choices=('capabilities', 'validate', 'challenge', 'seal', 'record-red', 'record-final', 'run', 'gate', 'status', 'expose', 'amend-policy'))
     parser.add_argument('--project', required=True)
     for name in ('task', 'scenarios', 'challenge', 'heldout', 'evidence', 'out', 'case'):
         parser.add_argument('--' + name)
@@ -1600,10 +1613,10 @@ def arguments():
                 raise Invalid('argument_duplicate')
             seen.add(option)
     args = parser.parse_args()
-    allowed = {'validate': {'scenarios', 'config_only'}, 'challenge': {'scenarios', 'out'},
+    allowed = {'capabilities': set(), 'validate': {'scenarios', 'config_only'}, 'challenge': {'scenarios', 'out'},
                'seal': {'scenarios', 'challenge', 'heldout'}, 'amend-policy': {'evidence'}, 'record-red': {'evidence'},
                'record-final': {'evidence'}, 'run': {'gate'}, 'gate': {'gate'}, 'status': set(), 'expose': {'case'}}
-    required = {'validate': set() if args.config_only else {'scenarios'}, 'challenge': {'scenarios', 'out'},
+    required = {'capabilities': set(), 'validate': set() if args.config_only else {'scenarios'}, 'challenge': {'scenarios', 'out'},
                 'seal': {'scenarios'}, 'amend-policy': {'evidence'}, 'record-red': {'evidence'}, 'record-final': {'evidence'},
                 'run': {'gate'}, 'gate': {'gate'}, 'status': set(), 'expose': {'case'}}
     for key in ('scenarios', 'challenge', 'heldout', 'evidence', 'out', 'case', 'gate', 'config_only'):
@@ -1615,12 +1628,20 @@ def arguments():
         raise Invalid('config_only_arguments')
     if args.task is not None and not TASK_RE.fullmatch(args.task):
         raise Invalid('task_invalid')
-    if not args.config_only and (args.task is None or not TASK_RE.fullmatch(args.task)):
+    if args.operation != 'capabilities' and not args.config_only and (args.task is None or not TASK_RE.fullmatch(args.task)):
         raise Invalid('task_invalid')
     return args
 
 
 def execute(args):
+    if args.operation == 'capabilities':
+        return {'status': 'available', 'schema_version': 1,
+                'operators': ['text_equals', 'text_contains', 'text_section_contains', 'json_equals',
+                              'json_field_equals', 'json_field_length_at_most', 'json_field_nonempty'],
+                'limits': ['Text containment does not prove semantic entailment or arbitrary paraphrase exclusion.',
+                           'Section checks require unique exact standalone start/end lines.',
+                           'No natural-language question counter or semantic grader is implemented.'],
+                'admission': 'Capability discovery is not scenario validation or gate approval.'}, 0
     dependencies()
     project = context.resolve_project(args.project)
     policy = config(project)

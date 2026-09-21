@@ -387,6 +387,14 @@ in the `## Sources` section preamble.
 > Vague entries ("see file") are invalid. The spec-guardrail hook blocks the Write if Sources
 > is absent or has no `path:line ... commit:` entries.
 
+Before the writer brief, assess whether the request contains independently
+shippable capabilities and unresolved evaluator dependencies. For epic-sized work,
+record bounded child scopes and a complete original-AC coverage map, including
+integration; never silently drop requirements to shrink a ticket. Include the
+installed helper's capability discovery, one canonical output contract, and
+artifact-scoped assertion requirements in the brief. Follow the spec-writer's
+public counterexample and repair-coverage procedure before re-review.
+
 Spec saves to `docs/<task-key>/SPEC.md`; every mode also produces
 `docs/<task-key>/behavior-scenarios.json`. Include stable AC IDs, per-case
 applicability/risk rationale, expected/forbidden behavior and counterexamples in

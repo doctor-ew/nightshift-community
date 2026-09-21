@@ -60,6 +60,31 @@ When Arcade looks right, offer it and say `--full` overrides. Ambiguity resolves
 
 ## Step 3 — Write the spec
 
+Before authoring scenarios, run the installed behavioral-proof helper's
+`capabilities --project <project>` operation. Record a capability matrix in the
+spec: AC, observable artifact/field, supported check, semantic-review obligation,
+and unresolved harness dependency. Discovery is not approval. Unsupported required
+checks are harness dependencies; do not spend repeated prose repairs pretending
+containment proves cardinality or entailment. Do not downgrade required coverage.
+
+Assess delivery scope before drafting: multiple independently useful outputs,
+state transitions, or unresolved evaluator dependencies suggest an epic with
+bounded child tickets. Preserve every original AC in an epic-to-child coverage
+map and retain an end-to-end integration ticket. No arbitrary AC-count cutoff.
+
+Define shared output contracts once in the spec and reference them from prompts,
+scenarios and lint descriptions. Check column order and artifact boundaries for
+consistency. Bind facts to the artifact that must contain them, not to a separate
+facts list or Works cited section. Use supported section/field checks when suitable.
+
+For every repair, maintain `docs/<task-key>/REPAIR-COVERAGE.md`: finding ID,
+verified defect or disputed finding with evidence, affected cases, exact changed
+check, known-good example and deliberately wrong public example, and actual
+check outcomes. Search all public cases for the same defect pattern. Execute
+local oracle checks on public synthetic examples before requesting another model
+review; this is checker testing, not a prototype run or behavioral approval.
+Do not read private cases. Do not invent expected answers in the production prompt.
+
 Save to `docs/<task-key>/SPEC.md`.
 
 Also author `docs/<task-key>/behavior-scenarios.json` in every mode. Follow

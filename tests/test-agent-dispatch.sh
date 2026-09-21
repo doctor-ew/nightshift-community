@@ -10,6 +10,7 @@ cp "$ROOT/routing.json" "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-routing-path.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
@@ -140,6 +141,17 @@ for provider in codex local; do
   check "$provider read-only and final message flags" args 'index("read-only") != null and index("--output-schema") != null and index("--output-last-message") != null'
   if [ "$provider" = local ]; then check 'OSS flags' args 'index("--oss") != null and index("ollama") != null'; fi
 done
+route local
+check 'local defaults disable unsupported thinking' args 'index("model_reasoning_effort=\"none\"") != null'
+jq '.local={backend:"omlx",base_url:"http://127.0.0.1:8000/v1",context_window:32768}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
+OMLX_API_KEY=fixture-key normal
+check 'oMLX role succeeds through local contract' json '.status == "SUCCESS" and .artifacts.provider == "local"'
+check 'oMLX uses process scoped provider without Ollama' args 'index("model_provider=\"omlx\"") != null and index("--oss") == null and index("model_context_window=32768") != null'
+check 'oMLX key absent from argv' args 'all(.[]; contains("fixture-key")|not)'
+jq '.local.base_url="https://external.invalid/v1"' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
+normal
+check 'oMLX rejects nonlocal endpoint' test "$RC" -ne 0
+jq 'del(.local)' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"
 route claude
 MOCK_MODE=result; normal; check 'Claude result string normalization' json '.status == "SUCCESS"'
 MOCK_MODE=direct; normal; check 'direct contract normalization' json '.status == "SUCCESS"'
@@ -288,5 +300,15 @@ for mode in copy symlink; do
     check "$mode installation" false
   fi
 done
+# Repair diagnosis must work before proof, while implementation still fails closed.
+export MOCK_RESPONSE="$BASE_RESPONSE" MOCK_MODE=structured MOCK_EXIT=0
+jq '.roles["nightshift-repair-analyst"].gears["1"]={provider:"claude",model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/repair-route.json"
+export NIGHTSHIFT_ROUTING_FILE="$TMP/repair-route.json"
+run nightshift-repair-analyst --task missing-proof --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'repair analyst admitted without development proof' test "$RC" -eq 0
+check 'repair analyst has only read tools' args 'index("--tools") as $i | $i != null and .[$i+1] == "Read,Glob,Grep"'
+run nightshift-engineer --task missing-proof --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'engineer still requires development proof' test "$RC" -ne 0
+unset NIGHTSHIFT_ROUTING_FILE
 printf 'Dispatch assertions: %s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

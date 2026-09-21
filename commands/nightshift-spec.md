@@ -14,10 +14,12 @@ Forward the explicit option to every nested stage; a resumed run must opt in aga
 
 The spec is the contract for everything downstream. No code without a spec.
 
-> **HARD STOP — THE SPEC PHASE IS READ-ONLY.**
-> Do not write code, edit implementation files, or run git commands that change state. The
-> phase prepares specification/scenario documents and their review evidence. Conditional
-> design review is permitted; prototype execution and production edits belong to implementation.
+> **SCOPE — specification and bounded prototype preparation only.**
+> Do not build application code or run the prototype in this phase. Prepare
+> specification/scenario documents and review evidence. For a new prompt-based
+> artifact only, Step 3.5 permits the exact declared prototype prompt files needed
+> for design validation. Those files are unapproved candidates, not implementation
+> completion or behavioral proof. All execution and acceptance gates remain required.
 
 Normally invoked by `/nightshift-product` Step 7, which supplies ticket content, engineer notes, and
 the verification manifest. It also runs standalone.
@@ -137,6 +139,24 @@ integration; missing output files are failures even when the model claims succes
 
 ---
 
+## Step 3.5 — Prepare a missing prompt prototype for design validation
+
+When required prototype cases declare prompt files that do not yet exist, first
+record the exact paths and their purpose in the draft spec's Files to Change table
+and `prototype_files`. Dispatch an authoring role through `nightshift-agent.sh`
+to produce only those minimal prompt candidates from the approved requirements.
+The controller may integrate its returned patch only at those declared paths.
+No surrounding app, harness, production code, or prototype execution is permitted.
+Do not use empty placeholders, invented hashes, or fabricated held-out commitments.
+Record actual author-provider provenance for the candidate and its reviewed digest.
+
+This is a narrow prerequisite to validate/challenge, not a passed product or
+implementation gate. Obtain independently prepared held-out commitment metadata
+and sufficient initial proof policy before validation. Preserve private fixture
+isolation. After preparation, perform every validation, independent design challenge,
+adversarial, lock/seal, development, and final gate normally. A later change of
+candidate/scenarios must follow the existing revalidation and budget rules.
+
 ## Step 4 — Validate behavioral coverage and present for approval
 
 Require both SPEC.md and `docs/$TASK/behavior-scenarios.json`. Follow the shared
@@ -149,6 +169,17 @@ place private held-out bodies/locators in a writer or reviewer brief.
 python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
   validate --project "$PROJECT" --task "$TASK" --scenarios "$DIR/behavior-scenarios.json" || exit $?
 ```
+
+Before challenge, inspect the spec's capability matrix and shared output contract.
+For repaired scenarios require REPAIR-COVERAGE.md with actual public checker
+results: a supported valid example passes and the finding's wrong example fails.
+Classify each finding as product/spec defect, evaluator capability gap, disputed
+review finding, or newly discovered defect. Verify disputed findings against the
+actual helper semantics. Do not silently dismiss them or manufacture reviewer
+approval. Route evaluator gaps to a bounded harness dependency, retaining the
+blocked ticket and existing repair budget; do not reset attempts or weaken ACs.
+Record repeated/new finding counts and elapsed time plus available usage per
+approved spec; unknown usage stays unknown. Private heldouts remain independent.
 
 Record actual independent classification review with the reviewed semantic digest.
 Ordinary deterministic/documentation-only work uses existing independent review,

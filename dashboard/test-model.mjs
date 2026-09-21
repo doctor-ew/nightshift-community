@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary, ticketSourceLink } from './src/model.mjs';
+import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary, ticketSourceLink, ticketTimeline, ticketUsage } from './src/model.mjs';
 test('ticket source links preserve recorded external URLs and local evidence', () => {
   const ticket = {task:'task-a', settings:{ref:'jira:task-a'}};
   const rows = [{ticket:'task-a', ticket_url:'https://example.atlassian.net/browse/task-a', links:[{label:'task-a.md',href:'file:///tmp/task-a.md'}]}];
@@ -65,4 +65,19 @@ test('overview preserves concurrent and conflicting source claims', () => {
   assert.equal(filterRows(currentRows(rows),'','active','all').length, 2);
   assert.equal(filterRows(currentRows(rows),'a','active','codex').length, 1);
   assert.equal(rows.length,4);
+});
+
+test('fresh tickets show the full planned timeline without claiming passed gates', () => {
+  const ticket = {task:'fresh', running:true};
+  assert.equal(ticketTimeline([], ticket).length, 6);
+  assert.ok(ticketTimeline([], ticket).every(step => step.state === 'pending'));
+  const steps = ticketTimeline([{ticket:'old',pipeline_steps:[{stage:'qa',state:'passed'}]}, {ticket:'fresh',pipeline_steps:[{stage:'product',state:'running'}]}], ticket);
+  assert.equal(steps[0].state, 'running');
+  assert.equal(steps[5].state, 'pending');
+});
+test('ticket usage never borrows totals from the previous build', () => {
+  const old = {ticket:{source_id:'old'},usage:{known_subtotal:{total:900}}};
+  assert.deepEqual(ticketUsage([old], {task:'fresh'}), []);
+  const fresh = {ticket:{source_id:'fresh'},usage:{known_subtotal:{total:12}}};
+  assert.deepEqual(ticketUsage([old,fresh], {task:'fresh'}), [fresh]);
 });

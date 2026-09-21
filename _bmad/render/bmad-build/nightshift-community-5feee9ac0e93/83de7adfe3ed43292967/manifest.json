@@ -1,0 +1,81 @@
+{
+  "generation_hash": "83de7adfe3ed43292967",
+  "inputs": {
+    "jinja2_version": "3.1.6",
+    "project_root": "/Users/doctorew/shuttlebay/nightshift-community",
+    "renderer_sha256": "ef481ff4d0ec1963674cfa6598ef4b1a53ed486e100195e84130dd288d41656f",
+    "resolved_values": {
+      "config.modules.bmm.implementation_artifacts": "/Users/doctorew/shuttlebay/nightshift-community/_bmad-output/implementation-artifacts",
+      "config.modules.bmm.planning_artifacts": "/Users/doctorew/shuttlebay/nightshift-community/_bmad-output/planning-artifacts",
+      "customization.workflow.activation_steps_append": [],
+      "customization.workflow.activation_steps_prepend": [],
+      "customization.workflow.implementation_handoff": "Launch a subagent with no prior conversation context, with this prompt:\n\n> Read {spec_file} fully and implement it — the spec is the sole source of truth. Load every file listed in its frontmatter `context:` before you start.\n>\n> When done, report what you changed, how you verified it, and anything left incomplete or risky.\n",
+      "customization.workflow.on_complete": "",
+      "customization.workflow.oneshot_review_layers": [
+        {
+          "id": "blind-hunter",
+          "instruction": "Launch a context-free subagent with this prompt:\n\nConduct a review of CONTENT.\nLook for what's missing, not only what's wrong.\nCompute your finding floor N from the size of the changes: N = min(floor(sqrt(kB) + 1), 10), where kB is the changed content's size in kilobytes. State the arithmetic in one line, then find at least N issues to fix or improve.\nOutput a Markdown list of findings only — no severity, priority, or ranking.\nIf the content is empty, stop and say so.\nIf you have zero findings, re-check and keep thinking; do not stop with an empty list.\n\nCONTENT:\nThe changed files in the current worktree. Inspect them directly before reviewing.\n\nDo not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.\n\n",
+          "name": "Blind Hunter"
+        }
+      ],
+      "customization.workflow.open_spec": "",
+      "customization.workflow.persistent_facts": [],
+      "customization.workflow.review_layers": [
+        {
+          "id": "blind-hunter",
+          "instruction": "Launch a context-free subagent with this prompt:\n\nConduct a review of CONTENT.\nLook for what's missing, not only what's wrong.\nCompute your finding floor N from the diff file's size: N = min(floor(sqrt(kB) + 1), 10), where kB is the file's size in kilobytes. State the arithmetic in one line, then find at least N issues to fix or improve.\nOutput a Markdown list of findings only — no severity, priority, or ranking.\nIf the content is empty, stop and say so.\nIf you have zero findings, re-check and keep thinking; do not stop with an empty list.\n\nCONTENT: the unified diff at `{diff_file}`. Read that file — it is the content under review.\n\nDo not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.\n\n",
+          "name": "Blind Hunter"
+        },
+        {
+          "id": "edge-case-hunter",
+          "instruction": "Launch a context-free subagent with this prompt:\n\nRead `{skill-root}/review-prompts/edge-case-hunter.md` completely and follow it as your review instructions.\n\nclaims_file (leave unread until your instructions call for it): {claims_file}\n\nReview content: the unified diff at `{diff_file}`. Read that file — it is the content under review.\n\nDo not invoke any skill, and do not spawn subagents of your own — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.\n\n",
+          "name": "Edge Case Hunter"
+        },
+        {
+          "id": "verification-gap",
+          "instruction": "Launch a context-free subagent with this prompt:\n\nRead `{skill-root}/review-prompts/verification-gap.md` completely and follow it as your review instructions.\n\nReview content: the unified diff at `{diff_file}`. Read that file — it is the content under review.\n\nDo not invoke any skill, and do not spawn subagents of your own — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.\n\n",
+          "name": "Verification Gap Reviewer"
+        }
+      ],
+      "customization.workflow.route_selection": "Decide whether to use a coding subagent (full) or implement directly (oneshot).\nUsing the information already gathered, with no further reading and minimal\nextra reasoning, estimate the lines of code to add or modify.\n100 lines or fewer: oneshot. Otherwise: full.\nIf the change touches more than five files and is not simple or mechanical,\nconsider upgrading to full.\n"
+    },
+    "skill_root": "/Users/doctorew/.agents/skills/bmad-build",
+    "source_sha256": {
+      "compile-epic-context.md": "6793b15ae85766cee529e6b349e45f2c6ec9e3212019611c29e8c77b4dc4b924",
+      "references/claims-check.md": "50ea17cb89a78ef815286dde2dabfd09f1dc9841d07a10857f88b39ab7b9bd2a",
+      "references/deletion-check.md": "0f1f124e4e957147e89164a272b10bedc694ad0d9ad2618c8610ac74ee9cb0da",
+      "review-prompts/edge-case-hunter.md": "8fc046af1cbf4ecc928207cec75e29c3c260adb86cc7da77537ade3b3a3b9448",
+      "review-prompts/verification-gap.md": "45ab0b8c4c56c5c055c97a293a8591a67e256d0b1a2058ce1f093cd866be8d03",
+      "spec-template.md": "880133e2c55d8e2aee713ba99c82f5cdd871210053c42fe01181ea147ed9132d",
+      "step-01-clarify-and-route.md": "d7bbfbfcf5475fcacbe505f564e059b31fc1c6527ebf31744b9d19a65eddf2c9",
+      "step-02-plan.md": "2628a7b92a7362d254b83a68ac8f3bd3089ba4f5d0ec5dac8c369415e0e53dac",
+      "step-03-implement.md": "3c12e5e226cdeb0a2d1085c55e7cafac40d1437bc6916587059fd18578b5aef1",
+      "step-04-review.md": "b23cd1a6d9dc15dd6214c9a7d54e2b1ee75e528580b2cc7ae18b143ae6c46d8f",
+      "step-05-present.md": "d236088f33bf3e7e227389f88989343fbc538eacd396e6d01cd605d0f8e27225",
+      "step-oneshot.md": "3b4f5a8c5471448a345fe34828e6b59aa85549893cbf1d254c55df7b305599fa",
+      "sync-sprint-status.md": "7590316aae7bc9d5a1aec1fb94e078c1081189949466f68c2448a184f1729cfa",
+      "workflow.md": "8cf1f044829f164a7639fe51b4a8bcffcc2afc7046cfdb79efd9bfc843e78edc"
+    }
+  },
+  "outputs": {
+    "compile-epic-context.md": "6793b15ae85766cee529e6b349e45f2c6ec9e3212019611c29e8c77b4dc4b924",
+    "references/claims-check.md": "50ea17cb89a78ef815286dde2dabfd09f1dc9841d07a10857f88b39ab7b9bd2a",
+    "references/deletion-check.md": "0f1f124e4e957147e89164a272b10bedc694ad0d9ad2618c8610ac74ee9cb0da",
+    "review-prompts/edge-case-hunter.md": "8fc046af1cbf4ecc928207cec75e29c3c260adb86cc7da77537ade3b3a3b9448",
+    "review-prompts/verification-gap.md": "45ab0b8c4c56c5c055c97a293a8591a67e256d0b1a2058ce1f093cd866be8d03",
+    "spec-template.md": "880133e2c55d8e2aee713ba99c82f5cdd871210053c42fe01181ea147ed9132d",
+    "step-01-clarify-and-route.md": "49ccf5a5b50a5b1429bc2a5527d3f96c475bbaa8c33cb632986de00b54221c11",
+    "step-02-plan.md": "5ef6b4d779da21b46d1b29ece29f6a0dac2b4be9b15cc72b92fd4c38a7a9107d",
+    "step-03-implement.md": "d49cdbc06d1d0e855e2706c1a991cbd339787e8915301e86f39fdb141922bc9b",
+    "step-04-review.md": "c96c9b8d485882f818305b8b49fbad83cdef6eff79427e9f692b71eb3df1bf5f",
+    "step-05-present.md": "e489baa7120b269f155f9a0c7d44ea788303f5f35f962bb3e8eba9ab59ed9814",
+    "step-oneshot.md": "d74381e85098d316c0890587b29959521bfa7e6d41d808752fd6f75f0cc7aec0",
+    "sync-sprint-status.md": "7106c297e88907361e058ba63e969ec37d8e2fffd19244f68f22ef348a9fed0d",
+    "workflow.md": "adb7af6c0cc3c686d2774246001d305d84a4483270715973b40ba37db0570f77"
+  },
+  "project_root": "/Users/doctorew/shuttlebay/nightshift-community",
+  "project_slug": "nightshift-community",
+  "root_hash": "5feee9ac0e93",
+  "schema_version": 1,
+  "skill": "bmad-build"
+}

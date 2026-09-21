@@ -1,0 +1,12 @@
+{
+  "aiTools": [
+    "codex",
+    "claude",
+    "cursor",
+    "opencode"
+  ],
+  "scaffold_id": "edec5516-3b1d-4ecf-8c2b-26701afe3065",
+  "scaffold_name": "nightshift-community",
+  "origin": null,
+  "upstream": null
+}

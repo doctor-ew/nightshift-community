@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink } from './model.mjs';
+import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage } from './model.mjs';
 import './app.css';
+import {LiveProgress, TicketChat} from './ticket-live.jsx';
 
 function ConsoleVersion({ children }) {
   const [ready, setReady] = useState(false), [error, setError] = useState('');
@@ -11,7 +12,7 @@ function ConsoleVersion({ children }) {
       .then(async response => {
         if (!response.ok) throw new Error('This console server needs to be restarted to support the updated interface.');
         const identity = await response.json();
-        if (identity.evidence_api !== 1) throw new Error('This console server needs to be restarted to open specs and artifacts.');
+        if (identity.evidence_api !== 1 || identity.ticket_actions_api !== 2 || identity.ticket_chat_api !== 1) throw new Error('This console server needs to be restarted to load live progress and ticket chat.');
         setReady(true);
       }).catch(e => { if (e.name !== 'AbortError') setError(e.message); });
     return () => controller.abort();
@@ -112,8 +113,9 @@ function ArtifactLibrary({ rows }) {
   </section>;
 }
 
-function TicketActions({ rows }) {
+function TicketActions({ rows, reports = [] }) {
   const [data, setData] = useState({ tickets: [] }), [busy, setBusy] = useState(''), [message, setMessage] = useState('');
+  const [providers, setProviders] = useState({});
   useEffect(() => {
     let disposed = false;
     async function refresh() {
@@ -132,7 +134,7 @@ function TicketActions({ rows }) {
     try {
       const response = await fetch('/api/tickets/' + operation, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': data.token },
-        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256 }) });
+        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not continue this ticket.');
       setMessage(ticket.task + ': ' + result.message);
@@ -142,7 +144,7 @@ function TicketActions({ rows }) {
   }
   if (!data.tickets.length && !message) return null;
   return <section className="workspace" aria-label="Ticket status"><h2>Your tickets</h2>
-    <p>Follow each ticket from its recorded stages to the result and delivered files.</p>
+    <p>Active and newest tickets appear first. Earlier tickets retain their own outcomes; a previous failure does not describe a new run.</p>
     {message && <p role="status">{message}</p>}
     <div className="ticket-list">{data.tickets.map(ticket => {
       const progress = ticketProgress(rows, ticket);
@@ -154,18 +156,24 @@ function TicketActions({ rows }) {
       const specs = artifacts.filter(link => link.label === 'SPEC.md');
       const prs = [...new Set(rows.filter(row => row.ticket === ticket.task).map(row => row.pr_url_text).filter(Boolean))];
       return <article className="run ticket-focus" key={ticket.task}>
-      <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
+      <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3><p>{ticket.settings.ref}</p></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
+      {!!specs.length && <div className="artifact-actions" aria-label="Specification document">{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open specification'}} />)}<span>Document available · approval follows recorded gates</span></div>}
+      <LiveProgress ticket={ticket} />
       <p className="current-stage">{progress.stage ? <>{progress.stageLabel}: <strong>{progress.stage}</strong></> : ticket.running ? 'Starting · waiting for stage evidence' : 'No stage evidence recorded yet'}</p>
-      {progress.trackers.map((tracker, index) => <div key={index} className="ticket-timeline">
+      {[{pipeline_steps: ticketTimeline(rows, ticket), links: progress.trackers[0]?.links}].map((tracker, index) => <div key={index} className="ticket-timeline">
         <ol aria-label={'Recorded stages for ' + ticket.task}>{tracker.pipeline_steps.map((step, i) => <li className={'step ' + step.state} key={i} title={step.detail}><span className="step-dot" aria-hidden="true">{step.state === 'passed' ? '✓' : ['failed', 'blocked'].includes(step.state) ? '!' : i + 1}</span><strong>{step.stage === 'product' ? 'Spec' : step.stage === 'qa' ? 'QA' : step.stage === 'deploy' ? 'Deploy (optional)' : step.stage[0].toUpperCase() + step.stage.slice(1)}</strong><small>{step.state === 'pending' ? 'Not recorded' : step.state}</small></li>)}</ol>
         <div className="timeline-caption"><span>Recorded stage evidence{ticket.running ? ' · earlier attempts may still appear while this run progresses' : ''}</span><EvidenceLink link={{...tracker.links?.[0], label: 'Open tracker'}} /></div>
       </div>)}
+      <TicketChat ticket={ticket} token={data.token} />
+      <TicketUsage reports={ticketUsage(reports, ticket)} compact running={ticket.running} />
       {progress.complete && <p className="outcome-summary">Completion is recorded. Open the pull request and files below to review the result.</p>}
       {blocked && <div className="failure-summary" role="status"><h4>Why it stopped</h4><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
       <details><summary>Run settings</summary><p>{ticket.settings.provider} · {ticket.settings.policy} · {ticket.settings.auth}</p></details>
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
-      <div className="artifact-actions"><EvidenceLink link={sourceLink} />{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open spec'}} />)}{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
+      <div className="artifact-actions"><EvidenceLink link={sourceLink} />{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
       {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
+      {ticket.repair && <div className="repair-status" role="status"><strong>Repair: {ticket.repair.phase}</strong><p>{ticket.repair.message || ''}</p>{ticket.repair.changed_files?.map(path => <div key={path}>{path}</div>)}{ticket.launch?.log && <EvidenceLink link={{href: 'file://' + ticket.launch.log, label: 'Repair log'}} />}{ticket.launch?.evidence && <EvidenceLink link={{href: 'file://' + ticket.launch.evidence + '/status.json', label: 'Repair evidence'}} />}</div>}
+      <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={!!busy || ticket.running || ticket.finished || ticket.repair_remaining === 0} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.repair_remaining === 0 && <p role="status">Repair attempts exhausted. Review the diagnosis above; another repair click cannot proceed.</p>}{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={!!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
       <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
       <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
       {!!artifacts.length && <details><summary>Files and evidence ({artifacts.length})</summary>{artifacts.map((link, i) => <div className="evidence" key={i}><EvidenceLink link={link} /></div>)}</details>}
@@ -173,14 +181,14 @@ function TicketActions({ rows }) {
   </section>;
 }
 
-function TicketUsage({ reports = [] }) {
+function TicketUsage({ reports = [], compact = false, running = false }) {
   const number = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : 'Unknown';
   const money = value => typeof value === 'number' && Number.isFinite(value) ? '$' + value.toFixed(6) : 'Unknown';
-  return <section className="workspace" aria-label="Ticket usage"><h2>Ticket cost and tokens</h2>
+  return <section className="workspace" aria-label="Ticket usage"><h2>{compact ? 'Tokens for this ticket' : 'Ticket cost and tokens'}</h2>
     <p>Known totals across runs and retries. Provider estimates are not subscription charges. Usage updates when each worker finishes.</p>
-    {!reports.length && <div className="empty"><h3>No usage recorded yet</h3><p>Earlier runs may have no accounting receipts. Missing usage and prices are unknown, not zero.</p></div>}
+    {!reports.length && <div className="empty"><h3>No usage recorded yet</h3><p>{running ? 'Tokens pending: this active run has not published usage receipts yet. This is not a live token counter.' : 'Missing usage and prices are unknown, not zero.'}</p></div>}
     <div className="cards">{reports.map((r, i) => <article className="run" key={i}>
-      <div className="run-head"><h3>{r.ticket?.source}:{r.ticket?.source_id}</h3><span className={'badge ' + (r.usage?.complete ? 'done' : 'warn')}>{r.usage?.complete ? 'Tokens complete' : 'Partial usage'}</span></div>
+      <div className="run-head"><h3>{r.ticket?.source}:{r.ticket?.source_id}</h3><span className={'badge ' + (r.usage?.complete ? 'done' : 'warn')}>{running ? 'Partial · run active' : r.usage?.complete ? 'Tokens complete' : 'Partial usage'}</span></div>
       <p>{r.ticket?.repository} · {number(r.run_count)} runs</p>
       <p><strong>Tokens: {number(r.usage?.known_subtotal?.total)}</strong></p>
       <p><strong>Provider estimate: {money(r.cost?.provider_reported_estimate_usd)} USD</strong></p>
@@ -229,7 +237,7 @@ function App() {
     <section className="intro"><p className="eyebrow">YOUR LOCAL CONTROL ROOM</p><h1>See the work. Follow the evidence.</h1><p>Recorded run and gate states across your repository. Local evidence and workshop spec approval, on this machine.</p><code className="repo">{data?.root || 'Loading repository…'}</code></section>
     {error && <div className="notice" role="alert">{error}</div>}
     <WorkshopReviews />
-    <TicketActions rows={rows} />
+    <TicketActions rows={rows} reports={data?.ticket_usage || []} />
     <ArtifactLibrary rows={rows} />
     <details className="workspace disclosure"><summary>Cost and token usage</summary><TicketUsage reports={data?.ticket_usage || []} /></details>
     <details className="workspace disclosure"><summary>Agent history <span className="badge">{agents.length} records · {agents.filter(a => a.state === 'running').length} recorded running</span></summary><section className="workspace" aria-label="Agents"><div className="section-title"><div><h2>Agents <span className="badge busy">{agents.filter(a=>a.state==='running').length} recorded running</span></h2><p>Factory and role lifecycle records. A running record is not a verified OS heartbeat; interrupted processes may leave stale records.</p></div><label>Agent state <select value={agentState} onChange={e=>{setAgentState(e.target.value);setAgentPage(0);}}>{['all','running','success','failed','interrupted'].map(s=><option key={s}>{s}</option>)}</select></label></div>

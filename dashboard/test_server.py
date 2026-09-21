@@ -103,12 +103,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data['tickets'], [])
         body=json.dumps({'task':'42','sha256':'unknown'})
         headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
-        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup'):
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat'):
             self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
             wrong=dict(headers,Origin='https://evil.example')
             self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
             self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
             self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
+
+    def test_chat_query_is_scoped_and_requires_known_ticket(self):
+        for path in ('/api/tickets/chat', '/api/tickets/chat?task=../escape', '/api/tickets/chat?task=missing', '/api/tickets/chat?task=a&task=b'):
+            self.assertEqual(self.request(path)[0], 409)
+        self.assertEqual(self.request('/api/tickets/chat?task=a', headers={'Origin':'https://evil.example'})[0], 403)
+        identity=json.loads(self.request('/api/identity')[1])
+        self.assertEqual(identity['ticket_chat_api'], 1)
 
     def test_role_failure_is_visible_and_evidence_is_plain_text(self):
         folder = self.repo / 'docs' / 'task-a'
@@ -165,6 +172,22 @@ class ServerTests(unittest.TestCase):
                          'https://example.atlassian.net/browse/task-a')
         self.assertEqual([(step['stage'], step['state']) for step in timeline],
                          [('product', 'passed'), ('implement', 'blocked'), ('review', 'pending')])
+
+    def test_plain_and_prefixed_product_tracker_stages(self):
+        tracker = self.repo / '.nightshift' / 'plain.md'
+        tracker.parent.mkdir(exist_ok=True)
+        tracker.write_text('# Plain\n## Pipeline Stages\n❌ product — design repair\n⬜ adversarial\n⬜ implement\n⬜ review\n⬜ drift\n⬜ qa\n')
+        other = self.repo / '.nightshift' / 'prefixed.md'
+        other.write_text('# Prefixed\n## Pipeline Stages\n⏳ /nightshift-product — drafting\n')
+        code, body, _ = self.request('/api/state')
+        self.assertEqual(code, 200)
+        rows = json.loads(body)['rows']
+        steps = next(r['pipeline_steps'] for r in rows if r.get('ticket') == 'plain' and r.get('pipeline_steps'))
+        self.assertEqual([s['stage'] for s in steps], ['product','adversarial','implement','review','drift','qa'])
+        self.assertEqual(steps[0]['state'], 'failed')
+        prefixed = next(r['pipeline_steps'] for r in rows if r.get('ticket') == 'prefixed' and r.get('pipeline_steps'))
+        self.assertEqual(prefixed[0]['stage'], 'product')
+        self.assertEqual(prefixed[0]['state'], 'running')
 
     def test_security_boundary(self):
         for method in ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']:

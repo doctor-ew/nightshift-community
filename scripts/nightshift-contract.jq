@@ -10,7 +10,7 @@ def valid_contract($role):
   and (.attempts | natural and . >= 1)
   and (.artifacts | keys_are(["branch","diff","provider","model"]) and all(.[]; type == "string"))
   and (.rules_fired | strings)
-  and (if $role == "nightshift-engineer" or $role == "nightshift-architect" then
+  and (if $role == "nightshift-engineer" or $role == "nightshift-architect" or $role == "nightshift-repair-analyst" then
     (.results | keys_are(["files_changed"]) and (.files_changed | strings))
   elif $role == "nightshift-code-fact-extractor" then
     (.results | keys_are(["claims"]) and (.claims | type == "array" and all(.[];

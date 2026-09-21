@@ -24,6 +24,9 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+case "${1:-}" in
+  exec|evaluate) exec python3 "$SCRIPT_DIR/nightshift-efficiency.py" "$@" ;;
+esac
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
     version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
@@ -82,6 +85,8 @@ Usage: nightshift <ticket-ref> [options]
        nightshift <runtime>/<model-or-alias> <ticket-ref> [options]
        nightshift batch <tickets-or-query> [options]
        nightshift [runtime/model] <help|explain|architect|dev|pm|ux-designer|architecture|ux|bmad> [request] [options]
+       nightshift exec [--no-enabled] -- COMMAND [ARG ...]
+       nightshift evaluate [--input FILE] [--no-enabled]
        nightshift init [runtime/model] [DIR] [--include FILE]
        nightshift cleanup TASK [--project DIR]
        nightshift setup [--project DIR]
@@ -523,9 +528,11 @@ if [ "$AUTH_EXPLICIT" = true ] && [ "$AUTH_MODE" = api ]; then REQUEST+=" --auth
 # to an agent that also has the terminal launcher on PATH, which can recurse.
 PROMPT="You are the inner Nightshift factory worker. Execute this requested Nightshift workflow directly by following its installed skill and command instructions: ${REQUEST}
 
+Efficiency: use python3 \"${SCRIPT_DIR}/nightshift-efficiency.py\" exec -- COMMAND ARGS for bounded test/build output capture. RTK is default-on when available. Raw receipts remain authoritative; exact reads/diffs/machine output bypass filters. Shadow evaluation never replaces independent gates.
+
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
-Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Local checkpoint, ledger and TDD lock commits are authorized. Push for delivery only if push=true, and open a PR only if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
@@ -703,6 +710,8 @@ if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
     --kind observation --invocation-id "factory-$NIGHTSHIFT_RUN_ID" --provider "$PROVIDER" \
     --status "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" >/dev/null 2>&1 || true
 fi
+# Evaluation only reads an explicitly supplied NIGHTSHIFT_JEV_INPUT; never discover evidence.
+python3 "$SCRIPT_DIR/nightshift-efficiency.py" evaluate --project "$PROJECT" || true
 if [ "$CODEX_STATUS" -eq 143 ]; then
   echo "nightshift: Codex received SIGTERM; inspect the batch state and resume instead of starting a fresh batch." >&2
   run_metrics_summary interrupted

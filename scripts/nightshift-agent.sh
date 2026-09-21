@@ -6,6 +6,8 @@ if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
   exit 64
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NIGHTSHIFT_ROUTING_FILE=$(python3 "$ROOT/scripts/nightshift-routing-path.py" "$ROOT") || exit 64
+export NIGHTSHIFT_ROUTING_FILE
 SECONDS=0
 ROLE="${1:-}"; [ "$#" -eq 0 ] || shift
 GEAR=${NIGHTSHIFT_GEAR:-1} INPUT='' OUTPUT='' AUTHOR='' ADV=false PROVIDER='' MODEL='' TMP='' PUBLISH='' CHILD=''
@@ -213,7 +215,7 @@ if [ -n "$TASK_KEY" ]; then
     ATTRIBUTION=ticket
   fi
 fi
-case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
   [ ! -e "$LAUNCH_RECEIPT" ] && [ ! -L "$LAUNCH_RECEIPT" ] || fail 'launch receipt already exists'
@@ -280,6 +282,8 @@ fi
 case "$PROVIDER:$ROLE" in
   codex:nightshift-architect|codex:nightshift-engineer|codex:nightshift-spec-writer|local:nightshift-architect|local:nightshift-engineer|local:nightshift-spec-writer) EXECUTION_CONTEXT+=$'\nRead-only proposal worker: return the plan in reason and a complete implementation patch in artifacts.diff for authorized controller integration. Do not write files, request sandbox escalation, or enter interactive plan mode.' ;;
 esac
+EXECUTION_CONTEXT+="
+Efficiency helper: python3 \"$ROOT/scripts/nightshift-efficiency.py\" exec -- COMMAND ARGS captures bounded test/build output once and retains raw evidence. RTK defaults on when available; exact reads, diffs and machine output bypass filtering. Jev is shadow-only and cannot replace review or authorize gates."
 EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independent review, permanent-removal confirmation and production-deployment confirmation. Execution mode does not approve a failed gate.'
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
@@ -303,6 +307,8 @@ case "$PROVIDER" in
     if [ "$ROLE" = nightshift-behavior-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    elif [ "$ROLE" = nightshift-repair-analyst ]; then
+      CMD=(claude -p --tools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
       CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     fi;;
@@ -313,7 +319,58 @@ case "$PROVIDER" in
     jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
     CMD=(codex exec --json --skip-git-repo-check --sandbox read-only --output-schema "$TMP/provider.schema.json" --output-last-message "$TMP/final")
     if [ "$PROVIDER" = codex ] && [ "$AUTH" = subscription ]; then CMD+=(-c 'forced_login_method="chatgpt"' -c 'model_provider="openai"'); fi
-    if [ "$PROVIDER" = local ]; then CMD+=(--oss --local-provider ollama -m "$MODEL"); else CMD+=(--model "$MODEL"); fi
+    if [ "$PROVIDER" = local ]; then
+      LOCAL_BACKEND=$(jq -r '.local.backend // "ollama"' "$ROUTING")
+      LOCAL_EFFORT=$(jq -r '.local.reasoning_effort // "none"' "$ROUTING")
+      case "$LOCAL_EFFORT" in none|minimal|low|medium|high|xhigh) ;; *) fail 'invalid local reasoning effort';; esac
+      CMD+=(-m "$MODEL" -c "model_reasoning_effort=\"$LOCAL_EFFORT\"")
+      case "$LOCAL_BACKEND" in
+        ollama) CMD+=(--oss --local-provider ollama);;
+        omlx)
+          # Process-scoped provider settings; never rewrite the user's Codex config.
+          LOCAL_CONFIG=$(python3 - "$ROUTING" <<'PYLOCAL'
+import json, sys, urllib.parse
+c=json.load(open(sys.argv[1])).get('local', {})
+u=c.get('base_url', 'http://127.0.0.1:8000/v1')
+p=urllib.parse.urlsplit(u)
+if p.scheme != 'http' or p.hostname not in ('127.0.0.1', 'localhost', '::1') or p.username or p.password or p.query or p.fragment:
+    sys.exit('oMLX endpoint must be an HTTP loopback URL without credentials')
+w=c.get('context_window', 32768)
+if type(w) is not int or not 4096 <= w <= 131072:
+    sys.exit('invalid local context window')
+print(json.dumps({'url':u, 'window':w}))
+PYLOCAL
+          ) || fail 'invalid oMLX configuration'
+          # Optional existing private oMLX settings supply authentication locally.
+          # Only the key travels in the child environment; never in argv or receipts.
+          if [ -z "${OMLX_API_KEY:-}" ]; then
+            OMLX_SETTINGS=$(jq -r '.local.auth_settings_file // empty' "$ROUTING")
+            if [ -n "$OMLX_SETTINGS" ]; then
+              OMLX_API_KEY=$(python3 - "$OMLX_SETTINGS" <<'PYKEY'
+import json, os, stat, sys
+try:
+    fd=os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as f:
+        st=os.fstat(f.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            raise ValueError()
+        key=json.load(f)['auth']['api_key']
+        if not isinstance(key,str) or not key: raise ValueError()
+        print(key,end='')
+except Exception:
+    sys.exit('cannot read private oMLX authentication settings')
+PYKEY
+              ) || fail 'oMLX authentication unavailable'
+            fi
+          fi
+          export OMLX_API_KEY
+          CMD+=(-c 'model_provider="omlx"' -c 'model_providers.omlx.name="oMLX"'
+            -c "model_providers.omlx.base_url=$(jq -c .url <<< "$LOCAL_CONFIG")"
+            -c 'model_providers.omlx.env_key="OMLX_API_KEY"'
+            -c "model_context_window=$(jq -r .window <<< "$LOCAL_CONFIG")");;
+        *) fail 'unsupported local backend';;
+      esac
+    else CMD+=(--model "$MODEL"); fi
     CMD+=("$PROMPT");;
 esac
 # Bash job control isolates each background job in its own process group on
