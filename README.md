@@ -425,6 +425,8 @@ are installed to `~/.nightshift/agents/`:
 
 Role prompts carry **no `model:` key**. The active Bash+jq dispatcher reads the exact
 `roles[role].gears[gear]` provider/model and `roles[role].prompt` from `routing.json`.
+
+A routing file may set `allowed_providers` to `["claude", "codex"]` for a frontier-only run. Automatic local extraction then selects an allowed configured role route; cross-provider review still requires a different allowed provider and fails if none exists. Omit the setting to retain all configured providers. This does not change subscription authentication or relax review gates.
 Gear defaults to 1 and must be 1–4; missing routes and malformed options fail before
 launch. Copy and symlink installations include all five schemas and the local jq
 validator alongside shared assets.

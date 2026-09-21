@@ -13,7 +13,7 @@ cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-routing-path.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
-cp "$ROOT/scripts/nightshift-source-evaluation.py" "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-codex-evaluator.py" "$ROOT/scripts/nightshift-source-evaluation.py" "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
 for helper in "$ROOT/scripts/"*.jq "$ROOT/scripts/nightshift-capability.sh"; do
   [ ! -f "$helper" ] || cp "$helper" "$TMP/runtime/scripts/"
 done

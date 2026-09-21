@@ -18,7 +18,7 @@ def load(name, path):
     return value
 
 
-def contract(case, model):
+def contract(case, model, provider="local"):
     value = case['input']
     sources = dict(re.findall(r'^\[([\w.-]+)\] (.+)$', value, re.M))
     if not sources:
@@ -47,7 +47,7 @@ def contract(case, model):
         dict(id='source_access', requirement='Source read/partial/not-read status must reflect supplied text, not mere paths or URLs. Unreadable regions cannot establish absence. Every visible resume section including Contact must be inventoried, without repeating personal contact details. If the JD was not read, Section C must plainly explain no components could be derived; empty C fails. If resume unread but JD read, components are not assessed. Seeker statements are seeker-reported.'),
         dict(id='component_coverage', requirement='Cover every supplied readable JD statement and preserve AND splits, OR alternatives, qualifiers, levels, work conditions and contextual information. Type and match status must follow source text and the system contract. Each requirement and evidence quotation must match the associated actual source. Reject unsupported inferences and fabricated locators. No fixed wording is required for honest rationale or summary.')]
     return dict(version=1, sources=sources, structure=structure, criteria=criteria,
-                evaluator=dict(provider='local',model=model,independence='different-provider'))
+                evaluator=dict(provider=provider,model=model,independence='different-provider'))
 
 
 def main():
@@ -57,7 +57,8 @@ def main():
     ap.add_argument('--report', type=Path, required=True)
     ap.add_argument('--live', action='store_true')
     ap.add_argument('--only', default='')
-    ap.add_argument('--model', help='Explicit local evaluator model override; no fallback')
+    ap.add_argument('--model', help='Explicit evaluator model; no fallback')
+    ap.add_argument('--provider', choices=('local','codex'), default='local', help='Independent evaluator provider')
     ap.add_argument('--response-format', choices=('none','json_object','json_schema'))
     ap.add_argument('--normalization', choices=('none','json-or-single-fence-v1'))
     ap.add_argument('--disable-thinking', action='store_true', help='Explicit supported local template setting')
@@ -73,13 +74,15 @@ def main():
         routing['local']['evaluation_response_normalization']=args.normalization
     if args.disable_thinking:
         routing['local']['evaluation_chat_template_kwargs']={'enable_thinking':False}
+    if args.provider == 'codex' and not args.model:
+        ap.error('--model is required for Codex calibration')
     model = args.model or routing['local']['model']
     prompt = (args.public_docs.parents[1]/scenarios['runtime']['system_prompt_file']).read_text()
-    contracts = {key:contract(case,model) for key,case in cases.items()}
+    contracts = {key:contract(case,model,args.provider) for key,case in cases.items()}
     report = dict(kind='public synthetic checker calibration; not application proof', live=args.live,
                   scenario_sha256=proof.file_hash(args.public_docs/'behavior-scenarios.json'),
                   engine_sha256=proof.file_hash(ROOT/'scripts/nightshift-source-evaluation.py'),
-                  provider='local',model=model,response_format=routing['local'].get('evaluation_response_format','json_object'),normalization=routing['local'].get('evaluation_response_normalization','none'),launches=0,results=[])
+                  provider=args.provider,model=model,response_format=('codex-output-schema' if args.provider=='codex' else routing['local'].get('evaluation_response_format','json_object')),normalization=('none' if args.provider=='codex' else routing['local'].get('evaluation_response_normalization','none')),launches=0,results=[])
     args.report.parent.mkdir(parents=True,exist_ok=True)
     def save(): args.report.write_text(json.dumps(report,indent=2)+'\n')
     def launched(): report['launches']+=1;save()
@@ -101,6 +104,8 @@ def main():
                 # All inputs in this command are explicitly public synthetic examples.
                 result['public_verdict']=judged['verdict']
                 result['public_transport']=judged.get('raw')
+                result['capability']=judged.get('capability')
+                result['diagnostic']=judged.get('diagnostic')
                 result['engine_sha256']=payload['engine_sha256']
             else:
                 result['outcome']='unmeasured'

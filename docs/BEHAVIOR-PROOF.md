@@ -429,7 +429,8 @@ scenario author and the Claude generation provider. The supported transports are
 loopback local OpenAI-compatible HTTP (without tools or redirects) and a fresh,
 safe-mode Claude subscription session with tools/MCP/session persistence disabled.
 Claude requires explicit `claude-only` policy and `independence: "fresh-session"`.
-Codex is not enabled as a tool-free evaluator. No provider fallback occurs.
+Codex is supported only through the pinned, capability-verified subscription
+adapter described below. No provider fallback occurs.
 
 Routing follows `NIGHTSHIFT_ROUTING_FILE`, then the project's `routing.file` or
 `providers.routing_file`, then the checkout routing file. Local connection settings
@@ -475,3 +476,67 @@ rejected at sealing before any evaluator reservation.
 Run `bash tests/test-source-evaluation.sh` for offline contract, HTTP-transport,
 accounting, private retention and tamper coverage. These fixtures prove harness
 boundaries, not a live model's semantic accuracy or application retrieval behavior.
+
+
+### Pinned Codex subscription evaluator
+
+`evaluator.provider: "codex"` selects the native Codex CLI adapter. Model selection
+remains explicit in the contract; no model is hard-coded. Standard independence
+still rejects an evaluator that shares the scenario author's provider, and
+`claude-only` policy still rejects Codex. `allowed_providers` in routing is also
+enforced at sealing and before the evaluator launch.
+
+The supported adapter is pinned to **codex-cli 0.155.1**. Before copying any
+credentials, it runs an unauthenticated loopback request probe with the selected
+model and verifies that the outbound tools list is empty. Unknown versions,
+nonempty tools, unsupported capability output, or a missing probe request stop
+before a model call. CLI version equality alone is not treated as proof of an
+empty tool surface.
+
+A derived model catalog disables shell, patch, experimental tools, collaboration,
+Responses Lite and websockets; it replaces model instructions with the evaluator
+system instructions. Active feature flags are disabled except host-skill-discovery
+suppression. Deprecated flags must already be false; removed flags are not used.
+The adapter ignores user configuration and rules, disables web search and interactive
+tools, and uses a fresh ephemeral read-only session in an isolated private home.
+
+Optional routing configuration:
+
+```json
+{
+  "allowed_providers": ["claude", "codex"],
+  "codex_evaluation": {
+    "model_catalog_file": "/absolute/path/to/models_cache.json",
+    "auth_file": "/absolute/path/to/auth.json",
+    "reasoning_effort": "low"
+  }
+}
+```
+
+Omitted paths default to the original Codex home's `models_cache.json` and
+`auth.json`. The selected model must exist uniquely in the catalog. An optional
+reasoning effort must be listed in that model's metadata. Authentication must be
+an owned private ChatGPT subscription file, with no API key. Only subscription
+authentication is copied to the temporary home; native `codex login status` must
+confirm ChatGPT. API credentials, provider URLs, remote-session variables and
+proxies are not inherited. Production calls force the built-in OpenAI provider
+and ChatGPT login, with no API or local-provider fallback.
+
+The output schema requests `line_id` evidence. Strict JSONL parsing requires one
+completed turn and exactly one final agent message, preserves input/output token
+usage, and rejects any tool event or malformed/error event. Raw JSONL (including
+reported cached-token usage) and capability hashes are retained privately; replay
+reparses the same bytes before accepting the canonical verdict. The Codex helper
+is included in both proof-engine and evaluator-payload fingerprints.
+
+Capability probing, authentication and generation share one elapsed deadline.
+Only the production subscription CLI invocation triggers the evaluator launch
+counter; the loopback probe contacts no model. A production CLI startup failure
+still consumes that invocation. Native transport retries can occur inside one CLI
+invocation; the controller does not claim its launch counter counts backend HTTP
+attempts. Safe failure diagnostics retain category, phase, exit code and stderr
+hash, without credential-bearing stderr text. The adapter currently bounds its serialized
+payload to 96,000 UTF-8 bytes because it passes the prompt directly to the native
+CLI. Unsupported or oversized inputs fail closed. This profile establishes bounded
+text evaluation, not application tool execution or retrieval evidence. A fresh live
+subscription calibration is still required for any selected model and rubric.

@@ -30,5 +30,26 @@ with tempfile.TemporaryDirectory(prefix='nightshift-policy-') as temp:
  # Standalone route queries also honor restrictions; no model process runs.
  selected=subprocess.run(['bash',str(root/'scripts/nightshift-route.sh'),'nightshift-code-fact-extractor','low','1','false'],env=env,cwd=project,text=True,capture_output=True,check=True)
  route=json.loads(selected.stdout);assert route['provider']=='claude' and route['gear']==1
-print('PASS: project/global/inherited policy, invalid modes, worktree inheritance and hosted extraction')
+import importlib.util
+spec=importlib.util.spec_from_file_location('provider_policy',helper);policy=importlib.util.module_from_spec(spec);spec.loader.exec_module(policy)
+routing=json.loads((root/'routing.json').read_text());routing['allowed_providers']=['claude','codex']
+role='nightshift-code-fact-extractor'
+route=policy.select_route(routing,role,0,'standard',initial={'provider':'local','model':'fixture','gear':0})
+assert route['provider'] in ('claude','codex') and route['gear']>0
+route=policy.select_route(routing,role,1,'standard',author='claude',adversarial=True)
+assert route['provider']=='codex'
+routing['allowed_providers']=['claude']
+try: policy.select_route(routing,role,1,'standard',author='claude',adversarial=True)
+except ValueError: pass
+else: raise AssertionError('cross-provider review must not degrade to self-review')
+routing['allowed_providers']=['codex']
+try: policy.select_route(routing,role,1,'claude-only')
+except ValueError: pass
+else: raise AssertionError('conflicting restrictions must fail')
+for invalid in ([],['invalid'],['claude','claude'],{'claude':True}):
+ routing['allowed_providers']=invalid
+ try: policy.select_route(routing,role,1,'standard')
+ except ValueError: pass
+ else: raise AssertionError('invalid allowed providers accepted')
+print('PASS: policy inheritance, frontier-only automatic routing and cross-provider enforcement')
 PY

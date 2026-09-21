@@ -61,7 +61,7 @@ source_evaluation = module('nightshift_source_evaluation', 'nightshift-source-ev
 
 
 def engine_hash():
-    return digest({'proof': file_hash(ENGINE), 'evaluation': file_hash(HERE / 'nightshift-source-evaluation.py')})
+    return digest({'proof': file_hash(ENGINE), 'evaluation': file_hash(HERE / 'nightshift-source-evaluation.py'), 'codex_evaluation': file_hash(HERE / 'nightshift-codex-evaluator.py')})
 
 
 def dependencies():
@@ -316,6 +316,10 @@ def evaluation_settings(doc, project):
     settings = tomllib.loads(bounded(manifest).decode()) if manifest.exists() else {}
     configured = settings.get('routing', {}).get('file') or settings.get('providers', {}).get('routing_file')
     path = (Path(explicit) if explicit else project / configured if configured else HERE.parent / 'routing.json').resolve(strict=True)
+    routing=read_json(path)
+    allowed=routing.get('allowed_providers',['claude','codex','local']) if isinstance(routing,dict) else None
+    if not isinstance(allowed,list) or not allowed or any(x not in ('claude','codex','local') for x in allowed) or any(c['evaluator']['provider'] not in allowed for c in contracts):
+        raise Blocked('evaluation_provider_policy')
     return {'routing_path': str(path), 'routing_sha256': file_hash(path), 'provider_policy': provider_policy(project)}
 
 

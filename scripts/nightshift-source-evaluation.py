@@ -85,7 +85,7 @@ def validate(contract):
         raise ValueError('evaluation_duplicate_criterion')
     evaluator=contract['evaluator']
     exact(evaluator,('provider','model','independence'))
-    if evaluator['provider'] not in ('local','claude') or not isinstance(evaluator['model'],str) or not evaluator['model'].strip() or evaluator['independence'] not in ('different-provider','fresh-session'):
+    if evaluator['provider'] not in ('local','claude','codex') or not isinstance(evaluator['model'],str) or not evaluator['model'].strip() or evaluator['independence'] not in ('different-provider','fresh-session'):
         raise ValueError('evaluation_provider')
     if len(json.dumps(contract).encode())>1048576:
         raise ValueError('evaluation_limit')
@@ -161,7 +161,8 @@ def prepare(contract,input_text,completion,system_prompt,history):
             raise ValueError('evaluation_source_not_in_input')
     value={'contract':contract,'input':input_text,'completion':completion,'system_prompt':system_prompt,'history':history,
            'completion_lines':{'L'+str(index+1):line[:160] for index,line in enumerate(completion.splitlines())},
-           'engine_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+           'engine_sha256':digest({'source':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                                  'codex':hashlib.sha256(Path(__file__).with_name('nightshift-codex-evaluator.py').read_bytes()).hexdigest()})}
     value['binding_sha256']=digest(value)
     return value
 
@@ -224,10 +225,19 @@ def resolve_verdict(value,payload):
     return resolved
 
 
+def codex_adapter():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('nightshift_codex_evaluator',Path(__file__).with_name('nightshift-codex-evaluator.py'))
+    result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result)
+    return result
+
+
 def parse_transport_verdict(raw, provider, routing, proof_module):
     """Reparse retained provider bytes; derived verdicts cannot replace raw evidence."""
     p=proof_module
     if not isinstance(raw,str): raise ValueError('evaluation_response')
+    if provider=='codex':
+        return codex_adapter().parse(raw,p)[0]
     if provider=='claude':
         completion,_,_=p.completion_result(raw.encode('utf-8'))
         return p.parse_json(completion)
@@ -254,6 +264,9 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
         validate(contract)
         if not isinstance(routing,dict): raise ValueError('evaluation_routing')
         provider=contract['evaluator']['provider']; model=contract['evaluator']['model']
+        allowed=routing.get('allowed_providers',['claude','codex','local'])
+        if not isinstance(allowed,list) or not allowed or any(x not in ('claude','codex','local') for x in allowed) or provider not in allowed:
+            raise ValueError('evaluation_provider_policy')
         prompt=json.dumps(payload,ensure_ascii=False)
         if len(prompt.encode())>4*1048576: raise ValueError('evaluation_input_limit')
         if provider=='local':
@@ -322,6 +335,13 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
             normalization=config.get('evaluation_response_normalization','none')
             if normalization not in ('none','json-or-single-fence-v1'): raise ValueError('evaluation_normalization')
             value=p.completion_json(message['content'],normalization)
+        elif provider=='codex':
+            transport=codex_adapter().run(model,SYSTEM,payload,schema(payload['completion_lines'],payload['completion']),routing,policy,on_launch,p,started)
+            result['raw']=transport['stdout'].decode()
+            result['capability']=transport['capability']
+            if transport.get('diagnostics'):result['diagnostics']=transport['diagnostics']
+            if transport['reason'] or transport['returncode']!=0: raise ValueError(transport.get('failure_reason','evaluation_transport'))
+            value,usage=codex_adapter().parse(result['raw'],p)
         else:
             with tempfile.TemporaryDirectory(prefix='nightshift-evaluator-') as directory:
                 executable=p.resolved_runtime('claude')
@@ -351,7 +371,7 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
     except (TimeoutError, __import__('socket').timeout):
         result['reason']='evaluation_timeout'
     except (ValueError,KeyError,IndexError,TypeError,AttributeError,OSError,p.Invalid,p.Blocked) as error:
-        safe={'evaluation_reasoning_config','evaluation_quote_reference','evaluation_normalization','evaluation_routing','evaluation_response','evaluation_usage','evaluation_structure','evaluation_schema','evaluation_stale','evaluation_verdict','evaluation_quote','evaluation_incomplete',
+        safe={'evaluation_capacity','evaluation_codex_network','evaluation_provider_policy','evaluation_codex_configuration','evaluation_codex_catalog','evaluation_codex_runtime','evaluation_codex_version','evaluation_codex_capabilities','evaluation_codex_tools_unverified','evaluation_codex_probe_unavailable','evaluation_codex_response','evaluation_reasoning_config','evaluation_quote_reference','evaluation_normalization','evaluation_routing','evaluation_response','evaluation_usage','evaluation_structure','evaluation_schema','evaluation_stale','evaluation_verdict','evaluation_quote','evaluation_incomplete',
               'evaluation_input_limit','evaluation_backend','evaluation_endpoint','evaluation_auth_permissions',
               'evaluation_response_format','evaluation_redirect','evaluation_timeout','evaluation_output_limit',
               'evaluation_tool_request','evaluation_runtime','evaluation_subscription','evaluation_transport'}

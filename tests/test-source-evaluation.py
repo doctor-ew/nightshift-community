@@ -168,6 +168,11 @@ class Boundaries(unittest.TestCase):
         c=contract();doc={'author':{'provider':'local'}}
         with self.assertRaises(p.Blocked):p.validate_evaluation(c,doc)
         c['evaluator']['provider']='codex'
+        p.validate_evaluation(c,{'author':{'provider':'claude'}})
+        with self.assertRaises(p.Blocked):p.validate_evaluation(c,{'author':{'provider':'codex'}})
+        with patch.object(p,'provider_policy',return_value='claude-only'):
+            with self.assertRaises(p.Blocked):p.validate_evaluation(c,{'author':{'provider':'claude'}},ROOT)
+        c['evaluator']['provider']='unverified'
         with self.assertRaises(p.Invalid):p.validate_evaluation(c,doc)
     def test_reservation_pending_and_separate_evaluation(self):
         p.dependencies();state={};policy=dict(p.DEFAULTS)
@@ -181,6 +186,94 @@ class Boundaries(unittest.TestCase):
         p.retry.proof_validate(state)
         self.assertEqual(state['budget']['launches']['development'],2)
         self.assertEqual(state['budget']['infrastructure_failures'],1)
+
+class CodexEvaluator(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory(prefix='nightshift-codex-fixture-');self.addCleanup(self.tmp.cleanup)
+        self.base=Path(self.tmp.name).resolve();self.binary=self.base/'codex';self.binary.write_text('fixture binary')
+        self.catalog=self.base/'models.json';self.catalog.write_text(json.dumps({'models':[{'slug':'configured-judge','supported_reasoning_levels':[{'effort':'low'}]}]}))
+        self.auth=self.base/'auth.json';self.auth.write_text(json.dumps({'auth_mode':'chatgpt','tokens':{'access_token':'synthetic-fixture-token'}}));self.auth.chmod(0o600)
+        self.routing={'allowed_providers':['claude','codex'],'codex_evaluation':{'model_catalog_file':str(self.catalog),'auth_file':str(self.auth),'reasoning_effort':'low'}}
+        self.contract=contract();self.contract['evaluator'].update(provider='codex',model='configured-judge')
+        self.payload=e.prepare(self.contract,'[S1] Allowed choice is allow.','allow','system',[])
+        value=valid(self.payload)
+        for item in value['criteria']:item['line_id']=item.pop('quote');item['line_id']='L1'
+        self.raw='\n'.join(json.dumps(event) for event in [
+            {'type':'thread.started','thread_id':'fixture'}, {'type':'turn.started'},
+            {'type':'item.completed','item':{'type':'agent_message','id':'i1','text':json.dumps(value)}},
+            {'type':'turn.completed','usage':{'input_tokens':17,'output_tokens':9,'cached_input_tokens':3}}])
+        self.calls=[];self.launches=[];self.tool_probe=False;self.version='codex-cli 0.155.1';self.execution_error=None
+    def process(self,argv,cwd,env,timeout,limit,launched=None):
+        self.calls.append(argv)
+        self.assertNotIn('OPENAI_API_KEY',env);self.assertNotIn('CODEX_API_KEY',env)
+        self.assertNotIn('OPENAI_BASE_URL',env)
+        self.assertEqual(env['HOME'],env['CODEX_HOME']);self.assertNotEqual(env['HOME'],str(Path.home()))
+        self.assertGreater(timeout,0);self.assertLessEqual(timeout,120)
+        result={'reason':None,'returncode':0,'stdout':b'','stderr':b'','duration_seconds':0.01}
+        if argv[1:]==['--version']:return dict(result,stdout=self.version.encode())
+        if argv[1:]==['features','list']:
+            return dict(result,stdout=b'shell_tool stable true\nmulti_agent stable true\nskip_host_skill_discovery under development false\nold_tool removed true\n')
+        if argv[1:]==['login','status']:
+            copied=json.loads((Path(env['CODEX_HOME'])/'auth.json').read_text())
+            self.assertEqual(copied['auth_mode'],'chatgpt')
+            self.assertEqual((Path(env['CODEX_HOME'])/'auth.json').stat().st_mode&0o777,0o600)
+            return dict(result,stderr=b'Logged in using ChatGPT')
+        self.assertIn('--ignore-user-config',argv);self.assertIn('--ignore-rules',argv);self.assertIn('--ephemeral',argv)
+        self.assertEqual(argv[argv.index('--sandbox')+1],'read-only')
+        self.assertIn('shell_tool',argv);self.assertIn('--disable',argv);self.assertIn('skip_host_skill_discovery',argv)
+        self.assertIn('tools.update_plan.enabled=false',argv);self.assertIn('web_search="disabled"',argv)
+        catalog_arg=next(x for x in argv if x.startswith('model_catalog_json='))
+        model=json.loads(Path(json.loads(catalog_arg.split('=',1)[1])).read_text())['models'][0]
+        self.assertEqual(model['shell_type'],'disabled');self.assertEqual(model['experimental_supported_tools'],[])
+        self.assertIsNone(model['apply_patch_tool_type']);self.assertFalse(model['use_responses_lite']);self.assertFalse(model['prefer_websockets']);self.assertIsNone(model['multi_agent_version'])
+        endpoint=next((x for x in argv if x.startswith('model_providers.nightshift_probe.base_url=')),None)
+        if endpoint:
+            self.assertFalse((Path(env['CODEX_HOME'])/'auth.json').exists())
+            import urllib.request,urllib.error
+            url=json.loads(endpoint.split('=',1)[1])+'/responses'
+            body={'model':'configured-judge','tools':[{'type':'function'}] if self.tool_probe else []}
+            try:urllib.request.urlopen(urllib.request.Request(url,json.dumps(body).encode(),{'Content-Type':'application/json'}),timeout=2)
+            except urllib.error.HTTPError as error:error.close()
+            return dict(result,returncode=1)
+        self.assertIn('model_provider="openai"',argv);self.assertIn('forced_login_method="chatgpt"',argv)
+        self.assertIn('--output-schema',argv);self.assertIn('model_reasoning_effort="low"',argv)
+        if launched:launched()
+        if self.execution_error:return dict(result,returncode=1,stderr=self.execution_error,stdout=b'')
+        return dict(result,stdout=self.raw.encode())
+    def judge(self):
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'synthetic-denied','CODEX_API_KEY':'synthetic-denied','OPENAI_BASE_URL':'http://invalid'}),patch.object(p,'resolved_runtime',return_value=str(self.binary)),patch.object(p,'bounded_process',side_effect=self.process):
+            return e.judge(self.contract,self.payload,self.routing,dict(p.DEFAULTS),lambda:self.launches.append(True),p)
+    def test_subscription_isolation_empty_tool_probe_usage_and_replay(self):
+        result=self.judge();self.assertEqual(result['outcome'],'pass',result)
+        self.assertEqual(self.launches,[True]);self.assertEqual(result['usage'],{'input_tokens':17,'output_tokens':9})
+        self.assertEqual(e.parse_transport_verdict(result['raw'],'codex',self.routing,p),result['transport_verdict'])
+        self.assertTrue(result['capability']['empty_tool_surface_verified']);self.assertEqual(result['capability']['billing'],'subscription')
+        self.assertEqual(json.loads(self.auth.read_text())['tokens']['access_token'],'synthetic-fixture-token')
+    def test_unverified_cli_and_nonempty_tool_surface_never_launch(self):
+        self.version='codex-cli 0.155.2';result=self.judge()
+        self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_codex_version');self.assertEqual(self.launches,[])
+        self.version='codex-cli 0.155.1';self.tool_probe=True;result=self.judge()
+        self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_codex_tools_unverified');self.assertEqual(self.launches,[])
+    def test_tool_events_malformed_json_usage_and_replay_are_rejected(self):
+        helper=e.codex_adapter()
+        for raw in ('NOT JSON',self.raw.replace('"agent_message"','"command_execution"'),self.raw.replace('"input_tokens": 17','"input_tokens": true'),self.raw.splitlines()[0]):
+            with self.assertRaises((ValueError,p.Invalid)):helper.parse(raw,p)
+        self.raw=self.raw.replace('"agent_message"','"mcp_tool_call"');result=self.judge()
+        self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_tool_request');self.assertEqual(self.launches,[True])
+        with self.assertRaises(ValueError):e.parse_transport_verdict(result['raw'],'codex',self.routing,p)
+    def test_cli_configuration_failure_has_safe_diagnostic(self):
+        self.execution_error=b'Error loading configuration: model_providers contains reserved built-in provider IDs: openai; synthetic-secret'
+        result=self.judge()
+        self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_codex_configuration')
+        self.assertEqual(self.launches,[True]);self.assertEqual(result['diagnostics']['returncode'],1)
+        self.assertNotIn('synthetic-secret',json.dumps(result))
+        self.assertEqual(result['diagnostics']['stderr_sha256'],hashlib.sha256(self.execution_error).hexdigest())
+    def test_api_auth_and_provider_allowlist_fail_closed(self):
+        self.auth.write_text(json.dumps({'auth_mode':'apikey','OPENAI_API_KEY':'synthetic-denied'}));result=self.judge()
+        self.assertEqual(result['reason'],'evaluation_subscription');self.assertEqual(self.launches,[])
+        self.routing['allowed_providers']=['claude'];result=self.judge()
+        self.assertEqual(result['reason'],'evaluation_provider_policy');self.assertEqual(self.launches,[])
+
 
 class Integration(unittest.TestCase):
     def setUp(self):
