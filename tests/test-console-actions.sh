@@ -29,6 +29,10 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
     module.atomic(budget_dir/'real.repair-budget.json',dict(attempts=3,limit=3))
     try:module.repair_budget(budget_dir,'real');raise AssertionError('unproven failures credited')
     except ValueError:pass
+    original_base=subprocess.check_output(['git','-C',str(project),'rev-parse','HEAD'],text=True).strip()
+    (project/'advance.txt').write_text('caller moves after ticket was prepared')
+    git('add','advance.txt');git('commit','-qm','advance caller HEAD')
+    assert module.resume_settings(project,'42',dict(settings,base='HEAD'))['base']==original_base
     state=module.state(project,'42');assert not state['running']
     assert state['repair_remaining']==3
     module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=3,limit=3))

@@ -127,6 +127,19 @@ def list_tickets(project):
     return sorted(result, key=lambda item: (item['running'], item['updated_at']), reverse=True)
 
 
+def resume_settings(project, task, settings):
+    """Retained worktree identity pins resume even when a symbolic ref moves."""
+    owner_path = directory(project).parent / 'worktrees' / (task + '.json')
+    if not owner_path.exists():
+        raise ValueError('Missing retained worktree ownership; cannot safely resume')
+    owner = read(owner_path)
+    base = owner.get('base_sha', '')
+    if not isinstance(base, str) or not re.fullmatch(r'[0-9a-f]{40,64}', base):
+        raise ValueError('Missing retained baseline commit; cannot safely resume')
+    subprocess.run(['git', '-C', str(project), 'cat-file', '-e', base + '^{commit}'], check=True, capture_output=True)
+    return dict(settings, base=base)
+
+
 def repair_budget(path, task):
     """One-time reconciliation of the prelaunch proof-gate bug; never reset attempts."""
     budget_path = path / (task + '.repair-budget.json')
@@ -188,7 +201,7 @@ def action(project, task, expected, operation, provider="auto"):
             return dict(status='running', message='This ticket already has a console-launched worker.')
         if current['finished']:
             raise ValueError('This ticket is finished; use the terminal for an intentional new run.')
-        settings = current['settings']
+        settings = resume_settings(project, task, current['settings'])
         if operation == 'repair' and settings['auth'] != 'subscription':
             raise ValueError('Browser repair requires subscription authentication')
         if operation == 'repair' and settings['policy'] == 'claude-only' and provider not in ('auto', 'claude'):

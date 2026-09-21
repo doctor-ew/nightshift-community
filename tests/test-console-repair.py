@@ -48,7 +48,7 @@ class RepairTests(unittest.TestCase):
         settings=dict(ref='spec:brief.md',provider='codex',model='',policy='standard',auth='subscription',branch='auto',base='HEAD',push=False,pr=False)
         m.actions.save(self.p,'42',settings)
         owner=m.actions.directory(self.p).parent/'worktrees';owner.mkdir()
-        (owner/'42.json').write_text(json.dumps({'worktree':str(self.p)}))
+        (owner/'42.json').write_text(json.dumps({'worktree':str(self.p), 'base_sha':self.git('rev-parse','HEAD').strip()}))
         routing=json.loads((ROOT/'routing.json').read_text());(self.p/'routing.json').write_text(json.dumps(routing))
         helpers=self.p/'helpers';helpers.mkdir()
         (helpers/'nightshift-run-metrics.py').write_text('print("{}")')

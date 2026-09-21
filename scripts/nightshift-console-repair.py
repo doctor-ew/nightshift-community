@@ -78,7 +78,7 @@ def evidence_bundle(target, task):
 
 def worker(project, task, provider, evidence):
     project, evidence = Path(project).resolve(), Path(evidence).resolve()
-    settings = actions.state(project, task)['settings']
+    settings = actions.resume_settings(project, task, actions.state(project, task)['settings'])
     if settings['auth'] != 'subscription':
         raise ValueError('Browser repair requires subscription auth; API spending needs an explicit terminal invocation')
     owner = actions.read(actions.directory(project).parent / 'worktrees' / (task + '.json'))
