@@ -30,6 +30,10 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
     try:module.repair_budget(budget_dir,'real');raise AssertionError('unproven failures credited')
     except ValueError:pass
     state=module.state(project,'42');assert not state['running']
+    assert state['repair_remaining']==3
+    module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=3,limit=3))
+    assert module.state(project,'42')['repair_remaining']==0
+    module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=0,limit=3))
     module.save(project,'fresh',dict(settings,ref='spec:docs/fresh.md'))
     assert module.list_tickets(project)[0]['task']=='fresh', 'newest ticket must precede old failures'
     factory_agents=project/'.nightshift/agents';factory_agents.mkdir(parents=True)

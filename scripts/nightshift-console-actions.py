@@ -107,7 +107,12 @@ def state(project, task):
         evidence = Path(job['evidence'])
         if evidence.parent == directory(project) and (evidence / 'status.json').exists():
             repair = read(evidence / 'status.json')
-    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime)
+    budget_path = path.with_name(task + '.repair-budget.json')
+    budget = read(budget_path) if budget_path.exists() else {}
+    attempts = budget.get('attempts', 0)
+    credits = budget.get('proof_gate_bug_reconciliation', {}).get('credited_attempts', 0)
+    remaining = max(0, 3 - (attempts - credits)) if type(attempts) is int and type(credits) is int else 0
+    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining)
 
 
 def list_tickets(project):
