@@ -14,8 +14,9 @@ export function ticketProgress(rows, ticket) {
   const stopped = steps.find(step => ['blocked', 'failed'].includes(step.state));
   const running = steps.find(step => step.state === 'running');
   const passed = steps.filter(step => step.state === 'passed').at(-1);
-  const blocker = failures.length > 0 || !!stopped;
-  const status = ticket.running ? 'Running' : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const dependencyBlocked = ticket.progress?.dependency?.blocked === true;
+  const blocker = failures.length > 0 || !!stopped || dependencyBlocked;
+  const status = ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
   const stage = running || stopped || passed;
   return {trackers, failures, status, tone: ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
     stage: stage?.stage || failures[0]?.gate || null,

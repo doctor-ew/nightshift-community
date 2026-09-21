@@ -263,7 +263,7 @@ reuse the existing evaluator and do not change acceptance semantics.
 
 Evidence is limited to 4 MiB per charged turn, in addition to existing input,
 output and call limits. The file contains only the current turn, avoiding repeated
-history growth. Final runs never write these files or retain completion bodies.
+history growth. Final runs never write these public files. Legacy literal-only runs do not retain final completion bodies; the optional source-bound profile below retains them privately.
 Transport failures without a parsed completion do not retain raw provider output.
 Evidence write failures leave `development_evidence_error: artifact_unavailable`
 in the aggregate observation without changing grading or retry accounting.
@@ -343,3 +343,123 @@ It remains unapproved and must not be executed in that phase. This resolves the
 existence/hash prerequisite without weakening design challenge, private held-out
 commitments, budget pinning, or development/final proof. Application code and
 harness implementation still follow approved scope and the ordinary build gates.
+
+## Optional source-bound completion evaluation
+
+A prototype case may add `evaluation`; multiturn cases may also add it to each
+turn. A case contract evaluates the last completion with its actual conversation
+history. Turn contracts evaluate that turn. Legacy cases retain their literal
+oracle behavior. This is text-only supplied-source evaluation, not evidence that
+an application retrieved a document or exercised real tools.
+
+```json
+{
+  "version": 1,
+  "sources": {"S1": "Allowed choice is allow."},
+  "structure": {
+    "headings": [],
+    "terminal": "",
+    "citation_section": "",
+    "citation_end": ""
+  },
+  "criteria": [
+    {"id": "grounding", "requirement": "Every claim must be supported by S1; do not overstate the source."}
+  ],
+  "evaluator": {
+    "provider": "local",
+    "model": "configured-installed-model",
+    "independence": "different-provider"
+  }
+}
+```
+
+The contract has exact keys. All source values must occur literally in the actual
+input. When actual user input has explicit `[ID]` source blocks, the ID must exist and
+the value must occur in that ID's block; an arbitrary other source cannot supply its excerpt. Assigned
+locators and whole-user-input request aliases are allowed only without supplied
+source IDs. Mixed labelled-source and whole-request aliases are unsupported. Multiturn source checks inspect decoded user messages,
+excluding assistant completions; the serialized generation input remains bound.
+The sealed mapping and rubric require independent design review. This mechanical
+binding does not itself establish semantic truth.
+
+`headings` specifies every exact level-two Markdown heading in order; an empty
+array disables that check. `terminal` requires the unique last line, with no
+trailing content. Citation sections are delimited by exact unique heading lines.
+Each nonblank entry must be `[ID] locator, "exact excerpt"`; excerpts must occur
+in that ID's source. Used IDs and listed IDs must match exactly; unknown, duplicate,
+missing, unused and wrongly bound entries fail. Empty citation delimiters disable
+citation checks. This deliberately bounded grammar does not parse arbitrary
+Markdown citation formats.
+
+`structure.blocks` is optional and has exact keys `start`, `end`, `heading_prefix`,
+`fields`, `labels`, `count_prefix`, `count_suffix`. Between the two exact boundary
+lines, each block starts with `heading_prefix`; its nonblank field lines must
+match `fields` in order. `labels` maps selected field prefixes to allowed exact
+values. The unique count line must equal `count_prefix + block_count + count_suffix`.
+Use a semantic criterion for required prose when a case legitimately has no blocks.
+
+The semantic evaluator receives the source map, actual input, system prompt,
+conversation history, actual completion and sealed criteria. Its strict transport verdict must echo the payload hash, cover every criterion
+exactly once, and provide a status (`pass`, `fail`, `unknown`), a completion line
+ID and a reason. Numbered completion lines are bound into the payload. The
+controller resolves each selected line to its actual first 160 characters before
+strict quotation validation; unknown line IDs are rejected. Raw line-reference
+and resolved quotation verdicts are retained privately. Recheck reparses the raw
+provider response using sealed normalization and compares both derived verdicts.
+Only all-pass admits the case. Missing fields, duplicate keys, unsupported quotes,
+unknown status, requested tools, invalid JSON, stale evidence and transport errors
+block admission. A matching quotation is an integrity check, not a substitute for
+the judge assessing the entire response. Evaluate model reliability with public
+positive and negative calibration before relying on a configuration.
+
+The standard policy requires an evaluator provider different from both the
+scenario author and the Claude generation provider. The supported transports are
+loopback local OpenAI-compatible HTTP (without tools or redirects) and a fresh,
+safe-mode Claude subscription session with tools/MCP/session persistence disabled.
+Claude requires explicit `claude-only` policy and `independence: "fresh-session"`.
+Codex is not enabled as a tool-free evaluator. No provider fallback occurs.
+
+Routing follows `NIGHTSHIFT_ROUTING_FILE`, then the project's `routing.file` or
+`providers.routing_file`, then the checkout routing file. Local connection settings
+are under `local`: `backend`, `base_url`, optional `auth_settings_file`. Supported
+backends are `omlx`, `ollama`, `lmstudio`, and `openai-compatible`; endpoints must
+be HTTP loopback. Authentication settings must be private and owned. Credentials
+are not logged. Configured `local.reasoning_effort` (nonblank string or finite
+number) is forwarded unchanged. Optional `evaluation_chat_template_kwargs` accepts
+only `{ "enable_thinking": true|false }` and is forwarded as `chat_template_kwargs`;
+no thinking setting is imposed by default. `evaluation_response_format` selects `json_object` (default),
+`json_schema`, or `none`; every selection still uses the same strict local verdict
+validator. `evaluation_response_normalization` is `none` by default; explicit
+`json-or-single-fence-v1` permits one whole-output JSON fence, while chatter and
+multiple fences still fail. Verdict quotes are exact nonblank single-line substrings
+of at most 160 characters (empty only for fail/unknown omissions); reasons are
+nonblank and at most 240 characters. Provider and model are explicit configuration, never automatic fallback.
+
+Generation is finalized and persisted before reserving evaluation. Every judge
+launch consumes one existing gate call with kind `evaluation`; limits and retained
+failures are never reset. Minimum admission includes generation and judge calls.
+Pending attempts block further admission after interruption. Usage totals include
+both transports, while run metrics identify their separate providers. Unknown
+usage remains unknown. Failed structure does not launch or charge a model judge. Pre-reservation unknown
+source/schema/storage failures consume infrastructure allowance as unlaunched
+probe failures; generation counts remain unchanged.
+
+For this optional contract, final completion bodies and raw judge output are retained
+in mode-0600 evidence files under a mode-0700 directory beside the controller's
+external heldout manifest. Development evaluator evidence and source-evaluated generation transcripts are
+retained under the private proof state directory. Unsafe/symlink paths fail closed. Public receipts
+contain hashes, status, counters and usage, never final inputs, response bodies,
+judge quotations or private evidence paths. Final gate rechecks private evidence,
+contract/completion/payload hashes, the evaluator engine and routing configuration.
+It reconstructs the conversation from sealed user inputs and retained raw generation
+responses, verifies their output/completion hashes, and cross-checks evaluator input,
+history, completion and system prompt against that generation record. Missing or
+altered generation evidence blocks admission.
+Changes require fresh evaluation and ordinary resealing rules; old receipts are
+never promoted into semantic proof. Public and private manifests must both enable
+case evaluation for acceptance criteria requiring it. Private-only evaluation is
+rejected at sealing before any evaluator reservation.
+
+Run `bash tests/test-source-evaluation.sh` for offline contract, HTTP-transport,
+accounting, private retention and tamper coverage. These fixtures prove harness
+boundaries, not a live model's semantic accuracy or application retrieval behavior.

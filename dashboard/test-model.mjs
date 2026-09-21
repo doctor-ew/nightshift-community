@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary, ticketSourceLink, ticketTimeline, ticketUsage } from './src/model.mjs';
+test('parent dependency blockage remains explicit even while orchestrator exits or runs', () => {
+  const ticket = {task:'parent', finished:true, progress:{dependency:{blocked:true}}};
+  assert.equal(ticketProgress([], ticket).status, 'Blocked');
+  assert.equal(ticketProgress([], {...ticket,running:true}).status, 'Active · dependency blocked');
+  assert.equal(ticketProgress([{ticket:'parent',source:'batch',state:'complete'}],ticket).complete,false);
+});
 test('ticket source links preserve recorded external URLs and local evidence', () => {
   const ticket = {task:'task-a', settings:{ref:'jira:task-a'}};
   const rows = [{ticket:'task-a', ticket_url:'https://example.atlassian.net/browse/task-a', links:[{label:'task-a.md',href:'file:///tmp/task-a.md'}]}];

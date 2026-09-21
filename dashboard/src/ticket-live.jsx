@@ -12,6 +12,7 @@ export function LiveProgress({ticket}) {
     {(live.workers || []).map((worker, index) => <p className="run-meta" key={index}><span>{worker.role}</span><span>{worker.provider} · {worker.model}</span><span>{duration(worker.elapsed_seconds)} elapsed</span></p>)}
     <dl className="live-facts"><div><dt>Action needed</dt><dd>{live.action_required || 'Check the latest receipt'}</dd></div><div><dt>Next</dt><dd>{live.next || 'Await a recorded result'}</dd></div><div><dt>Last activity</dt><dd>{time(live.last_activity_at)}{typeof live.last_activity_age_seconds === 'number' && ` · ${duration(live.last_activity_age_seconds)} ago`}</dd></div></dl>
     {live.latest_event && <details className="latest-event" open><summary>Latest recorded update</summary><p>{live.latest_event}</p></details>}
+    {live.dependency?.children?.length > 0 && <div aria-label="Child ticket status"><h4>Dependent tickets</h4><ul>{live.dependency.children.map(child => <li key={child.id}><strong>{child.id}: {child.status}</strong>{child.reason && ` — ${child.reason}`}</li>)}</ul></div>}
     <small>Activity describes live processes. The timeline below records gate outcomes; an active repair does not erase a failed gate.</small>
   </section>;
 }

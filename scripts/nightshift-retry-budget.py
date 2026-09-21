@@ -184,7 +184,7 @@ def proof_validate(state):
     for attempt, item in budget['attempts'].items():
         if (not isinstance(attempt, str) or not attempt or not isinstance(item, dict)
                 or set(item) != {'gate', 'kind', 'launched', 'outcome'}
-                or item['gate'] not in reservations or item['kind'] not in ('prototype', 'challenge', 'probe')
+                or item['gate'] not in reservations or item['kind'] not in ('prototype', 'challenge', 'probe', 'evaluation')
                 or type(item['launched']) is not bool or item['outcome'] not in ('pending', 'pass', 'fail', 'unknown')):
             raise ValueError('invalid proof attempt')
         if item['kind'] != 'probe':
