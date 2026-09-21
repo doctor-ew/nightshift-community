@@ -12,6 +12,22 @@ class StructuralOracles(unittest.TestCase):
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location('proof_oracles', ROOT/'scripts/nightshift-behavior-proof.py')
         cls.proof = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.proof)
+    def test_section_binding_rejects_fact_outside_resume_edit(self):
+        oracle = dict(op='text_section_contains', start='Proposed:', end='Facts used:', value='recruited neighbors')
+        self.proof.assertion(oracle)
+        case = dict(expected=[oracle], prohibited=[])
+        self.assertTrue(self.proof.evaluate('Proposed:\nRan signup and recruited neighbors.\nFacts used:\nA-T01', case))
+        for wrong in ('Proposed:\nRan signup.\nFacts used:\nrecruited neighbors',
+                      'recruited neighbors\nProposed:\nRan signup.\nFacts used:',
+                      'Proposed:\nrecruited neighbors',
+                      'Facts used:\nrecruited neighbors\nProposed:',
+                      'Proposed:\nrecruited neighbors\nProposed:\nFacts used:',
+                      'Proposed:\nrecruited neighbors\nFacts used:\nFacts used:'):
+            self.assertFalse(self.proof.evaluate(wrong, case), wrong)
+        for start,end in [('Same','Same'),('a\nb','End'),('','End')]:
+            with self.assertRaises(self.proof.Invalid):
+                self.proof.assertion(dict(oracle,start=start,end=end))
+
     def check_oracle(self, op, value, accepted, rejected):
         assertion = dict(op=op, field=['nested','field'], value=value)
         self.proof.assertion(assertion)

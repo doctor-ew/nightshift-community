@@ -106,7 +106,21 @@ false. Empty prohibited assertions require an explicit forbidden-behavior
 rationale. Deterministic and not-applicable cases can have null input and empty
 oracle lists; their evidence comes from tests or reviewed applicability.
 
-The built-in version-1 oracle supports `text_equals`, `text_contains`,
+The helper's `capabilities --project <project>` operation prints supported
+operators and limitations without a provider call or proof-state mutation. Use it
+before writing scenarios and record unresolved evaluator requirements separately.
+
+`text_section_contains` has exactly `op`, `start`, `end`, and `value` fields.
+The start/end markers must be distinct, nonempty standalone lines; both must occur
+exactly once in the completion and start must precede end. Only the text strictly
+between those lines is searched for value. Missing, repeated, or reversed markers
+fail the positive assertion. For required structure, use a positive section check;
+a prohibited assertion alone does not prove the section exists. This is literal
+containment, not semantic evidence entailment, correct ordering of facts, or a
+natural-language question counter. Negative public examples should place the right
+fact outside the section and omit it inside; those examples must fail.
+
+The built-in version-1 oracle supports `text_section_contains`, `text_equals`, `text_contains`,
 `json_equals`, `json_field_equals`, `json_field_length_at_most`, and
 `json_field_nonempty`. Assertions contain `op` and `value`;
 All `json_field_` assertions use `field`, a nonempty list of literal JSON object

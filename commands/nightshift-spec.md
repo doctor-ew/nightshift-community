@@ -170,6 +170,17 @@ python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof
   validate --project "$PROJECT" --task "$TASK" --scenarios "$DIR/behavior-scenarios.json" || exit $?
 ```
 
+Before challenge, inspect the spec's capability matrix and shared output contract.
+For repaired scenarios require REPAIR-COVERAGE.md with actual public checker
+results: a supported valid example passes and the finding's wrong example fails.
+Classify each finding as product/spec defect, evaluator capability gap, disputed
+review finding, or newly discovered defect. Verify disputed findings against the
+actual helper semantics. Do not silently dismiss them or manufacture reviewer
+approval. Route evaluator gaps to a bounded harness dependency, retaining the
+blocked ticket and existing repair budget; do not reset attempts or weaken ACs.
+Record repeated/new finding counts and elapsed time plus available usage per
+approved spec; unknown usage stays unknown. Private heldouts remain independent.
+
 Record actual independent classification review with the reviewed semantic digest.
 Ordinary deterministic/documentation-only work uses existing independent review,
 without another model call merely to format an attestation. Prototype or
