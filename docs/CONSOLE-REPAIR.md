@@ -13,3 +13,5 @@ Validation: worker tests exercise patch traversal/symlink/structural rejection a
 Implementation: scripts/nightshift-console-actions.py, scripts/nightshift-console-repair.py, dashboard/server.py, dashboard/src/app.jsx.
 
 Diagnosis and independent patch review use the read-only nightshift-repair-analyst role, with configurable routing. They do not require an implementation proof receipt. Engineer and architect dispatch still require development proof; repair never manufactures that receipt. Missing independently authored held-out evidence still needs the product evaluation workflow and cannot be fabricated by a repair patch.
+
+Resume pins `--base` to the retained ownership record’s `base_sha`, including resumes after verified repair. A moving symbolic ref such as HEAD is not re-resolved against the caller checkout. Missing ownership or baseline fails closed.
