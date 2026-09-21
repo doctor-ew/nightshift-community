@@ -63,6 +63,44 @@ through this pipeline autonomously, then writes an aggregate retro. See `command
 
 ---
 
+## Scope assessment and decomposition
+
+Before expensive product authoring, assess independent deliverables, stateful
+workflows, shared contracts and unresolved evaluator dependencies. Do not split by
+word count or AC count alone. When a request is an epic, create bounded local child
+briefs and `docs/<parent-key>/decomposition.json`; preserve the upstream parent as
+source of truth. Use version 1 with exactly: `version`, `parent` (project-relative
+spec: source ref), `requirements` (all original stable AC IDs), `children`.
+Each child has `id`, `ref` (unique project-relative spec: brief), `depends_on`
+(child IDs), `requirements` (covered parent AC IDs), and `integration` (boolean).
+Exactly one final integration child covers every AC and transitively depends on
+all others. Shared truthfulness/security requirements remain in every applicable
+brief. For external sources first retain a faithful normalized public parent brief
+and original source attribution; never publish upstream children without authorization.
+
+Validate using the canonical `nightshift-decomposition.py --project PROJECT --plan
+PLAN` helper. Retain its JSON receipt, including parent and child source hashes.
+A valid plan is not product approval. Revalidate source hashes before dispatch and
+on resume; a changed plan requires reconciliation, not a reset of child budgets.
+
+Delegate the ordered child refs to the existing `/nightshift-batch` controller
+within this factory process, with the plan and original immutable base passed in
+its brief. Do not recursively launch a second terminal factory. Batch resolves
+actual child task IDs, records them alongside plan child IDs in the parent tracker,
+checks prerequisites and bases dependents on verified prerequisite commits. Keep
+parent state `decomposed/in_progress`; do not implement the whole parent again.
+Preserve the original failed run and all repair counters when decomposing recovery
+work; new child results do not retroactively turn that failure into success.
+
+The parent can complete only when every required child, including integration,
+has actual passing controller receipts and the original coverage is reconciled.
+A failed prerequisite blocks dependent children; independent children may continue.
+Missing proof, review, or evaluator capability remains a dependency, never a passed
+gate. Record per-child outcomes and aggregate available usage without duplicating
+parent/child observations. No new publication or production permission is implied.
+
+---
+
 ## First-time setup
 
 ```bash

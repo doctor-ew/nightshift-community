@@ -65,6 +65,21 @@ Empty `$INPUT` and no `--resume` → print usage and stop.
 
 ## Step 2 — Resolve the ticket list
 
+**Decomposed parent:** when the engineering controller supplies a validated
+`decomposition.json`, use its ordered refs as the explicit list; retain the plan
+path, source hashes, parent task and immutable initial base in the batch record.
+Validate the plan with `nightshift-decomposition.py` before dispatch. Do not drop
+children via triage/batch-n. Before each child, compare its source hash and parent
+hash to the retained receipt; block on drift rather than silently changing scope.
+Resolve dependencies by plan child ID to actual ticket/task and gate receipts,
+not list position or process exit. If a dependency has not passed, mark the child
+blocked without preparing its worktree. A dependency's verified commit supplies
+TICKET_BASE_REF; for multiple prerequisites verify all are ancestors of the chosen
+base and prepare an isolated integration commit if needed, retaining all evidence.
+The initial child uses the parent's immutable explicit base. Do not use parent
+completion as a prerequisite for its own children. Resume retains child budgets
+and completed results; final integration must pass before parent completion.
+
 **Resume:** if `--resume` is set, skip straight to Step 3 with that file.
 
 **Explicit list:** run the deterministic resolver. It accepts comma- or whitespace-separated
