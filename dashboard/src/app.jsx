@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage } from './model.mjs';
 import './app.css';
+import {LiveProgress, TicketChat} from './ticket-live.jsx';
 
 function ConsoleVersion({ children }) {
   const [ready, setReady] = useState(false), [error, setError] = useState('');
@@ -11,7 +12,7 @@ function ConsoleVersion({ children }) {
       .then(async response => {
         if (!response.ok) throw new Error('This console server needs to be restarted to support the updated interface.');
         const identity = await response.json();
-        if (identity.evidence_api !== 1 || identity.ticket_actions_api !== 2) throw new Error('This console server needs to be restarted to open specs and artifacts.');
+        if (identity.evidence_api !== 1 || identity.ticket_actions_api !== 2 || identity.ticket_chat_api !== 1) throw new Error('This console server needs to be restarted to load live progress and ticket chat.');
         setReady(true);
       }).catch(e => { if (e.name !== 'AbortError') setError(e.message); });
     return () => controller.abort();
@@ -157,11 +158,13 @@ function TicketActions({ rows, reports = [] }) {
       return <article className="run ticket-focus" key={ticket.task}>
       <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3><p>{ticket.settings.ref}</p></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
       {!!specs.length && <div className="artifact-actions" aria-label="Specification document">{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open specification'}} />)}<span>Document available · approval follows recorded gates</span></div>}
+      <LiveProgress ticket={ticket} />
       <p className="current-stage">{progress.stage ? <>{progress.stageLabel}: <strong>{progress.stage}</strong></> : ticket.running ? 'Starting · waiting for stage evidence' : 'No stage evidence recorded yet'}</p>
       {[{pipeline_steps: ticketTimeline(rows, ticket), links: progress.trackers[0]?.links}].map((tracker, index) => <div key={index} className="ticket-timeline">
         <ol aria-label={'Recorded stages for ' + ticket.task}>{tracker.pipeline_steps.map((step, i) => <li className={'step ' + step.state} key={i} title={step.detail}><span className="step-dot" aria-hidden="true">{step.state === 'passed' ? '✓' : ['failed', 'blocked'].includes(step.state) ? '!' : i + 1}</span><strong>{step.stage === 'product' ? 'Spec' : step.stage === 'qa' ? 'QA' : step.stage === 'deploy' ? 'Deploy (optional)' : step.stage[0].toUpperCase() + step.stage.slice(1)}</strong><small>{step.state === 'pending' ? 'Not recorded' : step.state}</small></li>)}</ol>
         <div className="timeline-caption"><span>Recorded stage evidence{ticket.running ? ' · earlier attempts may still appear while this run progresses' : ''}</span><EvidenceLink link={{...tracker.links?.[0], label: 'Open tracker'}} /></div>
       </div>)}
+      <TicketChat ticket={ticket} token={data.token} />
       <TicketUsage reports={ticketUsage(reports, ticket)} compact running={ticket.running} />
       {progress.complete && <p className="outcome-summary">Completion is recorded. Open the pull request and files below to review the result.</p>}
       {blocked && <div className="failure-summary" role="status"><h4>Why it stopped</h4><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}

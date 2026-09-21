@@ -103,12 +103,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data['tickets'], [])
         body=json.dumps({'task':'42','sha256':'unknown'})
         headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
-        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup'):
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat'):
             self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
             wrong=dict(headers,Origin='https://evil.example')
             self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
             self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
             self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
+
+    def test_chat_query_is_scoped_and_requires_known_ticket(self):
+        for path in ('/api/tickets/chat', '/api/tickets/chat?task=../escape', '/api/tickets/chat?task=missing', '/api/tickets/chat?task=a&task=b'):
+            self.assertEqual(self.request(path)[0], 409)
+        self.assertEqual(self.request('/api/tickets/chat?task=a', headers={'Origin':'https://evil.example'})[0], 403)
+        identity=json.loads(self.request('/api/identity')[1])
+        self.assertEqual(identity['ticket_chat_api'], 1)
 
     def test_role_failure_is_visible_and_evidence_is_plain_text(self):
         folder = self.repo / 'docs' / 'task-a'

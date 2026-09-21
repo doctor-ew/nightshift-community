@@ -37,3 +37,22 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 .outcome-summary { color: #a8e4c7; }
 .receipt-text { white-space: pre-wrap; }
 @media(max-width:520px) { .ticket-focus { padding: 18px; } .current-stage { font-size: 15px; } }
+
+.live-progress {margin: 20px 0; padding: 18px; border: 1px solid #416252; border-radius: 10px; background: #14221e;}
+.live-progress h4 {margin:0; font-size:16px;}
+.live-activity {font-size:18px; margin:14px 0;}
+.live-facts {display:grid; grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.live-facts dt {font-size:11px;color:#9fb5ab;margin-bottom:6px;}
+.live-facts dd {margin:0;font-size:13px;overflow-wrap:anywhere;}
+.live-progress small {display:block;margin-top:14px;color:#a2b5ab;}
+.latest-event p,.chat-message p {white-space:pre-wrap;overflow-wrap:anywhere;}
+.ticket-chat {padding:18px;border:1px solid #3c485b;border-radius:10px;margin:18px 0;}
+.ticket-chat summary {font-size:16px;}
+.ticket-chat form {display:flex;flex-direction:column;gap:12px;}
+.ticket-chat select,.ticket-chat textarea {color:#e6e9ef;background:#101720;border:1px solid #526074;border-radius:6px;padding:10px;font:inherit;}
+.chat-question {display:flex;flex-direction:column;gap:8px;}
+.ticket-chat button {align-self:flex-end;background:#214e40;color:#e1fff3;border:1px solid #668d7c;border-radius:6px;padding:8px 18px;}
+.chat-messages {max-height:480px;overflow:auto;}
+.chat-message {margin:12px 0;padding:12px;border-radius:8px;background:#1a2431;font-size:13px;}
+.chat-message.user {background:#1a2d27;}
+@media(max-width:700px){.live-facts{grid-template-columns:1fr;}.live-progress .run-head{flex-wrap:wrap;}}

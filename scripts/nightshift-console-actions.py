@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local ticket recovery actions using recorded invocation policy."""
 import argparse
+import importlib.util
 import fcntl
 import hashlib
 import json
@@ -112,7 +113,10 @@ def state(project, task):
     attempts = budget.get('attempts', 0)
     credits = budget.get('proof_gate_bug_reconciliation', {}).get('credited_attempts', 0)
     remaining = max(0, 3 - (attempts - credits)) if type(attempts) is int and type(credits) is int else 0
-    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining)
+    spec = importlib.util.spec_from_file_location('console_progress', HERE / 'nightshift-console-progress.py')
+    progress_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(progress_module)
+    live = progress_module.progress(project, task, job, running)
+    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live)
 
 
 def list_tickets(project):
