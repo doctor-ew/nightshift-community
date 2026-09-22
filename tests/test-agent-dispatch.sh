@@ -8,6 +8,7 @@ mkdir -p "$TMP/runtime/scripts" "$TMP/bin" "$TMP/out dir"
 cp -R "$ROOT/agents" "$ROOT/contracts" "$TMP/runtime/"
 cp "$ROOT/routing.json" "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-ticket-budget.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-routing-path.py" "$TMP/runtime/scripts/"
@@ -83,6 +84,7 @@ normal() { run nightshift-engineer --gear 1 --in "$INPUT" --out "$OUTPUT" "$@"; 
 route() { jq --arg p "$1" '.roles["nightshift-engineer"].gears["1"]={provider:$p,model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/route.json"; mv "$TMP/route.json" "$TMP/runtime/routing.json"; }
 mkdir -p "$TMP/project"
 export NIGHTSHIFT_PROJECT_DIR="$TMP/project"
+export NIGHTSHIFT_BUDGET_PROJECT="$TMP/project"
 unset CLAUDE_PROJECT_DIR
 python3 "$ROOT/tests/nightshift-behavior-fixture.py" --root "$ROOT" --project "$TMP/project" --task fixture > "$TMP/admission.json"
 route codex
@@ -309,6 +311,15 @@ check 'repair analyst admitted without development proof' test "$RC" -eq 0
 check 'repair analyst has only read tools' args 'index("--tools") as $i | $i != null and .[$i+1] == "Read,Glob,Grep"'
 run nightshift-engineer --task missing-proof --gear 1 --in "$INPUT" --out "$OUTPUT"
 check 'engineer still requires development proof' test "$RC" -ne 0
+# The shared time limit terminates a hung provider and its tool descendants.
+jq '.roles["nightshift-repair-analyst"].gears["1"]={provider:"codex",model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/budget-route.json"
+export NIGHTSHIFT_ROUTING_FILE="$TMP/budget-route.json" MOCK_MODE=slow
+export NIGHTSHIFT_BUDGET_TASK=budget-time-fixture NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS=1
+run nightshift-repair-analyst --task budget-time-fixture --gear 1 --in "$INPUT" --out "$OUTPUT"
+check 'time budget stops provider' test "$RC" -ne 0
+check 'time budget has concrete failure receipt' json '.status == "FAIL" and (.reason | contains("ticket_active_time_budget_exhausted"))'
+if kill -0 "$(cat "$MOCK_DESC_PID")" 2>/dev/null; then check 'time budget kills tool child' false; else check 'time budget kills tool child' true; fi
+unset NIGHTSHIFT_BUDGET_TASK NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS
 unset NIGHTSHIFT_ROUTING_FILE
 printf 'Dispatch assertions: %s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

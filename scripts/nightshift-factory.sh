@@ -530,6 +530,8 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 
 Efficiency: use python3 \"${SCRIPT_DIR}/nightshift-efficiency.py\" exec -- COMMAND ARGS for bounded test/build output capture. RTK is default-on when available. Raw receipts remain authoritative; exact reads/diffs/machine output bypass filters. Shadow evaluation never replaces independent gates.
 
+Repair convergence: keep stable finding IDs and exact artifact targets in docs/TASK/repair-checks.json. Use nightshift-repair-check.py for deterministic original-fails/current-passes checks before another paid source review. Fix metadata mechanically instead of dispatching a spec writer. If a finding repeats, change the repair author/provider within configured policy and send only the unresolved finding and relevant delta. Do not expand exhausted review allowances merely because completion is authorized. Preserve inherited NIGHTSHIFT_BUDGET_TASK and NIGHTSHIFT_BUDGET_PROJECT across child stages; never reset their ledger or invent approval.
+
 Operator decisions: after resolving each task key and before each stage, read python3 \"${SCRIPT_DIR}/nightshift-console-decisions.py\" context --project \"${PROJECT}\" --task TASK. Apply recorded operator answers within the ticket scope, preserving independent gates. If an actual user decision remains, publish the question with up to three concrete choices and a free-text alternative using that helper request --input JSON_FILE, record needs-decision, and stop that ticket until answered in the dashboard. Do not merely print questions or infer consent from chat evidence.
 
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
@@ -622,15 +624,31 @@ if [ "$ADVISORY" = false ]; then
   export AUTONOMOUS=true NIGHTSHIFT_FACTORY_MODE=true
 fi
 CHILD_PID=""
+FACTORY_BUDGET_RESERVED=false
+finish_factory_budget() {
+  if [ "$FACTORY_BUDGET_RESERVED" = true ]; then
+    python3 "$SCRIPT_DIR/nightshift-ticket-budget.py" finish --project "$NIGHTSHIFT_BUDGET_PROJECT" \
+      --task "$NIGHTSHIFT_BUDGET_TASK" --invocation "factory-$NIGHTSHIFT_RUN_ID" --outcome "$1" >/dev/null 2>&1 || true
+    FACTORY_BUDGET_RESERVED=false
+  fi
+}
 # shellcheck disable=SC2329 # invoked by signal traps
 handle_interruption() {
   local signal="$1" interrupted_child="$CHILD_PID"
   echo "nightshift: interrupted by ${signal}; the $PROVIDER runtime was stopped before the factory completed." >&2
   if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
-    kill -TERM "$CHILD_PID" 2>/dev/null || true
+    kill -TERM -- "-$CHILD_PID" 2>/dev/null || true
+    local ticks=0
+    while [ "$ticks" -lt 10 ]; do
+      kill -0 -- "-$CHILD_PID" 2>/dev/null || break
+      sleep 0.1
+      ticks=$((ticks + 1))
+    done
+    kill -KILL -- "-$CHILD_PID" 2>/dev/null || true
     wait "$CHILD_PID" 2>/dev/null || true
   fi
   CHILD_PID=""
+  finish_factory_budget interrupted
   # Process-substitution tee may still be draining the provider pipe after the
   # provider exits. Its status is observational and must not affect the run.
   wait >/dev/null 2>&1 || true
@@ -649,11 +667,24 @@ handle_interruption() {
 trap 'handle_interruption SIGINT' INT
 trap 'handle_interruption SIGTERM' TERM
 
+# Share one persistent allowance with child role dispatches, across restarts.
+# Provider-internal API turns are not dispatcher calls or subscription billing.
+if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ -n "$NIGHTSHIFT_TICKET_JSON" ]; then
+  export NIGHTSHIFT_BUDGET_TASK=${NIGHTSHIFT_BUDGET_TASK:-$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")}
+  export NIGHTSHIFT_BUDGET_PROJECT=${NIGHTSHIFT_BUDGET_PROJECT:-$PROJECT}
+  FACTORY_BUDGET_ARGS=(reserve --project "$NIGHTSHIFT_BUDGET_PROJECT" --task "$NIGHTSHIFT_BUDGET_TASK" --invocation "factory-$NIGHTSHIFT_RUN_ID")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || FACTORY_BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || FACTORY_BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  python3 "$SCRIPT_DIR/nightshift-ticket-budget.py" "${FACTORY_BUDGET_ARGS[@]}" >&2 || exit 75
+  FACTORY_BUDGET_RESERVED=true
+fi
+
 if [ "$ADVISORY" = false ]; then
   FACTORY_TELEMETRY_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   factory_telemetry running
 fi
 
+set -m # Isolate the runtime and its ordinary tool children for bounded shutdown.
 if [ "$PROVIDER" = claude ]; then
   CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
@@ -698,6 +729,16 @@ else
   fi
 fi
 CHILD_PID=$!
+if [ "$FACTORY_BUDGET_RESERVED" = true ]; then
+  BUDGET_POLL=0
+  while kill -0 "$CHILD_PID" 2>/dev/null; do
+    if [ "$BUDGET_POLL" -eq 0 ] && ! python3 "$SCRIPT_DIR/nightshift-ticket-budget.py" check --project "$NIGHTSHIFT_BUDGET_PROJECT" --task "$NIGHTSHIFT_BUDGET_TASK" >/dev/null; then
+      handle_interruption ticket_budget_exhausted
+    fi
+    BUDGET_POLL=$(((BUDGET_POLL + 1) % 20))
+    sleep 0.1
+  done
+fi
 set +e
 wait "$CHILD_PID"
 CODEX_STATUS=$?
@@ -706,6 +747,7 @@ CODEX_STATUS=$?
 wait >/dev/null 2>&1 || true
 set -e
 CHILD_PID=""
+finish_factory_budget "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)"
 record_factory_provider_receipts "$([ "$CODEX_STATUS" -eq 0 ] && echo success || echo failed)" || true
 if [ -n "${NIGHTSHIFT_RUN_DIR:-}" ]; then
   python3 "$SCRIPT_DIR/nightshift-run-metrics.py" event --run-dir "$NIGHTSHIFT_RUN_DIR" \

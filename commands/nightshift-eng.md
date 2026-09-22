@@ -20,6 +20,21 @@ Execute each stage's canonical instructions. Dispatch every role through
 `scripts/nightshift-agent.sh`; never use native Agent/Task tools or invoke a
 provider directly. This is required for provider policy and dashboard reporting.
 
+For repairs, use the product stage's `repair-checks.json` regression contract.
+Before another paid review, demonstrate original-fails/current-passes for each
+reported machine-checkable defect. Send only the affected contract, changed
+artifact excerpts, and unresolved finding IDs. Do not regenerate an entire spec
+to correct metadata or repeat already verified source claims.
+
+On a recurring finding, change the repair author/provider and require a targeted
+regression before re-review. Keep reviewer independence. A check receipt proves
+only the stated regression, never product acceptance or behavioral proof.
+Do not interpret broad completion authorization as permission to keep extending
+exhausted repair allowances. Preserve the failure and publish a concrete recovery
+decision through the portal when the remaining action requires a user choice.
+Propagate the launcher's `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`
+unchanged to child dispatches; never change identity to evade a shared allowance.
+
 Local evidence checkpoints and TDD lock commits are authorized during the run.
 After verification, push only when push=true, and open a PR only when pr=true. Do not invoke the deploy
 stage, merge, or deploy. Record the delivery result, then proceed to Step 10.

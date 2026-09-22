@@ -328,6 +328,19 @@ def run_dispatch(arguments):
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / '.adversarial-invocation.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        # A repaired artifact must close its recorded regression before paying
+        # for another source review. This check never approves the source gate.
+        repair_manifest = directory / 'repair-checks.json'
+        if repair_manifest.exists():
+            project = Path.cwd().resolve()
+            checked = subprocess.run([
+                sys.executable, str(Path(__file__).with_name('nightshift-repair-check.py')),
+                'check', '--project', str(project), '--manifest', str(repair_manifest.relative_to(project)),
+                '--out', str((directory / 'repair-check.receipt.json').relative_to(project))],
+                capture_output=True, text=True)
+            if checked.returncode:
+                detail = (checked.stderr or checked.stdout)[-2000:]
+                raise ValueError('repair regression refused; no model launched; prior receipt is not approval: ' + detail)
         if state_path.exists():
             state = json.loads(state_path.read_text())
             if state['next_action'] == 'stop' or 'pending' in state['attempts'].values():

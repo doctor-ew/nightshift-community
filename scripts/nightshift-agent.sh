@@ -17,6 +17,7 @@ INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
 ACCOUNTING_EMITTED=false TICKET_JSON='null' ATTRIBUTION=unattributed
 ERROR=''
+BUDGET_RESERVED=false BUDGET_TASK='' BUDGET_PROJECT=''
 # Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
 # telemetry file above: a run-local, typed record of this one invocation for
 # nightshift-run-metrics.py's summary. Purely observational and nonfatal;
@@ -127,6 +128,9 @@ telemetry() (
   mv -f -- "$temporary" "$TELEMETRY_FILE"
 )
 cleanup() {
+  if [ "$BUDGET_RESERVED" = true ]; then
+    python3 "$ROOT/scripts/nightshift-ticket-budget.py" finish --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID" --outcome "$TELEMETRY_STATUS" >/dev/null 2>&1 || true
+  fi
   emit_accounting_receipts "$TELEMETRY_STATUS" || true
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
   emit_observation "$TELEMETRY_STATUS" || true
@@ -387,6 +391,19 @@ if [ "${NIGHTSHIFT_TELEMETRY_DIR:-}" != off ]; then
     telemetry running || true
   fi
 fi
+# Shared admission covers instrumented dispatches across stages and restarts.
+# A parent factory may explicitly bind children to its common ticket budget.
+BUDGET_TASK=${NIGHTSHIFT_BUDGET_TASK:-$TASK_KEY}
+if [ -n "$BUDGET_TASK" ]; then
+  BUDGET_PROJECT=${NIGHTSHIFT_BUDGET_PROJECT:-${NIGHTSHIFT_PROJECT_DIR:-$(pwd)}}
+  BUDGET_ARGS=(reserve --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" "${BUDGET_ARGS[@]}" > "$TMP/ticket-budget.json"; then
+    fail "ticket budget admission denied: $(cat "$TMP/ticket-budget.json")"
+  fi
+  BUDGET_RESERVED=true
+fi
 set -m
 NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
 CHILD=$!
@@ -404,6 +421,19 @@ try:
 finally:
     os.unlink(temporary)
 PY
+fi
+if [ "$BUDGET_RESERVED" = true ]; then
+  budget_ticks=0
+  while kill -0 "$CHILD" 2>/dev/null; do
+    if [ "$budget_ticks" -eq 0 ]; then
+      if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" check --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" > "$TMP/ticket-budget.json"; then
+        fail "ticket budget enforcement stopped provider: $(cat "$TMP/ticket-budget.json")"
+      fi
+    fi
+    # Cheap completion polling avoids adding two seconds to short calls.
+    sleep 0.1
+    budget_ticks=$(( (budget_ticks + 1) % 20 ))
+  done
 fi
 if wait "$CHILD"; then CHILD=''; else
   provider_exit=$?

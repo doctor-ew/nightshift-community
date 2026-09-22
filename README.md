@@ -968,5 +968,25 @@ streams, and filters eligible successful test/build output when RTK is available
 `nightshift evaluate --input FILE` optionally evaluates explicitly approved
 evidence using configurable Jev shadow judgments; it never approves pipeline gates.
 Opt out with `NIGHTSHIFT_RTK_ENABLED=false` or `NIGHTSHIFT_JEV_ENABLED=false`.
+
+Repair admission also supports `docs/<task>/repair-checks.json`: immutable original
+JSON snapshots and exact field assertions demonstrate that the original defect
+fails and the candidate passes before another source-review launch. These checks
+do not approve independent review or behavioral gates. Repeated findings require
+a different repair author/provider and a narrowed repair brief.
+The helper's explicit `apply` operation performs a recorded exact-field repair
+without a model call, only for one JSON artifact still matching its pinned
+original snapshot. It refuses later edits and rechecks the repaired result.
+
+Resolved single-ticket factory runs and role dispatchers share a persistent
+common-Git budget (default 64 provider-process launches and 3600 aggregate active
+seconds). Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
+`NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS` before the first instrumented launch to
+choose limits; later environment changes cannot expand them or reset usage.
+Child dispatches inherit `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`.
+This measures instrumented process launches, not provider-internal API turns,
+tokens, subscription quota, or historical work. Batch factory orchestration and
+direct proof calls retain their separate existing accounting. Interrupted
+unfinalized reservations remain charged conservatively.
 Missing optional components produce visible fallback/skip receipts.
 See [installation, limits, configuration, and examples](docs/EFFICIENCY-ADAPTERS.md).
