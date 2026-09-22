@@ -318,8 +318,9 @@ processes already able to write the ledger. Preserve it with the run evidence.
 A pinned policy cannot be changed by editing configuration and rerunning. The
 `amend-policy --evidence <path>` operation records an explicitly authorized,
 independently reviewed increase before a new challenge and seal. It permits only
-increases to cumulative `repairs`, `development_calls` and `final_calls`, each
-bounded at 64. Defaults remain two repairs, eight development calls and two final
+increases to cumulative `development_calls` and `final_calls` up to 128, and
+`repairs` up to 64. These are finite ceilings, not default allowances. Existing
+pinned limits remain authoritative until the reviewed amendment is applied. Defaults remain two repairs, eight development calls and two final
 calls. All other policy fields remain unchanged. Pending attempts block amendment.
 
 The evidence JSON has exactly these fields:

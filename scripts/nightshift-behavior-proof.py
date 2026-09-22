@@ -606,7 +606,7 @@ def config(project):
             raise Invalid('config_keys')
         values.update(section)
     integer(values['version'], 1, 1)
-    for key, low, high in (('development_calls', 1, 64), ('final_calls', 1, 64), ('repairs', 0, 64),
+    for key, low, high in (('development_calls', 1, 128), ('final_calls', 1, 128), ('repairs', 0, 64),
                            ('infrastructure_failures', 0, 2), ('timeout_seconds', 1, 120), ('output_bytes', 1, MAX_JSON)):
         integer(values[key], low, high)
     if type(values['force_prompt']) is not bool:
