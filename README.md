@@ -521,6 +521,13 @@ bash ~/.nightshift/scripts/nightshift-capability.sh --has mex  # exit 0/1, for g
 
 ## Dashboard
 
+The live operations portal supports version-bound operator decisions: choose an
+option or type your answer, then **Submit & continue**. Parent tickets surface
+owned child questions and repair the actual failing child's public evidence.
+Active work is protected from concurrent repairs. See the [portal guide](dashboard/README.md#operator-decisions-and-repair-evidence)
+for decision handling, retained answers, repair scope and recovery.
+
+
 `scripts/nightshift-dashboard.sh` renders a static, read-only HTML snapshot of durable
 Nightshift batch status and controller gate receipt JSON. It is a local inspection tool,
 not part of the pipeline — nothing calls it, and it cannot stop or alter a run.

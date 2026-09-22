@@ -241,7 +241,7 @@ If a spec already exists, ask:
 
 ## Step 5 — Three grounding questions
 
-Ask one at a time. Wait for each answer before asking the next.
+Use the ticket, prior answers, and existing user authorization first. Do not ask again when those already establish the answer. For a genuinely unresolved choice in factory mode, use the web-portal decision protocol in `nightshift-eng.md`: publish a structured question/options with `nightshift-console-decisions.py`, record `needs-decision`, and let the portal retain the answer and continue. In supervised mode ask one at a time.
 
 1. **Intent check:** "In one sentence — what is this ticket actually building? (Ticket titles drift from real intent — this anchors the spec.)"
 

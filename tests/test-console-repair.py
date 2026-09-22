@@ -42,6 +42,106 @@ class RepairTests(unittest.TestCase):
         self.assertIn('scripts/check.py',bundle)
         self.assertNotIn('PRIVATE_CASE',bundle)
         self.assertNotIn('FILE: docs/42/SPEC.md',bundle)
+    def child_context(self, status='blocked', task='parent'):
+        child='child'
+        docs=self.p/'docs'/task;docs.mkdir(parents=True,exist_ok=True)
+        (docs/'decomposition.json').write_text(json.dumps({'children':[{'id':'part','ref':'spec:child.md'}]}))
+        (self.p/'.nightshift').mkdir(exist_ok=True)
+        (self.p/'.nightshift/batch-current.json').write_text(json.dumps({'parent_task':task,'decomposition_plan':f'docs/{task}/decomposition.json','child_tasks':{'part':child},'statuses':{'spec:child.md':{'status':status}}}))
+        root=self.p/'child-worktree';self.git('worktree','add','-qb','child',str(root))
+        owner=self.p/'.git/nightshift/worktrees';owner.mkdir(parents=True,exist_ok=True)
+        (owner/'child.json').write_text(json.dumps({'task':child,'worktree':str(root)}))
+        (root/'docs/child').mkdir(parents=True)
+        return root,owner/'child.json'
+    def test_parent_resolves_owned_child_and_prioritizes_public_inputs(self):
+        root,_=self.child_context()
+        docs=root/'docs/child'
+        (docs/'SPEC.md').write_text('actual child specification')
+        (docs/'calibration-fixtures.json').write_text('{"fixture":"known good"}')
+        (docs/'latest-failure.json').write_text('{"reason":"c05 request count"}')
+        (self.p/'.nightshift/parent.md').write_text('history\n'*30000)
+        context=m.evidence_context(self.p,'parent')
+        self.assertEqual(context['repair_target']['task'],'child')
+        bundle=m.evidence_bundle(self.p,'parent')
+        self.assertIn('actual child specification',bundle)
+        self.assertIn('known good',bundle)
+        self.assertIn('c05 request count',bundle)
+        self.assertLess(bundle.index('actual child specification'),bundle.index('history'))
+        self.assertLessEqual(len(bundle),100000)
+    def test_parent_exposes_child_decision_and_active_repair_spends_nothing(self):
+        root,_=self.child_context('in_progress')
+        settings=dict(ref='spec:brief.md',provider='codex',model='',policy='standard',auth='subscription',branch='auto',base='',push=False,pr=False)
+        m.actions.save(self.p,'parent',settings)
+        owner=m.actions.directory(self.p).parent/'worktrees/parent.json'
+        owner.write_text(json.dumps({'task':'parent','worktree':str(self.p),'base_sha':self.git('rev-parse','HEAD').strip()}))
+        spec=importlib.util.spec_from_file_location('decisions',ROOT/'scripts/nightshift-console-decisions.py')
+        decisions=importlib.util.module_from_spec(spec);spec.loader.exec_module(decisions)
+        current=m.actions.state(self.p,'parent')
+        result=m.actions.action(self.p,'parent',current['sha256'],'repair')
+        self.assertEqual(result['status'],'blocked')
+        self.assertFalse((m.actions.directory(self.p)/'parent.repair-budget.json').exists())
+        q=decisions.request(self.p,'child',dict(question='Choose export',reason='Required format is unspecified',options=[]))
+        parent=m.actions.state(self.p,'parent')
+        self.assertEqual(parent['decisions']['pending'][0]['task'],'child')
+        with self.assertRaises(ValueError):m.actions.action(self.p,'parent',parent['sha256'],'resume')
+        decisions.respond(self.p,'child',q['sha256'],'','Markdown')
+        self.assertEqual(m.actions.state(self.p,'parent')['decisions']['answered'][0]['response']['answer'],'Markdown')
+
+    def test_active_child_is_context_only(self):
+        self.child_context('in_progress')
+        context=m.evidence_context(self.p,'parent')
+        self.assertNotIn('repair_target',context)
+        self.assertEqual(context['candidate_targets'][0]['status'],'in_progress')
+    def test_foreign_repo_and_owner_mismatch_excluded(self):
+        root,owner=self.child_context()
+        owner.write_text(json.dumps({'task':'wrong','worktree':str(root)}))
+        self.assertEqual(m.evidence_context(self.p,'parent')['candidate_targets'],[])
+        foreign=self.p/'foreign';foreign.mkdir();subprocess.run(['git','init','-q',str(foreign)],check=True)
+        owner.write_text(json.dumps({'task':'child','worktree':str(foreign)}))
+        self.assertEqual(m.evidence_context(self.p,'parent')['candidate_targets'],[])
+    def test_private_ancestors_symlinks_and_task_traversal_excluded(self):
+        docs=self.p/'docs/42';docs.mkdir(parents=True)
+        (docs/'private-failure.json').write_text('PRIVATE_PAYLOAD')
+        (docs/'embedded-failure.json').write_text(json.dumps({'private_cases':{'text':'PRIVATE_PAYLOAD'}},indent=2))
+        (docs/'failure.json').symlink_to(self.p/'file.txt')
+        hidden=self.p/'scripts/private';hidden.mkdir(parents=True)
+        (hidden/'fixture.json').write_text('PRIVATE_PAYLOAD')
+        (self.p/'scripts/public.py').write_text('api_key = "DO_NOT_SEND"\nprint("safe")')
+        self.git('add','scripts')
+        bundle=m.evidence_bundle(self.p,'42')
+        self.assertNotIn('PRIVATE_PAYLOAD',bundle)
+        self.assertNotIn('DO_NOT_SEND',bundle)
+        self.assertIn('print("safe")',bundle)
+        with self.assertRaises(ValueError):m.evidence_bundle(self.p,'../escape')
+    def test_recent_receipts_precede_old_and_limit_is_rendered_size(self):
+        docs=self.p/'docs/42';docs.mkdir(parents=True)
+        for i in range(30):
+            f=docs/f'failure-{i}.json';f.write_text(json.dumps({'public_details':['x']*12000},indent=2));os.utime(f,(100+i,100+i))
+        bundle=m.evidence_bundle(self.p,'42')
+        self.assertLessEqual(len(bundle),100000)
+        self.assertIn('failure-29.json',bundle)
+        self.assertNotIn('failure-0.json',bundle)
+        self.assertIn('Excerpt truncated',bundle)
+
+    def test_public_projection_keeps_late_cases_and_drops_protected_subtrees(self):
+        docs=self.p/'docs/42';docs.mkdir(parents=True)
+        cases=[]
+        for i in range(1,7):
+            cases.append(dict(id=f'c0{i}-public-case',visibility='public',given='A synthetic public input',
+                input=[f'C0{i}_TURN_{turn}_PUBLIC '+('x'*8000) for turn in range(6)],
+                then=f'C0{i}_PUBLIC_ORACLE '+('y'*8000),
+                forbidden='Do not invent claims',expected=['public expectation']))
+        cases.append(dict(id='hidden-case',visibility='private',input='DO_NOT_FORWARD_PRIVATE_BODY'))
+        value=dict(cases=cases,heldout={'cases':['DO_NOT_FORWARD_HELDOUT_BODY']},
+            metadata={'api_key':'DO_NOT_FORWARD_CREDENTIAL'})
+        (docs/'behavior-scenarios.json').write_text(json.dumps(value,indent=2))
+        bundle=m.evidence_bundle(self.p,'42')
+        for text in ('c05-public-case','c06-public-case','C05_TURN_0_PUBLIC','C06_TURN_5_PUBLIC','C06_PUBLIC_ORACLE','JSON POINTER /cases/5'):
+            self.assertIn(text,bundle)
+        for text in ('DO_NOT_FORWARD_PRIVATE_BODY','DO_NOT_FORWARD_HELDOUT_BODY','DO_NOT_FORWARD_CREDENTIAL'):
+            self.assertNotIn(text,bundle)
+        self.assertLessEqual(len(bundle),100000)
+
     def test_worker_requires_review_and_verification_before_resume(self):
         docs=self.p/'docs/42';docs.mkdir(parents=True)
         (docs/'BLOCKED.md').write_text('actual failure evidence')
@@ -80,6 +180,26 @@ out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','
             evidence=m.actions.directory(self.p)/'repair-two';evidence.mkdir()
             self.assertEqual(m.worker(self.p,'42','auto',evidence),0)
             self.assertTrue((self.p/'order').read_text().endswith('proposal\nreview\nverification\nresumed\n'))
+            (self.p/'file.txt').write_text('before\n')
+            child,_=self.child_context(task='42')
+            (child/'routing.json').write_text(json.dumps(routing))
+            (child/'docs/child/BLOCKED.md').write_text('actual failure evidence')
+            evidence=m.actions.directory(self.p)/'repair-child';evidence.mkdir()
+            self.assertEqual(m.worker(self.p,'42','auto',evidence),0)
+            self.assertEqual((self.p/'file.txt').read_text(),'before\n')
+            self.assertEqual((child/'file.txt').read_text(),'after\n')
+            receipt=json.loads((evidence/'status.json').read_text())
+            self.assertEqual(receipt['task'],'child')
+            self.assertEqual(receipt['parent_task'],'42')
+            batch=self.p/'.nightshift/batch-current.json'
+            value=json.loads(batch.read_text());value['statuses']['spec:child.md']['status']='in_progress';batch.write_text(json.dumps(value))
+            evidence=m.actions.directory(self.p)/'repair-active';evidence.mkdir()
+            before_order=(self.p/'order').read_text()
+            self.assertEqual(m.worker(self.p,'42','auto',evidence),1)
+            self.assertEqual((self.p/'order').read_text(),before_order)
+            self.assertEqual(json.loads((evidence/'status.json').read_text())['phase'],'blocked')
+
+
         finally:
             m.HERE,m.actions.FACTORY=previous;os.environ.clear();os.environ.update(old)
 

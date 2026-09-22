@@ -63,6 +63,25 @@ through this pipeline autonomously, then writes an aggregate retro. See `command
 
 ---
 
+## Decisions in the web portal
+
+At each ticket/stage boundary, read `nightshift-console-decisions.py context`
+with the caller project and canonical task key. Apply explicit recorded answers
+within the requested scope; an answer does not pass a test/review or reset a budget.
+When the brief and existing authorization answer a question, proceed without asking again.
+For an actual unresolved product choice, use `nightshift-console-decisions.py request`
+with `--project`, `--task`, and `--input` pointing to a JSON object containing
+`question`, `reason`, and `options`. Supply up to three concrete options, each with
+`id`, `label`, and `description`. Free text is always available in the portal.
+Ask one decision at a time; publish it before recording `needs-decision` and exiting.
+Do not leave a decision solely in prose logs or a tool question invisible to the portal.
+For a decomposed ticket, use the child task key; the parent card aggregates owned
+unfinished-child decisions. The portal retains the answer and queues continuation
+under the parent's existing provider, branch, authentication and publication policy.
+On continuation read the recorded answer before drafting or requesting another decision.
+Record real failure evidence separately from product choices; missing evidence is a
+harness repair, not a reason to ask the user to reconstruct the run.
+
 ## Scope assessment and decomposition
 
 Before expensive product authoring, assess independent deliverables, stateful
