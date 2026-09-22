@@ -130,6 +130,10 @@ def state(project, task):
         target = Path(read(ownership)['worktree'])
         context = evidence_module.evidence_context(target, task)
         for child in context['candidate_targets']:
+            child_live = progress_module.progress(project, child['task'])
+            if child_live.get('running'):
+                running = True
+                live = dict(child_live, child_task=child['task'], phase='Child ' + child['task'] + ': ' + child_live['phase'], activity='Child ' + child['task'] + ': ' + child_live['activity'])
             child_state = decisions.snapshot(project, child['task'])
             decision_state['pending'].extend(child_state['pending'])
             decision_state['answered'].extend(child_state['answered'])
