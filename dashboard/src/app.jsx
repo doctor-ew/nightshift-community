@@ -161,6 +161,13 @@ function TicketActions({ rows, reports = [] }) {
       <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3><p>{ticket.settings.ref}</p></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
       {!!specs.length && <div className="artifact-actions" aria-label="Specification document">{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open specification'}} />)}<span>Document available · approval follows recorded gates</span></div>}
       <LiveProgress ticket={ticket} />
+      {ticket.budget && <div className="outcome-summary" role="status">{ticket.budget.error || <>
+        <strong>{ticket.budget.exhausted ? 'Budget exhausted' : 'Remaining allowance'}</strong>
+        <p>{Math.floor(ticket.budget.active_seconds_remaining)} aggregate active seconds remaining · {ticket.budget.calls_reserved}/{ticket.budget.max_calls} instrumented launches reserved</p>
+        <p>{ticket.budget.wall_seconds_remaining == null ? 'Historical run: no wall-clock deadline was recorded.' : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
+        <p>Internal provider calls and billing are not covered by these counters. An explicit continuation grants at most 10 additional minutes and retains prior usage.</p>
+      </>}</div>}
+
       <TicketDecision ticket={ticket} token={data.token} />
       <p className="current-stage">{progress.stage ? <>{progress.stageLabel}: <strong>{progress.stage}</strong></> : ticket.running ? 'Starting · waiting for stage evidence' : 'No stage evidence recorded yet'}</p>
       {[{pipeline_steps: ticketTimeline(rows, ticket), links: progress.trackers[0]?.links}].map((tracker, index) => <div key={index} className="ticket-timeline">

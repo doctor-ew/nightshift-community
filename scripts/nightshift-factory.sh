@@ -530,6 +530,8 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 
 Efficiency: use python3 \"${SCRIPT_DIR}/nightshift-efficiency.py\" exec -- COMMAND ARGS for bounded test/build output capture. RTK is default-on when available. Raw receipts remain authoritative; exact reads/diffs/machine output bypass filters. Shadow evaluation never replaces independent gates.
 
+Time limit: the ticket has a persisted wall-clock deadline (10 minutes by default). Reuse existing specs and valid evidence; repair only unresolved findings. Do not restart drafting or repeat configuration questions already answered. A timeout leaves a concrete unfinished result, never a success claim. Operator-owned external acceptance uses required manual cases as defined in nightshift-spec.md, not preimplementation delivery assertions.
+
 Repair convergence: keep stable finding IDs and exact artifact targets in docs/TASK/repair-checks.json. Use nightshift-repair-check.py for deterministic original-fails/current-passes checks before another paid source review. Fix metadata mechanically instead of dispatching a spec writer. If a finding repeats, change the repair author/provider within configured policy and send only the unresolved finding and relevant delta. Do not expand exhausted review allowances merely because completion is authorized. Preserve inherited NIGHTSHIFT_BUDGET_TASK and NIGHTSHIFT_BUDGET_PROJECT across child stages; never reset their ledger or invent approval.
 
 Operator decisions: after resolving each task key and before each stage, read python3 \"${SCRIPT_DIR}/nightshift-console-decisions.py\" context --project \"${PROJECT}\" --task TASK. Apply recorded operator answers within the ticket scope, preserving independent gates. If an actual user decision remains, publish the question with up to three concrete choices and a free-text alternative using that helper request --input JSON_FILE, record needs-decision, and stop that ticket until answered in the dashboard. Do not merely print questions or infer consent from chat evidence.
@@ -675,6 +677,7 @@ if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ -n "$NIGHTSHIFT_TICKET_JSON
   FACTORY_BUDGET_ARGS=(reserve --project "$NIGHTSHIFT_BUDGET_PROJECT" --task "$NIGHTSHIFT_BUDGET_TASK" --invocation "factory-$NIGHTSHIFT_RUN_ID")
   [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || FACTORY_BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
   [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || FACTORY_BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_WALL_SECONDS:-}" ] || FACTORY_BUDGET_ARGS+=(--max-wall-seconds "$NIGHTSHIFT_TICKET_MAX_WALL_SECONDS")
   python3 "$SCRIPT_DIR/nightshift-ticket-budget.py" "${FACTORY_BUDGET_ARGS[@]}" >&2 || exit 75
   FACTORY_BUDGET_RESERVED=true
 fi

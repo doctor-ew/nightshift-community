@@ -39,11 +39,44 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(result['active_seconds'], 2)
 
     def test_time_is_active_not_blocked_wall_time(self):
-        self.call('reserve', 'a', max_seconds=5, now=10)
+        self.call('reserve', 'a', max_seconds=5, max_wall_seconds=20000, now=10)
         self.call('finish', 'a', now=12)
         self.assertTrue(self.call('reserve', 'b', now=10000)['allowed'])
         self.assertTrue(self.call('check', now=10002)['allowed'])
         self.assertFalse(self.call('check', now=10003)['allowed'])
+
+    def test_wall_deadline_survives_idle_time_and_restart(self):
+        self.call('reserve', 'a', now=10)
+        self.call('finish', 'a', now=11)
+        self.assertTrue(self.call('check', now=609)['allowed'])
+        self.assertEqual(self.call('reserve', 'b', now=610)['reason'], 'ticket_wall_time_budget_exhausted')
+        self.assertEqual(self.call('check', now=611)['reason'], 'ticket_wall_time_budget_exhausted')
+
+    def test_explicit_continuation_retains_usage_and_cannot_add_calls(self):
+        self.call('reserve', 'a', max_seconds=5, max_calls=2, now=10)
+        with self.assertRaises(ValueError):
+            self.call('continue', continuation_seconds=600, now=11)
+        self.call('finish', 'a', now=15)
+        result = self.call('continue', continuation_seconds=600, now=1000)
+        self.assertEqual(result['active_seconds'], 5)
+        self.assertEqual(result['calls_reserved'], 1)
+        self.assertEqual(result['max_active_seconds'], 605)
+        self.assertEqual(result['deadline_at'], 1600)
+        self.call('reserve', 'b', now=1001)
+        self.call('finish', 'b', now=1002)
+        with self.assertRaises(ValueError):
+            self.call('continue', continuation_seconds=600, now=1003)
+        state = json.loads(budget.ledger_path(self.project, 'test-ticket').read_text())
+        self.assertEqual(len(state['continuations']), 1)
+        self.assertEqual(len(state['reservations']), 2)
+
+    def test_oversized_continuation_and_changed_deadline_fail_closed(self):
+        self.call('reserve', 'a', now=10)
+        self.call('finish', 'a', now=11)
+        with self.assertRaises(ValueError):
+            self.call('continue', continuation_seconds=601, now=12)
+        with self.assertRaises(ValueError):
+            self.call('reserve', 'b', max_wall_seconds=601, now=12)
 
     def test_unfinished_reservations_remain_charged(self):
         self.call('reserve', 'a', max_seconds=5, now=10)
@@ -79,6 +112,18 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(sum(r.returncode == 0 for r in results), 3)
         state = json.loads(budget.ledger_path(self.project, 'test-ticket').read_text())
         self.assertEqual(len(state['reservations']), 3)
+
+    def test_snapshot_is_read_only_and_reports_deadline(self):
+        self.assertIsNone(budget.snapshot(self.project, 'test-ticket', now=10))
+        self.call('reserve', 'a', now=10)
+        self.call('finish', 'a', now=12)
+        path = budget.ledger_path(self.project, 'test-ticket')
+        before = path.read_bytes()
+        result = budget.snapshot(self.project, 'test-ticket', now=610)
+        self.assertTrue(result['exhausted'])
+        self.assertEqual(result['active_seconds'], 2)
+        self.assertEqual(result['wall_seconds_remaining'], 0)
+        self.assertEqual(path.read_bytes(), before)
 
     def test_same_common_git_shares_budget(self):
         subprocess.run(['git', '-C', str(self.project), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',

@@ -198,7 +198,7 @@ elif name in ('codex', 'claude'):
         assert run('codex/qwen', 'prompt.md', status=1) == []
     config()
     (project / 'budget-test.md').write_text('# Budget termination fixture\nBounded task.\n')
-    budget_env = {'NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS': '1', 'CLI_HANG': '1'}
+    budget_env = {'NIGHTSHIFT_TICKET_MAX_WALL_SECONDS': '1', 'CLI_HANG': '1'}
     worker(run('codex', 'budget-test.md', status=143, extra_env=budget_env))
     # Restart retains exhausted allowance and never invokes another worker.
     records = run('codex', 'budget-test.md', status=75, extra_env=budget_env)

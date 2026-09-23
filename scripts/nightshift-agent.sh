@@ -399,6 +399,7 @@ if [ -n "$BUDGET_TASK" ]; then
   BUDGET_ARGS=(reserve --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID")
   [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
   [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_WALL_SECONDS:-}" ] || BUDGET_ARGS+=(--max-wall-seconds "$NIGHTSHIFT_TICKET_MAX_WALL_SECONDS")
   if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" "${BUDGET_ARGS[@]}" > "$TMP/ticket-budget.json"; then
     fail "ticket budget admission denied: $(cat "$TMP/ticket-budget.json")"
   fi

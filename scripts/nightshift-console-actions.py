@@ -142,7 +142,13 @@ def state(project, task):
         live.update(phase='Repair in progress', action_required='None', next='Await repair review and verification', repair_owner=lease['owner_parent'])
     if decision_state['pending']:
         live.update(phase='Waiting for your decision', action_required='Choose an option or write your answer below', next='Record your answer and continue this ticket')
-    return dict(task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
+    budget_spec = importlib.util.spec_from_file_location('ticket_budget_snapshot', HERE / 'nightshift-ticket-budget.py')
+    budget_module = importlib.util.module_from_spec(budget_spec); budget_spec.loader.exec_module(budget_module)
+    try:
+        ticket_budget = budget_module.snapshot(project, task)
+    except (OSError, ValueError, KeyError):
+        ticket_budget = dict(error='Budget accounting unavailable; resume admission remains enforced.')
+    return dict(budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
 
 
 def list_tickets(project):
