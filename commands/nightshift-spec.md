@@ -181,6 +181,18 @@ blocked ticket and existing repair budget; do not reset attempts or weaken ACs.
 Record repeated/new finding counts and elapsed time plus available usage per
 approved spec; unknown usage stays unknown. Private heldouts remain independent.
 
+When the operator explicitly owns an external acceptance check (for example,
+confirming delivery in their email inbox), retain that AC as a required case with
+`applicability.kind: "manual"`. Add `manual_acceptance` with nonempty `owner`,
+`authorization` (the operator's recorded instruction), and `procedure` fields.
+Do not invent authorization, omit the AC, or classify it as documentation.
+Automatable wrapper behavior must retain deterministic cases and ordinary RED/GREEN
+proof. Manual cases allow development admission after the other required evidence
+passes; final completion remains blocked with `manual_acceptance_pending`.
+The helper does not yet ingest manual completion attestations. Never claim actual
+delivery or final success from development admission. Do not request email delivery
+before implementation or reopen the operator's recorded scope decision.
+
 Record actual independent classification review with the reviewed semantic digest.
 Ordinary deterministic/documentation-only work uses existing independent review,
 without another model call merely to format an attestation. Prototype or

@@ -32,7 +32,7 @@ PROFILE = 'claude-subscription-text-v1'
 MULTITURN_PROFILE = 'claude-subscription-multiturn-text-v1'
 RISKS = {'deterministic_logic', 'prompt_behavior', 'agent_behavior', 'runtime_interaction', 'safety_sensitive'}
 MODEL_RISKS = {'prompt_behavior', 'agent_behavior', 'runtime_interaction'}
-KINDS = {'prototype', 'deterministic', 'not_applicable'}
+KINDS = {'prototype', 'deterministic', 'not_applicable', 'manual'}
 DEFAULTS = dict(version=1, development_calls=8, final_calls=2, repairs=2,
                 infrastructure_failures=2, timeout_seconds=120,
                 output_bytes=1048576, force_prompt=False)
@@ -489,7 +489,8 @@ def validate_doc(doc, project=None, task=None, private=False):
     case_keys = ('id', 'ac_ids', 'required', 'applicability', 'given', 'when', 'then', 'forbidden',
                  'input', 'expected', 'prohibited', 'counterexamples', 'visibility')
     for case in doc['cases']:
-        exact(case, case_keys + (('evaluation',) if 'evaluation' in case else ()))
+        exact(case, case_keys + (('evaluation',) if 'evaluation' in case else ())
+              + (('manual_acceptance',) if 'manual_acceptance' in case else ()))
         if 'evaluation' in case:
             validate_evaluation(case['evaluation'], doc, project)
         text(case['id'])
@@ -506,6 +507,15 @@ def validate_doc(doc, project=None, task=None, private=False):
         strings(case['counterexamples'])
         applicability(case['applicability'])
         kind = case['applicability']['kind']
+        if kind == 'manual':
+            acceptance = case.get('manual_acceptance')
+            exact(acceptance, ('owner', 'authorization', 'procedure'))
+            for value in acceptance.values():
+                text(value)
+            if not case['required'] or case['expected'] or case['prohibited']:
+                raise Invalid('manual_acceptance_contract')
+        elif 'manual_acceptance' in case:
+            raise Invalid('manual_acceptance_kind')
         if 'evaluation' in case and kind != 'prototype': raise Invalid('evaluation_requires_prototype')
         risks.update(case['applicability']['risks'])
         if private and kind != 'prototype':
@@ -544,7 +554,7 @@ def validate_doc(doc, project=None, task=None, private=False):
             text(case['input'])
     if covered != acs or not optional_acs <= prototype_acs:
         raise Invalid('required_ac_coverage')
-    derived = 'prototype' if 'prototype' in kinds else ('deterministic' if 'deterministic' in kinds else 'not_applicable')
+    derived = 'prototype' if 'prototype' in kinds else ('deterministic' if 'deterministic' in kinds else ('manual' if 'manual' in kinds else 'not_applicable'))
     if doc['applicability']['kind'] != derived or set(doc['applicability']['risks']) != risks:
         raise Invalid('applicability_summary')
     runtime = doc['runtime']
@@ -1226,6 +1236,8 @@ class Proof:
     def gate(self, state, gate):
         doc = self.current(state)
         seal = state['seal']
+        manual = sorted(case['id'] for case in doc['cases']
+                        if case['required'] and case['applicability']['kind'] == 'manual')
         if any(item['outcome'] == 'pending' for item in state.get('budget', {}).get('attempts', {}).values()):
             raise Blocked('attempt_pending')
         if gate == 'final':
@@ -1254,7 +1266,12 @@ class Proof:
                 return self.receipt(state, gate, 'fail', 'behavior_failed', sorted({obs['scenario_id'] for obs in failures}),
                                     'replace_heldout' if gate == 'final' else 'repair_prototype')
             raise Blocked('prototype_evidence_required')
-        return self.receipt(state, gate, 'pass', 'proof_eligible', sorted(needed | deterministic))
+        if gate == 'final' and manual:
+            return self.receipt(state, gate, 'blocked', 'manual_acceptance_pending', manual,
+                                'operator_verify_manual_acceptance')
+        return self.receipt(state, gate, 'pass',
+                            'development_eligible_manual_pending' if manual else 'proof_eligible',
+                            sorted(needed | deterministic))
 
 
 def resolved_runtime(name):

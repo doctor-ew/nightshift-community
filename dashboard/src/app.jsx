@@ -170,7 +170,7 @@ function TicketActions({ rows, reports = [] }) {
       <TicketChat ticket={ticket} token={data.token} />
       <TicketUsage reports={ticketUsage(reports, ticket)} compact running={ticket.running} />
       {progress.complete && <p className="outcome-summary">Completion is recorded. Open the pull request and files below to review the result.</p>}
-      {blocked && <div className="failure-summary" role="status"><h4>Why it stopped</h4><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
+      {blocked && <div className="failure-summary" role="status"><h4>Latest recorded gate failure</h4><p>This receipt may be from an earlier attempt. It does not establish why the latest run ended.</p><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
       <details><summary>Run settings</summary><p>{ticket.settings.provider} · {ticket.settings.policy} · {ticket.settings.auth}</p></details>
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
       <div className="artifact-actions"><EvidenceLink link={sourceLink} />{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
