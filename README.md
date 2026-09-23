@@ -213,6 +213,35 @@ nightshift batch "MVP-1,MVP-2" --push
 nightshift batch --resume batch-YYYYMMDD-HHMM.json --push
 ```
 
+## Broad requests and dependent subtasks
+
+The engineering controller assesses whether a request contains independently
+useful deliverables, multiple state transitions, or unresolved evaluator
+capabilities. It can turn an epic into bounded local child briefs and a durable
+`decomposition.json`, preserving the upstream request as the source of truth.
+Recognition is model-assisted; the plan validator checks structure and declared
+coverage, not whether the model understood every requirement correctly.
+
+The plan maps all original acceptance IDs, records dependencies and source hashes,
+and includes a final integration child. The existing batch controller orchestrates
+children in dependency order using isolated worktrees and verified prerequisite
+commits. A failed prerequisite blocks its dependents; independent work can continue.
+Parent completion requires actual child gates and integration evidence, not just a
+valid plan or successful process exit. Existing failed runs and repair budgets are
+retained. Source drift requires reconciliation before dispatch or resume.
+
+Before scenario authoring, the writer discovers supported evaluation capabilities
+and records gaps. Literal checks can target a named output section so a fact only
+in citations cannot satisfy a requirement about the proposed edit. Semantic
+truthfulness still needs independent review. Repair instructions require public
+counterexamples and finding-to-check evidence before re-review; these instructions
+are not a fully automated semantic grader or finding-history analytics system.
+
+See the [orchestration contract](commands/nightshift-eng.md#scope-assessment-and-decomposition),
+[plan validator](scripts/nightshift-decomposition.py),
+[behavioral proof contract](docs/BEHAVIOR-PROOF.md), and
+[Jobs Night delivery example](docs/jobs-night-coach/DELIVERY-SLICES.md).
+
 ## Versioned branch sync
 
 `VERSION` stores the semantic release version. `nightshift version --bump patch`,
@@ -280,6 +309,14 @@ Or use the same one-call launcher:
 ```bash
 nightshift gh:12 --provider local --model <coding-model>
 ```
+
+Local **specialist roles** additionally support an explicitly configured oMLX
+loopback service through the consumer's `routing.json`. This is separate from the
+Ollama-based top-level local factory selector above. Configure the backend, exact
+server model ID, endpoint and optional private authentication settings; start the
+service separately. A successful inference smoke test does not establish reliable
+filesystem tool use or pass an engineering gate. See [local role configuration
+and verification limits](docs/LOCAL-MODELS.md).
 
 ### Confirmation policy
 
@@ -400,7 +437,7 @@ nightshift/
 │                                 #   batch (init/update/retro/triage/retry-increment/retry-exhaust),
 │                                 #   lifecycle (dirty-check, scope-thaw, crash-check, stop-hook),
 │                                 #   extractor-meta (citation timestamp + commit SHA),
-│                                 #   dashboard (read-only local HTML snapshot, see "Dashboard")
+│                                 #   dashboard (live operations console and static snapshot, see "Dashboard")
 ├── docs/
 │   ├── PIPELINE.md              # canonical pipeline reference
 │   └── ARCHITECTURE.md          # design rationale
@@ -528,9 +565,51 @@ Active work is protected from concurrent repairs. See the [portal guide](dashboa
 for decision handling, retained answers, repair scope and recovery.
 
 
-`scripts/nightshift-dashboard.sh` renders a static, read-only HTML snapshot of durable
-Nightshift batch status and controller gate receipt JSON. It is a local inspection tool,
-not part of the pipeline — nothing calls it, and it cannot stop or alter a run.
+### Live operations console
+
+Open the console with `nightshift dashboard --project /path/to/repo`. Factory runs
+start or reuse it by default; `--dashboard off` disables automatic startup and
+`--dashboard-browser off` suppresses automatic browser opening. Use the URL printed
+by the launcher: the selected port can differ between projects. The console binds
+to loopback and reads the repository's retained run evidence.
+Sources: [launcher](scripts/nightshift-factory.sh),
+[dashboard startup](scripts/nightshift-dashboard-start.py), and
+[server](dashboard/server.py).
+
+Each ticket shows **You are here**: verified worker identity, role, provider/model,
+attempt when recorded, elapsed time, latest recorded update and its age, and an
+action-needed indication. The numbered timeline separately shows gate outcomes.
+A live worker does not prove useful progress, and a previous failed gate remains
+failed while its repair runs. A specification link means the document exists,
+not that its approval gate passed. See [live progress and chat](docs/CONSOLE-LIVE-CHAT.md).
+
+**Ask about this ticket** provides read-only answers with source citations from a
+bounded public-evidence snapshot. Choose configured routing, Claude subscription,
+or a configured local model. Codex chat is explicitly unavailable until tool-free
+execution is verified; a configured default resolving to Codex returns an error,
+without silently switching providers. Chat cannot change files, steer workers,
+approve gates, or start repairs. Private evaluation cases are excluded.
+See [routing, limits and local transcript storage](docs/CONSOLE-LIVE-CHAT.md).
+
+Separate controls provide **Diagnose & repair**, **Resume**, and **Stop** where
+applicable. Repairs use configured providers, independent review and verification,
+and bounded attempts; they preserve failure evidence and cannot manufacture missing
+proof or reset exhausted budgets. Controls require same-origin requests and the
+console token. See [repair behavior and limits](docs/CONSOLE-REPAIR.md).
+
+**Usage is receipt-based, not a live token counter.** Ticket totals combine recorded
+runs and retries, separating fresh input, cache reads/writes and output. Missing
+usage, pricing or stage attribution remains unknown. A provider estimate is not a
+subscription charge or necessarily the full ticket cost; unmeasured orchestration
+makes the totals incomplete. See [run measurements](docs/RUN-MEASUREMENTS.md) and
+[ticket accounting](scripts/nightshift-run-metrics.py).
+
+### Static read-only snapshot
+
+Without `--serve`, `scripts/nightshift-dashboard.sh` renders a standalone HTML
+snapshot of durable batch status and controller gate receipts. Static mode has no
+interactive controls and cannot stop or alter a run. The boundaries below apply
+to this static mode, not the live operations console.
 
 **Dependencies:** `git` and `python3` only (both already required elsewhere in this
 repo). No other runtime dependency is added.
