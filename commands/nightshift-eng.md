@@ -88,7 +88,13 @@ For an actual unresolved product choice, use `nightshift-console-decisions.py re
 with `--project`, `--task`, and `--input` pointing to a JSON object containing
 `question`, `reason`, and `options`. Supply up to three concrete options, each with
 `id`, `label`, and `description`. Free text is always available in the portal.
-Ask one decision at a time; publish it before recording `needs-decision` and exiting.
+Use a stable `decision_key` for each underlying choice, unchanged across wording or
+reviewer changes. Inspect the request result: if `response` is already present,
+apply that recorded answer and continue; do not mark needs-decision or ask again.
+To reopen a settled choice, supply `supersedes` with its latest decision hash and
+`reopen_reason` stating the new evidence. A repeated review preference is not new
+evidence. Answers settle choices, not test or review results.
+Ask one decision at a time; publish an unanswered request before recording `needs-decision` and exiting.
 Do not leave a decision solely in prose logs or a tool question invisible to the portal.
 For a decomposed ticket, use the child task key; the parent card aggregates owned
 unfinished-child decisions. The portal retains the answer and queues continuation

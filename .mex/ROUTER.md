@@ -68,6 +68,8 @@ Local convergence guard: the bounded source dispatcher refuses unchanged registe
 
 Portal chat routing fix: submission and its background worker use `scripts/nightshift-routing-path.py` instead of requiring an application-local routing file. The admitted routing path is retained privately for the child. Sources: `scripts/nightshift-console-chat.py`, `tests/test-console-chat.py`, `tests/test-routing-path.py`. Chat/routing/HTTP fixtures pass; live provider verification was not performed.
 
+Decision reuse is enforced by `scripts/nightshift-console-decisions.py`: repeated normalized questions or stable `decision_key` values return the existing answer. Explicit reopening requires the latest answered hash and a reason. Tests: `tests/test-console-decisions.py`. This does not infer equivalence for differently worded legacy questions without keys or approve gates.
+
 ## Routing Table
 
 Load the relevant file based on the current task. Always load `context/architecture.md` first if not already in context this session.

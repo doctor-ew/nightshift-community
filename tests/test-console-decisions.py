@@ -52,15 +52,29 @@ class Decisions(unittest.TestCase):
         with self.assertRaises(ValueError):d.respond(self.project,'task',q['sha256'],'','x'*4001)
         self.assertEqual(len(d.snapshot(self.project,'task')['pending']),1)
 
-    def test_old_answer_rejected_and_repeat_question_gets_new_occurrence(self):
+    def test_answered_question_reuses_answer_without_new_stop(self):
         first=d.request(self.project,'task',self.question)
-        d.respond(self.project,'task',first['sha256'],'markdown','')
-        second=d.request(self.project,'task',self.question)
+        answered=d.respond(self.project,'task',first['sha256'],'markdown','User owns delivery verification.')
+        repeated=d.request(self.project,'task',dict(self.question,reason='A reviewer asked again.'))
+        self.assertEqual(repeated,answered)
+        self.assertEqual(len(d.read(d.location(self.project,'task'))['requests']),1)
+        self.assertEqual(d.snapshot(self.project,'task')['pending'],[])
+
+    def test_stable_key_survives_rewording_and_reopen_requires_evidence(self):
+        q=dict(self.question,decision_key='acceptance-owner')
+        first=d.request(self.project,'task',q)
+        answered=d.respond(self.project,'task',first['sha256'],'','Manual verification belongs to the operator.')
+        changed=dict(q,question='Who supplies the delivery receipt?')
+        self.assertEqual(d.request(self.project,'task',changed),answered)
+        with self.assertRaises(ValueError):
+            d.request(self.project,'task',dict(changed,supersedes=first['sha256']))
+        with self.assertRaises(ValueError):
+            d.request(self.project,'task',dict(changed,supersedes='stale',reopen_reason='New requirement'))
+        second=d.request(self.project,'task',dict(changed,supersedes=first['sha256'],reopen_reason='Operator changed the acceptance owner.'))
         self.assertNotEqual(first['sha256'],second['sha256'])
-        self.assertEqual(d.request(self.project,'task',self.question),second)
+        self.assertEqual(second['supersedes'],first['sha256'])
         with self.assertRaises(ValueError):d.respond(self.project,'task',first['sha256'],'markdown','')
-        child=d.request(self.project,'child',self.question)
-        self.assertNotEqual(first['sha256'],child['sha256'])
+        self.assertNotEqual(first['sha256'],d.request(self.project,'child',q)['sha256'])
 
     def queued(self, target='task', operation='resume', provider='auto'):
         question=d.request(self.project,target,dict(self.question,continuation=operation,provider=provider))

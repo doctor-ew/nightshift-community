@@ -79,8 +79,17 @@ def snapshot(project, task):
 
 
 def request(project, task, value):
-    if not isinstance(value, dict) or not {'question', 'reason', 'options'} <= set(value) or set(value) - {'question', 'reason', 'options', 'continuation', 'provider'}:
+    if not isinstance(value, dict) or not {'question', 'reason', 'options'} <= set(value) or set(value) - {'question', 'reason', 'options', 'continuation', 'provider', 'decision_key', 'supersedes', 'reopen_reason'}:
         raise ValueError('Request requires question, reason and options')
+    extra = {k: value[k] for k in ('decision_key', 'supersedes', 'reopen_reason') if k in value}
+    if 'decision_key' in extra and (not isinstance(extra['decision_key'], str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,150}', extra['decision_key'])):
+        raise ValueError('Invalid stable decision key')
+    if ('supersedes' in extra) != ('reopen_reason' in extra):
+        raise ValueError('Reopening requires the prior decision hash and new evidence')
+    if 'supersedes' in extra:
+        if not isinstance(extra['supersedes'], str) or not re.fullmatch(r'[a-f0-9]{64}', extra['supersedes']):
+            raise ValueError('Invalid superseded decision hash')
+        extra['reopen_reason'] = text(extra['reopen_reason'], 4000)
     operation = value.get('continuation', 'resume')
     if operation not in ('resume', 'repair'):
         raise ValueError('Continuation must be resume or repair')
@@ -88,6 +97,7 @@ def request(project, task, value):
     if provider not in ('auto', 'claude', 'codex', 'local'):
         raise ValueError('Invalid continuation provider')
     value = dict(question=text(value['question'], 2000), reason=text(value['reason'], 4000), options=value['options'], continuation_operation=operation, continuation_provider=provider)
+    value.update(extra)
     options = value['options']
     if not isinstance(options, list) or len(options) > 3:
         raise ValueError('Use up to three options; free text is always available')
@@ -101,6 +111,18 @@ def request(project, task, value):
     path = location(project, task)
     with locked(path):
         data = read(path)
+        # A changed rationale or wording must not discard a settled decision.
+        # Legacy callers match normalized question text; new callers use a stable key.
+        previous = next((item for item in reversed(data['requests'])
+            if ('decision_key' in value and item.get('decision_key') == value['decision_key'])
+            or ' '.join(item['question'].casefold().split()) == ' '.join(value['question'].casefold().split())), None)
+        if previous is not None:
+            if all(previous.get(k) == v for k, v in value.items()) or 'supersedes' not in value:
+                return previous
+            if previous.get('response') is None or value['supersedes'] != previous['sha256']:
+                raise ValueError('Reopening requires the latest answered decision')
+        elif 'supersedes' in value:
+            raise ValueError('No matching decision to reopen')
         for item in data['requests']:
             if item.get('response') is None:
                 if all(item.get(k) == v for k, v in value.items()):
