@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -53,6 +54,29 @@ class ChatTests(unittest.TestCase):
                 with patch.object(chat,'claude_call',side_effect=ValueError('provider failed')):
                     chat.worker(d,'ticket')
                 self.assertEqual(json.loads(path.read_text())['phase'],'failed')
+
+    def test_external_routing_without_consumer_routing_file(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d).resolve(); target=root/'consumer'; target.mkdir()
+            metadata=root/'console'; metadata.mkdir(); (root/'worktrees').mkdir()
+            (root/'worktrees/ticket.json').write_text(json.dumps({'worktree':str(target)}))
+            routing=root/'profile.json'
+            routing.write_text(json.dumps({'roles':{'nightshift-engineer':{'gears':{'1':{'provider':'claude','model':'opus'}}}}}))
+            saved={'sha256':'version','settings':{'auth':'subscription','policy':'standard'}}
+            child=SimpleNamespace(pid=42,wait=lambda:0)
+            with patch.dict(os.environ, NIGHTSHIFT_ROUTING_FILE=str(routing)), patch.object(chat.actions,'state',return_value=saved), patch.object(chat.actions,'directory',return_value=metadata), patch.object(chat.subprocess,'Popen',return_value=child), patch.object(chat.subprocess,'check_output',return_value='identity'):
+                result=chat.start(root,'ticket','version','auto','What is happening?')
+            self.assertEqual(result['model'],'opus')
+            self.assertFalse((target/'routing.json').exists())
+            self.assertNotIn('_routing',result)
+            # Child uses the admitted configuration even if its environment differs.
+            with patch.dict(os.environ, NIGHTSHIFT_ROUTING_FILE=str(root/'missing.json')), patch.object(chat.actions,'state',return_value=saved), patch.object(chat.actions,'directory',return_value=metadata), patch.object(chat,'module') as modules, patch.object(chat,'bundle',return_value=('public',[{'source_id':'S1'}])), patch.object(chat,'claude_call',return_value={'answer':'Evidence [S1]','sources':['S1']}):
+                modules.return_value.progress.return_value={}
+                chat.worker(root,'ticket')
+            persisted=json.loads((metadata/'ticket.chat.json').read_text())
+            self.assertEqual(persisted['phase'],'complete')
+            self.assertNotIn('_routing',persisted)
 
     def test_claude_tools_disabled(self):
         class Process:

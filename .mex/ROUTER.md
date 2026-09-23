@@ -66,6 +66,8 @@ Quoted-evidence follow-up: standard 90-second targeted live regression passed af
 
 Local convergence guard: the bounded source dispatcher refuses unchanged registered repair inputs after a substantive review failure, without another reservation. Dashboard admission receipts expose the blocker; they never approve a gate. Source: `scripts/nightshift-retry-budget.py` (`repair_admission`), `tests/test-repair-dispatch.py`, `docs/RETRY-BUDGETS.md`. Live model completion remains unverified.
 
+Portal chat routing fix: submission and its background worker use `scripts/nightshift-routing-path.py` instead of requiring an application-local routing file. The admitted routing path is retained privately for the child. Sources: `scripts/nightshift-console-chat.py`, `tests/test-console-chat.py`, `tests/test-routing-path.py`. Chat/routing/HTTP fixtures pass; live provider verification was not performed.
+
 ## Routing Table
 
 Load the relevant file based on the current task. Always load `context/architecture.md` first if not already in context this session.

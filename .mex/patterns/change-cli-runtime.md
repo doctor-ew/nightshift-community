@@ -8,7 +8,7 @@ edges:
   - target: context/conventions.md
     condition: when verifying a launcher change
 grounds_to: []
-last_updated: 2026-09-13
+last_updated: 2026-09-23
 mex:
   id: mx_01M3024GD90Y8AHCKZVBHZGR9G
   type: pattern
@@ -106,3 +106,5 @@ Final macOS safe-mode pilot: 17 calls, 43,793 tokens, $0.257202 reported subscri
 cost estimate, eight public cases passed. All eight development trials are accounted
 for separately in `docs/WORKSHOP-VERIFICATION.md`; interrupted usage is explicitly
 unknown where a receipt is absent. Source tests and installed runtime tests pass.
+
+Portal consumers must use the shared routing resolver with the ticket worktree as explicit project context. Do not assume a consumer has `routing.json`; retain the admitted path for asynchronous workers. Sources: `scripts/nightshift-console-chat.py`, `scripts/nightshift-routing-path.py`, `tests/test-console-chat.py`.

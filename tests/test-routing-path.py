@@ -34,6 +34,14 @@ class RoutingPathTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     routing.resolve(root)
 
+    def test_explicit_target_beats_server_project_environment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve(); target=root/'consumer'; target.mkdir()
+            (target/'.nightshift.toml').write_text('[providers]\nrouting_file="custom.json"\n')
+            configured=target/'custom.json'; configured.write_text('{}')
+            with patch.dict(os.environ, {'NIGHTSHIFT_PROJECT_DIR':str(root/'wrong')}, clear=True):
+                self.assertEqual(routing.resolve(root, target), configured)
+
     def test_explicit_override_and_install_default(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

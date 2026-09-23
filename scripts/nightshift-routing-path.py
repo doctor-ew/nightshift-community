@@ -7,12 +7,12 @@ import sys
 import tomllib
 
 
-def resolve(root):
+def resolve(root, project=None):
     explicit = os.environ.get('NIGHTSHIFT_ROUTING_FILE')
     if explicit:
         path = Path(explicit).resolve()
     else:
-        project = os.environ.get('NIGHTSHIFT_PROJECT_DIR')
+        project = project or os.environ.get('NIGHTSHIFT_PROJECT_DIR')
         if not project:
             result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
             project = result.stdout.strip() if result.returncode == 0 else str(Path.cwd())
