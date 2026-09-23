@@ -13,7 +13,7 @@ cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-routing-path.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
-cp "$ROOT/scripts/nightshift-retry-budget.py" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-retry-budget.py" "$ROOT/scripts/nightshift-review-reuse.py" "$ROOT/scripts/nightshift-spec-repair-brief.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-codex-evaluator.py" "$ROOT/scripts/nightshift-source-evaluation.py" "$ROOT/scripts/nightshift-behavior-proof.py" "$ROOT/scripts/nightshift-project-context.py" "$ROOT/scripts/nightshift-state-dir.sh" "$TMP/runtime/scripts/"
 for helper in "$ROOT/scripts/"*.jq "$ROOT/scripts/nightshift-capability.sh"; do
   [ ! -f "$helper" ] || cp "$helper" "$TMP/runtime/scripts/"
@@ -115,7 +115,8 @@ normal --auth api
 check 'explicit API mode accepted' test "$RC" -eq 0
 unset MOCK_AUTH
 run nightshift-engineer --gear auto --risk high --attempt 3 --in "$INPUT" --out "$OUTPUT"
-check 'automatic high-risk bounded gear dispatch' args '.[index("--model")+1] == "opus"'
+export MOCK_EXPECTED_MODEL=$(jq -r '.roles["nightshift-engineer"].gears["4"].model' "$TMP/runtime/routing.json")
+check 'automatic high-risk bounded gear dispatch' args '.[index("--model")+1] == env.MOCK_EXPECTED_MODEL'
 run nightshift-engineer --gear 0 --risk low --in "$INPUT" --out "$OUTPUT"
 check 'gear zero cannot bypass role restriction' test "$RC" -ne 0
 MOCK_RESPONSE='{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"branch":"fixture","diff":"done","provider":"claude","model":"fixture"},"rules_fired":[],"results":{"claims":[]}}'
@@ -209,10 +210,16 @@ for role in nightshift-architect nightshift-code-fact-extractor nightshift-run-a
   esac
   MOCK_RESPONSE="$(printf '%s' "$BASE_RESPONSE" | jq --argjson r "$result" '.results=$r')"
   run "$role" --gear 1 --in "$INPUT" --out "$OUTPUT"
+  if [ "$role" = nightshift-code-fact-extractor ]; then
+    check 'extractor has isolated read-only context' args 'index("--safe-mode") != null and .[index("--tools")+1] == "Read,Glob,Grep" and index("--agents") == null'
+  fi
   check "$role valid output" test "$RC" -eq 0
   check "$role normalized" json '.status == "SUCCESS"'
   MOCK_RESPONSE="$(printf '%s' "$BASE_RESPONSE" | jq '.results={}')"
   run "$role" --gear 1 --in "$INPUT" --out "$OUTPUT"
+  if [ "$role" = nightshift-code-fact-extractor ]; then
+    check 'extractor has isolated read-only context' args 'index("--safe-mode") != null and .[index("--tools")+1] == "Read,Glob,Grep" and index("--agents") == null'
+  fi
   check "$role missing result rejected" test "$RC" -ne 0
 done
 MOCK_RESPONSE="$BASE_RESPONSE"

@@ -265,6 +265,10 @@ ROUTE=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" "${POLICY_ARGS[@]}
 export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
 PROVIDER="$(jq -r '.provider' <<< "$ROUTE")"
 MODEL="$(jq -r '.model' <<< "$ROUTE")"
+SPEC_REPAIR_CONTEXT=''
+if [ "$ROLE" = nightshift-spec-writer ]; then
+  SPEC_REPAIR_CONTEXT=$(python3 "$ROOT/scripts/nightshift-spec-repair-brief.py" --directory "$(dirname "$OUTPUT")") || fail 'Existing draft requires a current focused repair brief; reuse the draft instead of restarting discovery'
+fi
 if [ "$AUTH" = subscription ]; then
   unset OPENAI_API_KEY CODEX_API_KEY ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_BASE_URL ANTHROPIC_BASE_URL
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
@@ -292,6 +296,7 @@ EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independ
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
 fi
+EXECUTION_CONTEXT+="$SPEC_REPAIR_CONTEXT"
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-agent.XXXXXX")"
@@ -311,6 +316,12 @@ case "$PROVIDER" in
     if [ "$ROLE" = nightshift-behavior-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    elif [ "$ROLE" = nightshift-code-fact-extractor ]; then
+      # Source verification needs repository reads, not installed skills, MCP,
+      # plugins or another copy of the role in the user prompt.
+      CMD=(claude -p --safe-mode --tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")
+$CONTRACT
+$EXECUTION_CONTEXT" --json-schema "$(cat "$TMP/provider.schema.json")" "$(cat "$INPUT")")
     elif [ "$ROLE" = nightshift-repair-analyst ]; then
       CMD=(claude -p --tools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else

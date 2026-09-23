@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Atomic retry accounting; attempt IDs make repeated receipt ingestion idempotent."""
 import argparse
+import importlib.util
 import fcntl
 import json
 import os
@@ -189,6 +190,31 @@ def account(path, attempt, category):
                 state['substantive_failures'] >= limits['substantive'] or
                 state['total'] >= limits['total']):
             action = 'stop'
+        recurring = review_reuse.recurring_findings(state) if category == 'substantive' else []
+        if recurring:
+            state['recurring_source_findings'] = recurring
+            if action != 'stop':
+                action = 'change_repair_strategy'
+            receipt = dict(ticket=Path(path).parent.name, gate='review-convergence', status='failed',
+                           gate_approval=False, findings=recurring,
+                           reason='The same source conflict survived multiple reviews. Repair only these findings with a fresh author context within the configured provider policy; do not redraft or repeat the full review.',
+                           next_action=action)
+            (Path(path).parent / 'review-convergence.json').write_text(json.dumps(receipt))
+        if category == 'success' and state.get('recurring_source_findings'):
+            row = state.get('review_requests', {}).get(attempt, {})
+            retained = Path(row.get('retained', ''))
+            if retained.is_file() and review_reuse.digest(retained.read_bytes()) == row.get('report_sha256'):
+                claims = json.loads(retained.read_text()).get('results', {}).get('claims', [])
+                verified = {(' '.join(c.get('claim', '').split()).casefold(), c.get('file', ''))
+                            for c in claims if c.get('status') == 'VERIFIED'}
+                prior = state['recurring_source_findings']
+                if all((f['claim'], f['file']) in verified for f in prior):
+                    state.setdefault('resolved_source_findings', []).append(dict(findings=prior, attempt=attempt))
+                    state['recurring_source_findings'] = []
+                    (Path(path).parent / 'review-convergence.json').write_text(json.dumps(dict(
+                        ticket=Path(path).parent.name, gate='review-convergence', status='skipped',
+                        gate_approval=False, resolved_by_attempt=attempt, findings=prior,
+                        reason='The recurring source findings were resolved by an evaluated report. Other ticket gates still apply.')))
         state['next_action'] = action
         save()
         return state
@@ -347,6 +373,11 @@ def repair_admission(directory, state, receipt):
     return signature
 
 
+_reuse_spec = importlib.util.spec_from_file_location('review_reuse', Path(__file__).with_name('nightshift-review-reuse.py'))
+review_reuse = importlib.util.module_from_spec(_reuse_spec)
+_reuse_spec.loader.exec_module(review_reuse)
+
+
 def run_dispatch(arguments):
     # Only the existing extractor dispatcher is exposed; never execute an input command.
     if not arguments or arguments[0] != 'nightshift-code-fact-extractor':
@@ -375,10 +406,32 @@ def run_dispatch(arguments):
         state = {}
         if state_path.exists():
             state = json.loads(state_path.read_text())
-            if state['next_action'] == 'stop' or 'pending' in state['attempts'].values():
+            if 'pending' in state['attempts'].values():
                 raise ValueError('exhausted or interrupted budget; inspect retained evidence')
         repair_signature = repair_admission(directory, state, repair_receipt) if repair_receipt else None
         routing = Path(os.environ.get('NIGHTSHIFT_ROUTING_FILE', str(Path(__file__).resolve().parents[1] / 'routing.json')))
+        signature = review_reuse.fingerprint(arguments, directory, state, routing)
+        match = review_reuse.candidate(state, signature)
+        if match:
+            previous, retained, category = match
+            status = dict(ticket=directory.name, gate='review-reuse', gate_approval=False,
+                          status='skipped' if category == 'success' else 'needs-decision',
+                          reason=('Reused an already evaluated report for unchanged evidence; evaluate the canonical gate.'
+                                  if category == 'success' else 'Unchanged evidence already failed review. Repair the retained finding before another review; do not rewrite the full spec.'),
+                          prior_attempt=previous, provider_launches=0)
+            (directory / 'review-reuse.json').write_text(json.dumps(status))
+            if category == 'substantive':
+                raise ValueError(status['reason'])
+            record = json.loads(Path(retained['retained']).read_text())
+            with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+                json.dump(record, out)
+                temporary = out.name
+            os.replace(temporary, output)
+            Path(str(output) + '.retry.json').write_text(json.dumps(dict(
+                attempt_id=previous, state_path=str(state_path), result_path=retained['retained'], reused=True)))
+            return 0
+        if state.get('next_action') == 'stop':
+            raise ValueError('exhausted budget; inspect retained evidence')
         # Conservative admission: changing an attempt number or output path must
         # not re-launch a model already rejected under this routing configuration.
         fingerprint = hashlib.sha256(routing.read_bytes()).hexdigest()
@@ -395,6 +448,11 @@ def run_dispatch(arguments):
         script = Path(__file__).resolve().with_name('nightshift-agent.sh')
         # A unique result path prevents stale successful output from being consumed.
         invocation = directory / ('adversarial-' + identity + '.json')
+        if signature:
+            with transaction(state_path, dict) as (state, save):
+                state.setdefault('review_requests', {})[identity] = dict(
+                    signature=signature, output=str(output), retained=str(invocation))
+                save()
         forwarded = list(arguments)
         forwarded[forwarded.index('--out') + 1] = str(invocation)
         category = 'unknown'
@@ -425,6 +483,11 @@ def run_dispatch(arguments):
                 json.dump(record, out)
                 temporary = out.name
             os.replace(temporary, output)
+            if signature:
+                with transaction(state_path, dict) as (state, save):
+                    if review_reuse.fingerprint(arguments, directory, state, routing) == signature:
+                        state['review_requests'][identity]['report_sha256'] = review_reuse.digest(invocation.read_bytes())
+                    save()
             if category == 'pending':
                 with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
                     json.dump({'attempt_id': identity, 'state_path': str(state_path),

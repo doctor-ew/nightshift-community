@@ -231,11 +231,20 @@ if [ -f "$SPEC" ]; then
 fi
 ```
 
-If a spec already exists, ask:
-> "A spec already exists for `$TASK_KEY`. Use it or regenerate? (use / regen)"
+If a spec already exists, reuse it by default. Read retained operator decisions and
+current findings. Do not repeat the grounding interview, source discovery, or writer
+invocation for unchanged requirements. Continue with missing validation and review
+in `/nightshift-spec` Step 4; existence is not approval and must not skip directly
+to the approved tracker in Step 8.
 
-- **use** → skip to Step 8 (handoff).
-- **regen** → continue to Step 5.
+Only concrete unresolved findings or changed upstream requirements justify a writer
+repair. Write `spec-repair.json` beside the draft with `spec_sha256` matching the
+current file and a nonempty `findings` array of `{id, target, problem}` objects.
+Use retained stable IDs and name the affected section or artifact; the dispatcher
+requires this brief before launching a writer against an existing draft. This is
+controller work, not another operator question. Do not manufacture a finding to
+obtain a rewrite. The repair prompt is restricted to the listed defects; validation
+and independent approval still follow.
 
 ---
 

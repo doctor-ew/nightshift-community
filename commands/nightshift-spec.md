@@ -111,6 +111,13 @@ Inject verbatim into the brief:
 
 ## Step 3 — Delegate
 
+If `SPEC.md` already exists, go to Step 4 for missing validation/review. Invoke a
+writer again only for concrete findings or changed requirements. Before that repair,
+write `spec-repair.json` beside the draft: `spec_sha256` binds its current bytes and
+`findings` contains stable `{id, target, problem}` entries. The dispatcher validates
+this brief before authentication or a provider launch. Preserve unaffected text and
+recorded decisions; a draft is not an approved spec.
+
 Write the complete brief to `docs/$TASK/spec-writer.in.md` (reuse the product
 stage's prepared brief when present). Dispatch once through the shared boundary:
 
