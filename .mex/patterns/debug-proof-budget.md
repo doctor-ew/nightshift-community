@@ -3,7 +3,7 @@ name: "debug-proof-budget"
 description: "Diagnose proof admission and counter failures"
 triggers: ["proof calls exhausted", "pending proof attempt", "proof counter mismatch"]
 edges: [{"target": "context/conventions.md", "condition": "when implementing and verifying this change"}, {"target": "context/proof-accounting.md", "condition": "when understanding the relevant subsystem"}]
-last_updated: "2026-09-20"
+last_updated: "2026-09-23"
 mex:
   id: mx_01M21Z3AXS7SE70JP7YXVEKTBJ
   type: pattern
@@ -55,3 +55,7 @@ If admission still fails, compare policy identity and exact record keys before i
 - [ ] Update `.mex/ROUTER.md` if project state changed.
 - [ ] Update affected `.mex/context/` files and grounding after behavior changes.
 - [ ] Update `.mex/patterns/INDEX.md` when adding a task pattern.
+
+## Repeated registered artifacts
+
+If the dashboard shows a repair-admission blocker, inspect the prior attempt and registered artifact. Formatting or renaming the finding is not a correction. Preserve counters; correct the relevant content or contract, then rerun the bounded dispatcher. Provider-switch guidance remains manual. Source: `docs/RETRY-BUDGETS.md`, `scripts/nightshift-retry-budget.py` (`repair_admission`).

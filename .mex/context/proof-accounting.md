@@ -3,7 +3,7 @@ name: "proof-accounting"
 description: "Proof admission, pinned policy, and accounting invariants."
 triggers: ["proof", "budget", "pending attempt"]
 edges: [{"target": "context/architecture.md", "condition": "when placing the change in the pipeline"}, {"target": "context/conventions.md", "condition": "when implementing or verifying changes"}, {"target": "patterns/debug-proof-budget.md", "condition": "when proof admission fails"}]
-last_updated: "2026-09-20"
+last_updated: "2026-09-23"
 mex:
   id: mx_01M21Z3AMXY4C5AAH2N44827A3
   type: architecture
@@ -44,3 +44,7 @@ mex:
 
 ## Bounds
 The validated proof policy allows 1–64 calls per gate, 0–64 repairs and 0–2 infrastructure failures, 1–120 timeout seconds, and 1–1048576 output bytes. These proof limits must not be conflated with the setup manifest's stage repair budgets. Sources: `scripts/nightshift-retry-budget.py` (line 162), `scripts/nightshift-setup.py` (line 38).
+
+## Registered repair recurrence
+
+The source dispatcher stores canonical registered-artifact signatures per attempt and refuses a signature previously finalized as substantive. Restart, formatting, finding-ID and output-name changes cannot reset admission. Pending and infrastructure outcomes retain their separate handling. This is source-review accounting, separate from proof-call accounting. Sources: `scripts/nightshift-retry-budget.py` (`repair_admission`, `run_dispatch`), `tests/test-repair-dispatch.py`.

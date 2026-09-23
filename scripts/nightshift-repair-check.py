@@ -115,6 +115,7 @@ def check(root, manifest, output):
         current_passed = present_after and equal(after, finding['expected'])
         rows.append({'id': identity, 'artifact': finding['artifact'], 'pointer': finding['pointer'],
                      'prior_artifact': finding['prior_artifact'], 'prior_sha256': prior_hash,
+                     'artifact_content_sha256': digest(json.dumps(current, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()),
                      'artifact_sha256': current_hash, 'original_failed': original_failed,
                      'current_passed': current_passed, 'passed': original_failed and current_passed})
     # Fail if any input changed while collecting this receipt.

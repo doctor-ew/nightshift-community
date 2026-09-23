@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-09-20"
+last_updated: "2026-09-23"
 ---
 
 # Session Bootstrap
@@ -63,6 +63,8 @@ Review-branch implementation, not activated in the installed runtime: `quoted-ev
 Quoted-evidence rollout gate: 36 offline checks pass, but three live reviewer probes timed out with no verdict. Live verification remains blocked; runtime stays at the prior tested implementation. Source: `docs/WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`.
 
 Quoted-evidence follow-up: standard 90-second targeted live regression passed after earlier timeouts; known bad evidence rejected and positive control accepted. Installed runtime updated to the tested contract. No full fresh workshop or Windows verification is claimed. Source: `docs/WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`.
+
+Local convergence guard: the bounded source dispatcher refuses unchanged registered repair inputs after a substantive review failure, without another reservation. Dashboard admission receipts expose the blocker; they never approve a gate. Source: `scripts/nightshift-retry-budget.py` (`repair_admission`), `tests/test-repair-dispatch.py`, `docs/RETRY-BUDGETS.md`. Live model completion remains unverified.
 
 ## Routing Table
 

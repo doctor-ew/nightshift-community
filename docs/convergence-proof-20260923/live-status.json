@@ -1,0 +1,8 @@
+{
+  "ticket": "convergence-live-proof",
+  "gate": "live-provider-verification",
+  "status": "blocked",
+  "reason": "- Root cause: Codex dispatcher returned model_unavailable; no behavioral verification was produced.\n- Unblock path: verify a supported Codex subscription model or restore Claude subscription authentication before scheduling a separate bounded proof. This run has used its one launch; do not extend it.",
+  "provider": "codex",
+  "gate_approval": false
+}

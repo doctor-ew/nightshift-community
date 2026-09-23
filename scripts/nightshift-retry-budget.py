@@ -318,6 +318,35 @@ def proof_account(state, policy, operation, attempt, gate='development', outcome
     return budget
 
 
+def repair_admission(directory, state, receipt):
+    """Refuse a semantically unchanged registered repair after a failed source gate.
+
+    The invocation lock covers this check and reservation. Finding names, JSON
+    formatting, output paths and routing changes cannot count as artifact repair.
+    This detects repeated inputs, not semantic equivalence of review findings.
+    """
+    signature = hashlib.sha256(json.dumps(sorted({
+        (row['artifact'], row['pointer'], row['artifact_content_sha256'])
+        for row in receipt['findings']}), separators=(',', ':')).encode()).hexdigest()
+    repeats = [attempt for attempt, previous in state.get('repair_inputs', {}).items()
+               if previous == signature and state['attempts'].get(attempt) == 'substantive']
+    reason = ('- Root cause: unchanged registered repair already failed source review.\n'
+              '- Unblock path: inspect the retained source finding; change the repair author/provider '
+              'within policy and correct the relevant artifact or its regression contract. '
+              'Do not increase the retry budget. A decision alone does not approve any gate.') if repeats else (
+              'Registered repair inputs admitted for source evaluation; no gate approval.')
+    status = {'ticket': directory.name, 'gate': 'repair-admission',
+              'status': 'needs-decision' if repeats else 'skipped', 'reason': reason,
+              'gate_approval': False, 'input_sha256': signature, 'prior_attempts': repeats}
+    with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+        json.dump(status, out)
+        temporary = out.name
+    os.replace(temporary, directory / 'repair-admission.json')
+    if repeats:
+        raise ValueError(reason)
+    return signature
+
+
 def run_dispatch(arguments):
     # Only the existing extractor dispatcher is exposed; never execute an input command.
     if not arguments or arguments[0] != 'nightshift-code-fact-extractor':
@@ -331,6 +360,7 @@ def run_dispatch(arguments):
         # A repaired artifact must close its recorded regression before paying
         # for another source review. This check never approves the source gate.
         repair_manifest = directory / 'repair-checks.json'
+        repair_receipt = None
         if repair_manifest.exists():
             project = Path.cwd().resolve()
             checked = subprocess.run([
@@ -341,10 +371,13 @@ def run_dispatch(arguments):
             if checked.returncode:
                 detail = (checked.stderr or checked.stdout)[-2000:]
                 raise ValueError('repair regression refused; no model launched; prior receipt is not approval: ' + detail)
+            repair_receipt = json.loads((directory / 'repair-check.receipt.json').read_text())
+        state = {}
         if state_path.exists():
             state = json.loads(state_path.read_text())
             if state['next_action'] == 'stop' or 'pending' in state['attempts'].values():
                 raise ValueError('exhausted or interrupted budget; inspect retained evidence')
+        repair_signature = repair_admission(directory, state, repair_receipt) if repair_receipt else None
         routing = Path(os.environ.get('NIGHTSHIFT_ROUTING_FILE', str(Path(__file__).resolve().parents[1] / 'routing.json')))
         # Conservative admission: changing an attempt number or output path must
         # not re-launch a model already rejected under this routing configuration.
@@ -354,6 +387,11 @@ def run_dispatch(arguments):
             raise ValueError('model configuration previously rejected; change routing before retry')
         identity = uuid.uuid4().hex
         account(state_path, identity, 'pending')
+        if repair_signature:
+            # Persist before dispatch: an interrupted attempt remains reserved.
+            with transaction(state_path, dict) as (state, save):
+                state.setdefault('repair_inputs', {})[identity] = repair_signature
+                save()
         script = Path(__file__).resolve().with_name('nightshift-agent.sh')
         # A unique result path prevents stale successful output from being consumed.
         invocation = directory / ('adversarial-' + identity + '.json')
