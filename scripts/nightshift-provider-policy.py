@@ -43,6 +43,11 @@ def mode(project=None):
 
 def select_route(routing, role, gear, policy, author='', adversarial=False, initial=None):
     route = dict(initial or routing['roles'][role]['gears'][str(gear)])
+    allowed = routing.get('allowed_providers', ['claude', 'codex', 'local'])
+    if (not isinstance(allowed, list) or not allowed or
+            any(p not in ('claude', 'codex', 'local') for p in allowed) or
+            len(set(allowed)) != len(allowed)):
+        raise ValueError('invalid allowed_providers')
     if adversarial and author not in ('claude', 'codex', 'local'):
         raise ValueError('adversarial dispatch requires valid author provenance')
     if policy == 'claude-only':
@@ -58,8 +63,18 @@ def select_route(routing, role, gear, policy, author='', adversarial=False, init
                 raise ValueError('claude-only policy has no Claude route for this role')
         if not isinstance(route.get('model'), str) or not route['model']:
             raise ValueError('claude-only policy requires a configured Claude model')
-    elif adversarial and routing['adversarial']['cross_provider'] and route['provider'] == author:
-        route = next((dict(item) for item in routing['adversarial']['routes'] if item['provider'] != author), None)
+    if route is not None and route['provider'] not in allowed:
+        choices = routing['roles'][role]['gears']
+        permitted = next(((key, item) for key, item in sorted(choices.items())
+                          if item['provider'] in allowed and (policy != 'claude-only' or item['provider'] == 'claude')), None)
+        if permitted is None:
+            raise ValueError('no allowed provider route for role')
+        key, replacement = permitted
+        route = {**route, **replacement}
+        if 'gear' in route:
+            route['gear'] = int(key)
+    if policy != 'claude-only' and adversarial and routing['adversarial']['cross_provider'] and route['provider'] == author:
+        route = next((dict(item) for item in routing['adversarial']['routes'] if item['provider'] != author and item['provider'] in allowed), None)
         if route is None:
             raise ValueError('no different-provider adversarial route available')
     return route

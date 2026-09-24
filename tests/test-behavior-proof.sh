@@ -77,7 +77,10 @@ class BehaviorProofSchema(unittest.TestCase):
     def test_config_defaults_and_finite_bounds(self):
         result=self.invoke('validate','--config-only',task=False);self.assertEqual(result.returncode,0,result.stdout)
         config=self.base/'.nightshift.toml'
-        for value in ('development_calls = true','development_calls = 0','final_calls = 65','repairs = 65','infrastructure_failures = 3','timeout_seconds = 121','output_bytes = 1048577','force_prompt = 1','unknown = 1','version = 2'):
+        for value in ('development_calls = 65', 'development_calls = 128', 'final_calls = 128'):
+            config.write_text('[behavior_proof]\n'+value+'\n')
+            self.assertEqual(self.invoke('validate','--config-only',task=False).returncode,0)
+        for value in ('development_calls = true','development_calls = 0','development_calls = 129','final_calls = 129','repairs = 65','infrastructure_failures = 3','timeout_seconds = 121','output_bytes = 1048577','force_prompt = 1','unknown = 1','version = 2'):
             with self.subTest(value=value):
                 config.write_text('[behavior_proof]\n'+value+'\n')
                 self.assertEqual(self.invoke('validate','--config-only',task=False).returncode,64)

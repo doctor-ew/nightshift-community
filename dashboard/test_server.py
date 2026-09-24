@@ -110,6 +110,36 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
             self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
 
+    def test_ticket_decision_is_bound_authenticated_and_retained(self):
+        import hashlib
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('decisions',ROOT/'scripts/nightshift-console-decisions.py')
+        decisions=importlib.util.module_from_spec(spec);spec.loader.exec_module(decisions)
+        folder=self.repo/'.git/nightshift/console';folder.mkdir(parents=True)
+        record=dict(task='task-a',settings=dict(ref='spec:brief.md',provider='codex',policy='standard',auth='subscription',branch='auto',push=False,pr=False,model='',base=''))
+        (folder/'task-a.json').write_text(json.dumps(record))
+        question=decisions.request(self.repo,'task-a',dict(question='Choose format',reason='Needs a product choice',options=[dict(id='md',label='Markdown',description='Portable')]))
+        data=json.loads(self.request('/api/tickets')[1]);ticket=next(t for t in data['tickets'] if t['task']=='task-a')
+        self.assertEqual(ticket['decisions']['pending'][0]['question'],'Choose format')
+        payload=dict(task='task-a',sha256=ticket['sha256'],decision_sha256=question['sha256'],choice='md',answer='With citations')
+        headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
+        self.assertEqual(self.request('/api/tickets/decision','POST',{'Content-Type':'application/json'},json.dumps(payload))[0],403)
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(dict(payload,decision_sha256='stale')))[0],409)
+        code,body,_=self.request('/api/tickets/decision','POST',headers,json.dumps(payload))
+        self.assertEqual(code,200)
+        self.assertEqual(json.loads(body)['status'],'queued')
+        deadline=time.monotonic()+8
+        while time.monotonic()<deadline:
+            saved=decisions.snapshot(self.repo,'task-a')['answered'][0]
+            if saved.get('continuation',{}).get('status')=='blocked':break
+            time.sleep(.05)
+        self.assertEqual(saved['continuation']['status'],'blocked') # Missing ownership blocks launch, not answer persistence.
+        self.assertIn('worktree',saved['continuation']['message'])
+        self.assertEqual(decisions.snapshot(self.repo,'task-a')['answered'][0]['response']['choice'],'md')
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(payload))[0],200)
+        self.assertEqual(len(decisions.snapshot(self.repo,'task-a')['answered']),1)
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(dict(payload,answer='Different')))[0],409)
+
     def test_chat_query_is_scoped_and_requires_known_ticket(self):
         for path in ('/api/tickets/chat', '/api/tickets/chat?task=../escape', '/api/tickets/chat?task=missing', '/api/tickets/chat?task=a&task=b'):
             self.assertEqual(self.request(path)[0], 409)

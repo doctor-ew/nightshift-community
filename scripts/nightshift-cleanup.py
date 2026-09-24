@@ -3,6 +3,7 @@
 import argparse
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -26,8 +27,16 @@ def inventory(project, task):
         raise ValueError('staged_changes_require_review')
     paths = set(git(project, 'ls-files', '-m', '-o', '--exclude-standard', '-z').decode().split('\0')) - {''}
     result = {}
+    spec = importlib.util.spec_from_file_location('recovery_state', HERE / 'nightshift-recovery-state.py')
+    recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
+    state = recovery.snapshot(project, task)
+    verified = bool(state and state['completed'].get('verification') and state['inputs'] == recovery.workspace(project))
+    if verified:
+        row = state['completed']['verification']
+        evidence = Path(row['path'])
+        verified = evidence.is_file() and not evidence.is_symlink() and hashlib.sha256(evidence.read_bytes()).hexdigest() == row['sha256']
     for name in sorted(paths):
-        if not (name.startswith('docs/' + task + '/') or name.startswith('.nightshift/')):
+        if not (verified or name.startswith('docs/' + task + '/') or name.startswith('.nightshift/')):
             raise ValueError('source_changes_require_review')
         path = project / name
         if path.resolve() != path.absolute() or not path.is_file():

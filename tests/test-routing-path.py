@@ -34,6 +34,26 @@ class RoutingPathTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     routing.resolve(root)
 
+    def test_explicit_target_beats_server_project_environment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve(); target=root/'consumer'; target.mkdir()
+            (target/'.nightshift.toml').write_text('[providers]\nrouting_file="custom.json"\n')
+            configured=target/'custom.json'; configured.write_text('{}')
+            with patch.dict(os.environ, {'NIGHTSHIFT_PROJECT_DIR':str(root/'wrong')}, clear=True):
+                self.assertEqual(routing.resolve(root, target), configured)
+
+    def test_ticket_worktree_recovers_primary_checkout_routing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve(); project=root/'project'; project.mkdir()
+            subprocess.run(['git','init','-q',str(project)],check=True)
+            subprocess.run(['git','-C',str(project),'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','--allow-empty','-qm','fixture'],check=True)
+            child=root/'child'
+            subprocess.run(['git','-C',str(project),'worktree','add','-qb','ticket',str(child)],check=True)
+            (project/'.nightshift.toml').write_text('[providers]\nrouting_file="custom.json"\n')
+            configured=project/'custom.json'; configured.write_text('{}')
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(routing.resolve(root,child),configured)
+
     def test_explicit_override_and_install_default(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

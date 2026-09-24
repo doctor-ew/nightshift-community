@@ -263,7 +263,7 @@ reuse the existing evaluator and do not change acceptance semantics.
 
 Evidence is limited to 4 MiB per charged turn, in addition to existing input,
 output and call limits. The file contains only the current turn, avoiding repeated
-history growth. Final runs never write these files or retain completion bodies.
+history growth. Final runs never write these public files. Legacy literal-only runs do not retain final completion bodies; the optional source-bound profile below retains them privately.
 Transport failures without a parsed completion do not retain raw provider output.
 Evidence write failures leave `development_evidence_error: artifact_unavailable`
 in the aggregate observation without changing grading or retry accounting.
@@ -301,11 +301,26 @@ prototype before applying another prompt repair, so the repair remains counted.
 
 ## Explicit cumulative policy amendments
 
+The separate adversarial-dispatch retry ledger supports an operator-invoked
+`nightshift-retry-budget.py authorize-continuation` action with `--state`,
+`--decision`, `--expected-sha256` (the exact current ledger bytes), and
+`--attempts` (one to three). Use it only following explicit user authorization
+to continue a stopped review. The dispatcher never invokes this action itself.
+It records the decision path/hash, prior ledger hash and counters, and new
+absolute review ceilings in `continuations`; original counters, attempts and
+base limits remain intact. Replaying the same decision cannot replenish calls.
+Every additional dispatch consumes the allowance, including successful calls.
+Pending calls and exhausted infrastructure limits are ineligible. This action
+does not approve a gate or amend the separate behavior-proof policy below.
+The decision file is an audit record, not an authentication boundary against
+processes already able to write the ledger. Preserve it with the run evidence.
+
 A pinned policy cannot be changed by editing configuration and rerunning. The
 `amend-policy --evidence <path>` operation records an explicitly authorized,
 independently reviewed increase before a new challenge and seal. It permits only
-increases to cumulative `repairs`, `development_calls` and `final_calls`, each
-bounded at 64. Defaults remain two repairs, eight development calls and two final
+increases to cumulative `development_calls` and `final_calls` up to 128, and
+`repairs` up to 64. These are finite ceilings, not default allowances. Existing
+pinned limits remain authoritative until the reviewed amendment is applied. Defaults remain two repairs, eight development calls and two final
 calls. All other policy fields remain unchanged. Pending attempts block amendment.
 
 The evidence JSON has exactly these fields:
@@ -343,3 +358,200 @@ It remains unapproved and must not be executed in that phase. This resolves the
 existence/hash prerequisite without weakening design challenge, private held-out
 commitments, budget pinning, or development/final proof. Application code and
 harness implementation still follow approved scope and the ordinary build gates.
+
+## Optional source-bound completion evaluation
+
+A prototype case may add `evaluation`; multiturn cases may also add it to each
+turn. A case contract evaluates the last completion with its actual conversation
+history. Turn contracts evaluate that turn. Legacy cases retain their literal
+oracle behavior. This is text-only supplied-source evaluation, not evidence that
+an application retrieved a document or exercised real tools.
+
+```json
+{
+  "version": 1,
+  "sources": {"S1": "Allowed choice is allow."},
+  "structure": {
+    "headings": [],
+    "terminal": "",
+    "citation_section": "",
+    "citation_end": ""
+  },
+  "criteria": [
+    {"id": "grounding", "requirement": "Every claim must be supported by S1; do not overstate the source."}
+  ],
+  "evaluator": {
+    "provider": "local",
+    "model": "configured-installed-model",
+    "independence": "different-provider"
+  }
+}
+```
+
+The contract has exact keys. All source values must occur literally in the actual
+input. When actual user input has explicit `[ID]` source blocks, the ID must exist and
+the value must occur in that ID's block; an arbitrary other source cannot supply its excerpt. Assigned
+locators and whole-user-input request aliases are allowed only without supplied
+source IDs. Mixed labelled-source and whole-request aliases are unsupported. Multiturn source checks inspect decoded user messages,
+excluding assistant completions; the serialized generation input remains bound.
+The sealed mapping and rubric require independent design review. This mechanical
+binding does not itself establish semantic truth.
+
+`headings` specifies every exact level-two Markdown heading in order; an empty
+array disables that check. `terminal` requires the unique last line, with no
+trailing content. Citation sections are delimited by exact unique heading lines.
+Each nonblank entry must be `[ID] locator, "exact excerpt"`; excerpts must occur
+in that ID's source. Used IDs and listed IDs must match exactly; unknown, duplicate,
+missing, unused and wrongly bound entries fail. Empty citation delimiters disable
+citation checks. This deliberately bounded grammar does not parse arbitrary
+Markdown citation formats.
+
+`structure.blocks` is optional and has exact keys `start`, `end`, `heading_prefix`,
+`fields`, `labels`, `count_prefix`, `count_suffix`. Between the two exact boundary
+lines, each block starts with `heading_prefix`; its nonblank field lines must
+match `fields` in order. `labels` maps selected field prefixes to allowed exact
+values. The unique count line must equal `count_prefix + block_count + count_suffix`.
+Use a semantic criterion for required prose when a case legitimately has no blocks.
+
+The semantic evaluator receives the source map, actual input, system prompt,
+conversation history, actual completion and sealed criteria. Its strict transport verdict must echo the payload hash, cover every criterion
+exactly once, and provide exactly `id`, `status` (`pass`, `fail`, `unknown`),
+`line_id` and `reason`. The requested `line_id` field accepts only a completion
+line key such as `L23` (empty only for fail/unknown omissions), never literal text.
+The controller resolves this to the canonical `quote` field for verification.
+Legacy transport items with `quote` instead of `line_id` remain compatible: they
+accept a line ID or an exact unique completion-line value. Mixing both fields in
+one item is rejected. Numbered
+completion lines are bound into the payload. Literal compatibility accepts only
+an entire nonblank original completion line of at most 160 characters whose
+`completion_lines` value occurs once in the mapping. A truncated preview of a
+longer original line is not accepted as literal evidence; use its line ID. Paraphrases, partial matches, ambiguous repeated values
+and multiline text are rejected; use the line ID to disambiguate repeated lines.
+Existing ID strings are reserved solely as IDs in both forms: if line `L2`
+contains the text `L1`, use `L2` to cite that text; `L1` always selects line one. The
+controller resolves each selected line to its actual first 160 characters before
+strict quotation validation; unknown references are rejected. Original transport
+and resolved quotation verdicts are retained privately. Recheck reparses the raw
+provider response using sealed normalization and compares both derived verdicts.
+Only all-pass admits the case. Missing fields, duplicate keys, unsupported quotes,
+unknown status, requested tools, invalid JSON, stale evidence and transport errors
+block admission. A matching quotation is an integrity check, not a substitute for
+the judge assessing the entire response. Evaluate model reliability with public
+positive and negative calibration before relying on a configuration.
+
+The standard policy requires an evaluator provider different from both the
+scenario author and the Claude generation provider. The supported transports are
+loopback local OpenAI-compatible HTTP (without tools or redirects) and a fresh,
+safe-mode Claude subscription session with tools/MCP/session persistence disabled.
+Claude requires explicit `claude-only` policy and `independence: "fresh-session"`.
+Codex is supported only through the pinned, capability-verified subscription
+adapter described below. No provider fallback occurs.
+
+Routing follows `NIGHTSHIFT_ROUTING_FILE`, then the project's `routing.file` or
+`providers.routing_file`, then the checkout routing file. Local connection settings
+are under `local`: `backend`, `base_url`, optional `auth_settings_file`. Supported
+backends are `omlx`, `ollama`, `lmstudio`, and `openai-compatible`; endpoints must
+be HTTP loopback. Authentication settings must be private and owned. Credentials
+are not logged. Configured `local.reasoning_effort` (nonblank string or finite
+number) is forwarded unchanged. Optional `evaluation_chat_template_kwargs` accepts
+only `{ "enable_thinking": true|false }` and is forwarded as `chat_template_kwargs`;
+no thinking setting is imposed by default. `evaluation_response_format` selects `json_object` (default),
+`json_schema`, or `none`; every selection still uses the same strict local verdict
+validator. `evaluation_response_normalization` is `none` by default; explicit
+`json-or-single-fence-v1` permits one whole-output JSON fence, while chatter and
+multiple fences still fail. Verdict quotes are exact nonblank single-line substrings
+of at most 160 characters (empty only for fail/unknown omissions); reasons are
+nonblank and at most 240 characters. Provider and model are explicit configuration, never automatic fallback.
+
+Generation is finalized and persisted before reserving evaluation. Every judge
+launch consumes one existing gate call with kind `evaluation`; limits and retained
+failures are never reset. Minimum admission includes generation and judge calls.
+Pending attempts block further admission after interruption. Usage totals include
+both transports, while run metrics identify their separate providers. Unknown
+usage remains unknown. Failed structure does not launch or charge a model judge. Pre-reservation unknown
+source/schema/storage failures consume infrastructure allowance as unlaunched
+probe failures; generation counts remain unchanged.
+
+For this optional contract, final completion bodies and raw judge output are retained
+in mode-0600 evidence files under a mode-0700 directory beside the controller's
+external heldout manifest. Development evaluator evidence and source-evaluated generation transcripts are
+retained under the private proof state directory. Unsafe/symlink paths fail closed. Public receipts
+contain hashes, status, counters and usage, never final inputs, response bodies,
+judge quotations or private evidence paths. Final gate rechecks private evidence,
+contract/completion/payload hashes, the evaluator engine and routing configuration.
+It reconstructs the conversation from sealed user inputs and retained raw generation
+responses, verifies their output/completion hashes, and cross-checks evaluator input,
+history, completion and system prompt against that generation record. Missing or
+altered generation evidence blocks admission.
+Changes require fresh evaluation and ordinary resealing rules; old receipts are
+never promoted into semantic proof. Public and private manifests must both enable
+case evaluation for acceptance criteria requiring it. Private-only evaluation is
+rejected at sealing before any evaluator reservation.
+
+Run `bash tests/test-source-evaluation.sh` for offline contract, HTTP-transport,
+accounting, private retention and tamper coverage. These fixtures prove harness
+boundaries, not a live model's semantic accuracy or application retrieval behavior.
+
+
+### Pinned Codex subscription evaluator
+
+`evaluator.provider: "codex"` selects the native Codex CLI adapter. Model selection
+remains explicit in the contract; no model is hard-coded. Standard independence
+still rejects an evaluator that shares the scenario author's provider, and
+`claude-only` policy still rejects Codex. `allowed_providers` in routing is also
+enforced at sealing and before the evaluator launch.
+
+The supported adapter is pinned to **codex-cli 0.155.1**. Before copying any
+credentials, it runs an unauthenticated loopback request probe with the selected
+model and verifies that the outbound tools list is empty. Unknown versions,
+nonempty tools, unsupported capability output, or a missing probe request stop
+before a model call. CLI version equality alone is not treated as proof of an
+empty tool surface.
+
+A derived model catalog disables shell, patch, experimental tools, collaboration,
+Responses Lite and websockets; it replaces model instructions with the evaluator
+system instructions. Active feature flags are disabled except host-skill-discovery
+suppression. Deprecated flags must already be false; removed flags are not used.
+The adapter ignores user configuration and rules, disables web search and interactive
+tools, and uses a fresh ephemeral read-only session in an isolated private home.
+
+Optional routing configuration:
+
+```json
+{
+  "allowed_providers": ["claude", "codex"],
+  "codex_evaluation": {
+    "model_catalog_file": "/absolute/path/to/models_cache.json",
+    "auth_file": "/absolute/path/to/auth.json",
+    "reasoning_effort": "low"
+  }
+}
+```
+
+Omitted paths default to the original Codex home's `models_cache.json` and
+`auth.json`. The selected model must exist uniquely in the catalog. An optional
+reasoning effort must be listed in that model's metadata. Authentication must be
+an owned private ChatGPT subscription file, with no API key. Only subscription
+authentication is copied to the temporary home; native `codex login status` must
+confirm ChatGPT. API credentials, provider URLs, remote-session variables and
+proxies are not inherited. Production calls force the built-in OpenAI provider
+and ChatGPT login, with no API or local-provider fallback.
+
+The output schema requests `line_id` evidence. Strict JSONL parsing requires one
+completed turn and exactly one final agent message, preserves input/output token
+usage, and rejects any tool event or malformed/error event. Raw JSONL (including
+reported cached-token usage) and capability hashes are retained privately; replay
+reparses the same bytes before accepting the canonical verdict. The Codex helper
+is included in both proof-engine and evaluator-payload fingerprints.
+
+Capability probing, authentication and generation share one elapsed deadline.
+Only the production subscription CLI invocation triggers the evaluator launch
+counter; the loopback probe contacts no model. A production CLI startup failure
+still consumes that invocation. Native transport retries can occur inside one CLI
+invocation; the controller does not claim its launch counter counts backend HTTP
+attempts. Safe failure diagnostics retain category, phase, exit code and stderr
+hash, without credential-bearing stderr text. The adapter currently bounds its serialized
+payload to 96,000 UTF-8 bytes because it passes the prompt directly to the native
+CLI. Unsupported or oversized inputs fail closed. This profile establishes bounded
+text evaluation, not application tool execution or retrieval evidence. A fresh live
+subscription calibration is still required for any selected model and rubric.

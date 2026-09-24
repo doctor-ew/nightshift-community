@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/Users/drew.schillinger/.local/share/mise/installs/python/3.14.7/bin/python3",
+    "verify.py"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS: three consumer behavior assertions\n",
+  "stderr": ""
+}

@@ -1,0 +1,8 @@
+{
+  "elapsed_seconds": 0.385,
+  "exit_code": 1,
+  "launch_limit": 1,
+  "active_seconds_limit": 90,
+  "outer_timeout_seconds": 110,
+  "retries": 0
+}

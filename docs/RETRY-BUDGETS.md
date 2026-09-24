@@ -35,3 +35,29 @@ This accounting is scoped to adversarial calls using the documented bounded entr
 It is not a hostile-process sandbox, a global controller migration, or a transport
 timeout/output quota implementation. Those separate #15 limits remain outstanding.
 The existing stricter malformed-response reissue cap still applies.
+
+## Repeated registered repair inputs
+
+For a task with `repair-checks.json`, source-review admission first requires the
+original snapshot to fail and the current artifact to pass the registered checks.
+The dispatcher then hashes the sorted artifact paths, JSON pointers, and canonical
+JSON content hashes. It persists that signature against the reserved attempt in
+`.adversarial-budget.json` before dispatch.
+
+A signature already finalized as `substantive` cannot launch another review.
+Changing JSON whitespace, object key order, finding IDs, routing, or the report
+filename does not count as a repair. Refusal consumes no additional reservation.
+Pending attempts and exhausted budgets retain their existing restrictions;
+infrastructure failures remain independently retryable within the original limits.
+
+`repair-admission.json` exposes `needs-decision` and an actionable unblock path
+through the dashboard's existing gate reader. Inspect the retained finding, change
+the repair author/provider within policy, and correct the relevant artifact or
+regression contract. On later admission the status becomes `skipped`, meaning the
+admission guard passed; it never approves the source or behavioral gate.
+
+This guard detects identical registered artifact content after a substantive
+failure. It does not detect semantically equivalent findings on changed artifacts,
+enforce provider switching, backfill historical signatures, or cover reviews that
+bypass the bounded source dispatcher. Artifact content changes are necessary for
+re-admission of the same registered targets; they are not proof of correctness.

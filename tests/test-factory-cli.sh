@@ -44,6 +44,10 @@ elif name == 'claude' and sys.argv[1:2] == ['auth']:
 elif name == 'bd':
     print(json.dumps({'id': 'bead-123', 'title': 'Fixture', 'status': 'open'}))
 elif name in ('codex', 'claude'):
+    if os.environ.get('CLI_HANG') == '1':
+        import signal, time
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(60)
     sys.exit(int(os.environ.get('CLI_EXIT', '0')))
 ''')
         stub.chmod(0o755)
@@ -192,5 +196,12 @@ elif name in ('codex', 'claude'):
                     '[runtime.aliases]\nqwen="string"\n'):
         config(invalid)
         assert run('codex/qwen', 'prompt.md', status=1) == []
+    config()
+    (project / 'budget-test.md').write_text('# Budget termination fixture\nBounded task.\n')
+    budget_env = {'NIGHTSHIFT_TICKET_MAX_WALL_SECONDS': '1', 'CLI_HANG': '1'}
+    worker(run('codex', 'budget-test.md', status=143, extra_env=budget_env))
+    # Restart retains exhausted allowance and never invokes another worker.
+    records = run('codex', 'budget-test.md', status=75, extra_env=budget_env)
+    assert not [r for r in records if r['name'] == 'codex' and r['args'][:2] != ['login', 'status']]
 print('PASS: factory shorthand, runtime defaults, argv preservation, and failure boundaries')
 PY

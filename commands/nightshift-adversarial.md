@@ -117,6 +117,15 @@ python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-budget.p
   --category "$EVALUATION_CATEGORY"
 ```
 
+The bounded dispatcher reuses a previously accepted positive report only when its
+request, working-tree file contents, review policy, routing and evaluator assets
+match. Reuse performs no provider call or retry reservation. Continue the canonical
+evidence/mapping checks above; a reuse receipt is not gate approval. Changed dirty
+files invalidate reuse without a commit. Negative search results and reports with
+incomplete dependencies are not reusable. Unchanged failed requests are rejected
+before another call even when no repair manifest was registered. Repair the retained
+finding; changing an output filename or attempt number is not a repair.
+
 Read the resulting `next_action` before another invocation. Do not finalize
 again with a different category; retained attempts are immutable after mapping.
 Nonzero dispatcher exits already finalize infrastructure/role failures and must

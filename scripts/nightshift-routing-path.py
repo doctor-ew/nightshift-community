@@ -7,17 +7,27 @@ import sys
 import tomllib
 
 
-def resolve(root):
+def resolve(root, project=None):
     explicit = os.environ.get('NIGHTSHIFT_ROUTING_FILE')
     if explicit:
         path = Path(explicit).resolve()
     else:
-        project = os.environ.get('NIGHTSHIFT_PROJECT_DIR')
+        project = project or os.environ.get('NIGHTSHIFT_PROJECT_DIR')
         if not project:
             result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
             project = result.stdout.strip() if result.returncode == 0 else str(Path.cwd())
         project = Path(project).resolve()
         manifest = project / '.nightshift.toml'
+        if not manifest.exists():
+            # Isolated ticket worktrees often predate checkout-local setup.
+            # Recover the primary checkout's routing instead of bundled defaults.
+            result = subprocess.run(['git', '-C', str(project), 'rev-parse', '--git-common-dir'],
+                                    capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                common = (project / result.stdout.strip()).resolve()
+                primary = common.parent / '.nightshift.toml'
+                if common.name == '.git' and primary.is_file():
+                    project, manifest = common.parent, primary
         settings = tomllib.loads(manifest.read_text()) if manifest.exists() else {}
         configured = settings.get('routing', {}).get('file') or settings.get('providers', {}).get('routing_file')
         path = (project / configured).resolve() if configured else Path(root).resolve() / 'routing.json'

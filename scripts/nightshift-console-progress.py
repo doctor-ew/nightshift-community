@@ -73,6 +73,38 @@ def cleaned(value, limit=600):
     return text[:limit]
 
 
+def batch_dependency(project, task):
+    """Read only the batch explicitly linked by this parent's local tracker."""
+    try:
+        tracker = Path(project).resolve() / '.nightshift' / (task + '.md')
+        content, _ = safe_text(tracker)
+        matches = re.findall(r'^Batch: (\.nightshift/batch-[A-Za-z0-9_-]+\.json)$', content, re.M)
+        if len(matches) != 1:
+            return None
+        path = Path(project).resolve() / matches[0]
+        batch = record(path)
+        if batch.get('parent_task') != task or not isinstance(batch.get('statuses'), dict):
+            return None
+        children = batch.get('decomposition', {}).get('children', [])
+        if not isinstance(children, list) or not 1 <= len(children) <= 128:
+            return None
+        rows = []
+        for child in children:
+            ref, child_id = child['ref'], child['id']
+            status = batch['statuses'].get(ref, {})
+            if not isinstance(status, dict) or status.get('status') not in ('pending', 'running', 'in_progress', 'complete', 'blocked', 'failed', 'skipped', 'needs-decision'):
+                return None
+            rows.append(dict(id=cleaned(child_id, 80), task=cleaned(child.get('task'), 100),
+                             status=status['status'], reason=cleaned(status.get('reason'))))
+        blocked = [row for row in rows if row['status'] in ('blocked', 'failed', 'needs-decision')]
+        if not blocked:
+            return None
+        return dict(blocked=True, children=rows, current=cleaned(batch.get('current')) or None,
+                    reason=blocked[0]['id'] + ': ' + blocked[0]['reason'], evidence=path.as_uri())
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
 def progress(project, task, launch=None, running=False):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', task):
         raise ValueError('Invalid task')
@@ -203,6 +235,17 @@ def progress(project, task, launch=None, running=False):
         result.update(phase='Orchestrator active; waiting for next worker update', action_required='None — awaiting update')
     else:
         result['next'] = 'Inspect the recorded outcome before choosing a recovery action'
+    dependency = batch_dependency(project, task)
+    if dependency:
+        result['dependency'] = dependency
+        result['evidence'].append(dict(label='Batch dependency evidence', href=dependency['evidence']))
+        result['action_required'] = 'Resolve the recorded child blocker; waiting alone will not clear it'
+        result['next'] = 'Repair the blocked prerequisite, then resume with existing counters'
+        if result['running']:
+            result['phase'] += ' · child dependency blocked'
+        else:
+            result['phase'] = 'Batch blocked on prerequisite'
+        result['latest_event'] = dependency['reason']
     result['activity'] = result['phase']
     if specialists and worker.get('attempt'):
         result['activity'] += ' · attempt ' + str(worker['attempt'])

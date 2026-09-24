@@ -89,6 +89,12 @@ def chat_module():
     return module
 
 
+def decision_module():
+    spec = importlib.util.spec_from_file_location('console_decisions', ROOT / 'scripts/nightshift-console-decisions.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
 def review_module():
     spec = importlib.util.spec_from_file_location('workshop_review', ROOT / 'scripts/nightshift-workshop-review.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -118,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'evidence_api': 1, 'ticket_chat_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -171,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat'):
+        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -180,15 +186,17 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin approval required'); return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (16384 if self.path == '/api/tickets/chat' else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (16384 if self.path in ('/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
-            allowed = {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            allowed = {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
             if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
             if self.path == '/api/workshop/approve':
                 result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            elif self.path == '/api/tickets/decision':
+                result = decision_module().submit(self.server.project, body['task'], body['sha256'], body['decision_sha256'], body['choice'], body['answer'])
             elif self.path == '/api/tickets/chat':
                 result = chat_module().start(self.server.project, body['task'], body['sha256'], body['provider'], body['message'])
             else:

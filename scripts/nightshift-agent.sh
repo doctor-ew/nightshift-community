@@ -17,6 +17,7 @@ INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
 ACCOUNTING_EMITTED=false TICKET_JSON='null' ATTRIBUTION=unattributed
 ERROR=''
+BUDGET_RESERVED=false BUDGET_TASK='' BUDGET_PROJECT=''
 # Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
 # telemetry file above: a run-local, typed record of this one invocation for
 # nightshift-run-metrics.py's summary. Purely observational and nonfatal;
@@ -127,6 +128,9 @@ telemetry() (
   mv -f -- "$temporary" "$TELEMETRY_FILE"
 )
 cleanup() {
+  if [ "$BUDGET_RESERVED" = true ]; then
+    python3 "$ROOT/scripts/nightshift-ticket-budget.py" finish --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID" --outcome "$TELEMETRY_STATUS" >/dev/null 2>&1 || true
+  fi
   emit_accounting_receipts "$TELEMETRY_STATUS" || true
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
   emit_observation "$TELEMETRY_STATUS" || true
@@ -261,6 +265,10 @@ ROUTE=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" "${POLICY_ARGS[@]}
 export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
 PROVIDER="$(jq -r '.provider' <<< "$ROUTE")"
 MODEL="$(jq -r '.model' <<< "$ROUTE")"
+SPEC_REPAIR_CONTEXT=''
+if [ "$ROLE" = nightshift-spec-writer ]; then
+  SPEC_REPAIR_CONTEXT=$(python3 "$ROOT/scripts/nightshift-spec-repair-brief.py" --directory "$(dirname "$OUTPUT")") || fail 'Existing draft requires a current focused repair brief; reuse the draft instead of restarting discovery'
+fi
 if [ "$AUTH" = subscription ]; then
   unset OPENAI_API_KEY CODEX_API_KEY ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_BASE_URL ANTHROPIC_BASE_URL
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
@@ -288,6 +296,7 @@ EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independ
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
 fi
+EXECUTION_CONTEXT+="$SPEC_REPAIR_CONTEXT"
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-agent.XXXXXX")"
@@ -307,6 +316,12 @@ case "$PROVIDER" in
     if [ "$ROLE" = nightshift-behavior-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+    elif [ "$ROLE" = nightshift-code-fact-extractor ]; then
+      # Source verification needs repository reads, not installed skills, MCP,
+      # plugins or another copy of the role in the user prompt.
+      CMD=(claude -p --safe-mode --tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")
+$CONTRACT
+$EXECUTION_CONTEXT" --json-schema "$(cat "$TMP/provider.schema.json")" "$(cat "$INPUT")")
     elif [ "$ROLE" = nightshift-repair-analyst ]; then
       CMD=(claude -p --tools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
@@ -387,6 +402,20 @@ if [ "${NIGHTSHIFT_TELEMETRY_DIR:-}" != off ]; then
     telemetry running || true
   fi
 fi
+# Shared admission covers instrumented dispatches across stages and restarts.
+# A parent factory may explicitly bind children to its common ticket budget.
+BUDGET_TASK=${NIGHTSHIFT_BUDGET_TASK:-$TASK_KEY}
+if [ -n "$BUDGET_TASK" ]; then
+  BUDGET_PROJECT=${NIGHTSHIFT_BUDGET_PROJECT:-${NIGHTSHIFT_PROJECT_DIR:-$(pwd)}}
+  BUDGET_ARGS=(reserve --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_WALL_SECONDS:-}" ] || BUDGET_ARGS+=(--max-wall-seconds "$NIGHTSHIFT_TICKET_MAX_WALL_SECONDS")
+  if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" "${BUDGET_ARGS[@]}" > "$TMP/ticket-budget.json"; then
+    fail "ticket budget admission denied: $(cat "$TMP/ticket-budget.json")"
+  fi
+  BUDGET_RESERVED=true
+fi
 set -m
 NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
 CHILD=$!
@@ -404,6 +433,19 @@ try:
 finally:
     os.unlink(temporary)
 PY
+fi
+if [ "$BUDGET_RESERVED" = true ]; then
+  budget_ticks=0
+  while kill -0 "$CHILD" 2>/dev/null; do
+    if [ "$budget_ticks" -eq 0 ]; then
+      if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" check --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" > "$TMP/ticket-budget.json"; then
+        fail "ticket budget enforcement stopped provider: $(cat "$TMP/ticket-budget.json")"
+      fi
+    fi
+    # Cheap completion polling avoids adding two seconds to short calls.
+    sleep 0.1
+    budget_ticks=$(( (budget_ticks + 1) % 20 ))
+  done
 fi
 if wait "$CHILD"; then CHILD=''; else
   provider_exit=$?

@@ -231,17 +231,26 @@ if [ -f "$SPEC" ]; then
 fi
 ```
 
-If a spec already exists, ask:
-> "A spec already exists for `$TASK_KEY`. Use it or regenerate? (use / regen)"
+If a spec already exists, reuse it by default. Read retained operator decisions and
+current findings. Do not repeat the grounding interview, source discovery, or writer
+invocation for unchanged requirements. Continue with missing validation and review
+in `/nightshift-spec` Step 4; existence is not approval and must not skip directly
+to the approved tracker in Step 8.
 
-- **use** → skip to Step 8 (handoff).
-- **regen** → continue to Step 5.
+Only concrete unresolved findings or changed upstream requirements justify a writer
+repair. Write `spec-repair.json` beside the draft with `spec_sha256` matching the
+current file and a nonempty `findings` array of `{id, target, problem}` objects.
+Use retained stable IDs and name the affected section or artifact; the dispatcher
+requires this brief before launching a writer against an existing draft. This is
+controller work, not another operator question. Do not manufacture a finding to
+obtain a rewrite. The repair prompt is restricted to the listed defects; validation
+and independent approval still follow.
 
 ---
 
 ## Step 5 — Three grounding questions
 
-Ask one at a time. Wait for each answer before asking the next.
+Use the ticket, prior answers, and existing user authorization first. Do not ask again when those already establish the answer. For a genuinely unresolved choice in factory mode, use the web-portal decision protocol in `nightshift-eng.md`: publish a structured question/options with `nightshift-console-decisions.py`, record `needs-decision`, and let the portal retain the answer and continue. In supervised mode ask one at a time.
 
 1. **Intent check:** "In one sentence — what is this ticket actually building? (Ticket titles drift from real intent — this anchors the spec.)"
 
@@ -394,6 +403,23 @@ integration; never silently drop requirements to shrink a ticket. Include the
 installed helper's capability discovery, one canonical output contract, and
 artifact-scoped assertion requirements in the brief. Follow the spec-writer's
 public counterexample and repair-coverage procedure before re-review.
+
+For repairs with mechanically checkable findings, require the writer's conventional
+`docs/<task-key>/repair-checks.json` and a passing, current hash-bound
+`repair-check.receipt.json` before another paid review. Use
+`nightshift-repair-check.py check` with project, manifest and output arguments;
+its schema and limits are documented in `agents/nightshift-spec-writer.md`.
+Snapshot the original artifact before editing and enumerate all affected public
+cases/turns. A passing regression check does not approve any product, design or
+behavioral gate. Absence of a manifest is not regression evidence. Do not add a
+fake equality assertion for an inherently semantic finding.
+
+A recurring stable finding changes the repair strategy: route a replacement
+author through a different configured provider with the narrowed defect and
+delta, within the existing cumulative allowance. Do not pay for another full
+spec rewrite or reset counters. Concrete technical failures are repair work;
+actual unresolved product choices must be published through the portal decision
+helper, preserving the answer for continuation.
 
 Spec saves to `docs/<task-key>/SPEC.md`; every mode also produces
 `docs/<task-key>/behavior-scenarios.json`. Include stable AC IDs, per-case

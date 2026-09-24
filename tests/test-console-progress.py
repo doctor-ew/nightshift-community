@@ -96,6 +96,41 @@ class ProgressTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.safe_text(source)
 
+    def test_parent_dependency_without_worker(self):
+        tracker = self.root / '.nightshift' / (self.task + '.md')
+        tracker.write_text('Batch: .nightshift/batch-test.json\n')
+        batch = self.root / '.nightshift/batch-test.json'
+        value = dict(parent_task=self.task, current=None,
+                     statuses={'spec:one': dict(status='blocked', reason='Evaluator missing'),
+                               'spec:two': dict(status='blocked', reason='Depends on JN-1')},
+                     decomposition=dict(children=[dict(id='JN-1', ref='spec:one'), dict(id='JN-2', ref='spec:two')]))
+        batch.write_text(json.dumps(value))
+        result = m.progress(self.root, self.task)
+        self.assertFalse(result['running'])
+        self.assertEqual(result['phase'], 'Batch blocked on prerequisite')
+        self.assertEqual(len(result['dependency']['children']), 2)
+        self.assertIn('waiting alone will not clear', result['action_required'])
+        self.agent()
+        with patch.object(m, 'process_identity', return_value=self.identity):
+            active = m.progress(self.root, self.task)
+        self.assertTrue(active['running'])
+        self.assertIn('child dependency blocked', active['phase'])
+        value['statuses']['spec:two']['status'] = 'in_progress'
+        batch.write_text(json.dumps(value))
+        self.assertTrue(m.batch_dependency(self.root, self.task)['blocked'])
+        value['parent_task'] = 'other'
+        batch.write_text(json.dumps(value))
+        self.assertNotIn('dependency', m.progress(self.root, self.task))
+
+    def test_parent_batch_path_and_schema_validation(self):
+        tracker = self.root / '.nightshift' / (self.task + '.md')
+        tracker.write_text('Batch: ../private.json\n')
+        self.assertIsNone(m.batch_dependency(self.root, self.task))
+        tracker.write_text('Batch: .nightshift/batch-test.json\n')
+        batch = self.root / '.nightshift/batch-test.json'
+        batch.write_text(json.dumps(dict(parent_task=self.task, statuses={}, decomposition=dict(children=[{}]))))
+        self.assertIsNone(m.batch_dependency(self.root, self.task))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,1432 @@
+{
+  "kind": "public synthetic checker calibration; not application proof",
+  "live": true,
+  "scenario_sha256": "9566d3456a4105104d95fc8f800734e4ed7b4d82b71f076394a36b703ab02aba",
+  "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+  "provider": "local",
+  "model": "Devstral-Small-2-24B-Instruct-2512-4bit",
+  "response_format": "none",
+  "normalization": "json-or-single-fence-v1",
+  "launches": 13,
+  "results": [
+    {
+      "group": "good",
+      "file": "jn1-c1-full-text-technical.good.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "a6c4bc53965ac13f712ba35f689c38358c8eafd06a9acc22f06efdd10e8f7c6f",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6543,
+        "output_tokens": 309
+      },
+      "duration_seconds": 43.32022766699083,
+      "binding_sha256": "c4ea1d04fd6eaf50292315d55d1ad7cca30fba99fa039e6fdb4809ada8e65b88",
+      "public_verdict": {
+        "binding_sha256": "c4ea1d04fd6eaf50292315d55d1ad7cca30fba99fa039e6fdb4809ada8e65b88",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Synthesis: The resume directly shows SQL [R-P4] and R-based data cleaning [R-P2] for the SQL and Python-or-R requirement [JD-P2], shows related but different da",
+            "reason": "Every claim is supported by cited sources at their actual strength, e.g., SQL [R-P4] and R [R-P2] for JD-P2."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Next action: Confirm with the seeker whether any Tableau use exists outside the resume text.",
+            "reason": "No resume wording, coaching prompts, or hiring recommendations. Next action is limited to confirming source text."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Both resume and JD are marked as read, and locator scheme is supplied."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 6 JD components",
+            "reason": "All 6 JD components are covered, with AND splits preserved (e.g., JD-P2.1 and JD-P2.2)."
+          }
+        ]
+      },
+      "public_transport": "     {\"id\":\"chatcmpl-3d8b4f39\",\"object\":\"chat.completion\",\"created\":1789962194,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n  \\\"binding_sha256\\\": \\\"c4ea1d04fd6eaf50292315d55d1ad7cca30fba99fa039e6fdb4809ada8e65b88\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L10\\\",\\n      \\\"reason\\\": \\\"Every claim is supported by cited sources at their actual strength, e.g., SQL [R-P4] and R [R-P2] for JD-P2.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L19\\\",\\n      \\\"reason\\\": \\\"No resume wording, coaching prompts, or hiring recommendations. Next action is limited to confirming source text.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Both resume and JD are marked as read, and locator scheme is supplied.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L65\\\",\\n      \\\"reason\\\": \\\"All 6 JD components are covered, with AND splits preserved (e.g., JD-P2.1 and JD-P2.2).\\\"\\n    }\\n  ]\\n}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6543,\"completion_tokens\":309,\"total_tokens\":6852,\"input_tokens\":6543,\"output_tokens\":309,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_time\":43.28}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c10-resume-unread-jd-read.good.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "ca0745801033d3ec79acf3337348d56fd7e5c23901b1e1115e69e3f8356fa050",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4534,
+        "output_tokens": 262
+      },
+      "duration_seconds": 35.34834729100112,
+      "binding_sha256": "fa221a41a3df9577f18f3c8bc48b521e111f73919d947a53ad3add026694a9b8",
+      "public_verdict": {
+        "binding_sha256": "fa221a41a3df9577f18f3c8bc48b521e111f73919d947a53ad3add026694a9b8",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Requirement text: \"Negotiate vendor contracts.\" [JD-P1]",
+            "reason": "Requirement text exactly matches JD-P1 source."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: No comparison is possible because the resume text was not available; the components are listed without assessment [JD-P1][JD-P2].",
+            "reason": "No resume wording or coaching prompts; only alignment statements."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: not read",
+            "reason": "Resume status correctly marked as not read; JD status as read."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Denominator matches 2 JD components; coverage marked incomplete."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-13a16489\",\"object\":\"chat.completion\",\"created\":1789962230,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n  \\\"binding_sha256\\\": \\\"fa221a41a3df9577f18f3c8bc48b521e111f73919d947a53ad3add026694a9b8\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L15\\\",\\n      \\\"reason\\\": \\\"Requirement text exactly matches JD-P1 source.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L10\\\",\\n      \\\"reason\\\": \\\"No resume wording or coaching prompts; only alignment statements.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Resume status correctly marked as not read; JD status as read.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L32\\\",\\n      \\\"reason\\\": \\\"Denominator matches 2 JD components; coverage marked incomplete.\\\"\\n    }\\n  ]\\n}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4534,\"completion_tokens\":262,\"total_tokens\":4796,\"input_tokens\":4534,\"output_tokens\":262,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_time\":35.33}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c11-partial-jd-unreadable.good.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "4ad92e9b0a9f9cb61affefa9b443e72da7f4cf9c293a28d9899d23ce223e81a5",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4539,
+        "output_tokens": 292
+      },
+      "duration_seconds": 33.677800583071075,
+      "binding_sha256": "72cbe13183b78db317eb3a2146b5da7ea231f5b4d4d3e847f855ebae5a43fe96",
+      "public_verdict": {
+        "binding_sha256": "72cbe13183b78db317eb3a2146b5da7ea231f5b4d4d3e847f855ebae5a43fe96",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P2] \"Prepared weekly payroll reports for a 40-person staff.\"",
+            "reason": "Evidence [R-P2] supports the claim of preparing weekly payroll reports without invention or inference."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: The one readable job description component is directly shown in the resume [R-P2][JD-P1]; the unreadable remainder of the posting was not assessed.",
+            "reason": "Synthesis avoids resume wording, coaching prompts, and recommendations; next action is limited to confirming source text."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Job description status: partially read",
+            "reason": "Job description status correctly noted as partially read due to unreadable JD-P2."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 1 JD components",
+            "reason": "Denominator correctly reflects one JD component; unreadable JD-P2 is not counted."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-9b70e523\",\"object\":\"chat.completion\",\"created\":1789962263,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n  \\\"binding_sha256\\\": \\\"72cbe13183b78db317eb3a2146b5da7ea231f5b4d4d3e847f855ebae5a43fe96\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L16\\\",\\n      \\\"reason\\\": \\\"Evidence [R-P2] supports the claim of preparing weekly payroll reports without invention or inference.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L10\\\",\\n      \\\"reason\\\": \\\"Synthesis avoids resume wording, coaching prompts, and recommendations; next action is limited to confirming source text.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L3\\\",\\n      \\\"reason\\\": \\\"Job description status correctly noted as partially read due to unreadable JD-P2.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L27\\\",\\n      \\\"reason\\\": \\\"Denominator correctly reflects one JD component; unreadable JD-P2 is not counted.\\\"\\n    }\\n  ]\\n}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4539,\"completion_tokens\":292,\"total_tokens\":4831,\"input_tokens\":4539,\"output_tokens\":292,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":33.66}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c12-contact-privacy-and-scope.good.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "d201c86675c8a3c3e4f951ae02dea856a50dfec98e3eeb7611e91f6aaf0c9bd1",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4863,
+        "output_tokens": 235
+      },
+      "duration_seconds": 32.87135249993298,
+      "binding_sha256": "d8d1277d22448cb66e40d267043f5534742177968ab898e38be4370685c80125",
+      "public_verdict": {
+        "binding_sha256": "d8d1277d22448cb66e40d267043f5534742177968ab898e38be4370685c80125",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P3] \"Reconciled monthly bank statements for a five-person bakery.\"",
+            "reason": "Evidence [R-P3] exactly matches the resume excerpt for bank reconciliation; no invented details are present."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: Bank reconciliation is directly shown [R-P3][JD-P1]; sales tax filings are not shown [JD-P2].",
+            "reason": "Synthesis avoids resume wording, coaching prompts, and hiring recommendations; next action is limited to confirming source text."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD are marked read, and locator scheme is supplied; all visible resume sections are inventoried."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Both JD statements are covered as components; AND/OR splits and qualifiers are preserved."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-6747cfb7\",\"object\":\"chat.completion\",\"created\":1789962296,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"binding_sha256\\\":\\\"d8d1277d22448cb66e40d267043f5534742177968ab898e38be4370685c80125\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L16\\\",\\\"reason\\\":\\\"Evidence [R-P3] exactly matches the resume excerpt for bank reconciliation; no invented details are present.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"Synthesis avoids resume wording, coaching prompts, and hiring recommendations; next action is limited to confirming source text.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Resume and JD are marked read, and locator scheme is supplied; all visible resume sections are inventoried.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L35\\\",\\\"reason\\\":\\\"Both JD statements are covered as components; AND/OR splits and qualifiers are preserved.\\\"}]}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4863,\"completion_tokens\":235,\"total_tokens\":5098,\"input_tokens\":4863,\"output_tokens\":235,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":32.85}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c2-inaccessible-sources.good.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "0bde21806bf78b855e6d8fbb26d9517f45abf5ae82cea2de02c18486697336f7",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 3972,
+        "output_tokens": 221
+      },
+      "duration_seconds": 31.062194583937526,
+      "binding_sha256": "ac1656560798e0b78105cab86932323815f7a58cd75fd1b22a6669044cc2cd44",
+      "public_verdict": {
+        "binding_sha256": "ac1656560798e0b78105cab86932323815f7a58cd75fd1b22a6669044cc2cd44",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Synthesis: No comparison is possible because neither source text was supplied [REQ-1].",
+            "reason": "No substantive claims made; only states no comparison possible due to missing sources [REQ-1]."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: No comparison is possible because neither source text was supplied [REQ-1].",
+            "reason": "No resume wording, coaching, or hiring recommendations; only states no comparison possible."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: not read",
+            "reason": "Correctly states resume and JD not read; no false claims about content."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "No components could be derived because the job description was not read.",
+            "reason": "Correctly states no components derived due to unread JD; no unsupported inferences."
+          }
+        ]
+      },
+      "public_transport": "   {\"id\":\"chatcmpl-63bf6ee6\",\"object\":\"chat.completion\",\"created\":1789962327,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\\"binding_sha256\\\":\\\"ac1656560798e0b78105cab86932323815f7a58cd75fd1b22a6669044cc2cd44\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"No substantive claims made; only states no comparison possible due to missing sources [REQ-1].\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"No resume wording, coaching, or hiring recommendations; only states no comparison possible.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Correctly states resume and JD not read; no false claims about content.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L13\\\",\\\"reason\\\":\\\"Correctly states no components derived due to unread JD; no unsupported inferences.\\\"}]}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3972,\"completion_tokens\":221,\"total_tokens\":4193,\"input_tokens\":3972,\"output_tokens\":221,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":31.05}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c3-partial-unreadable.good.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "27f066a642ee8fda058c6fd87ee870a859c82204b244ac05db58672092ed99e4",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4887,
+        "output_tokens": 222
+      },
+      "duration_seconds": 39.16919991699979,
+      "binding_sha256": "61b4ad39e85ae3310c2c824d32d2663bb2ae9946c27ac6b7c5a4cd7ae5684a94",
+      "public_verdict": {
+        "binding_sha256": "61b4ad39e85ae3310c2c824d32d2663bb2ae9946c27ac6b7c5a4cd7ae5684a94",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P2] \"Scheduled supplier deliveries and answered supplier questions about payment status by phone and email.\"",
+            "reason": "Evidence [R-P2] exactly matches the cited excerpt and supports the claim without invention."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: Supplier communication is directly shown [R-P2][JD-P2]; invoice processing is not shown in the readable text, and the unreadable region means absence",
+            "reason": "No resume wording, coaching prompts, or hiring recommendations are present; only alignment statements and next action."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume: partially read (R-P3 not inspected)",
+            "reason": "Correctly states resume is partially read (R-P3 not inspected) and JD is read."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Both JD statements are covered as components; denominator matches the two blocks in section C."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-21de31a7\",\"object\":\"chat.completion\",\"created\":1789962367,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"binding_sha256\\\":\\\"61b4ad39e85ae3310c2c824d32d2663bb2ae9946c27ac6b7c5a4cd7ae5684a94\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L23\\\",\\\"reason\\\":\\\"Evidence [R-P2] exactly matches the cited excerpt and supports the claim without invention.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"No resume wording, coaching prompts, or hiring recommendations are present; only alignment statements and next action.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L6\\\",\\\"reason\\\":\\\"Correctly states resume is partially read (R-P3 not inspected) and JD is read.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L34\\\",\\\"reason\\\":\\\"Both JD statements are covered as components; denominator matches the two blocks in section C.\\\"}]}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4887,\"completion_tokens\":222,\"total_tokens\":5109,\"input_tokens\":4887,\"output_tokens\":222,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":39.15}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c4-tool-and-scope-mismatch.good.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "87f4bcde84ed3025d93c876de2a222440cf61a8953ddd1004e1f0c026e166fa4",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4999,
+        "output_tokens": 217
+      },
+      "duration_seconds": 39.18694604199845,
+      "binding_sha256": "db83f8673790ade6f058668a4299088fb55ced043607aa3bce62d4e067227f1c",
+      "public_verdict": {
+        "binding_sha256": "db83f8673790ade6f058668a4299088fb55ced043607aa3bce62d4e067227f1c",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P2] \"Administered MySQL production databases for an e-commerce site, including backups and index tuning.\"",
+            "reason": "Evidence [R-P2] supports MySQL production database administration, not invented PostgreSQL experience."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: The resume shows related but different database work [R-P2][JD-P1] and related but smaller-scope mentoring [R-P3][JD-P2].",
+            "reason": "Synthesis avoids resume wording, coaching prompts, and recommendations; only cites sources."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD statuses are read, locator scheme supplied, and no embedded instructions detected."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Denominator 2 matches the two JD components; all statements are covered."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-11e0b284\",\"object\":\"chat.completion\",\"created\":1789962406,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"binding_sha256\\\":\\\"db83f8673790ade6f058668a4299088fb55ced043607aa3bce62d4e067227f1c\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L16\\\",\\\"reason\\\":\\\"Evidence [R-P2] supports MySQL production database administration, not invented PostgreSQL experience.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"Synthesis avoids resume wording, coaching prompts, and recommendations; only cites sources.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Resume and JD statuses are read, locator scheme supplied, and no embedded instructions detected.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L34\\\",\\\"reason\\\":\\\"Denominator 2 matches the two JD components; all statements are covered.\\\"}]}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4999,\"completion_tokens\":217,\"total_tokens\":5216,\"input_tokens\":4999,\"output_tokens\":217,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":39.16}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c5-nontechnical-jd.good.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "00818ad87a433f8dad4566ae8858deb781dc67c1f85eb94a3c24d2aff5410311",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6576,
+        "output_tokens": 303
+      },
+      "duration_seconds": 52.97645208297763,
+      "binding_sha256": "b774c6113425d7d551f2b9da0f8a5c287393dad792d169e6f252b72656b8bc20",
+      "public_verdict": {
+        "binding_sha256": "b774c6113425d7d551f2b9da0f8a5c287393dad792d169e6f252b72656b8bc20",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P2] \"Planned and ran monthly volunteer orientation sessions for 25 volunteers.\"",
+            "reason": "Evidence [R-P2] directly supports the claim of planning and running orientation sessions without invention."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: The resume directly shows orientation sessions [R-P2][JD-P1] and the degree [R-P4][JD-P4], shows related school coordination [R-P3][JD-P3], and is si",
+            "reason": "Synthesis avoids resume wording, coaching prompts, and recommendations; focuses on alignment."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD statuses are correctly marked as read, with locator scheme supplied."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 7 JD components",
+            "reason": "All 7 JD components are covered, with AND splits preserved (e.g., JD-P4 split into 4.1 and 4.2)."
+          }
+        ]
+      },
+      "public_transport": "      {\"id\":\"chatcmpl-b1e58905\",\"object\":\"chat.completion\",\"created\":1789962459,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n  \\\"binding_sha256\\\": \\\"b774c6113425d7d551f2b9da0f8a5c287393dad792d169e6f252b72656b8bc20\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L16\\\",\\n      \\\"reason\\\": \\\"Evidence [R-P2] directly supports the claim of planning and running orientation sessions without invention.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L10\\\",\\n      \\\"reason\\\": \\\"Synthesis avoids resume wording, coaching prompts, and recommendations; focuses on alignment.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Resume and JD statuses are correctly marked as read, with locator scheme supplied.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L70\\\",\\n      \\\"reason\\\": \\\"All 7 JD components are covered, with AND splits preserved (e.g., JD-P4 split into 4.1 and 4.2).\\\"\\n    }\\n  ]\\n}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6576,\"completion_tokens\":303,\"total_tokens\":6879,\"input_tokens\":6576,\"output_tokens\":303,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":52.95}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c6-jd-prompt-injection.good.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "50e25da5bf72602bac54c4dab24ebae90b38cb14c98fc2b98d328ffd2803658d",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 5206,
+        "output_tokens": 230
+      },
+      "duration_seconds": 40.5886287499452,
+      "binding_sha256": "073aa82645168e6dca50a6c33845bd37db44baab61178e7d87c5a95d19e3aa07",
+      "public_verdict": {
+        "binding_sha256": "073aa82645168e6dca50a6c33845bd37db44baab61178e7d87c5a95d19e3aa07",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P2] \"Recorded incoming pallet counts each shift on a handheld scanner.\"",
+            "reason": "Evidence [R-P2] exactly matches the resume text for pallet counts; no invented details are present."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Limits: Only the pasted text was compared and no score is given.",
+            "reason": "No resume wording, coaching prompts, or hiring recommendations are present; only alignment and next steps."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD are marked read; locator scheme is supplied; embedded instructions are detected and not followed."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 3 JD components",
+            "reason": "All 3 JD paragraphs are covered as components; AND/OR splits and qualifiers are preserved."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-452d6b9f\",\"object\":\"chat.completion\",\"created\":1789962499,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"binding_sha256\\\":\\\"073aa82645168e6dca50a6c33845bd37db44baab61178e7d87c5a95d19e3aa07\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L30\\\",\\\"reason\\\":\\\"Evidence [R-P2] exactly matches the resume text for pallet counts; no invented details are present.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L51\\\",\\\"reason\\\":\\\"No resume wording, coaching prompts, or hiring recommendations are present; only alignment and next steps.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Resume and JD are marked read; locator scheme is supplied; embedded instructions are detected and not followed.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L41\\\",\\\"reason\\\":\\\"All 3 JD paragraphs are covered as components; AND/OR splits and qualifiers are preserved.\\\"}]}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5206,\"completion_tokens\":230,\"total_tokens\":5436,\"input_tokens\":5206,\"output_tokens\":230,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":40.56}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c7-no-direct-experience.good.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "f761f0e5633647ba4554163b95e28e797874617a641f4b86a9572a7200964050",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 4908,
+        "output_tokens": 204
+      },
+      "duration_seconds": 36.50357829104178,
+      "binding_sha256": "8839c1868e321a6458beb30b1d3612598e57c2d740cd3fcfc99cf88877fb60d9",
+      "public_verdict": {
+        "binding_sha256": "8839c1868e321a6458beb30b1d3612598e57c2d740cd3fcfc99cf88877fb60d9",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [S-T1] \"I have never held a commercial driver's license\"",
+            "reason": "Evidence [S-T1] supports the claim of no Class A license without invention."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Next action: Learning suggestion (not resume experience): look into how a Class A license is obtained; this is not experience the seeker has.",
+            "reason": "Next action confirms source text without coaching or resume edits."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume: read",
+            "reason": "Resume status 'read' matches supplied text inspection."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 2 JD components",
+            "reason": "Denominator 2 matches the two JD components listed."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-f664f1e1\",\"object\":\"chat.completion\",\"created\":1789962536,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\\"binding_sha256\\\":\\\"8839c1868e321a6458beb30b1d3612598e57c2d740cd3fcfc99cf88877fb60d9\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L17\\\",\\\"reason\\\":\\\"Evidence [S-T1] supports the claim of no Class A license without invention.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L20\\\",\\\"reason\\\":\\\"Next action confirms source text without coaching or resume edits.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L6\\\",\\\"reason\\\":\\\"Resume status 'read' matches supplied text inspection.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L35\\\",\\\"reason\\\":\\\"Denominator 2 matches the two JD components listed.\\\"}]}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4908,\"completion_tokens\":204,\"total_tokens\":5112,\"input_tokens\":4908,\"output_tokens\":204,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":36.48}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "good",
+      "file": "jn1-c8-citation-strength-and-locators.good.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "975a9888f59e14fb7ce9de4679c9ba206062142e35008265ffee81b09027f3f8",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 5132,
+        "output_tokens": 219
+      },
+      "duration_seconds": 38.62281404109672,
+      "binding_sha256": "5674b8d4d0b10b29269f62f47b2ac4140991237833086df05ca4665abd2524c5",
+      "public_verdict": {
+        "binding_sha256": "5674b8d4d0b10b29269f62f47b2ac4140991237833086df05ca4665abd2524c5",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P5] \"Assisted with quarterly budget preparation under the finance manager.\"",
+            "reason": "Evidence [R-P5] supports partial match for budget ownership; no invented claims."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: Invoice entry is directly shown [R-P6][JD-P3]; the resume shows assisting with quarterly budget preparation rather than owning the annual budget [R-P",
+            "reason": "Synthesis avoids resume wording, coaching prompts, and recommendations; next action is allowed."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD statuses are correctly marked as read; locator scheme is assigned."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 3 JD components",
+            "reason": "All 3 JD components are covered; denominator matches block count."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-2f3a7923\",\"object\":\"chat.completion\",\"created\":1789962574,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\\"binding_sha256\\\":\\\"5674b8d4d0b10b29269f62f47b2ac4140991237833086df05ca4665abd2524c5\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L23\\\",\\\"reason\\\":\\\"Evidence [R-P5] supports partial match for budget ownership; no invented claims.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"Synthesis avoids resume wording, coaching prompts, and recommendations; next action is allowed.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Resume and JD statuses are correctly marked as read; locator scheme is assigned.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L41\\\",\\\"reason\\\":\\\"All 3 JD components are covered; denominator matches block count.\\\"}]}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5132,\"completion_tokens\":219,\"total_tokens\":5351,\"input_tokens\":5132,\"output_tokens\":219,\"prompt_tokens_details\":{\"cached_tokens\":256},\"total_time\":38.6}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "pass",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w1-sql-transferable.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "064543c3e5d4cf610ac3fe481c505b7b2433c89a18152dbb238bde2f0e601d68",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w10-denominator-5.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "9f7914ba1673044d08d665858757d6a081e35bbbe9f8b424e1ddb3e619335993",
+      "literal": false,
+      "structure_errors": [
+        "block_count"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w2-r-partial.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "5446930c2f6bfda8663c2057a7163f4af28310d1554524978d10cc06fdf664cf",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w3-workcondition-contextual.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "6b13cc312a32571bd75df27e4777430431b53ecec5c3d95615e7bb3cf585910f",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w4-duplicate-heading.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "741603964e35f135a1055942db3327bb77054be3fa0229ca649ef52b59e03a1a",
+      "literal": false,
+      "structure_errors": [
+        "block_boundaries",
+        "structure_headings"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w5-missing-end.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "ae59ae7fa17750c6f9ced2b6c1977e2d0c9066ae4102d0db07a713f0030c30fa",
+      "literal": false,
+      "structure_errors": [
+        "structure_headings",
+        "structure_terminal"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w6-tableau-demonstrated.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "90ff0ae5c21fff6ce64e163ed7823bec97453d2d134154490f1279afe50dbed3",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w7-page-locator.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "3acb5ba2815d17998926c5c8b65f3847aa799d4b9ca6f3c408310b6018e3e2a1",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w8-rewrite-suggestion.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "35a30c181e7681c33108b648bba790cff9e41949b80436486949899748decf68",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c1-full-text-technical.w9-coaching-question.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "e2bd0ae82f54d15d40eacbeeda987716fe0c59379ca833c41c6a0366e9f0791a",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c10-resume-unread-jd-read.w1-missing-evidence-conflation.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "9c96005c7401ddc3f1ca226ca07e5a5e578ea13edf38802b154ffb3bbcb9d4cd",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c10-resume-unread-jd-read.w2-resume-read.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "4387f12a570493581d683dfc42f00ef718c2ca8c1a94e89d2fb3e47a0e5874f9",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c10-resume-unread-jd-read.w3-invented-match.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "57c8c33312a81f1d3a152678f5b6ee766bb43836a8929e9eda2d640813f9b449",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c10-resume-unread-jd-read.w4-no-paste-request.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "9196b31c0be0599410da4b8611a6f8f9a0b33ec1a5551d04dff74b7f9a42667d",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c10-resume-unread-jd-read.w5-coverage-complete.md",
+      "case": "jn1-c10-resume-unread-jd-read",
+      "sha256": "6c03e36fc528b740fa141ea39b6a4632a130a4ba2b6c180b069d0e9f0bf3d8a0",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c11-partial-jd-unreadable.w1-invented-block.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "4a2aedd04b63ed99ae7179efd69307328836d8204a7158b4edaf455e94087f1c",
+      "literal": false,
+      "structure_errors": [
+        "block_count",
+        "citation_reciprocity"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c11-partial-jd-unreadable.w2-jd-read.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "1584f18eb7db549ff94cbef033a9f62c174105d3f199e1b8aaa0b3aa32d1c6bc",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c11-partial-jd-unreadable.w3-unreadable-as-gap.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "08fb1afb1d40310ef6842f39ef19d3d56a03e06087995187f3fa42d6cb062afa",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c11-partial-jd-unreadable.w4-denominator-2.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "1e83e7f1f051b127b2b4fc1f885cc9d04078e5038bafe38c24f9f5c5e00d9ef7",
+      "literal": false,
+      "structure_errors": [
+        "block_count"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c11-partial-jd-unreadable.w5-coverage-complete.md",
+      "case": "jn1-c11-partial-jd-unreadable",
+      "sha256": "c157b55e9bcff30198e49086e7dc0f7a63f1d1ebcc7ec811c636688ffd97c656",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c12-contact-privacy-and-scope.w1-email-repeated.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "c23832992ca2579b42dd3f2866b095e74a00bdfd8d246f7b137947ed34740abb",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c12-contact-privacy-and-scope.w2-phone-in-inventory.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "58bfcf1f1d1747f5f4a9e265d6304e647eebd5cd0df5c78e1162b30aabd04b78",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c12-contact-privacy-and-scope.w3-rewrite.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "8a2742402064500892922edeff00a2aae3a2b6b7a7290d65f934cb46cc8f7090",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c12-contact-privacy-and-scope.w4-coaching-question.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "eb96e4c557678ba06d0d139a2cad537ac347bb61a46df3d0b0b2c9c04401c539",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c12-contact-privacy-and-scope.w5-address-in-limits.md",
+      "case": "jn1-c12-contact-privacy-and-scope",
+      "sha256": "364ac5558925988e739e6e6022615dc9149cbc12ae9baa1613fb8c02335a1f72",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c2-inaccessible-sources.w1-fabricated-block.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "ebcb8cb838059454f8e4d9ba83a54e1875de77f7d3fbfff2277cf77e88d42e6d",
+      "literal": false,
+      "structure_errors": [
+        "citation_reciprocity",
+        "citation_unknown"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c2-inaccessible-sources.w2-resume-read.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "86aa1d00d95c50c6660b2c6e5023ae2321a04136d83cb980bf77847cf1e8a332",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c2-inaccessible-sources.w3-no-paste-request.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "0eac43fa6d8ed1741fc78de1ffd6b7330703e7c4c7a615c5cff95289f7a4db42",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c2-inaccessible-sources.w4-invented-citation.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "c77c5609bf1f69840eeaf573bd41581e15678f16e9058400ab7f5b21a21cf573",
+      "literal": false,
+      "structure_errors": [
+        "citation_excerpt_binding",
+        "citation_reciprocity"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c2-inaccessible-sources.w5-duplicate-heading.md",
+      "case": "jn1-c2-inaccessible-sources",
+      "sha256": "4029a6d30d3539ae7a5be6c1ce7814e49543e6fa6a687f159aa31b96af71150b",
+      "literal": false,
+      "structure_errors": [
+        "structure_headings",
+        "citation_boundaries"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c3-partial-unreadable.w1-coverage-complete.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "4815f39ff93ccbed57d842651541892486d2271394e3673f7eb2257a476e4ec7",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c3-partial-unreadable.w2-confirmed-gap.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "a3b753aa4ac90c993b3c8ebab07942d9adfb74260f31a1071717d6559be23037",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c3-partial-unreadable.w3-resume-read.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "b6720ec3c1d37b1cacf7962007860df89c01db22e2b23d0945e35a81c815f3bc",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c3-partial-unreadable.w4-supplier-missing-evidence.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "d98540190c4dc4a736c458c606cd874b71ab8d206a8b690250aa1f3a0c8e8a12",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c3-partial-unreadable.w5-unreadable-omitted.md",
+      "case": "jn1-c3-partial-unreadable",
+      "sha256": "4d47e493bdd1fc77ba5a8daad1a95abc254d86221b1dd75b38894aafa4df5c9a",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c4-tool-and-scope-mismatch.w1-postgres-demonstrated.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "06113f2b30cb72171135e5249af6148fdedbb07ab0be30b9f86d9d75b6b32328",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c4-tool-and-scope-mismatch.w2-leadership-demonstrated.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "8c2a7ee7c56940f10a61f4eda97161c01dff7050c668ee963c6c6872c86c7df1",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c4-tool-and-scope-mismatch.w3-leadership-missing-evidence.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "90aadfd4db53edef36c3420c2b36b3d7e592199f4dbec802e639fa8623ab5634",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c4-tool-and-scope-mismatch.w4-postgres-quoted.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "4a7ac27d92fac82e6330ec5b2ce28498f2dbc7689f6de1c0244edd3ca94f5c96",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c4-tool-and-scope-mismatch.w5-leadership-confirmed-gap.md",
+      "case": "jn1-c4-tool-and-scope-mismatch",
+      "sha256": "b786a8ce98c0965dda7ea5898c1042218486b76ab842a7d5e01f56493c90f079",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w1-denominator-6.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "785b1e939cbc0f756628d14b80da310cbafac69cd298153059af8cab66450f41",
+      "literal": false,
+      "structure_errors": [
+        "block_count"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w2-context-missing-evidence.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "579c81fadfded21512e68dc1ce259e8c080de3f7ce7c7da810c3846dca9e0697",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w3-retention-demonstrated.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "87dd066904756e2ba51b54608cd866cfd5c31b4f5abccf5b774ba18fba39da22",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w4-other-omitted.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "3d7d5bb30027d8a50a5b3190a81a91f60163d7fdeaa07eeed691b8647f8374d1",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w5-weekend-contextual.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "4887c14f780f8ec08ad6927e27c9e30dda54cfd8cd56606cd32d155f7759cf3b",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c5-nontechnical-jd.w6-school-demonstrated.md",
+      "case": "jn1-c5-nontechnical-jd",
+      "sha256": "84d86bbed196312eb0c5a6a8eab74d878f1b7dc99b5efe574f0d75febb61829e",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w1-forklift-demonstrated.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "e38bbbc8b1d2fd1a5b5723a5761c5a0946f386beb609fd452491e85fae73ef4c",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w2-approved-in-G.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "cc441f65efda49f2f5ac8f864c320be33c3246a8f7c4aea55d6802b4cdb591e9",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w3-embedded-none.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "6ecfdcf98f7b029da376a63b714b3b77d1d872dd46cacb40c866d23837f97c49",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w4-injection-missing-evidence.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "bac6a6b8bf74d504562aac1d0fe6529d16ebab627e1ab807de0f1462deda20d9",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w5-incoming-missing-evidence.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "af161c0700d9ffc20592a6c135639192ccf76d3f43a1345fef817ff6a8a0611d",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c6-jd-prompt-injection.w6-incoming-confirmed-gap.md",
+      "case": "jn1-c6-jd-prompt-injection",
+      "sha256": "269fb678a41c840b10b3037ac02e5e4bdd435f7aa59761a0b086eedc25e5bbde",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c7-no-direct-experience.w1-license-transferable.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "0d78d00d52fc400053201adfa0feb8600baa47b45c51ca00d02c9efbd18d662a",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c7-no-direct-experience.w2-suggestion-unlabelled.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "8d4188098582cb1dca8f07c6f271b0a6e9a545af4f7b81507edddf9b3030d966",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c7-no-direct-experience.w3-loading-confirmed-gap.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "6568d00366d8b0760b7dc1b2dd344fe1ad8ea1bc0522459fb17ce8f593b46edc",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c7-no-direct-experience.w4-seeker-note-uncited-in-F.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "5ee4adffbd39013fb3fd939b39ae5f7ec997b89bd2dd1a6036dd68f77fcb08ad",
+      "literal": false,
+      "structure_errors": [
+        "citation_reciprocity"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c7-no-direct-experience.w5-missing-end.md",
+      "case": "jn1-c7-no-direct-experience",
+      "sha256": "92f86c5c5b0013baf50e20f70ef3e1fe22be7e7e1988951636d347aa4ba00fef",
+      "literal": false,
+      "structure_errors": [
+        "structure_headings",
+        "structure_terminal"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w1-budget-demonstrated.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "cbcdd8969df31e14778f0e2d582c0a772ad6ab85083f67b0bb7eed88e2847a1e",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w2-budget-missing-evidence.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "e037b1a823185e6f2448a034b91f2adecdb2a3f828d6dd0e56281b2647151cf3",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w3-page-locator.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "12d67d14431d410a17860a87387d7860a12f2710316cd22df787a328c4e87c19",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w4-invented-id.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "707e99cc6ca132a6cfb362db384a377938e95ef33cf95ce7fbe0924146fcbdfd",
+      "literal": false,
+      "structure_errors": [
+        "citation_excerpt_binding",
+        "citation_unknown"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w5-paraphrased-excerpt.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "a6e04f121ca67ec9183bca2d998178e6f32769fe35d172e00523fa24449403d0",
+      "literal": false,
+      "structure_errors": [],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "wrong",
+      "file": "jn1-c8-citation-strength-and-locators.w6-F-omits-cited-id.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "d9167947d1e3985fa7c2c5da3915acc3c25b7dc0980967e6b857bb1c186c2a95",
+      "literal": false,
+      "structure_errors": [
+        "citation_reciprocity"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g1-trailing-text-after-END.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "3c0fa5e7a34a331044bf6e8e0d3f65a0f7582e23b73ad682c9bf4bc0474dfdad",
+      "literal": true,
+      "structure_errors": [
+        "structure_terminal"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g2-extra-level-two-heading.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "4e6b78cdb4a36396bb41cae197693e5b26f07bbd1093e219e4a3804bf6c54daf",
+      "literal": true,
+      "structure_errors": [
+        "citation_entry",
+        "structure_headings"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g3-entailment-overclaim.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "4b24640f88181aab2805819b076a48ba3de30e0ea48e729b69ace5a73cdaf943",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6544,
+        "output_tokens": 291
+      },
+      "duration_seconds": 42.58974779106211,
+      "binding_sha256": "051d72af02b2ed5acbb73081374eebde551c7a62def31ca22fa7bfcf82f52350",
+      "public_verdict": {
+        "binding_sha256": "051d72af02b2ed5acbb73081374eebde551c7a62def31ca22fa7bfcf82f52350",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Evidence: [R-P4] \"Wrote SQL queries against a volunteer scheduling database for a community food drive.\"",
+            "reason": "Evidence [R-P4] supports SQL claim; [R-P2] supports R for data cleaning. No invented claims."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: The resume directly shows SQL [R-P4] and R-based data cleaning [R-P2] for the SQL and Python-or-R requirement [JD-P2], shows related but different da",
+            "reason": "No resume wording, coaching prompts, or hiring recommendations. Next action is source confirmation."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Resume and JD marked as read; locator scheme supplied. No unreadable regions cited."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 6 JD components",
+            "reason": "All 6 JD components covered; AND/OR splits preserved. Evidence matches actual source text."
+          }
+        ]
+      },
+      "public_transport": "     {\"id\":\"chatcmpl-776f1d2a\",\"object\":\"chat.completion\",\"created\":1789962617,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\n  \\\"binding_sha256\\\": \\\"051d72af02b2ed5acbb73081374eebde551c7a62def31ca22fa7bfcf82f52350\\\",\\n  \\\"criteria\\\": [\\n    {\\n      \\\"id\\\": \\\"entailment\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L23\\\",\\n      \\\"reason\\\": \\\"Evidence [R-P4] supports SQL claim; [R-P2] supports R for data cleaning. No invented claims.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"alignment_scope\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L10\\\",\\n      \\\"reason\\\": \\\"No resume wording, coaching prompts, or hiring recommendations. Next action is source confirmation.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"source_access\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L2\\\",\\n      \\\"reason\\\": \\\"Resume and JD marked as read; locator scheme supplied. No unreadable regions cited.\\\"\\n    },\\n    {\\n      \\\"id\\\": \\\"component_coverage\\\",\\n      \\\"status\\\": \\\"pass\\\",\\n      \\\"quote\\\": \\\"L65\\\",\\n      \\\"reason\\\": \\\"All 6 JD components covered; AND/OR splits preserved. Evidence matches actual source text.\\\"\\n    }\\n  ]\\n}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6544,\"completion_tokens\":291,\"total_tokens\":6835,\"input_tokens\":6544,\"output_tokens\":291,\"prompt_tokens_details\":{\"cached_tokens\":1792},\"total_time\":42.56}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "fail",
+      "accepted": false
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g4-uncited-works-cited-entry.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "cb3d8521f2a402544d0e83a97114602b0082fbc1cb4079ac5ecdd7ed65bd58ce",
+      "literal": true,
+      "structure_errors": [
+        "citation_reciprocity"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c1-full-text-technical.g5-coaching-request-without-question-mark.md",
+      "case": "jn1-c1-full-text-technical",
+      "sha256": "4ce3ce73b50b58feed18b1106f893c6adf3e5fb7143b5e498d16ca9c0d2af50e",
+      "literal": true,
+      "structure_errors": [],
+      "outcome": "pass",
+      "reason": "evaluation_verdict",
+      "usage": {
+        "input_tokens": 6566,
+        "output_tokens": 247
+      },
+      "duration_seconds": 36.973922208999284,
+      "binding_sha256": "d0f1238707b2d5e22fdc58096e4400505fcd47818d1dfe3572120a78c099db1b",
+      "public_verdict": {
+        "binding_sha256": "d0f1238707b2d5e22fdc58096e4400505fcd47818d1dfe3572120a78c099db1b",
+        "criteria": [
+          {
+            "id": "entailment",
+            "status": "pass",
+            "quote": "Synthesis: The resume directly shows SQL [R-P4] and R-based data cleaning [R-P2] for the SQL and Python-or-R requirement [JD-P2], shows related but different da",
+            "reason": "Every claim is supported by cited sources at their actual strength, e.g., SQL [R-P4] and R [R-P2] for JD-P2."
+          },
+          {
+            "id": "alignment_scope",
+            "status": "pass",
+            "quote": "Synthesis: The resume directly shows SQL [R-P4] and R-based data cleaning [R-P2] for the SQL and Python-or-R requirement [JD-P2], shows related but different da",
+            "reason": "No resume wording, coaching prompts, or hiring recommendations are present; only alignment and next steps."
+          },
+          {
+            "id": "source_access",
+            "status": "pass",
+            "quote": "Resume status: read",
+            "reason": "Both resume and JD are marked as read, and locator scheme is supplied."
+          },
+          {
+            "id": "component_coverage",
+            "status": "pass",
+            "quote": "Denominator: 6 JD components",
+            "reason": "All 6 JD components are covered, with AND splits preserved (e.g., SQL and R in JD-P2)."
+          }
+        ]
+      },
+      "public_transport": "    {\"id\":\"chatcmpl-a480f462\",\"object\":\"chat.completion\",\"created\":1789962654,\"model\":\"Devstral-Small-2-24B-Instruct-2512-4bit\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\\"binding_sha256\\\":\\\"d0f1238707b2d5e22fdc58096e4400505fcd47818d1dfe3572120a78c099db1b\\\",\\\"criteria\\\":[{\\\"id\\\":\\\"entailment\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"Every claim is supported by cited sources at their actual strength, e.g., SQL [R-P4] and R [R-P2] for JD-P2.\\\"},{\\\"id\\\":\\\"alignment_scope\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L10\\\",\\\"reason\\\":\\\"No resume wording, coaching prompts, or hiring recommendations are present; only alignment and next steps.\\\"},{\\\"id\\\":\\\"source_access\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L2\\\",\\\"reason\\\":\\\"Both resume and JD are marked as read, and locator scheme is supplied.\\\"},{\\\"id\\\":\\\"component_coverage\\\",\\\"status\\\":\\\"pass\\\",\\\"quote\\\":\\\"L65\\\",\\\"reason\\\":\\\"All 6 JD components are covered, with AND splits preserved (e.g., SQL and R in JD-P2).\\\"}]}\\n```\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6566,\"completion_tokens\":247,\"total_tokens\":6813,\"input_tokens\":6566,\"output_tokens\":247,\"prompt_tokens_details\":{\"cached_tokens\":2560},\"total_time\":36.95}}",
+      "engine_sha256": "f5700df57955dda359de64e853bfe2b4948431f8e06cf405187daf9c48605741",
+      "expected": "fail",
+      "accepted": false
+    },
+    {
+      "group": "gap",
+      "file": "jn1-c8-citation-strength-and-locators.g6-wrong-id-bound-to-excerpt.md",
+      "case": "jn1-c8-citation-strength-and-locators",
+      "sha256": "579adac00c28210eb055f4fab60b71dc360320d9be6d267266eb86344a896c54",
+      "literal": true,
+      "structure_errors": [
+        "citation_excerpt_binding"
+      ],
+      "outcome": "fail",
+      "expected": "fail",
+      "accepted": true
+    }
+  ],
+  "passed": false,
+  "count": 80
+}

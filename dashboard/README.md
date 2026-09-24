@@ -82,3 +82,29 @@ Actions require the local origin, a server token, and the current saved-settings
 hash. Repeat clicks reuse a live console launch. The console process must have
 the same credentials as a terminal run; missing Jira credentials block before
 any model starts. New terminal runs save only non-secret invocation settings.
+
+
+## Operator decisions and repair evidence
+
+The live portal shows a **Your decision is needed** panel for structured ticket
+questions. Select one of up to three options, write a custom answer, or add detail
+to the selected option. **Submit & continue** retains the answer against the exact
+question version and queues continuation using the saved run policy. If a worker
+is still exiting, continuation waits; failures remain visible with a retry action.
+Answers do not mark gates passed, reset budgets, or authorize arbitrary commands.
+Owned unfinished-child questions appear on the parent ticket card.
+
+Controllers publish questions through `scripts/nightshift-console-decisions.py`
+(`request --project DIR --task KEY --input FILE`) and read answers using `context`.
+Request JSON has question, reason, and options; each option has id, label and
+ description. Optional continuation is resume (default) or repair. The portal
+uses the same loopback Origin/token boundary as other ticket actions.
+
+Repair now gathers bounded public specs, scenarios, calibration fixtures and recent
+failure receipts before historical workflow logs. A parent resolves children only
+through its matching decomposition, batch and retained worktree ownership in the
+same Git repository. One blocked child is repaired in its own worktree; multiple
+blocked children prompt for a target. Active children prevent concurrent repair
+without charging a new repair attempt. Private held-out material, credentials and
+symlink escapes are excluded. Repair still requires independent review and actual
+verification before the original parent workflow resumes.

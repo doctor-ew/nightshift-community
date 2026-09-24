@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Atomic retry accounting; attempt IDs make repeated receipt ingestion idempotent."""
 import argparse
+import importlib.util
 import fcntl
 import json
 import os
@@ -102,6 +103,63 @@ def transaction(path, initial, secure_root=None, readonly=False):
         yield state, save
 
 
+def retry_limits(state):
+    limits = dict(state['limits'])
+    if state.get('continuations'):
+        limits.update(state['continuations'][-1]['ceilings'])
+    return limits
+
+
+def authorize_continuation(path, decision, expected_sha256, attempts=3):
+    """Explicit operator action; never called automatically by a dispatcher.
+
+    Retains original limits/counters and grants at most three further dispatches.
+    The decision file records user authorization; it is not an authentication
+    boundary against a process which already has write access to this ledger.
+    """
+    path, decision = Path(path).absolute(), Path(decision).absolute()
+    if type(attempts) is not int or not 1 <= attempts <= 3:
+        raise ValueError('continuation requires one to three attempts')
+    if path.resolve() != path or decision.resolve() != decision:
+        raise ValueError('symlink continuation paths refused')
+    decision_bytes = decision.read_bytes()
+    if not decision_bytes.strip() or len(decision_bytes) > 65536:
+        raise ValueError('bounded nonempty authorization decision required')
+    decision_hash = hashlib.sha256(decision_bytes).hexdigest()
+    with (path.parent / '.adversarial-invocation.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not path.is_file():
+            raise ValueError('existing retry ledger required')
+        with transaction(path, lambda: {}) as (state, save):
+            for entry in state.get('continuations', []):
+                if entry['decision_sha256'] == decision_hash:
+                    if entry['before_sha256'] != expected_sha256 or entry['additional_attempts'] != attempts:
+                        raise ValueError('authorization replay parameters changed')
+                    return state
+            if hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256:
+                raise ValueError('stale retry ledger; inspect current evidence')
+            if ('budget' in state or state.get('version') != 1 or
+                    state.get('next_action') != 'stop' or
+                    'pending' in state['attempts'].values()):
+                raise ValueError('only a stopped, finalized retry ledger is eligible')
+            if state['infrastructure_failures'] >= state['limits']['infrastructure']:
+                raise ValueError('infrastructure exhaustion requires diagnosis, not additional reviews')
+            prior = retry_limits(state)
+            if state['substantive_failures'] < prior['substantive'] and state['total'] < prior['total']:
+                raise ValueError('ledger has no exhausted review allowance')
+            state.setdefault('continuations', []).append({
+                'decision_path': str(decision), 'decision_sha256': decision_hash,
+                'before_sha256': expected_sha256, 'additional_attempts': attempts,
+                'previous_next_action': state['next_action'],
+                'previous_counts': {k: state[k] for k in
+                                    ('total', 'substantive_failures', 'infrastructure_failures')},
+                'ceilings': {'total': state['total'] + attempts,
+                             'substantive': state['substantive_failures'] + attempts}})
+            state['next_action'] = 'repair_spec_before_retry'
+            save()
+            return state
+
+
 def account(path, attempt, category):
     with transaction(path, lambda: {
             'version': 1, 'infrastructure_failures': 0, 'substantive_failures': 0,
@@ -127,10 +185,36 @@ def account(path, attempt, category):
                   'unknown': 'diagnose_before_retry',
                   'schema': 'repair_transport_before_retry',
                   'substantive': 'repair_spec_before_retry'}.get(category, 'continue')
-        if (state['infrastructure_failures'] >= state['limits']['infrastructure'] or
-                state['substantive_failures'] >= state['limits']['substantive'] or
-                state['total'] >= state['limits']['total']):
+        limits = retry_limits(state)
+        if (state['infrastructure_failures'] >= limits['infrastructure'] or
+                state['substantive_failures'] >= limits['substantive'] or
+                state['total'] >= limits['total']):
             action = 'stop'
+        recurring = review_reuse.recurring_findings(state) if category == 'substantive' else []
+        if recurring:
+            state['recurring_source_findings'] = recurring
+            if action != 'stop':
+                action = 'change_repair_strategy'
+            receipt = dict(ticket=Path(path).parent.name, gate='review-convergence', status='failed',
+                           gate_approval=False, findings=recurring,
+                           reason='The same source conflict survived multiple reviews. Repair only these findings with a fresh author context within the configured provider policy; do not redraft or repeat the full review.',
+                           next_action=action)
+            (Path(path).parent / 'review-convergence.json').write_text(json.dumps(receipt))
+        if category == 'success' and state.get('recurring_source_findings'):
+            row = state.get('review_requests', {}).get(attempt, {})
+            retained = Path(row.get('retained', ''))
+            if retained.is_file() and review_reuse.digest(retained.read_bytes()) == row.get('report_sha256'):
+                claims = json.loads(retained.read_text()).get('results', {}).get('claims', [])
+                verified = {(' '.join(c.get('claim', '').split()).casefold(), c.get('file', ''))
+                            for c in claims if c.get('status') == 'VERIFIED'}
+                prior = state['recurring_source_findings']
+                if all((f['claim'], f['file']) in verified for f in prior):
+                    state.setdefault('resolved_source_findings', []).append(dict(findings=prior, attempt=attempt))
+                    state['recurring_source_findings'] = []
+                    (Path(path).parent / 'review-convergence.json').write_text(json.dumps(dict(
+                        ticket=Path(path).parent.name, gate='review-convergence', status='skipped',
+                        gate_approval=False, resolved_by_attempt=attempt, findings=prior,
+                        reason='The recurring source findings were resolved by an evaluated report. Other ticket gates still apply.')))
         state['next_action'] = action
         save()
         return state
@@ -159,7 +243,7 @@ def proof_validate(state):
     if not isinstance(budget, dict) or set(budget) != keys or type(budget['pinned']) is not bool:
         raise ValueError('invalid proof accounting state')
     policy = budget['policy']
-    bounds = {'version': (1, 1), 'development_calls': (1, 64), 'final_calls': (1, 64),
+    bounds = {'version': (1, 1), 'development_calls': (1, 128), 'final_calls': (1, 128),
               'repairs': (0, 64), 'infrastructure_failures': (0, 2),
               'timeout_seconds': (1, 120), 'output_bytes': (1, 1048576)}
     if not isinstance(policy, dict) or set(policy) != set(bounds) | {'force_prompt'} or type(policy['force_prompt']) is not bool:
@@ -184,7 +268,7 @@ def proof_validate(state):
     for attempt, item in budget['attempts'].items():
         if (not isinstance(attempt, str) or not attempt or not isinstance(item, dict)
                 or set(item) != {'gate', 'kind', 'launched', 'outcome'}
-                or item['gate'] not in reservations or item['kind'] not in ('prototype', 'challenge', 'probe')
+                or item['gate'] not in reservations or item['kind'] not in ('prototype', 'challenge', 'probe', 'evaluation')
                 or type(item['launched']) is not bool or item['outcome'] not in ('pending', 'pass', 'fail', 'unknown')):
             raise ValueError('invalid proof attempt')
         if item['kind'] != 'probe':
@@ -260,6 +344,40 @@ def proof_account(state, policy, operation, attempt, gate='development', outcome
     return budget
 
 
+def repair_admission(directory, state, receipt):
+    """Refuse a semantically unchanged registered repair after a failed source gate.
+
+    The invocation lock covers this check and reservation. Finding names, JSON
+    formatting, output paths and routing changes cannot count as artifact repair.
+    This detects repeated inputs, not semantic equivalence of review findings.
+    """
+    signature = hashlib.sha256(json.dumps(sorted({
+        (row['artifact'], row['pointer'], row['artifact_content_sha256'])
+        for row in receipt['findings']}), separators=(',', ':')).encode()).hexdigest()
+    repeats = [attempt for attempt, previous in state.get('repair_inputs', {}).items()
+               if previous == signature and state['attempts'].get(attempt) == 'substantive']
+    reason = ('- Root cause: unchanged registered repair already failed source review.\n'
+              '- Unblock path: inspect the retained source finding; change the repair author/provider '
+              'within policy and correct the relevant artifact or its regression contract. '
+              'Do not increase the retry budget. A decision alone does not approve any gate.') if repeats else (
+              'Registered repair inputs admitted for source evaluation; no gate approval.')
+    status = {'ticket': directory.name, 'gate': 'repair-admission',
+              'status': 'needs-decision' if repeats else 'skipped', 'reason': reason,
+              'gate_approval': False, 'input_sha256': signature, 'prior_attempts': repeats}
+    with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+        json.dump(status, out)
+        temporary = out.name
+    os.replace(temporary, directory / 'repair-admission.json')
+    if repeats:
+        raise ValueError(reason)
+    return signature
+
+
+_reuse_spec = importlib.util.spec_from_file_location('review_reuse', Path(__file__).with_name('nightshift-review-reuse.py'))
+review_reuse = importlib.util.module_from_spec(_reuse_spec)
+_reuse_spec.loader.exec_module(review_reuse)
+
+
 def run_dispatch(arguments):
     # Only the existing extractor dispatcher is exposed; never execute an input command.
     if not arguments or arguments[0] != 'nightshift-code-fact-extractor':
@@ -270,11 +388,50 @@ def run_dispatch(arguments):
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / '.adversarial-invocation.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        # A repaired artifact must close its recorded regression before paying
+        # for another source review. This check never approves the source gate.
+        repair_manifest = directory / 'repair-checks.json'
+        repair_receipt = None
+        if repair_manifest.exists():
+            project = Path.cwd().resolve()
+            checked = subprocess.run([
+                sys.executable, str(Path(__file__).with_name('nightshift-repair-check.py')),
+                'check', '--project', str(project), '--manifest', str(repair_manifest.relative_to(project)),
+                '--out', str((directory / 'repair-check.receipt.json').relative_to(project))],
+                capture_output=True, text=True)
+            if checked.returncode:
+                detail = (checked.stderr or checked.stdout)[-2000:]
+                raise ValueError('repair regression refused; no model launched; prior receipt is not approval: ' + detail)
+            repair_receipt = json.loads((directory / 'repair-check.receipt.json').read_text())
+        state = {}
         if state_path.exists():
             state = json.loads(state_path.read_text())
-            if state['next_action'] == 'stop' or 'pending' in state['attempts'].values():
+            if 'pending' in state['attempts'].values():
                 raise ValueError('exhausted or interrupted budget; inspect retained evidence')
+        repair_signature = repair_admission(directory, state, repair_receipt) if repair_receipt else None
         routing = Path(os.environ.get('NIGHTSHIFT_ROUTING_FILE', str(Path(__file__).resolve().parents[1] / 'routing.json')))
+        signature = review_reuse.fingerprint(arguments, directory, state, routing)
+        match = review_reuse.candidate(state, signature)
+        if match:
+            previous, retained, category = match
+            status = dict(ticket=directory.name, gate='review-reuse', gate_approval=False,
+                          status='skipped' if category == 'success' else 'needs-decision',
+                          reason=('Reused an already evaluated report for unchanged evidence; evaluate the canonical gate.'
+                                  if category == 'success' else 'Unchanged evidence already failed review. Repair the retained finding before another review; do not rewrite the full spec.'),
+                          prior_attempt=previous, provider_launches=0)
+            (directory / 'review-reuse.json').write_text(json.dumps(status))
+            if category == 'substantive':
+                raise ValueError(status['reason'])
+            record = json.loads(Path(retained['retained']).read_text())
+            with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+                json.dump(record, out)
+                temporary = out.name
+            os.replace(temporary, output)
+            Path(str(output) + '.retry.json').write_text(json.dumps(dict(
+                attempt_id=previous, state_path=str(state_path), result_path=retained['retained'], reused=True)))
+            return 0
+        if state.get('next_action') == 'stop':
+            raise ValueError('exhausted budget; inspect retained evidence')
         # Conservative admission: changing an attempt number or output path must
         # not re-launch a model already rejected under this routing configuration.
         fingerprint = hashlib.sha256(routing.read_bytes()).hexdigest()
@@ -283,9 +440,19 @@ def run_dispatch(arguments):
             raise ValueError('model configuration previously rejected; change routing before retry')
         identity = uuid.uuid4().hex
         account(state_path, identity, 'pending')
+        if repair_signature:
+            # Persist before dispatch: an interrupted attempt remains reserved.
+            with transaction(state_path, dict) as (state, save):
+                state.setdefault('repair_inputs', {})[identity] = repair_signature
+                save()
         script = Path(__file__).resolve().with_name('nightshift-agent.sh')
         # A unique result path prevents stale successful output from being consumed.
         invocation = directory / ('adversarial-' + identity + '.json')
+        if signature:
+            with transaction(state_path, dict) as (state, save):
+                state.setdefault('review_requests', {})[identity] = dict(
+                    signature=signature, output=str(output), retained=str(invocation))
+                save()
         forwarded = list(arguments)
         forwarded[forwarded.index('--out') + 1] = str(invocation)
         category = 'unknown'
@@ -316,6 +483,11 @@ def run_dispatch(arguments):
                 json.dump(record, out)
                 temporary = out.name
             os.replace(temporary, output)
+            if signature:
+                with transaction(state_path, dict) as (state, save):
+                    if review_reuse.fingerprint(arguments, directory, state, routing) == signature:
+                        state['review_requests'][identity]['report_sha256'] = review_reuse.digest(invocation.read_bytes())
+                    save()
             if category == 'pending':
                 with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
                     json.dump({'attempt_id': identity, 'state_path': str(state_path),
@@ -338,6 +510,20 @@ def run_dispatch(arguments):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == 'authorize-continuation':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--state', required=True)
+        parser.add_argument('--decision', required=True)
+        parser.add_argument('--expected-sha256', required=True)
+        parser.add_argument('--attempts', type=int, default=3)
+        args = parser.parse_args(sys.argv[2:])
+        try:
+            print(json.dumps(authorize_continuation(args.state, args.decision,
+                                                   args.expected_sha256, args.attempts)))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            print('nightshift: continuation refused: ' + str(error), file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] == 'dispatch':
         try:
             sys.exit(run_dispatch(sys.argv[2:]))

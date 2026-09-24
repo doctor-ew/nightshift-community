@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-09-20"
+last_updated: "2026-09-23"
 ---
 
 # Session Bootstrap
@@ -64,6 +64,12 @@ Quoted-evidence rollout gate: 36 offline checks pass, but three live reviewer pr
 
 Quoted-evidence follow-up: standard 90-second targeted live regression passed after earlier timeouts; known bad evidence rejected and positive control accepted. Installed runtime updated to the tested contract. No full fresh workshop or Windows verification is claimed. Source: `docs/WORKSHOP-QUOTED-EVIDENCE-VALIDATION.json`.
 
+Local convergence guard: the bounded source dispatcher refuses unchanged registered repair inputs after a substantive review failure, without another reservation. Dashboard admission receipts expose the blocker; they never approve a gate. Source: `scripts/nightshift-retry-budget.py` (`repair_admission`), `tests/test-repair-dispatch.py`, `docs/RETRY-BUDGETS.md`. Live model completion remains unverified.
+
+Portal chat routing fix: submission and its background worker use `scripts/nightshift-routing-path.py` instead of requiring an application-local routing file. The admitted routing path is retained privately for the child. Sources: `scripts/nightshift-console-chat.py`, `tests/test-console-chat.py`, `tests/test-routing-path.py`. Chat/routing/HTTP fixtures pass; live provider verification was not performed.
+
+Decision reuse is enforced by `scripts/nightshift-console-decisions.py`: repeated normalized questions or stable `decision_key` values return the existing answer. Explicit reopening requires the latest answered hash and a reason. Tests: `tests/test-console-decisions.py`. This does not infer equivalence for differently worded legacy questions without keys or approve gates.
+
 ## Routing Table
 
 Load the relevant file based on the current task. Always load `context/architecture.md` first if not already in context this session.
@@ -92,3 +98,11 @@ For every task, follow this loop:
    - **Record:** If project state changed, update the "Current Project State" section above. If documented facts changed, update the relevant `context/` file surgically.
    - **Orient:** If this task can recur and no pattern exists, create one in `patterns/` using `patterns/README.md`, then add it to `patterns/INDEX.md`. If a pattern exists but you learned a gotcha, update it.
    - **Write:** Bump `last_updated` in every scaffold file you changed. If the why matters, run `mex log --type decision "<what changed and why>"` or `mex log "<note>"`.
+
+Manual external acceptance: required manual cases now preserve AC coverage while permitting development after automated evidence. Final completion stays blocked pending operator verification; manual attestation ingestion is not implemented. Historical portal failures are labelled as recorded evidence. Sources: `scripts/nightshift-behavior-proof.py`, `tests/test-manual-acceptance.py`, `docs/manual-acceptance-verification-20260923.md`. Local verification only; IF-325 has not been migrated or resumed.
+
+Bounded continuation: new instrumented tickets have a persisted 600-second wall deadline. Explicit operator continuation retains history and call limits while granting at most 600 additional seconds; ordinary resume does not renew time. Portal exposes read-only remaining budget. Sources: `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-continue.sh`, `docs/ten-minute-continuation-20260923.md`. Stub termination verified; ten-minute live completion unproven.
+
+Issue 49 convergence: existing drafts go to missing validation; writer repairs require a current finding brief. Source review reuses accepted unchanged positive reports, rejects unchanged failures, and records repeated explicit conflicts. Claude extraction uses isolated read-only context. Two bounded live synthetic samples passed fault/repair/reuse; isolated usage was 26,499 vs 83,763 tokens, not an end-to-end latency guarantee. Sources: `scripts/nightshift-review-reuse.py`, `scripts/nightshift-spec-repair-brief.py`, `docs/issue-49-convergence-verification.md`. Local implementation; issue 49 remains open for full workflow verification.
+
+Console recovery checkpoints: policy and all recovery routes are resolved before admission. Successful steps are hash-bound and resumed without repeating diagnosis/review; deadlines and attempts persist. Final manual acceptance remains pending even after process success. This is console recovery only, not a full factory state-machine migration. Sources: `scripts/nightshift-recovery-state.py`, `tests/test-console-repair.py`, `docs/controller-recovery-verification-20260923.md`.
