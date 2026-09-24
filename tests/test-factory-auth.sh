@@ -139,6 +139,10 @@ PYMODE
 policy_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none 2>&1)
 assert_contains "$policy_output" 'CLAUDE_ARGS='
 assert_contains "$policy_output" 'Provider policy: claude-only'
+assert_contains "$policy_output" 'permits a fresh isolated Claude reviewer session'
+assert_contains "$policy_output" 'Current invocation provider policy supersedes historical reviewer-provider requests'
+assert_contains "$policy_output" 'operator-owned delivery check remains pending manual acceptance'
+case "$policy_output" in *'does not permit same-provider self-approval'*) fail 'contradictory reviewer policy';; esac
 for selected in codex local; do
   if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none --provider "$selected" --model fixture --provider-policy standard 2>&1); then
     fail 'explicit runtime bypassed Claude-only project policy'

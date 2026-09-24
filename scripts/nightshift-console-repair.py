@@ -16,6 +16,10 @@ actions = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(actions)
 
 
+_routing_spec = importlib.util.spec_from_file_location('routing_path', HERE / 'nightshift-routing-path.py')
+_routing = importlib.util.module_from_spec(_routing_spec)
+_routing_spec.loader.exec_module(_routing)
+
 def checked_patch(target, patch):
     if len(patch.encode()) > 2_000_000 or not patch.startswith('diff --git '):
         raise ValueError('Missing or oversized unified patch')
@@ -78,7 +82,7 @@ def worker(project, task, provider, evidence):
         selected_target = context['repair_target']
         target, task = Path(selected_target['worktree']), selected_target['task']
     with _lease.Lease(project, task, parent_task, target):
-        route_path = target / 'routing.json'
+        route_path = _routing.resolve(HERE.parent, target)
         routing = json.loads(route_path.read_text())
         role = 'nightshift-repair-analyst'
         if role not in routing['roles']:

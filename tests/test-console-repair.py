@@ -150,6 +150,7 @@ class RepairTests(unittest.TestCase):
         owner=m.actions.directory(self.p).parent/'worktrees';owner.mkdir()
         (owner/'42.json').write_text(json.dumps({'worktree':str(self.p), 'base_sha':self.git('rev-parse','HEAD').strip()}))
         routing=json.loads((ROOT/'routing.json').read_text());(self.p/'routing.json').write_text(json.dumps(routing))
+        (self.p/'.nightshift.toml').write_text('[providers]\nrouting_file = "routing.json"\n')
         helpers=self.p/'helpers';helpers.mkdir()
         (helpers/'nightshift-run-metrics.py').write_text('print("{}")')
         (helpers/'nightshift-cleanup.py').write_text('print("{}")')
@@ -171,6 +172,7 @@ out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','
         previous=m.HERE,m.actions.FACTORY;m.HERE=helpers;m.actions.FACTORY=factory
         old=dict(os.environ)
         try:
+            os.environ.pop('NIGHTSHIFT_ROUTING_FILE', None)
             os.environ.update(ORDER=str(self.p/'order'),PATCH=self.patch,FAIL_PHASE='verification')
             evidence=m.actions.directory(self.p)/'repair-one';evidence.mkdir()
             with self.assertRaises(ValueError):m.worker(self.p,'42','auto',evidence)
@@ -182,7 +184,8 @@ out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','
             self.assertTrue((self.p/'order').read_text().endswith('proposal\nreview\nverification\nresumed\n'))
             (self.p/'file.txt').write_text('before\n')
             child,_=self.child_context(task='42')
-            (child/'routing.json').write_text(json.dumps(routing))
+            self.assertFalse((child/'routing.json').exists())
+            self.assertFalse((child/'.nightshift.toml').exists())
             (child/'docs/child/BLOCKED.md').write_text('actual failure evidence')
             evidence=m.actions.directory(self.p)/'repair-child';evidence.mkdir()
             self.assertEqual(m.worker(self.p,'42','auto',evidence),0)
