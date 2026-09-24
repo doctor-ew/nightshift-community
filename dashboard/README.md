@@ -11,6 +11,31 @@ batch and gate claims independently, including concurrent and conflicting states
 Counts refer to source observations, not unique live agents. File modification time
 only sorts the display; it is not precedence or a heartbeat, and an in-progress
 receipt does not prove an agent is alive. History adds artifacts and ownership.
+Failed role output receipts and explicit tracker block receipts appear as gate
+evidence and on their ticket cards. A finished checkout does not clear recorded
+blockers. Historical failures remain visible; later success must be assessed from
+the retained evidence. A factory's normal process exit is labeled separately
+from ticket completion.
+
+Evidence links and recorded HTTP(S) pull request links open in new tabs. Local
+files use `/api/evidence`, which serves only collected artifact links as bounded
+plain text and rejects symlink paths. The launcher starts a compatible server
+when an existing console lacks this endpoint.
+The searchable Specs and artifacts library includes collected specifications,
+tracker documents, role inputs and outputs, and receipts. Ticket cards provide
+direct spec and recorded PR links. The file viewer supports copying and downloading
+the original contents and formats JSON for reading. Workflow approval remains in
+the existing version-bound workshop review controls.
+Ticket cards link to the recorded tracker source URL for Jira or GitHub. When
+the source is local, the card links to the collected source file or local record.
+The interface checks server capability before displaying file links; an outdated
+server displays an explicit update notice instead of broken viewer links.
+Ticket timelines use the explicit stage markers in each tracker. Missing stage
+evidence is not counted as progress. A resumed run labels its retained stage
+as last recorded until new stage evidence arrives. Factory exit and finished
+checkout ownership do not establish ticket completion; conflicting completion
+and blocker records remain visible. Agent history, usage, and detailed run
+observations are collapsed below the ticket and artifact views.
 The separate Agents section reads sanitized factory and shared-dispatcher lifecycle records from
 `.nightshift/agents/`, with role, provider, model, dispatcher PID and start/finish
 times. A recorded running state may be stale after a hard kill; it is not an OS
