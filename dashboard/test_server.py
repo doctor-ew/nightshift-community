@@ -103,7 +103,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data['tickets'], [])
         body=json.dumps({'task':'42','sha256':'unknown'})
         headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
-        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat'):
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat','/api/tickets/continue'):
             self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
             wrong=dict(headers,Origin='https://evil.example')
             self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)

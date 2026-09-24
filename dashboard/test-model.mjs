@@ -96,3 +96,16 @@ test('controller evidence overrides stale process and batch success', () => {
   assert.equal(ticketProgress(rows,ticket).complete,false);
   assert.equal(ticketProgress(rows,ticket).status,'Changed evidence · revalidation required');
 });
+
+
+test('continuation controls block active, exhausted-call and acceptance states', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const ticket = {budget:{revision:'current', calls_reserved:5,max_calls:64,unfinished:0}};
+  assert.equal(continuationControl(ticket).disabled,false);
+  for (const change of [{running:true},{finished:true},{pipeline:{status:'pending_manual_acceptance'}},{decisions:{pending:[{}]}}]) {
+    assert.equal(continuationControl({...ticket,...change}).disabled,true);
+  }
+  assert.match(continuationControl({...ticket,budget:{...ticket.budget,calls_reserved:64}}).reason,/cannot add launches/);
+  assert.equal(continuationControl({...ticket,budget:{...ticket.budget,unfinished:1}}).disabled,true);
+  assert.equal(continuationControl({}).disabled,true);
+});
