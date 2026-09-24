@@ -1,0 +1,58 @@
+{
+  "source": "46",
+  "base": "d05fbcaf3a77ef26199726a087a7601cc26e9605",
+  "files": [
+    {
+      "path": ".nightshift.toml",
+      "bytes": 24,
+      "sha256": "3d8d4d83371529fbb1f795e10841bc4e30fe47266979e70466ffd3909172922c"
+    },
+    {
+      "path": "docs/46/.bd-id",
+      "bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "docs/46/RUN-BLOCKED.md",
+      "bytes": 1754,
+      "sha256": "c6b491402291415832927d8c827b23ca888bed30a67b3f531a95f3914fde37bb"
+    },
+    {
+      "path": "docs/46/product-extractor.in.md",
+      "bytes": 4830,
+      "sha256": "76eb16501e81d028a4fac8e66f8017c36a997acb0674797b2ab02590da7bed7b"
+    },
+    {
+      "path": "docs/46/product-extractor.out.json",
+      "bytes": 3360,
+      "sha256": "5b5069d49c19dcb67327bf0b0b1a6cdefc5c3b2c47052f4dfa7778a982b7e2c4"
+    },
+    {
+      "path": "docs/46/product-extractor.out.json.attempts.json",
+      "bytes": 83,
+      "sha256": "1bbe342db3861ab63b2ca679f5d5a6d1a791937b6f05b27db6a6fe4a52864bf5"
+    },
+    {
+      "path": "docs/46/spec-writer.in.md",
+      "bytes": 7308,
+      "sha256": "2aa4b093d578fe281504409660486a94d073b093249a30218244b977531bcd71"
+    },
+    {
+      "path": "docs/46/spec-writer.out.json",
+      "bytes": 269,
+      "sha256": "9b7b26513e0c2e3417a877af88beefd28af5fe530f5d78abc6e0cad3f8dcfbdc"
+    },
+    {
+      "path": "docs/46/startup-repair.patch",
+      "bytes": 1327,
+      "sha256": "56826d5bf01b065cf3735ad2407ea55fa8281323ee05831f52c92cecfd2f9c2c"
+    }
+  ],
+  "status": "retained-for-review",
+  "excluded": [
+    "dependency directories",
+    "bytecode caches",
+    "process locks",
+    "nested Git metadata"
+  ]
+}

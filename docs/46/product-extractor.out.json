@@ -1,0 +1,103 @@
+{
+  "status": "SUCCESS",
+  "reason": "All 9 identifiers verified through Tiers 1–3 extraction. File existence confirmed via ls; command flags and config values verified through grep and source code inspection.",
+  "attempts": 1,
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "d05fbca",
+    "diff": "N/A — verification only, no code changes"
+  },
+  "rules_fired": [
+    "never-guess-technical-facts",
+    "tier-1-exact-grep",
+    "tier-3-deep-extraction",
+    "exhaustive-before-not-found",
+    "provider_policy:claude-only"
+  ],
+  "results": {
+    "claims": [
+      {
+        "claim": "scripts/nightshift-setup.py exists as executable Python script",
+        "file": "scripts/nightshift-setup.py",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-setup.py"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-setup.sh exists as executable shell script",
+        "file": "scripts/nightshift-setup.sh",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-setup.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-capability.sh exists as executable shell script with --has and --resolve flags",
+        "file": "scripts/nightshift-capability.sh",
+        "line": 65,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-capability.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-credentials.sh exists as executable shell script",
+        "file": "scripts/nightshift-credentials.sh",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-credentials.sh"
+        ]
+      },
+      {
+        "claim": "nightshift-capability.sh --has <tool> implemented as query mode returning 0/1 exit code",
+        "file": "scripts/nightshift-capability.sh",
+        "line": 158,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-capability.sh"
+        ]
+      },
+      {
+        "claim": "nightshift-capability.sh --resolve implemented as semantic adapter lookup via Python, validates document-read operation",
+        "file": "scripts/nightshift-capability.sh",
+        "line": 21,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-capability.sh"
+        ]
+      },
+      {
+        "claim": "routing.json exists at repo root, defines provider envelopes (claude, codex, local) and role routing with gears",
+        "file": "routing.json",
+        "line": 1,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "routing.json"
+        ]
+      },
+      {
+        "claim": "providers.policy config key accepts values 'standard' or 'claude-only', validated in nightshift-setup.py",
+        "file": "scripts/nightshift-setup.py",
+        "line": 61,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-setup.py"
+        ]
+      },
+      {
+        "claim": "ledger.mode config key accepts values 'auto' or 'files', defaults to 'auto', validated in nightshift-setup.py",
+        "file": "scripts/nightshift-setup.py",
+        "line": 77,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-setup.py"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "status": "FAIL",
+  "reason": "dispatch interrupted",
+  "attempts": 2,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "claude",
+    "model": "sonnet"
+  },
+  "rules_fired": [
+    "dispatcher_failure"
+  ],
+  "results": {
+    "spec_path": ""
+  }
+}

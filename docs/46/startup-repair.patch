@@ -1,0 +1,34 @@
+diff --git a/scripts/nightshift-ticket-source.sh b/scripts/nightshift-ticket-source.sh
+index 378b32d..39446cc 100755
+--- a/scripts/nightshift-ticket-source.sh
++++ b/scripts/nightshift-ticket-source.sh
+@@ -205,17 +205,24 @@ esac
+ # ───────────────────────────── adapters ─────────────────────────────
+ 
+ fetch_gh() {
+-  local raw="$1" repo_arg=() id
++  local raw="$1" repo="" id
+   if [[ "$raw" == *"#"* ]]; then
+-    repo_arg=(--repo "${raw%#*}")
++    repo="${raw%#*}"
+     id="${raw#*#}"
+   else
+     id="$raw"
+   fi
+   local json
+-  if ! json=$(gh issue view "$id" "${repo_arg[@]}" \
+-      --json number,title,body,state,labels,url 2>&1); then
+-    emit_error "gh issue view failed: $json"
++  if [ -n "$repo" ]; then
++    if ! json=$(gh issue view "$id" --repo "$repo" \
++        --json number,title,body,state,labels,url 2>&1); then
++      emit_error "gh issue view failed: $json"
++    fi
++  else
++    if ! json=$(gh issue view "$id" \
++        --json number,title,body,state,labels,url 2>&1); then
++      emit_error "gh issue view failed: $json"
++    fi
+   fi
+   echo "$json" | jq --arg src "gh" --arg sid "$id" '
+     (.url | capture("^https://github\\.com/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/[0-9]+$")
