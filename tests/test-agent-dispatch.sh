@@ -260,6 +260,9 @@ for provider in codex claude; do
   mv "$TMP/route.json" "$TMP/runtime/routing.json"
   AUTONOMOUS=true NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider autonomous architect dispatch" test "$RC" -eq 0
+  if [ "$provider" = claude ]; then
+    check 'Claude unattended write worker receives CLI permission authority' args 'index("--dangerously-skip-permissions") != null'
+  fi
   check "$provider carries autonomous plan authority" args 'join(" ") | contains("Execution mode: autonomous.") and contains("without another plan-approval stop")'
   check "$provider removes unconditional architect stop" args 'join(" ") | contains("Hard gate, not a suggestion") | not'
   if [ "$provider" = codex ]; then
@@ -267,13 +270,20 @@ for provider in codex claude; do
   fi
   AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=true run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider factory flag carries authority" args 'join(" ") | contains("Execution mode: autonomous.")'
+  if [ "$provider" = claude ]; then
+    check 'Claude factory worker receives CLI permission authority' args 'index("--dangerously-skip-permissions") != null'
+  fi
   AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider supervised mode retained" args 'join(" ") | contains("Execution mode: supervised.") and (contains("Execution mode: autonomous.") | not)'
+  if [ "$provider" = claude ]; then
+    check 'Claude supervised worker keeps permission prompts' args 'index("--dangerously-skip-permissions") == null'
+  fi
 done
 # Policy applies to direct role calls, including automatic local gear and reviews.
 export MOCK_RESPONSE='{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"branch":"fixture","diff":"","provider":"claude","model":"fixture"},"rules_fired":[],"results":{"claims":[]}}'
 export NIGHTSHIFT_PROVIDER_POLICY=claude-only
-run nightshift-code-fact-extractor --gear auto --risk low --in "$INPUT" --out "$OUTPUT"
+AUTONOMOUS=true run nightshift-code-fact-extractor --gear auto --risk low --in "$INPUT" --out "$OUTPUT"
+check 'Fact extraction does not receive write permission bypass' args 'index("--dangerously-skip-permissions") == null'
 check 'Claude-only never selects automatic local extraction' json '.artifacts.provider == "claude"'
 run nightshift-code-fact-extractor --gear 1 --adversarial --author-provider claude --in "$INPUT" --out "$OUTPUT"
 check 'Claude-only fresh same-provider review succeeds' test "$RC" -eq 0

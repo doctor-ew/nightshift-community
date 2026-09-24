@@ -46,7 +46,7 @@
     {
       "rule": "provider-executor",
       "path": "scripts/nightshift-agent.sh",
-      "context": "      CMD=(claude -p --no-session-persistence --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
+      "context": "      CMD=(claude -p --no-session-persistence --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\")",
       "reason": "The existing dispatcher implements the routed provider invocation using the selected role and model."
     },
     {
@@ -72,6 +72,12 @@
       "path": "scripts/nightshift-agent.sh",
       "context": "      CMD=(claude -p --tools \"Read,Glob,Grep\" --no-session-persistence --output-format json --model \"$MODEL\" --agents \"$AGENTS\" --agent \"$ROLE\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
       "reason": "The routed repair adapter restricts the selected provider to read-only inspection tools; execution stays at the shared dispatcher boundary."
+    },
+    {
+      "rule": "provider-executor",
+      "path": "scripts/nightshift-agent.sh",
+      "context": "      CMD=(claude -p --safe-mode --tools \"Read,Glob,Grep\" --allowedTools \"Read,Glob,Grep\" --no-session-persistence --output-format json --model \"$MODEL\" --system-prompt \"$(cat \"$TMP/role\")",
+      "reason": "The routed source reader has an isolated read-only Claude execution profile at the provider adapter boundary."
     }
   ]
 }
