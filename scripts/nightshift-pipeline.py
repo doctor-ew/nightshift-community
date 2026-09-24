@@ -155,8 +155,28 @@ class Pipeline:
             if not valid:
                 self.state['history'].append(dict(stage=stage,record=record,reason='relevant_inputs_changed'))
                 del self.state['completed'][stage]
+        self.import_draft()
         self.state['next_action']=next((s for s in STAGES if s not in self.state['completed']),'final_evidence')
         self.save();return True
+
+    def import_draft(self):
+        # Import only the drafting stage, never a legacy review or completion claim.
+        if self.state['attempts'] or self.state['completed'] or self.state['history']:
+            return
+        docs=self.project/'docs'/self.task
+        if not all((docs/name).is_file() for name in ('SPEC.md','behavior-scenarios.json')):
+            return
+        argv=[sys.executable,str(HERE/'nightshift-behavior-proof.py'),'validate','--project',str(self.project),'--task',self.task,'--scenarios',str(docs/'behavior-scenarios.json')]
+        result=subprocess.run(argv,capture_output=True,text=True,timeout=30)
+        if result.returncode:
+            self.state['findings']=[dict(id='existing-draft-schema',target='behavior-scenarios.json',problem='Existing draft requires schema repair; preserve it and resolve the validator failure.')]
+            return
+        receipt=self.directory/'product-import.json'
+        value=dict(version=1,task=self.task,stage='product',status='pass',findings=[],checks=[dict(command=' '.join(argv),exit_code=0)],evidence=[dict(path=str((docs/name).relative_to(self.project)),sha256=sha(docs/name)) for name in ('SPEC.md','behavior-scenarios.json')])
+        recovery.atomic(receipt,value)
+        validate_receipt(receipt,self.task,'product',self.project)
+        self.state['completed']['product']=dict(receipt=str(receipt),sha256=sha(receipt),input_sha256=inputs(self.project,self.task,'product',self.state))
+        self.state['history'].append(dict(stage='product',reason='existing_draft_validated_without_dispatch'))
 
     def dispatch(self, stage, handoff, receipt):
         route=self.state['plan']['stages'][stage]
@@ -182,6 +202,42 @@ class Pipeline:
                 except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);process.wait()
                 raise
 
+    def publish(self):
+        def git(*args):
+            return subprocess.check_output(['git','-C',str(self.project),*args],stderr=subprocess.PIPE).decode().strip()
+        branch=git('symbolic-ref','--short','HEAD')
+        if branch in ('main','master'):raise ValueError('publication_requires_ticket_branch')
+        helper=load('behavior-proof')
+        scope,_=helper.scope_table(self.project,self.task)
+        changed=set(git('diff','--name-only','HEAD','-z').split('\0'))
+        changed.update(git('ls-files','--others','--exclude-standard','-z').split('\0'))
+        changed={name for name in changed if name and not name.startswith('.nightshift/')}
+        # Local workflow locks and receipts stay in place; they are not source publication.
+        if any(name not in scope and not name.startswith('docs/'+self.task+'/') for name in changed):
+            raise ValueError('publication_out_of_scope_changes:'+','.join(sorted(name for name in changed if name not in scope and not name.startswith('docs/'+self.task+'/'))))
+        if any(not (self.project/name).is_file() or (self.project/name).resolve()!=(self.project/name).absolute() for name in changed):
+            raise ValueError('publication_deleted_or_unsafe_file')
+        if changed:
+            git('add','--',*sorted(changed))
+            git('commit','--only','-m','Complete verified Nightshift task '+self.task,'--',*sorted(changed))
+        if view(self.project,self.task)['status']=='stale' or proof(self.project,self.task,'final').get('outcome')!='pass':
+            raise ValueError('publication_evidence_changed')
+        head=git('rev-parse','HEAD')
+        publication=self.state.setdefault('publication',{})
+        if publication.get('pushed_head')!=head:
+            git('push','--set-upstream','origin',branch)
+            publication.update(pushed_head=head,branch=branch);self.save()
+        if self.settings.get('pr') and not publication.get('url'):
+            result=subprocess.run(['gh','pr','list','--head',branch,'--state','open','--json','url'],cwd=self.project,capture_output=True,text=True,check=True,timeout=30)
+            existing=json.loads(result.stdout)
+            if existing:publication['url']=existing[0]['url']
+            else:
+                body=self.directory/'publication.md'
+                body.write_text('Complete task '+self.task+'.\n\nAll required controller stages and final automated/manual acceptance evidence pass. Retained task evidence is in docs/'+self.task+'/.\n')
+                result=subprocess.run(['gh','pr','create','--head',branch,'--title','Complete task '+self.task,'--body-file',str(body)],cwd=self.project,capture_output=True,text=True,check=True,timeout=30)
+                publication['url']=result.stdout.strip()
+            self.save()
+
     def run(self):
         fd=os.open(self.directory/'controller.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
         with os.fdopen(fd,'w') as lock:
@@ -192,8 +248,13 @@ class Pipeline:
                 budget=load('ticket-budget').snapshot(self.project,self.task)
                 if budget and budget['exhausted']:raise ValueError('ticket_budget_exhausted')
                 count=sum(a['stage']==stage for a in self.state['attempts'])
-                if count>=3:
-                    self.state.update(status='blocked',next_action='inspect_exhausted_'+stage);self.save();return 1
+                retry=load('retry-budget');budget_path=self.directory/(stage+'-budget.json')
+                for prior in (a for a in self.state['attempts'] if a['stage']==stage):
+                    category=prior.get('category') or ('success' if prior['status']=='pass' else 'substantive' if prior.get('reason')=='stage_failed' else 'schema' if prior['status']=='fail' else 'pending')
+                    retry.account(budget_path,prior['receipt'],category)
+                accounting=read(budget_path) if budget_path.exists() else None
+                if accounting and (accounting['next_action']=='stop' or 'pending' in accounting['attempts'].values()):
+                    self.state.update(status='blocked',next_action='inspect_exhausted_or_interrupted_'+stage);self.save();return 1
                 signature=inputs(self.project,self.task,stage,self.state)
                 if any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature for a in self.state['attempts']):
                     self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
@@ -207,11 +268,12 @@ class Pipeline:
                 recovery.atomic(handoff,bundle)
                 attempt=dict(stage=stage,receipt=str(receipt),input_sha256=inputs(self.project,self.task,stage,self.state),status='running',route=self.state['plan']['stages'][stage],started_at=time.time())
                 self.state['attempts'].append(attempt);self.state['status']='running';self.save()
+                retry.account(budget_path,str(receipt),'pending')
                 value=None
                 try:
                     code=self.runner(stage,handoff,receipt)
-                    value=validate_receipt(receipt,self.task,stage,self.project)
                     if code:raise ValueError('worker_exit_'+str(code))
+                    value=validate_receipt(receipt,self.task,stage,self.project)
                     if value['status']!='pass':raise ValueError('stage_failed')
                     if stage=='product':
                         docs=self.project/'docs'/self.task
@@ -219,12 +281,14 @@ class Pipeline:
                     if stage=='adversarial' and proof(self.project,self.task,'development').get('outcome')!='pass':raise ValueError('development_proof_missing')
                     if stage in REVIEW and attempt['input_sha256'] != inputs(self.project,self.task,stage,self.state):
                         raise ValueError('review_changed_its_inputs')
-                    attempt.update(status='pass',finished_at=time.time())
+                    attempt.update(status='pass',category='success',finished_at=time.time())
+                    self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),'success')
                     self.state['completed'][stage]=dict(receipt=str(receipt),sha256=sha(receipt),input_sha256=inputs(self.project,self.task,stage,self.state))
                     if self.state.get('finding_stage')==stage:self.state['findings']=[]
                     self.save()
                 except (OSError,ValueError,subprocess.SubprocessError) as error:
-                    attempt.update(status='fail',reason=str(error),finished_at=time.time())
+                    attempt.update(status='fail',reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith('worker_exit_') else 'schema',finished_at=time.time())
+                    self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
                     self.state['findings']=(value or {}).get('findings',[]) or [dict(id=stage+'-evidence',target=str(receipt),problem=str(error))]
                     self.state.update(status='blocked',next_action=stage,finding_stage=stage);self.save()
                     if str(error)=='stage_failed' and stage in REVIEW and self.state['findings']:
@@ -239,7 +303,12 @@ class Pipeline:
             if outcome.get('reason')=='manual_acceptance_pending':
                 self.state.update(status='pending_manual_acceptance',next_action='operator_verify_manual_acceptance')
             elif outcome.get('outcome')=='pass' and all(s in self.state['completed'] for s in STAGES):
-                self.state.update(status='verified_pending_publication' if self.settings.get('push') else 'complete',next_action='publish' if self.settings.get('push') else 'none')
+                self.state.update(status='verified_pending_publication',next_action='publish');self.save()
+                if self.settings.get('push'):
+                    try:self.publish()
+                    except (OSError,ValueError,subprocess.SubprocessError) as error:
+                        self.state.update(error=str(error));self.save();return 1
+                self.state.update(status='complete',next_action='none')
             else:self.state.update(status='blocked',next_action='repair_final_evidence')
             self.save();return 0 if self.state['status']=='complete' else 1
 

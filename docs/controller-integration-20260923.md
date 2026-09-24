@@ -14,10 +14,15 @@ Workers write receipts in their task documentation directory, which is writable 
 
 `scripts/nightshift-jev-evaluation.py` evaluates an explicit six-case public synthetic corpus. It records service requests, defect detection, false positives, and unknown billing separately. It does not replace a required review. The local measurement returned `NO_KEY`, zero service requests, and zero avoided Claude calls. Unit tests use synthetic responses; they are not live Jev quality evidence.
 
+Existing valid drafting artifacts are now imported after deterministic schema validation without an author dispatch. Legacy review approval is not inferred from a draft. Publication performs a task-scoped commit and push only after current final proof passes, retains unrelated staged work and local runtime receipts, and records the pushed commit for resume. The PR creation path uses a retained body file; it has not been exercised against a live consumer remote.
+
+Retry admission uses `scripts/nightshift-retry-budget.py` to keep infrastructure failures separate from substantive findings and preserve the independent total ceiling. Interrupted pending attempts stop for evidence inspection. No replacement ticket allowance is created.
+
 ## Verification
 
-- `tests/test-pipeline.py`: three passing tests, including real shell dispatch to synthetic Claude executables and real behavior-proof fixtures. The failed review returns zero without a receipt. Resume dispatches only review, drift, and QA; the call count advances from four to seven; the original deadline remains unchanged; a further resume dispatches nothing and retains pending manual acceptance.
+- `tests/test-pipeline.py`: five passing tests, including real shell dispatch to synthetic Claude executables and real behavior-proof fixtures. The failed review returns zero without a receipt. Resume dispatches only review, drift, and QA; the call count advances from three to six; the original deadline remains unchanged; a further resume dispatches nothing and retains pending manual acceptance.
 - The saved-answer regression rejects missing routing before launching or changing the existing budget. It retains the answer, never creates a second question, and invalidates review evidence when source changes.
+- Publication regression passes against a local bare Git remote; unrelated staged changes are rejected and retained. A semantic finding is handed to targeted repair; unchanged source is never re-reviewed on resume.
 - `tests/test-handoff.py`: two passing tests for missing/stale graph results and handoff overflow.
 - `tests/test-jev-evaluation.py`: two passing tests for missing credentials and labelled synthetic scoring.
 - `tests/test-factory-cli.sh`: passing worker-level CLI regression. It explicitly tests one stage; it does not treat stub process success as controller completion.
@@ -25,7 +30,7 @@ Workers write receipts in their task documentation directory, which is writable 
 
 ## Outstanding acceptance
 
-Do not close the broader request or advertise production readiness from these fixtures. Remaining work includes legacy stage-evidence import, deterministic publication after verification, batch migration, named-branch parity, readiness wizard delivery under issue 46, and live ten-minute specification delivery under issue 49. Canonical stage documents still contain operator-interaction paths; their compatibility with controller decisions needs full acceptance coverage. Semantic-finding repair requires additional real-dispatch fault tests.
+Do not close the broader request or advertise production readiness from these fixtures. Remaining work includes legacy review-evidence import, batch migration, named-branch parity, readiness wizard delivery under issue 46, and live ten-minute specification delivery under issue 49. Canonical stage documents still contain operator-interaction paths; their compatibility with controller decisions needs full acceptance coverage. Semantic-finding repair has deterministic targeted-handoff and unchanged-review rejection coverage; live model repair acceptance remains required.
 
 The CxFlow repository graph refused reads with `GRAPH_INDEX_READER_SIDECAR_ACTIVITY` because a WAL recovery boundary was present. Its index, receipts, and source were preserved. No successful CxFlow retrieval or cross-project acceptance is claimed.
 
