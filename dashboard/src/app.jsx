@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage } from './model.mjs';
+import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, continuationControl } from './model.mjs';
 import './app.css';
 import {LiveProgress, TicketChat, TicketDecision} from './ticket-live.jsx';
 
@@ -134,7 +134,7 @@ function TicketActions({ rows, reports = [] }) {
     try {
       const response = await fetch('/api/tickets/' + operation, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': data.token },
-        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
+        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(operation === 'continue' ? { budget_revision: ticket.budget.revision } : {}), ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not continue this ticket.');
       setMessage(ticket.task + ': ' + result.message);
@@ -148,6 +148,7 @@ function TicketActions({ rows, reports = [] }) {
     {message && <p role="status">{message}</p>}
     <div className="ticket-list">{data.tickets.map(ticket => {
       const progress = ticketProgress(rows, ticket);
+      const continuation = continuationControl(ticket);
       const needsDecision = !!ticket.decisions?.pending?.length;
       if (needsDecision) {progress.status='Needs your decision';progress.tone='attention';}
       const sourceLink = ticketSourceLink(rows, ticket);
@@ -165,7 +166,10 @@ function TicketActions({ rows, reports = [] }) {
         <strong>{ticket.budget.exhausted ? 'Budget exhausted' : 'Remaining allowance'}</strong>
         <p>{Math.floor(ticket.budget.active_seconds_remaining)} aggregate active seconds remaining · {ticket.budget.calls_reserved}/{ticket.budget.max_calls} instrumented launches reserved</p>
         <p>{ticket.budget.wall_seconds_remaining == null ? 'Historical run: no wall-clock deadline was recorded.' : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
-        <p>Internal provider calls and billing are not covered by these counters. An explicit continuation grants at most 10 additional minutes and retains prior usage.</p>
+        <p>Used: {Math.floor(ticket.budget.active_seconds)} aggregate active seconds · {ticket.budget.continuations || 0} continuation grants.</p>
+        <p>This action grants up to 10 minutes of wall time and 10 minutes of aggregate worker time. Unused time does not accumulate. Parallel workers share that allowance. Prior usage and launch limits stay recorded; these counters do not measure tokens or billing.</p>
+        <button disabled={!!busy || continuation.disabled} onClick={() => act(ticket, 'continue')}>{busy === ticket.task ? 'Checking and continuing…' : 'Grant 10 minutes & continue'}</button>
+        <p>{continuation.reason || 'Configuration is checked before time is granted. The clock starts when the grant is recorded.'}</p>
       </>}</div>}
 
       <TicketDecision ticket={ticket} token={data.token} />

@@ -177,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
+        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -190,7 +190,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
-            allowed = {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            allowed = {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
             if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
             if self.path == '/api/workshop/approve':
@@ -200,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/api/tickets/chat':
                 result = chat_module().start(self.server.project, body['task'], body['sha256'], body['provider'], body['message'])
             else:
-                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1], provider=body.get('provider', 'auto'))
+                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1], provider=body.get('provider', 'auto'), **({'budget_revision': body['budget_revision']} if self.path == '/api/tickets/continue' else {}))
             self.reply(200, json.dumps(result).encode(), 'application/json')
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')

@@ -72,3 +72,16 @@ export function ticketTimeline(rows, ticket) {
 export function ticketUsage(reports, ticket) {
   return reports.filter(report => report.ticket?.source_id === ticket.task);
 }
+
+
+export function continuationControl(ticket) {
+  const budget = ticket.budget;
+  let reason = '';
+  if (!budget || budget.error || !budget.revision) reason = 'Budget accounting is unavailable.';
+  else if (ticket.running || budget.unfinished > 0) reason = 'Wait for active work to finish.';
+  else if (ticket.finished || ['complete', 'pending_manual_acceptance'].includes(ticket.pipeline?.status) || ticket.recovery?.next_action === 'operator_verify_manual_acceptance') reason = 'Review the recorded outcome; more runtime is not needed.';
+  else if (ticket.decisions?.pending?.length) reason = 'Answer the pending decision first.';
+  else if (budget.calls_reserved >= budget.max_calls) reason = 'Launch limit reached. More time cannot add launches.';
+  else if (!budget.exhausted && budget.wall_seconds_remaining != null) reason = 'Time remains. Use Resume without granting a new allowance.';
+  return {disabled: !!reason, reason};
+}

@@ -23,12 +23,12 @@ def ledger_path(project, task):
     return common / 'nightshift' / 'ticket-budgets' / (hashlib.sha256(task.encode()).hexdigest() + '.json')
 
 
-def update(project, task, operation, invocation='', max_calls=None, max_seconds=None, outcome='', now=None, max_wall_seconds=None, continuation_seconds=None):
-    now = time.time() if now is None else now
+def update(project, task, operation, invocation='', max_calls=None, max_seconds=None, outcome='', now=None, max_wall_seconds=None, continuation_seconds=None, expected_revision=None):
     path = ledger_path(project, task)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        now = time.time() if now is None else now
         if path.exists():
             state = json.loads(path.read_text())
             if state.get('version') != 1 or state.get('task') != task:
@@ -56,6 +56,11 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
             return sum(max(0, r.get('finished_at', now) - r['started_at']) for r in reservations.values())
         allowed, reason = True, ''
         if operation == 'continue':
+            if expected_revision is not None and hashlib.sha256(path.read_bytes()).hexdigest() != expected_revision:
+                raise ValueError('Budget changed; refresh before granting more time')
+            if (expected_revision is not None and state.get('deadline_at') is not None
+                    and now < state['deadline_at'] and elapsed() < state['max_active_seconds']):
+                raise ValueError('Time remains; use Resume without granting a new allowance')
             if type(continuation_seconds) is not int or not 1 <= continuation_seconds <= 600:
                 raise ValueError('explicit continuation must be between 1 and 600 seconds')
             if any('finished_at' not in r for r in reservations.values()):
@@ -119,7 +124,8 @@ def snapshot(project, task, now=None):
     path = ledger_path(project, task)
     if not path.exists():
         return None
-    state = json.loads(path.read_text())
+    content = path.read_bytes()
+    state = json.loads(content)
     if state.get('version') != 1 or state.get('task') != task:
         raise ValueError('invalid budget ledger')
     reservations = state['reservations']
@@ -127,7 +133,10 @@ def snapshot(project, task, now=None):
     deadline = state.get('deadline_at')
     remaining = max(0, state['max_active_seconds'] - active)
     wall_remaining = max(0, deadline - now) if deadline is not None else None
-    return dict(calls_reserved=len(reservations), max_calls=state['max_calls'],
+    return dict(revision=hashlib.sha256(content).hexdigest(),
+                unfinished=sum(1 for r in reservations.values() if 'finished_at' not in r),
+                continuations=len(state.get('continuations', [])),
+                calls_reserved=len(reservations), max_calls=state['max_calls'],
                 active_seconds=active, active_seconds_remaining=remaining,
                 wall_seconds_remaining=wall_remaining,
                 exhausted=remaining <= 0 or len(reservations) >= state['max_calls']

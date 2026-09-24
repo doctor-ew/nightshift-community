@@ -108,3 +108,29 @@ blocked children prompt for a target. Active children prevent concurrent repair
 without charging a new repair attempt. Private held-out material, credentials and
 symlink escapes are excluded. Repair still requires independent review and actual
 verification before the original parent workflow resumes.
+
+## Explicit budget continuation
+
+The ticket allowance panel includes **Grant 10 minutes & continue**. It displays
+recorded active time, launch usage, and continuation count. The grant uses the
+existing ticket ledger: it sets a new allowance of up to 600 wall-clock seconds
+and 600 aggregate worker seconds from the recorded grant, retaining prior usage,
+reservations, and the launch limit. Unused time is not accumulated. Parallel
+workers consume the aggregate allowance together. These are not token or billing
+limits.
+
+The action checks retained ownership, primary and worker preflight, and provider
+routing before granting time. Configuration blockers leave the ledger unchanged.
+Active work, unfinished reservations, pending decisions, exhausted launch limits,
+and pending manual acceptance cannot receive a browser grant. A ledger revision
+binds each request to the displayed budget; repeating that request cannot grant
+again, even after the worker exits. While usable time remains, the button directs
+the operator to Resume; the server and ledger reject a browser replacement grant.
+The controller target must match the registered worktree. Ordinary Resume does
+not grant time.
+
+A grant and operating-system process creation are not a single transaction. If
+process creation fails after a grant, the grant remains in history and its clock
+continues; the action reports the launch failure. This UI does not introduce an
+automatic refund or reset. Provider login or service failures after local
+preflight remain runtime failures, not proof of completed work.

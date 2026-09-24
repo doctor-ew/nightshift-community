@@ -252,8 +252,37 @@ def repair_budget(path, task):
     return budget_path, budget
 
 
-def action(project, task, expected, operation, provider="auto"):
-    if operation not in ('cleanup', 'resume', 'repair', 'stop'):
+def continuation_preflight(project, task, current, settings):
+    """Validate the retained execution target without granting time or calling a model."""
+    if ((current.get('pipeline') or {}).get('status') in ('complete', 'pending_manual_acceptance')
+            or (current.get('recovery') or {}).get('next_action') == 'operator_verify_manual_acceptance'):
+        raise ValueError('Manual acceptance or completed work does not require more runtime')
+    owner = read(directory(project).parent / 'worktrees' / (task + '.json'))
+    target = Path(owner['worktree']).resolve()
+    if not target.is_dir() or directory(target) != directory(project):
+        raise ValueError('Retained worktree identity changed; no time granted')
+    pipeline = _recovery.load('pipeline')
+    retained = pipeline.snapshot(project, task)
+    if retained and Path(retained['worktree']).resolve() != target:
+        raise ValueError('Controller and registered worktree disagree; no time granted')
+    # Check both entrypoint and child-stage admission. A primary manifest alone
+    # must never make a missing worktree manifest look ready.
+    for location, ref, branch in ((Path(project), settings['ref'], 'auto'), (target, task, 'none')):
+        checked = subprocess.run(['bash', str(HERE / 'nightshift-preflight-check.sh'),
+            '--project', str(location), '--ref', ref, '--branch', branch, '--base', settings['base']],
+            capture_output=True, text=True, timeout=30)
+        receipt = json.loads(checked.stdout)
+        if checked.returncode or receipt.get('status') != 'ok':
+            raise ValueError('Continuation blocked: ' + str(receipt.get('reason', 'preflight failed')) +
+                             ' in ' + str(location) + '. No time granted.')
+    try:
+        _recovery.load('pipeline').routes(target, settings)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ValueError('Continuation routing is unavailable or invalid; no time granted') from error
+
+
+def action(project, task, expected, operation, provider="auto", budget_revision=""):
+    if operation not in ('cleanup', 'resume', 'repair', 'stop', 'continue'):
         raise ValueError('Invalid operation')
     if provider not in ('auto', 'claude', 'codex', 'local'):
         raise ValueError('Invalid repair provider')
@@ -298,7 +327,7 @@ def action(project, task, expected, operation, provider="auto"):
             raise ValueError('Browser repair requires subscription authentication')
         if operation == 'repair' and settings['policy'] == 'claude-only' and provider not in ('auto', 'claude'):
             raise ValueError('Selected provider conflicts with saved policy')
-        if operation == 'resume' and settings['ref'].startswith('jira:'):
+        if operation in ('resume', 'continue') and settings['ref'].startswith('jira:'):
             if any(not os.environ.get(key) for key in ('JIRA_BASE_URL', 'JIRA_EMAIL', 'JIRA_TOKEN')):
                 raise ValueError('Jira credentials are absent from this console process. Restart the console from your configured terminal.')
         if operation == 'repair':
@@ -306,7 +335,16 @@ def action(project, task, expected, operation, provider="auto"):
             target = Path(selected_target.get('worktree', owner['worktree']))
             target_task = selected_target.get('task', task)
             _recovery.plan(target, dict(settings, _task=target_task), provider)
-        if operation != 'repair' and not (operation=='resume' and current.get('pipeline')):
+        if operation == 'continue':
+            if not re.fullmatch(r'[0-9a-f]{64}', budget_revision):
+                raise ValueError('Refresh the budget before granting more time')
+            if (current.get('budget') or {}).get('revision') != budget_revision:
+                raise ValueError('Budget changed; refresh before granting more time')
+            allowance = current['budget']
+            if not allowance['exhausted'] and allowance['wall_seconds_remaining'] is not None:
+                raise ValueError('Time remains; use Resume without granting a new allowance')
+            continuation_preflight(project, task, current, settings)
+        if operation not in ('repair', 'continue') and not (operation=='resume' and current.get('pipeline')):
             cleaned = subprocess.run([sys.executable, str(HERE / 'nightshift-cleanup.py'), task,
                                       '--project', str(project)], capture_output=True, text=True, timeout=30)
             receipt = json.loads(cleaned.stdout)
@@ -333,8 +371,12 @@ def action(project, task, expected, operation, provider="auto"):
                     '--task', task, '--provider', provider, '--evidence', evidence]
         fd, log_path = tempfile.mkstemp(prefix=task+'-', suffix='.log', dir=path)
         with os.fdopen(fd, 'wb') as log:
+            if operation == 'continue':
+                _recovery.load('ticket-budget').update(project, task, 'continue',
+                    continuation_seconds=600, expected_revision=budget_revision)
             process = subprocess.Popen(argv, cwd=project, stdin=subprocess.DEVNULL, stdout=log,
-                                       stderr=subprocess.STDOUT, start_new_session=True)
+                                       stderr=subprocess.STDOUT, start_new_session=True,
+                                       env=dict(os.environ, NIGHTSHIFT_UPDATE_GUARD='1') if operation == 'continue' else None)
         job_path = path / (task + '.launch.json')
         identity = subprocess.check_output(['ps', '-p', str(process.pid), '-o', 'lstart='], text=True).strip()
         atomic(job_path, dict(status='running', pid=process.pid, log=log_path, operation=operation, evidence=evidence, started_identity=identity))
@@ -347,7 +389,7 @@ def action(project, task, expected, operation, provider="auto"):
                     job.update(status='exited', exit_code=code)
                     atomic(job_path, job)
         threading.Thread(target=reap, daemon=True).start()
-        return dict(status='running', launched=True, message=('Diagnosis started; repair requires independent review and verification before resume.' if operation == 'repair' else 'Resumed with the recorded provider and publication settings.'))
+        return dict(status='running', launched=True, message=('Diagnosis started; repair requires independent review and verification before resume.' if operation == 'repair' else 'Granted up to 10 minutes and resumed; prior usage and call limits retained.' if operation == 'continue' else 'Resumed with the recorded provider and publication settings.'))
 
 
 if __name__ == '__main__':
