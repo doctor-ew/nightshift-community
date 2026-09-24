@@ -115,6 +115,27 @@ class ContinuationTests(unittest.TestCase):
             self.assertEqual(sum(pool.map(lambda _: grant(), range(2))), 1)
         self.assertEqual(len(json.loads(self.ledger.read_text())['continuations']), 1)
 
+    def test_existing_allowance_cannot_be_replaced_from_browser_or_ledger(self):
+        budget.update(self.project, '42', 'continue', continuation_seconds=600)
+        current = actions.state(self.project, '42')
+        before = self.ledger.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'Time remains'):
+            self.click(current)
+        with self.assertRaisesRegex(ValueError, 'Time remains'):
+            budget.update(self.project, '42', 'continue', continuation_seconds=600,
+                          expected_revision=current['budget']['revision'])
+        self.assertEqual(self.ledger.read_bytes(), before)
+
+    def test_controller_target_mismatch_cannot_grant(self):
+        pipeline = actions._recovery.load('pipeline')
+        folder = pipeline.root(self.project, '42')
+        folder.mkdir(parents=True)
+        (folder / 'state.json').write_text(json.dumps({'worktree':str(self.project)}))
+        before = self.ledger.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'worktree disagree'):
+            actions.continuation_preflight(self.project, '42', {}, self.settings)
+        self.assertEqual(self.ledger.read_bytes(), before)
+
     def test_manual_acceptance_cannot_grant(self):
         before = self.ledger.read_bytes()
         with self.assertRaisesRegex(ValueError, 'Manual acceptance'):

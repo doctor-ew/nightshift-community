@@ -167,7 +167,7 @@ function TicketActions({ rows, reports = [] }) {
         <p>{Math.floor(ticket.budget.active_seconds_remaining)} aggregate active seconds remaining · {ticket.budget.calls_reserved}/{ticket.budget.max_calls} instrumented launches reserved</p>
         <p>{ticket.budget.wall_seconds_remaining == null ? 'Historical run: no wall-clock deadline was recorded.' : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
         <p>Used: {Math.floor(ticket.budget.active_seconds)} aggregate active seconds · {ticket.budget.continuations || 0} continuation grants.</p>
-        <p>This action grants up to 10 minutes of wall time and 10 minutes of aggregate worker time. Parallel workers share that allowance. Prior usage and launch limits stay recorded; these counters do not measure tokens or billing.</p>
+        <p>This action grants up to 10 minutes of wall time and 10 minutes of aggregate worker time. Unused time does not accumulate. Parallel workers share that allowance. Prior usage and launch limits stay recorded; these counters do not measure tokens or billing.</p>
         <button disabled={!!busy || continuation.disabled} onClick={() => act(ticket, 'continue')}>{busy === ticket.task ? 'Checking and continuing…' : 'Grant 10 minutes & continue'}</button>
         <p>{continuation.reason || 'Configuration is checked before time is granted. The clock starts when the grant is recorded.'}</p>
       </>}</div>}

@@ -124,7 +124,10 @@ routing before granting time. Configuration blockers leave the ledger unchanged.
 Active work, unfinished reservations, pending decisions, exhausted launch limits,
 and pending manual acceptance cannot receive a browser grant. A ledger revision
 binds each request to the displayed budget; repeating that request cannot grant
-again, even after the worker exits. Ordinary Resume does not grant time.
+again, even after the worker exits. While usable time remains, the button directs
+the operator to Resume; the server and ledger reject a browser replacement grant.
+The controller target must match the registered worktree. Ordinary Resume does
+not grant time.
 
 A grant and operating-system process creation are not a single transaction. If
 process creation fails after a grant, the grant remains in history and its clock

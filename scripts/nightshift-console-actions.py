@@ -261,6 +261,10 @@ def continuation_preflight(project, task, current, settings):
     target = Path(owner['worktree']).resolve()
     if not target.is_dir() or directory(target) != directory(project):
         raise ValueError('Retained worktree identity changed; no time granted')
+    pipeline = _recovery.load('pipeline')
+    retained = pipeline.snapshot(project, task)
+    if retained and Path(retained['worktree']).resolve() != target:
+        raise ValueError('Controller and registered worktree disagree; no time granted')
     # Check both entrypoint and child-stage admission. A primary manifest alone
     # must never make a missing worktree manifest look ready.
     for location, ref, branch in ((Path(project), settings['ref'], 'auto'), (target, task, 'none')):
@@ -336,6 +340,9 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
                 raise ValueError('Refresh the budget before granting more time')
             if (current.get('budget') or {}).get('revision') != budget_revision:
                 raise ValueError('Budget changed; refresh before granting more time')
+            allowance = current['budget']
+            if not allowance['exhausted'] and allowance['wall_seconds_remaining'] is not None:
+                raise ValueError('Time remains; use Resume without granting a new allowance')
             continuation_preflight(project, task, current, settings)
         if operation not in ('repair', 'continue') and not (operation=='resume' and current.get('pipeline')):
             cleaned = subprocess.run([sys.executable, str(HERE / 'nightshift-cleanup.py'), task,

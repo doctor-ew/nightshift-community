@@ -24,11 +24,11 @@ def ledger_path(project, task):
 
 
 def update(project, task, operation, invocation='', max_calls=None, max_seconds=None, outcome='', now=None, max_wall_seconds=None, continuation_seconds=None, expected_revision=None):
-    now = time.time() if now is None else now
     path = ledger_path(project, task)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        now = time.time() if now is None else now
         if path.exists():
             state = json.loads(path.read_text())
             if state.get('version') != 1 or state.get('task') != task:
@@ -58,6 +58,9 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
         if operation == 'continue':
             if expected_revision is not None and hashlib.sha256(path.read_bytes()).hexdigest() != expected_revision:
                 raise ValueError('Budget changed; refresh before granting more time')
+            if (expected_revision is not None and state.get('deadline_at') is not None
+                    and now < state['deadline_at'] and elapsed() < state['max_active_seconds']):
+                raise ValueError('Time remains; use Resume without granting a new allowance')
             if type(continuation_seconds) is not int or not 1 <= continuation_seconds <= 600:
                 raise ValueError('explicit continuation must be between 1 and 600 seconds')
             if any('finished_at' not in r for r in reservations.values()):

@@ -109,3 +109,12 @@ test('continuation controls block active, exhausted-call and acceptance states',
   assert.equal(continuationControl({...ticket,budget:{...ticket.budget,unfinished:1}}).disabled,true);
   assert.equal(continuationControl({}).disabled,true);
 });
+
+
+test('granting time cannot replace an unspent allowance', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const budget = {revision:'current',calls_reserved:5,max_calls:64,unfinished:0,exhausted:false,wall_seconds_remaining:200};
+  assert.match(continuationControl({budget}).reason,/Use Resume/);
+  assert.equal(continuationControl({budget:{...budget,exhausted:true,wall_seconds_remaining:0}}).disabled,false);
+  assert.equal(continuationControl({budget:{...budget,wall_seconds_remaining:null}}).disabled,false);
+});

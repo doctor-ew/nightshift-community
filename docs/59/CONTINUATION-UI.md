@@ -27,6 +27,10 @@ After that worker exits, a repeated request with the earlier ledger revision is
 rejected. Refreshing and explicitly clicking again is a new operator action.
 The grant retains reservations and call limits and records continuation history.
 Manual acceptance never becomes execution work merely because time is available.
+While usable time remains, the browser action rejects a replacement allowance;
+ordinary Resume uses the remaining time. This is enforced again under the ledger
+lock. Historical ledgers without a deadline may receive an explicit grant.
+The controller target must match the registered worktree before any grant.
 
 ## Coordination with downstream continuation repairs
 
@@ -44,7 +48,7 @@ is factored into a shared CLI/browser function.
 
 ## Verification
 
-- `python3 tests/test-console-continuation.py`: five passing tests. Real temporary
+- `python3 tests/test-console-continuation.py`: seven passing tests. Real temporary
   repositories reproduce a primary manifest with no retained-worktree manifest;
   rejection preserves the ledger and starts no worker. The successful case uses
   real preflight and routing with a synthetic worker. Concurrent ledger grants
@@ -54,8 +58,8 @@ is factored into a shared CLI/browser function.
 - `bash tests/test-console-actions.sh`: passed existing action regression checks.
 - `python3 -m unittest discover -s dashboard -p test_server.py`: 11 passing tests,
   including continuation endpoint origin, token and body rejection.
-- `node --test dashboard/test-model.mjs`: 12 passing tests, including continuation
-  control states.
+- `node --test dashboard/test-model.mjs`: 13 passing tests, including continuation
+  control states and protection for unspent allowances.
 - `npm run build` in `dashboard`: successful; generated bundle included.
 
 No live model calls, operator ticket continuations, budget grants, or installed
