@@ -45,6 +45,8 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
                 raise ValueError('budget limits must be positive integers')
             if requested is not None and requested != state[name]:
                 raise ValueError('budget limits are pinned; changing environment cannot reset or expand them')
+        if max_wall_seconds is not None and state.get('max_wall_seconds') is None:
+            raise ValueError('This historical ticket has no wall-clock deadline. Use explicit continuation before resuming; prior usage and call limits will be retained.')
         if max_wall_seconds is not None and max_wall_seconds != state.get('max_wall_seconds'):
             raise ValueError('wall-clock limit is pinned')
         if state.get('max_wall_seconds') is not None and (type(state['max_wall_seconds']) is not int or state['max_wall_seconds'] <= 0):

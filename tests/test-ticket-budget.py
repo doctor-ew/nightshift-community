@@ -45,6 +45,28 @@ class BudgetTests(unittest.TestCase):
         self.assertTrue(self.call('check', now=10002)['allowed'])
         self.assertFalse(self.call('check', now=10003)['allowed'])
 
+    def test_legacy_ticket_requires_explicit_continuation_then_resumes(self):
+        self.call('reserve', 'old', max_seconds=3600, now=10)
+        self.call('finish', 'old', now=3607)
+        path=budget.ledger_path(self.project,'test-ticket')
+        legacy=json.loads(path.read_text())
+        del legacy['max_wall_seconds']; del legacy['deadline_at']
+        path.write_text(json.dumps(legacy))
+        before=path.read_bytes()
+        with self.assertRaisesRegex(ValueError,'Use explicit continuation'):
+            self.call('reserve','plain-rerun',max_wall_seconds=600,now=4000)
+        self.assertEqual(path.read_bytes(),before)
+        grant=self.call('continue',continuation_seconds=600,now=4000)
+        self.assertEqual(grant['active_seconds'],3597)
+        self.assertEqual(grant['calls_reserved'],1)
+        resumed=self.call('reserve','continued',max_wall_seconds=600,now=4001)
+        self.assertTrue(resumed['allowed'])
+        self.assertEqual(resumed['deadline_at'],4600)
+        self.assertEqual(resumed['max_calls'],64)
+        state=json.loads(path.read_text())
+        self.assertEqual(state['reservations']['old'],legacy['reservations']['old'])
+        self.assertEqual(len(state['continuations']),1)
+
     def test_wall_deadline_survives_idle_time_and_restart(self):
         self.call('reserve', 'a', now=10)
         self.call('finish', 'a', now=11)
