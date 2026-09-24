@@ -1,0 +1,3 @@
+nightshift: preflight blocked (MANIFEST_MISSING)
+nightshift: run nightshift init in this project first; use --include FILE to commit a starter brief.
+{"schema_version":1,"status":"blocked","checks":{"baseline":"pass","input":"pass","manifest":"fail","collision":"not_applicable"},"reason":"MANIFEST_MISSING","next_action":"run_setup","tasks":["IF-325"]}

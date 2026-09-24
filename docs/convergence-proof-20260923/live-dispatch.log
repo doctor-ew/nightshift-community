@@ -1,0 +1,2 @@
+/private/tmp/nightshift-bounded-convergence/scripts/nightshift-agent.sh: child setpgid (50177 to 50177): Operation not permitted
+nightshift-agent: provider launch or transport failed (exit=1 category=model_unavailable)

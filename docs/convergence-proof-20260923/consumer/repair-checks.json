@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "findings": [
+    {
+      "id": "double-input",
+      "artifact": "current.json",
+      "pointer": "/multiplier",
+      "expected": 2,
+      "prior_artifact": "prior.json",
+      "prior_sha256": "23b521de2497c531ab04f5dccfd38ae7baf622d04ce6354c6fe60b2cd676f9f5"
+    }
+  ]
+}

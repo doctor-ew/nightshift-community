@@ -1,0 +1,123 @@
+{
+  "source": "nightshift-bounded-convergence",
+  "base": "7fca93b51656dcc43083fad06f4ca9a6a27afb75",
+  "files": [
+    {
+      "path": "docs/convergence-proof-20260923/live-dispatch.log",
+      "bytes": 219,
+      "sha256": "572b5a7036027d418d911972a807793458436736d22530342a2ede6b55864e1f"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/live-input.md",
+      "bytes": 721,
+      "sha256": "040748bc604dc96961e7b1192f246d0f9fae73903d7fc93c72399a01c1dcb6b4"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/live-routing.json",
+      "bytes": 6317,
+      "sha256": "ccb1f9aa09af88dbe5d3f320a6a76ebe4dcb94d074c7a89c58a7901d5ea81658"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/preflight-live-dispatch.log",
+      "bytes": 60,
+      "sha256": "83903bcc63f1c03036932869f7ae2449d9c86e4e58ce3127fe4f1c03c19cd1c0"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/preflight-live-metrics.json",
+      "bytes": 687,
+      "sha256": "68d752355ea23a05c3d4cb83a7b75f01ff67b140301dacd2bc9315d281ebdcb8"
+    },
+    {
+      "path": "logs/run-9npma8fd/stderr.log",
+      "bytes": 354,
+      "sha256": "5252f792cd1c23a66e095db28068fd79226cb165f74353f90c64df644f60abc6"
+    },
+    {
+      "path": "logs/run-9npma8fd/stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "routing.json",
+      "bytes": 6621,
+      "sha256": "9925cbc0695b010d13187c0f7a6f671d70b58808afc47ff5d4d2a18b1a215335"
+    },
+    {
+      "path": "scripts/nightshift-continue.sh",
+      "bytes": 606,
+      "sha256": "63d9f75169cea36c6b52a5e736e6b0d9d222749aa2a72b5a5bfd6fcea0e1ac92"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/repair-checks.json",
+      "bytes": 300,
+      "sha256": "74e2319b10869917ce0af93316a604be6467b8a1c0272ed0104d1de108beba65"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/behavior.json",
+      "bytes": 215,
+      "sha256": "a4a5abfa86553b3f2e90f39a05ac8e61de5f6a2ea63852419005fe8e9f930ab7"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/repair.json",
+      "bytes": 550,
+      "sha256": "9763140a46ca8ac81e558eaa107c3b0ddbcfb26df5ef45c9f1982c2137644528"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/original-check.json",
+      "bytes": 550,
+      "sha256": "844da18a266c93cfaa2d8623f371e45ad9ae990eed5432e088d4b43eee3c6579"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/prior.json",
+      "bytes": 17,
+      "sha256": "23b521de2497c531ab04f5dccfd38ae7baf622d04ce6354c6fe60b2cd676f9f5"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/consumer.py",
+      "bytes": 137,
+      "sha256": "111359af87f557d19ae149bff31230363b03e6a7e4f95c024f774ee1abc773ab"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/current.json",
+      "bytes": 22,
+      "sha256": "9cb0684f5984277b8d814741bd357c9fc77a26105a26b856b1d3cb05b24183a8"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/verify.py",
+      "bytes": 184,
+      "sha256": "257d08ec926c3b99f25abffab3f6fd7c38d507ab1dc397fc4073ef46391e0f5c"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/AGENTS.md",
+      "bytes": 155,
+      "sha256": "7fb676dce24ec976eb52c073eb3a71de6da4523887373898605e75f9138afa76"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/fault.json",
+      "bytes": 444,
+      "sha256": "c06e7c2bfcb7536e18d4e45eff49a76a33cd86270b8343511ba3ca7a2185875c"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/completion.json",
+      "bytes": 672,
+      "sha256": "8d1e173c5030674baff52644d98100755173145bc9e4ab33b0e0e32412558348"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/repair-check.receipt.json",
+      "bytes": 730,
+      "sha256": "38f3b2a18002b94b23fdfe37f957106acd935219808c53657c466d9ed4b8317b"
+    },
+    {
+      "path": "docs/convergence-proof-20260923/consumer/.nightshift/agents/dispatch-50009-nightshift-agent.rtd8qV.json",
+      "bytes": 258,
+      "sha256": "e16868dc9fb7b725efd6503a40d0ef20121feee25d24da48c6b417fbb90af1c5"
+    }
+  ],
+  "status": "retained-for-review",
+  "excluded": [
+    "dependency directories",
+    "bytecode caches",
+    "process locks",
+    "nested Git metadata"
+  ]
+}
