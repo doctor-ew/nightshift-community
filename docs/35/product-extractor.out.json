@@ -1,0 +1,228 @@
+{
+  "status": "SUCCESS",
+  "attempts": 2,
+  "reason": "Read-only code fact extraction for gh:35 (ticket-level cost accounting). Verified all existing implementation references, identified structured provider receipt formats, documented accounting functions and gaps without implementation changes.",
+  "rules_fired": [
+    "identify-existing-implementations",
+    "trace-provider-receipts",
+    "document-accounting-functions",
+    "gap-analysis-without-guessing",
+    "verify-test-coverage"
+  ],
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "92b5d71",
+    "diff": ""
+  },
+  "results": {
+    "claims": [
+      {
+        "claim": "docs/RUN-MEASUREMENTS.md documents run-level metrics schema with observations array containing invocation_id, stage, provider, model, role, duration_seconds, status, usage",
+        "file": "docs/RUN-MEASUREMENTS.md",
+        "line": 93,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "docs/RUN-MEASUREMENTS.md"
+        ]
+      },
+      {
+        "claim": "docs/NIGHTSHIFT-COST-POLICY.md establishes policy: missing usage or cost information means unknown, not zero",
+        "file": "docs/NIGHTSHIFT-COST-POLICY.md",
+        "line": 17,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "docs/NIGHTSHIFT-COST-POLICY.md"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-run-metrics.py provides cmd_init (creates run context), cmd_event (appends observation/repair events), cmd_summary (aggregates per-run)",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 184,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py"
+        ]
+      },
+      {
+        "claim": "nightshift-run-metrics.py defines STAGES={'product','adversarial','implement','review','drift','preflight','deploy'}, PROVIDERS={'claude','codex','local'}, ROLES={'nightshift-engineer','nightshift-architect','nightshift-code-fact-extractor','nightshift-run-all-tests','nightshift-spec-writer','nightshift-behavior-reviewer'}",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 48,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-factory.sh initializes metrics via nightshift-run-metrics.py init, exports NIGHTSHIFT_RUN_ID and NIGHTSHIFT_RUN_DIR to role dispatch",
+        "file": "scripts/nightshift-factory.sh",
+        "line": 204,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-factory.sh records terminal observation via nightshift-run-metrics.py summary at lines 216, calls exit handlers record factory observations at lines 470-471 and 510-511",
+        "file": "scripts/nightshift-factory.sh",
+        "line": 216,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-agent.sh emit_observation() function records role dispatch observations including stage (via role_stage mapping), provider, model, duration, status, usage at lines 31-48",
+        "file": "scripts/nightshift-agent.sh",
+        "line": 31,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-agent.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-agent.sh role_stage() maps nightshift-engineer→implement, nightshift-architect→implement, nightshift-spec-writer→product, nightshift-behavior-reviewer→adversarial, others→null (require --stage override)",
+        "file": "scripts/nightshift-agent.sh",
+        "line": 21,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-agent.sh"
+        ]
+      },
+      {
+        "claim": "scripts/nightshift-ticket-source.sh --derive-id mode derives source/source_id/external_ref from gh:/jira:/monday:/notion: refs without network fetch; bd: and task refs require local resolution",
+        "file": "scripts/nightshift-ticket-source.sh",
+        "line": 45,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-ticket-source.sh"
+        ]
+      },
+      {
+        "claim": "nightshift-ticket-source.sh supports sources: gh (GitHub), jira (Jira), monday (Monday.com), notion (Notion), bd (Beads), task (local), spec (local markdown); external_ref format is source-id or custom per source",
+        "file": "scripts/nightshift-ticket-source.sh",
+        "line": 74,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-ticket-source.sh"
+        ]
+      },
+      {
+        "claim": "routing.json defines provider commands and model routing for claude, codex, local; models include haiku, sonnet, opus (claude) and gpt-5.4 (codex adversarial)",
+        "file": "routing.json",
+        "line": 7,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "routing.json"
+        ]
+      },
+      {
+        "claim": "Claude provider emits structured usage as {\"type\":\"result\",\"usage\":{\"input_tokens\":N,\"output_tokens\":N}} per test-run-metrics.sh stub at line 37",
+        "file": "tests/test-run-metrics.sh",
+        "line": 37,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "tests/test-run-metrics.sh"
+        ]
+      },
+      {
+        "claim": "nightshift-run-metrics.py _read_events() deduplicates observations by invocation_id, retains only valid usage/duration/status fields, ignores records with missing critical fields",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 318,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py"
+        ]
+      },
+      {
+        "claim": "nightshift-run-metrics.py _summary() marks usage.complete=false if any observation lacks input_tokens or output_tokens; otherwise aggregates sums; repair_count summed from deltas (never assumed zero without metrics context)",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 405,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py"
+        ]
+      },
+      {
+        "claim": "tests/test-run-metrics.sh (AC4-6) verifies: concurrent run isolation, unknowns not fabricated as zero, repair events linked, provider/stage/model captured, structured usage reported, secrets redacted, file permissions enforced",
+        "file": "tests/test-run-metrics.sh",
+        "line": 2,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "tests/test-run-metrics.sh"
+        ]
+      },
+      {
+        "claim": "GAP: No per-ticket aggregation layer; run summaries exist but no persistent cross-run ticket totals or per-ticket cost reports",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 352,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py",
+          "docs/RUN-MEASUREMENTS.md",
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "GAP: No ticket identity binding in run metrics; observations have invocation_id/role/provider but no external_ref/source_id/ticket mapping",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 271,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py",
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "GAP: Codex/local providers have no documented structured usage capture; nightshift-run-metrics.py comments note Codex --json has no observed structured token-usage event at dispatcher boundary yet (line 125-126 of docs/RUN-MEASUREMENTS.md)",
+        "file": "docs/RUN-MEASUREMENTS.md",
+        "line": 123,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "docs/RUN-MEASUREMENTS.md",
+          "scripts/nightshift-run-metrics.py"
+        ]
+      },
+      {
+        "claim": "GAP: No pricing/cost integration; usage tokens captured but no provider-reported cost, no pricing table lookups, no cost-per-ticket aggregation",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 282,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py",
+          "docs/NIGHTSHIFT-COST-POLICY.md"
+        ]
+      },
+      {
+        "claim": "GAP: No GitHub comment publication; no machinery to post ticket summaries to upstream issues even though nightshift-ticket-source.sh fetches GitHub issue metadata",
+        "file": "scripts/nightshift-ticket-source.sh",
+        "line": 157,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-ticket-source.sh",
+          "scripts/nightshift-factory.sh"
+        ]
+      },
+      {
+        "claim": "GAP: No replay/resume deduplication tracking; no mechanism to detect duplicate accounting when runs are replayed or resumed, no explicit parent/child overlap detection",
+        "file": "scripts/nightshift-run-metrics.py",
+        "line": 390,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "scripts/nightshift-run-metrics.py",
+          "docs/RUN-MEASUREMENTS.md"
+        ]
+      },
+      {
+        "claim": "GAP: No per-ticket test coverage; test-run-metrics.sh covers run-level metrics but no tests for multi-run ticket aggregation, cost rollups, or ticket isolation on replays",
+        "file": "tests/test-run-metrics.sh",
+        "line": 2,
+        "status": "VERIFIED",
+        "inspected_files": [
+          "tests/test-run-metrics.sh",
+          "tests/"
+        ]
+      }
+    ]
+  }
+}

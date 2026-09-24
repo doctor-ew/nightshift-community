@@ -1,0 +1,19 @@
+{
+  "status": "SKIP",
+  "reason": "Task input requests a full independent multi-lens post-implementation code review (DRY/SOLID/ACID/CoC/Big-O/LLM trust boundary, eight acceptance criteria, spec/diff alignment, seven implementation paths, test coverage analysis) with pass/fail verdicts and BLOCK/WARN/NOTE severity findings. That is the charter of a reviewer/architect role, not the Code Fact Extractor role this invocation is bound to. The Code Fact Extractor's sole function is to verify whether specific named technical identifiers (table/column/schema/field names, file paths, class/method/variable names, API endpoints, config keys, enum values) exist in a codebase via grep/mex/file-read, and report VERIFIED/NOT FOUND with source citations — it explicitly does not write specs, render lens verdicts, assess acceptance criteria, or offer opinions on code quality/architecture. No list of discrete identifiers to verify was supplied in the task input; instead the entire ask is qualitative/architectural review. Performing the requested review would require guessing at scope, severity judgments, and architectural opinions well outside what this role is chartered or equipped to produce, so no reliable claims can be extracted. Recommend re-dispatching this request to the nightshift-architect or a dedicated code-review role, optionally after this role first extracts a discrete identifier list (e.g., the seven implementation path file/function names, the two test file paths, specific spec-digest anchors) for that reviewer to consume.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "model": "sonnet",
+    "provider": "claude"
+  },
+  "results": {
+    "claims": []
+  },
+  "rules_fired": [
+    "role-scope-mismatch",
+    "no-identifier-list-provided",
+    "never-guess-technical-facts"
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "version": 1,
+  "task": "35",
+  "ac_ids": [
+    "AC1",
+    "AC2",
+    "AC3",
+    "AC4",
+    "AC5",
+    "AC6",
+    "AC7",
+    "AC8"
+  ],
+  "author": {
+    "provider": "codex",
+    "author_id": "codex-spec-35"
+  },
+  "applicability": {
+    "kind": "deterministic",
+    "rationale": "All required outcomes are deterministic accounting and persistence behavior; privacy and non-gating behavior require independent safety design challenge.",
+    "risks": [
+      "deterministic_logic",
+      "safety_sensitive"
+    ],
+    "review": null
+  },
+  "runtime": null,
+  "prototype_files": [],
+  "cases": [
+    {
+      "id": "C35-1",
+      "ac_ids": [
+        "AC1"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Ticket isolation and multi-run aggregation are directly asserted over persisted receipts.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Two runs, including a failed call, share one exact ticket tuple; another run has the same source_id in another repository.",
+      "when": "The first ticket report is rebuilt and read.",
+      "then": "Only the two correctly bound runs contribute and both statuses remain in provenance.",
+      "forbidden": "Keying by external_ref alone, mixing repositories, or dropping failed attempts.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "The same issue number from another repository contributes tokens."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-2",
+      "ac_ids": [
+        "AC2"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Stable identity, cumulative replacement, and conflict rules are deterministic replay operations.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Duplicate receipts, a resumed invocation, cumulative sequences, and one conflicting payload share stable identities.",
+      "when": "Receipts and summaries are replayed repeatedly.",
+      "then": "Exact duplicates and superseded cumulative values count once; conflicts are excluded and reported incomplete.",
+      "forbidden": "Increasing totals merely because of replay, resume, rebuild, or an older cumulative result.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Two identical receipt files double the cost."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-3",
+      "ac_ids": [
+        "AC3"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Cache normalization and inclusive-parent suppression have fixed arithmetic and relationship rules.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Claude inclusive parent/main-loop receipts, an SDK-internal child, an external child of unknown overlap, and Codex cache categories.",
+      "when": "The report aggregates usage.",
+      "then": "Cached and reasoning tokens are not double-counted; included children are suppressed; uncertain external-child usage is non-additive and incomplete.",
+      "forbidden": "Naively summing parent and children or adding cached/reasoning categories twice.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Codex total equals input plus cached input plus output."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-4",
+      "ac_ids": [
+        "AC4"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Null propagation, known subtotals, and completeness counters are schema assertions.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Receipts separately omit usage, reported model, and pricing.",
+      "when": "The report is generated.",
+      "then": "Known subtotals remain visible, the corresponding counters are positive, estimates stay null where unsupported, and complete is false.",
+      "forbidden": "Inferring zero, pricing from selected_model, or labeling a partial amount complete.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Missing pricing produces token_derived_estimate_usd 0."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-5",
+      "ac_ids": [
+        "AC5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Measured and unmeasured orchestrator paths are explicit receipt fixtures.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "One run has structured orchestrator usage and another expected orchestrator call has none.",
+      "when": "The ticket report is read.",
+      "then": "Available orchestrator usage contributes once and unmeasured_orchestrator_count makes coverage incomplete.",
+      "forbidden": "Dropping available orchestrator usage or treating absence as zero.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "The report is complete despite a null orchestrator receipt."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-6",
+      "ac_ids": [
+        "AC6"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Restart replay, immutable receipts, and atomic replacement are filesystem assertions.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "A process stops after receipt rename but before summary refresh, and an older summary remains.",
+      "when": "A fresh process invokes the documented ticket-report command.",
+      "then": "All receipts, including the interrupted run and post-summary receipt, are replayed; JSON and provenance are returned and summary.json is atomically refreshed.",
+      "forbidden": "Trusting the stale summary over newer receipts or losing recorded usage after restart.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "The newer immutable receipt is absent from the returned total."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-7",
+      "ac_ids": [
+        "AC7"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Stage buckets and overall totals derive from the same additive set.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Known and unknown stages span multiple providers and reported models.",
+      "when": "The report computes breakdowns.",
+      "then": "Known stages are retained, unknown is explicit, and every category sum equals the overall known subtotal.",
+      "forbidden": "Guessing a stage or using a different receipt set for breakdowns.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Stage totals exceed the overall total."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C35-8",
+      "ac_ids": [
+        "AC8"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Provider fixtures, privacy checks, failure injection, and unchanged regressions provide deterministic evidence; safety design requires independent challenge.",
+        "risks": [
+          "deterministic_logic",
+          "safety_sensitive"
+        ],
+        "review": null
+      },
+      "given": "Claude and Codex success/error/cumulative fixtures plus malformed, unreadable, and unwritable accounting inputs containing secret sentinels.",
+      "when": "Focused and existing runtime/provider tests run.",
+      "then": "Required capture and provenance pass; accounting failures leave engineering exits unchanged; no forbidden content is persisted; existing tests remain green.",
+      "forbidden": "Syntax-only RED, weakening assertions, leaking prompts or credentials, or changing a gate result because accounting failed.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "A summary write failure changes provider success to failure.",
+        "A receipt contains a prompt sentinel."
+      ],
+      "visibility": "public"
+    }
+  ],
+  "heldout": null
+}

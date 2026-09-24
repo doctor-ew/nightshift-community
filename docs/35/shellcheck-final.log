@@ -1,0 +1,7 @@
+
+In scripts/nightshift-ticket-source.sh line 81:
+    local task="$1" id="$2" ticket_file="$D_PROJECT/docs/$1/ticket.json"
+          ^--^ SC2034 (warning): task appears unused. Verify use (or export if used externally).
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2034 -- task appears unused. Verify use (...

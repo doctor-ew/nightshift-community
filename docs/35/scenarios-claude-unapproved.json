@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "task": "35",
+  "ac_ids": [
+    "AC1",
+    "AC2",
+    "AC3",
+    "AC4",
+    "AC5",
+    "AC6",
+    "AC7",
+    "AC8"
+  ],
+  "author": {
+    "provider": "claude",
+    "author_id": "spec-writer-35"
+  },
+  "applicability": {
+    "kind": "deterministic",
+    "rationale": "All required behavior is deterministic script/CLI accounting logic (identity threading, dedup keying, atomic file writes, JSON aggregation) with no model-authored output in the loop; one case carries an additional safety_sensitive risk for the never-gates/never-captures-disallowed-content guarantee.",
+    "risks": [
+      "deterministic_logic",
+      "safety_sensitive"
+    ],
+    "review": null
+  },
+  "runtime": null,
+  "prototype_files": [],
+  "cases": [
+    {
+      "id": "AC1",
+      "ac_ids": [
+        "AC1"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Ticket isolation across runs is pure aggregation logic over persisted JSON files.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Two factory runs recorded under external_ref gh-35 (one provider_exited_nonzero) and one run recorded under a different external_ref",
+      "when": "nightshift-ticket-report.py --external-ref gh-35 is invoked",
+      "then": "both gh-35 runs appear in contributing_runs and their usage.role totals are summed; the other ticket's run contributes nothing",
+      "forbidden": "Mixing another ticket's usage into gh-35's totals, or omitting the failed run from contributing_runs",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Report includes tokens from a run recorded under a different external_ref"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC2",
+      "ac_ids": [
+        "AC2"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Dedup keys on (run_id, invocation_id); verifiable by direct assertion on repeated regeneration.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "A run's summary.json is regenerated twice (idempotent summary re-run) for the same run_id",
+      "when": "the ticket report is regenerated after each summary call",
+      "then": "the reported totals are identical both times; no observation is counted twice",
+      "forbidden": "Any increase in reported usage caused solely by re-running summary or the report itself",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Second report shows double the tokens of the first with no new provider activity"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC3",
+      "ac_ids": [
+        "AC3"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "usage_scope separation is a fixed field read on each observation record.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "One run contains both an orchestrator-scoped and a role-scoped observation event",
+      "when": "the ticket report runs",
+      "then": "both subtotals appear separately under usage.role and usage.orchestrator, each with the correct values",
+      "forbidden": "Merging orchestrator-scoped and role-scoped usage into one number, or dropping either scope",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "usage.orchestrator and usage.role report the same combined total instead of their own scoped values"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC4",
+      "ac_ids": [
+        "AC4"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "No cost adapter exists in this delivery; the field is a fixed constant in every code path.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Any ticket with recorded runs, under this delivery's unchanged provider adapters",
+      "when": "the ticket report runs",
+      "then": "cost.cost_status is always unknown and every *_usd field is null",
+      "forbidden": "Reporting any nonzero or zero dollar figure derived from token counts without a versioned pricing_source",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "cost.estimated_usd is a computed nonzero number with no pricing_source recorded"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC5",
+      "ac_ids": [
+        "AC5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observed-vs-not-observed is a fixed boolean derived from whether any orchestrator-scoped observation exists.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "A run with only a role-scoped observation (today's common case; the factory's own direct-provider call records no usage)",
+      "when": "the ticket report runs",
+      "then": "usage.orchestrator.observed is false and usage.orchestrator.complete is false",
+      "forbidden": "Reporting usage.orchestrator as a complete zero total when no orchestrator-scoped observation was ever recorded",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "usage.orchestrator.input_tokens is 0 with complete:true despite no orchestrator observation existing"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC6",
+      "ac_ids": [
+        "AC6"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Reconstruction from events/ reuses the existing, already-tested _read_events dedup logic.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "A run whose events/ directory has recorded observations but whose process crashed before any summary call (no summary.json written)",
+      "when": "a fresh nightshift-ticket-report.py process runs after restart",
+      "then": "the interrupted run's already-recorded usage appears in the report via replayed_from_events",
+      "forbidden": "Silently dropping an interrupted run's already-recorded usage because summary.json is missing",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "contributing_runs omits the interrupted run entirely instead of marking it replayed_from_events"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC7",
+      "ac_ids": [
+        "AC7"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Breakdown and totals are computed from one pass over the same deduplicated observation list.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "Observations across two distinct stage/provider/model combinations for one ticket",
+      "when": "the ticket report runs",
+      "then": "breakdown.by_stage, by_provider, and by_model each sum to the same totals as usage.role/usage.orchestrator",
+      "forbidden": "A breakdown whose sum disagrees with the reported overall total",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "by_stage sums to 900 tokens while usage.role reports 1000"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC8",
+      "ac_ids": [
+        "AC8"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Read-error handling on one run directory is a fixed try/except path with an explicit status field.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": null
+      },
+      "given": "One run's directory is made unreadable while a sibling run for the same ticket remains intact",
+      "when": "the ticket report runs",
+      "then": "the process exits 0, the sibling run's usage is reported, and the unreadable run is marked read_error",
+      "forbidden": "A nonzero exit code, an uncaught exception, or silent omission of the sibling run's usage because of the other run's read failure",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "The whole report call exits nonzero because one run directory could not be read"
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "AC-safety-1",
+      "ac_ids": [
+        "AC1",
+        "AC3",
+        "AC4",
+        "AC5",
+        "AC8"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Accounting must never gate engineering outcomes and must never capture disallowed content (prompts, transcripts, credentials); this is safety-sensitive because a defect here could silently block real engineering work or leak sensitive data through a metrics side channel, even though the implementation itself is ordinary deterministic code.",
+        "risks": [
+          "safety_sensitive"
+        ],
+        "review": null
+      },
+      "given": "Any accounting I/O or validation failure (unreadable run, malformed event, missing ticket index) during ticket report generation or observation recording",
+      "when": "the underlying role dispatch, factory run, or behavioral-proof gate proceeds independently",
+      "then": "the gate/dispatch outcome is unaffected by the accounting failure, and no prompt, transcript, file path, full command, or credential value is ever written to any metrics file",
+      "forbidden": "An accounting failure changing a gate/dispatch status, or any disallowed content type appearing in a metrics or ticket-index file",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "nightshift-agent.sh exits nonzero because the metrics event write failed",
+        "A ticket index file contains a raw prompt or an API key value"
+      ],
+      "visibility": "public"
+    }
+  ],
+  "heldout": null
+}

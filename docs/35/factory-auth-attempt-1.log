@@ -1,0 +1,10 @@
+FAIL: expected 'ROUTING_FILE=/private/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T/nightshift-factory-auth.4U4p1o/routing.json' in 'nightshift: active run; update application deferred
+{"status": "ok", "manifest": "/private/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T/nightshift-factory-auth.4U4p1o/.nightshift.toml", "auth": "subscription", "legacy_preserved": true}
+{"status":"ok","ticket_source":"beads","production_url":"https://example.invalid"}
+nightshift: paid API mode disabled; no automatic billing fallback.
+nightshift: installed build: 0.3.0.2026-09-15-1149
+nightshift: authentication: ChatGPT subscription (OPENAI_API_KEY ignored).
+nightshift: factory provider: codex; model: runtime default; no automatic factory fallback; role routing remains configured.
+/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/scripts/nightshift-factory.sh: line 557: syntax error near unexpected token `${FACTORY_PROVIDER_OUTPUT:+> >(tee "$FACTORY_PROVIDER_OUTPUT")}'
+{"schema_version":1,"metrics_available":false,"reason":"PERSISTENCE_UNAVAILABLE"}
+nightshift: full logs: /private/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T/nightshift-factory-auth.4U4p1o/home/.nightshift/logs/run-zvu4hnpv'

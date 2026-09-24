@@ -1,0 +1,68 @@
+{
+  "executor": "codex-controller-35",
+  "provider_execution": "offline mocks; no real provider calls in suites",
+  "conventions": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "results": [
+    {
+      "command": [
+        "bash",
+        "tests/test-ticket-accounting.sh"
+      ],
+      "source": "docs/35/SPEC.md",
+      "scope": "issue35 focused and relevant runtime/provider regression",
+      "fallback": "AGENTS.md and CLAUDE.md have no explicit test command; sealed SPEC and repository suites apply",
+      "exit_code": 0,
+      "log": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/ticket-accounting-final.log",
+      "sha256": "6336bed6eda091868de841753a5d0156de3db0cdd20c2f2f70031d4ac20d9f7d"
+    },
+    {
+      "command": [
+        "bash",
+        "tests/test-run-metrics.sh"
+      ],
+      "source": "docs/35/SPEC.md",
+      "scope": "issue35 focused and relevant runtime/provider regression",
+      "fallback": "AGENTS.md and CLAUDE.md have no explicit test command; sealed SPEC and repository suites apply",
+      "exit_code": 0,
+      "log": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/run-metrics-final.log",
+      "sha256": "d9612dccce252888d470a34afe82b96e1de54ffc6218a4ff7278de4e05718cba"
+    },
+    {
+      "command": [
+        "bash",
+        "tests/test-agent-dispatch.sh"
+      ],
+      "source": "docs/35/SPEC.md",
+      "scope": "issue35 focused and relevant runtime/provider regression",
+      "fallback": "AGENTS.md and CLAUDE.md have no explicit test command; sealed SPEC and repository suites apply",
+      "exit_code": 0,
+      "log": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/agent-dispatch-final.log",
+      "sha256": "d4fbf0dba93c608e5ab9cdbbec2517de39526d9c6253d7e2fa766a5c630b65b5"
+    },
+    {
+      "command": [
+        "bash",
+        "tests/test-factory-auth.sh"
+      ],
+      "source": "docs/35/SPEC.md",
+      "scope": "issue35 focused and relevant runtime/provider regression",
+      "fallback": "AGENTS.md and CLAUDE.md have no explicit test command; sealed SPEC and repository suites apply",
+      "exit_code": 0,
+      "log": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/factory-auth-final.log",
+      "sha256": "ea17737b2ef75e7ac5cf3fbe3f6ae5711adf78aaf3b987e9ebba708485c551f3"
+    },
+    {
+      "command": [
+        "python3",
+        "docs/35/runtime-boundary-check.py"
+      ],
+      "source": "controller supplementary boundary validation",
+      "exit_code": 0,
+      "log": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/runtime-boundary-final.log",
+      "sha256": "fc64fd7f9e4cea34ef1c24004feaedf669113fba1ac7ee7668405afb0f5bf43a"
+    }
+  ]
+}

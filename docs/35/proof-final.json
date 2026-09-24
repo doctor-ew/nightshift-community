@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "task": "35",
+  "gate": "final",
+  "observer": {
+    "provider": "codex",
+    "author_id": "codex-controller-35"
+  },
+  "scenario_ids": [
+    "C35-1",
+    "C35-2",
+    "C35-3",
+    "C35-4",
+    "C35-5",
+    "C35-6",
+    "C35-7",
+    "C35-8"
+  ],
+  "command": {
+    "argv": [
+      "bash",
+      "tests/test-ticket-accounting.sh"
+    ],
+    "source": {
+      "path": "docs/35/SPEC.md",
+      "line": 108,
+      "sha256": "8857e0d1e0fdabe1d47d914ccc42d07ef64f40fc69bea50af6e233e678bb91f0"
+    }
+  },
+  "exit_code": 0,
+  "assertions": {
+    "kind": "relevant_assertion",
+    "passed": 8,
+    "failed": 0
+  },
+  "log": {
+    "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/GREEN-final.log",
+    "sha256": "f028fd9162a5654d7236e82c2cd82a7477fffa666e6350319f8df46e07fe4232"
+  },
+  "tests": [
+    {
+      "path": "tests/test-run-metrics.sh",
+      "sha256": "2c3a6c77d3ca237dc3ec5d5e4dfb5466ef4391c492deabd2ed6852c8d5c0ba43"
+    },
+    {
+      "path": "tests/test-ticket-accounting.sh",
+      "sha256": "5129f75bc97e2ca04f8163da2994b55d042546e15291d0de81785caf72150559"
+    }
+  ],
+  "red_lock_sha": "1e19b3d8a4fb46fb3e20ec3248e512be6ed679f2",
+  "source_hashes": {
+    "docs/NIGHTSHIFT-COST-POLICY.md": "40371ecd0df424de21a6e79485856b97f9aa6a5cbbb3f03702303f3fcfb51c71",
+    "docs/RUN-MEASUREMENTS.md": "0f506de0edba0496dfd1201058bfb5b8ea9495a691d7dcdeef2b765a62d7b52f",
+    "scripts/nightshift-agent.sh": "c961ee983e4d186869a70b0b535707428914412bef94a01ebdee65587fab66c1",
+    "scripts/nightshift-factory.sh": "cdb8e9c849f72ed2102cf173af4493404db5de05102c6889c9d61199c8d0c379",
+    "scripts/nightshift-provider-usage.py": "10a6885d0ae3b79a9c9b667ca3e79fd8fd854dfae2f1d92fc803adb5fd61505c",
+    "scripts/nightshift-run-metrics.py": "a38d31c253c2019b9c330be99decf971070d9a70302433a06fae1b2e1d593111",
+    "scripts/nightshift-ticket-source.sh": "ac715f99bba0be1a033a54b83f822cb23a7d630e8ac000d2c9ce62d4d98708d8",
+    "tests/test-run-metrics.sh": "2c3a6c77d3ca237dc3ec5d5e4dfb5466ef4391c492deabd2ed6852c8d5c0ba43",
+    "tests/test-ticket-accounting.sh": "5129f75bc97e2ca04f8163da2994b55d042546e15291d0de81785caf72150559"
+  }
+}

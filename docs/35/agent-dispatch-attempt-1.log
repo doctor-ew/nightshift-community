@@ -1,0 +1,23 @@
+false
+true
+FAIL: Claude inline role selected
+/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T//nightshift-dispatch.SBF28W/runtime/scripts/nightshift-agent.sh: child setpgid (63086 to 63086): Operation not permitted
+FAIL: Claude transport omits dialect metadata
+/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T//nightshift-dispatch.SBF28W/runtime/scripts/nightshift-agent.sh: child setpgid (63086 to 63086): Operation not permitted
+FAIL: Claude transport omits top-level composition
+/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T//nightshift-dispatch.SBF28W/runtime/scripts/nightshift-agent.sh: child setpgid (63086 to 63086): Operation not permitted
+FAIL: API-backed login rejected in default subscription mode
+FAIL: automatic high-risk bounded gear dispatch
+FAIL: fallback records second actual attempt
+nightshift-agent: provider launch or transport failed (exit=1 category=local_unavailable)
+true
+FAIL: bounded fallback stops on authentication
+FAIL: OSS flags
+FAIL: error rejected
+FAIL: error replaces stale success
+FAIL: cross provider selects Codex
+FAIL: selected provider trusted metadata
+FAIL: no alternate fails closed
+true
+true
+Dispatch assertions: 82 passed, 13 failed

@@ -1,0 +1,77 @@
+test_C35_1_ticket_isolation_and_failed_attempts (__main__.Accounting.test_C35_1_ticket_isolation_and_failed_attempts) ... FAIL
+test_C35_2_replay_cumulative_conflict (__main__.Accounting.test_C35_2_replay_cumulative_conflict) ... FAIL
+test_C35_3_overlap_and_provider_cache_categories (__main__.Accounting.test_C35_3_overlap_and_provider_cache_categories) ... FAIL
+test_C35_4_partial_usage_model_and_pricing (__main__.Accounting.test_C35_4_partial_usage_model_and_pricing) ... FAIL
+test_C35_5_orchestrator_measured_and_unmeasured (__main__.Accounting.test_C35_5_orchestrator_measured_and_unmeasured) ... FAIL
+test_C35_6_restart_and_stale_atomic_summary (__main__.Accounting.test_C35_6_restart_and_stale_atomic_summary) ... FAIL
+test_C35_7_breakdowns_match_same_additive_set (__main__.Accounting.test_C35_7_breakdowns_match_same_additive_set) ... FAIL
+test_C35_8_provider_errors_privacy_and_io (__main__.Accounting.test_C35_8_provider_errors_privacy_and_io) ... FAIL
+
+======================================================================
+FAIL: test_C35_1_ticket_isolation_and_failed_attempts (__main__.Accounting.test_C35_1_ticket_isolation_and_failed_attempts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 84, in test_C35_1_ticket_isolation_and_failed_attempts
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_2_replay_cumulative_conflict (__main__.Accounting.test_C35_2_replay_cumulative_conflict)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 98, in test_C35_2_replay_cumulative_conflict
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_3_overlap_and_provider_cache_categories (__main__.Accounting.test_C35_3_overlap_and_provider_cache_categories)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 115, in test_C35_3_overlap_and_provider_cache_categories
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_4_partial_usage_model_and_pricing (__main__.Accounting.test_C35_4_partial_usage_model_and_pricing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 140, in test_C35_4_partial_usage_model_and_pricing
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_5_orchestrator_measured_and_unmeasured (__main__.Accounting.test_C35_5_orchestrator_measured_and_unmeasured)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 155, in test_C35_5_orchestrator_measured_and_unmeasured
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_6_restart_and_stale_atomic_summary (__main__.Accounting.test_C35_6_restart_and_stale_atomic_summary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 164, in test_C35_6_restart_and_stale_atomic_summary
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_7_breakdowns_match_same_additive_set (__main__.Accounting.test_C35_7_breakdowns_match_same_additive_set)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 178, in test_C35_7_breakdowns_match_same_additive_set
+  File "<stdin>", line 51, in ingest
+AssertionError: 2 != 0 : C35: normalized accounting receipt must be accepted
+
+======================================================================
+FAIL: test_C35_8_provider_errors_privacy_and_io (__main__.Accounting.test_C35_8_provider_errors_privacy_and_io)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 198, in test_C35_8_provider_errors_privacy_and_io
+  File "<stdin>", line 71, in parse
+AssertionError: False is not true : C35: structured provider usage adapter is required
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.803s
+
+FAILED (failures=8)

@@ -1,0 +1,4 @@
+# Bounded accounting contract repair
+Plan approved; read-only Codex proposal; controller integrates and validates. Return only applicable artifacts.diff for scripts/nightshift-run-metrics.py, SUCCESS means complete proposal, not tested. Do not read tests, logs, proof evidence or test-role output. No nested role calls or file writes.
+
+Public specification violations: missing-model and missing-pricing counters must still count receipts whose usage is unavailable; missing usage cannot skip other completeness accounting. Breakdown buckets must expose their token known_subtotal directly, matching the report usage known_subtotal shape, so each category can be summed across stage/provider/reported_model. Preserve separate cost breakdowns. Review only the relevant accounting report functions and SPEC-DIGEST. No broader edits.

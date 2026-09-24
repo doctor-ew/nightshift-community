@@ -1,0 +1,16 @@
+{
+  "gate": "tests",
+  "failures": 3,
+  "repairs": 3,
+  "limit": 3,
+  "evidence": [
+    "GREEN-output-attempt-1.log",
+    "factory-auth-diagnostic.log"
+  ],
+  "note": "Initial contract repair, production boundary repair, final namespace compatibility repair; prior authoring counters retained separately.",
+  "status": "exhausted",
+  "final_evidence": [
+    "evals-final.log",
+    "shellcheck-final.log"
+  ]
+}

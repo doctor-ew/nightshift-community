@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "task": "35",
+  "gate": "development",
+  "observer": {
+    "provider": "codex",
+    "author_id": "codex-controller-35"
+  },
+  "scenario_ids": [
+    "C35-1",
+    "C35-2",
+    "C35-3",
+    "C35-4",
+    "C35-5",
+    "C35-6",
+    "C35-7",
+    "C35-8"
+  ],
+  "command": {
+    "argv": [
+      "bash",
+      "tests/test-ticket-accounting.sh"
+    ],
+    "source": {
+      "path": "docs/35/SPEC.md",
+      "line": 108,
+      "sha256": "8857e0d1e0fdabe1d47d914ccc42d07ef64f40fc69bea50af6e233e678bb91f0"
+    }
+  },
+  "exit_code": 1,
+  "assertions": {
+    "kind": "relevant_assertion",
+    "passed": 0,
+    "failed": 8
+  },
+  "log": {
+    "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/RED-output.log",
+    "sha256": "c7049b19644953ac83b2fbdf21c84129c235194ca2fb1e567ca8537f91928edd"
+  },
+  "tests": [
+    {
+      "path": "tests/test-run-metrics.sh",
+      "sha256": "2c3a6c77d3ca237dc3ec5d5e4dfb5466ef4391c492deabd2ed6852c8d5c0ba43"
+    },
+    {
+      "path": "tests/test-ticket-accounting.sh",
+      "sha256": "5129f75bc97e2ca04f8163da2994b55d042546e15291d0de81785caf72150559"
+    }
+  ],
+  "red_lock_sha": "1e19b3d8a4fb46fb3e20ec3248e512be6ed679f2",
+  "source_hashes": {}
+}

@@ -1,0 +1,20 @@
+{
+  "status": "FAIL",
+  "reason": "The required implementation is too broad to provide a complete, safely reviewable patch without violating the Enterprise Architect hard plan-approval gate. The implementation plan must first be approved before a GREEN patch can be authored. No files were written or tested.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "architect-plan-hard-gate",
+    "read-only-proposal",
+    "test-firewall",
+    "allowed-files-only"
+  ],
+  "results": {
+    "files_changed": []
+  }
+}

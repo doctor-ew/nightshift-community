@@ -1,0 +1,21 @@
+{
+  "status": "FAIL",
+  "reason": "## AGENT BLOCKED — nightshift-architect\n\n**Stage:** Implement (patch proposal)\n**Reason:** A complete, safely applicable seven-file patch could not be produced within this dispatch without either writing an analysis artifact or running validation, both explicitly prohibited by the read-only controller contract. The required change spans 1,852 existing lines plus a new provider parser and introduces persistence, replay, overlap, and shell-boundary accounting contracts; returning an unvalidated partial patch would violate the requirement to implement full accounting rather than a scaffold.\n**Evidence:** `scripts/nightshift-run-metrics.py` is 493 lines, `scripts/nightshift-agent.sh` 307, `scripts/nightshift-factory.sh` 525, `scripts/nightshift-ticket-source.sh` 288, and the two documentation files total 239 lines. The approved plan classifies the work as Moon-sized. No files were written and no tests were read or run.\n**Required action:** Re-dispatch with permission to create the plan-required analysis artifact and validate the proposed patch in an isolated writable worktree, while preserving the sealed-test firewall.",
+  "attempts": 2,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "architect-firewall",
+    "read-only-proposal",
+    "no-test-access",
+    "no-write",
+    "complete-patch-required"
+  ],
+  "results": {
+    "files_changed": []
+  }
+}

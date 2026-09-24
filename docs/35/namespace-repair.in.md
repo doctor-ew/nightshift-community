@@ -1,0 +1,4 @@
+# Final small compatibility repair
+Plan approved, read-only proposal only, return apply_patch artifacts.diff. Do not read tests/logs/proofs or write files. Controller validates. No nested workers.
+
+The latest short-GitHub namespace lookup added a hard derive_error when no origin or verified fetched ticket exists. This violates the explicit observational/non-gating and legacy identity contract: missing accounting namespace must not make a previously valid gh:<number> ticket fail preflight. In scripts/nightshift-ticket-source.sh preserve the existing source/id derivation and emit repository:null when both trusted lookups are unavailable. In scripts/nightshift-agent.sh and scripts/nightshift-factory.sh classify unresolved GitHub repository identity as unattributed, never mixing unknown-repository tickets into a ticket total. Preserve qualified and verified short-reference behavior. Small localized condition changes only. Do not alter gates, auth, routing or tests.

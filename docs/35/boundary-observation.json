@@ -1,0 +1,5 @@
+{
+  "boundary": "provider normalizer numeric stream_epoch to metrics sanitizer",
+  "accepted": false,
+  "reason": "invalid_receipt_identity"
+}

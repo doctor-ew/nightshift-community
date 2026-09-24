@@ -1,0 +1,11 @@
+{
+  "gate": "review",
+  "dispatches": 3,
+  "scope_mismatch_skips": 1,
+  "substantive_failures": 1,
+  "repairs": 1,
+  "limit": 3,
+  "evidence": "code-review-attempt-2.json",
+  "status": "approved_with_warnings",
+  "final_evidence": "code-review-attempt-3.json"
+}

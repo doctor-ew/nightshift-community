@@ -1,0 +1,24 @@
+{
+  "status": "SUCCESS",
+  "reason": "Proposed an explicit Claude launch branch that makes the optional stdout redirection valid shell syntax while preserving authentication, background-process identity, signal handling, and provider exit-status capture.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "nightshift/35",
+    "diff": "diff --git a/scripts/nightshift-factory.sh b/scripts/nightshift-factory.sh\n--- a/scripts/nightshift-factory.sh\n+++ b/scripts/nightshift-factory.sh\n@@ -547,14 +547,25 @@ if [ \"$PROVIDER\" = claude ]; then\n   fi\n   [ \"$BRANCH\" != none ] && CLAUDE_ARGS+=(--dangerously-skip-permissions)\n   [ -n \"$MODEL\" ] && CLAUDE_ARGS+=(--model \"$MODEL\")\n-  (\n-    cd \"$PROJECT\" || exit 66\n-    if [ \"$AUTH_MODE\" = subscription ]; then\n-      exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n-    else\n-      exec claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n-    fi\n-  ) ${FACTORY_PROVIDER_OUTPUT:+> >(tee \"$FACTORY_PROVIDER_OUTPUT\")} &\n+  if [ -n \"$FACTORY_PROVIDER_OUTPUT\" ]; then\n+    (\n+      cd \"$PROJECT\" || exit 66\n+      if [ \"$AUTH_MODE\" = subscription ]; then\n+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n+      else\n+        exec claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n+      fi\n+    ) > >(tee \"$FACTORY_PROVIDER_OUTPUT\") &\n+  else\n+    (\n+      cd \"$PROJECT\" || exit 66\n+      if [ \"$AUTH_MODE\" = subscription ]; then\n+        exec env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n+      else\n+        exec claude \"${CLAUDE_ARGS[@]}\" -- \"$PROMPT\"\n+      fi\n+    ) &\n+  fi\n elif [ \"$PROVIDER\" = \"codex\" ] && [ \"$AUTH_MODE\" = \"subscription\" ]; then\n",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "architect_firewall",
+    "read_only_proposal",
+    "bounded_source_read",
+    "no_tests_or_reports",
+    "no_nested_workers",
+    "preserve_authentication",
+    "preserve_signal_behavior",
+    "preserve_provider_exit_status"
+  ],
+  "results": {
+    "files_changed": []
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "status": "SUCCESS",
+  "reason": "Prepared the requested read-only compatibility repair. Short GitHub references retain source and ID when repository identity is unavailable, while agent and factory accounting classify that identity as unattributed.",
+  "attempts": 3,
+  "artifacts": {
+    "branch": "nightshift/35",
+    "diff": "*** Begin Patch\n*** Update File: scripts/nightshift-ticket-source.sh\n@@\n         repository=\"$(github_repository_from_origin || true)\"\n         if [ -z \"$repository\" ]; then\n-          github_identity_from_ticket \"$id\" \"$id\" || derive_error \"short gh ref requires a GitHub origin or matching fetched ticket\"\n-          exit 0\n+          if github_identity_from_ticket \"$id\" \"$id\"; then\n+            exit 0\n+          fi\n         fi\n       fi\n*** Update File: scripts/nightshift-agent.sh\n@@\n   if [ -n \"${NIGHTSHIFT_TICKET_JSON:-}\" ] &&\n      jq -e --arg task \"$TASK_KEY\" 'type == \"object\" and (.source | type == \"string\") and\n-       has(\"repository\") and ((.source_id | tostring) == $task)' <<< \"$NIGHTSHIFT_TICKET_JSON\" >/dev/null 2>&1; then\n+       has(\"repository\") and\n+       (.source != \"gh\" or ((.repository | type) == \"string\" and (.repository | length) > 0)) and\n+       ((.source_id | tostring) == $task)' <<< \"$NIGHTSHIFT_TICKET_JSON\" >/dev/null 2>&1; then\n@@\n   elif resolved_ticket=\"$(bash \"$ROOT/scripts/nightshift-ticket-source.sh\" --derive-id \"$TASK_KEY\" --project \"$METRICS_PROJECT\" 2>/dev/null)\" &&\n-       jq -e 'type == \"object\" and (.source | type == \"string\") and has(\"repository\") and (.source_id != null)' <<< \"$resolved_ticket\" >/dev/null 2>&1; then\n+       jq -e 'type == \"object\" and (.source | type == \"string\") and has(\"repository\") and\n+         (.source != \"gh\" or ((.repository | type) == \"string\" and (.repository | length) > 0)) and\n+         (.source_id != null)' <<< \"$resolved_ticket\" >/dev/null 2>&1; then\n*** Update File: scripts/nightshift-factory.sh\n@@\n   if resolved_ticket=\"$(bash \"$SCRIPT_DIR/nightshift-ticket-source.sh\" --derive-id \"$REF\" --project \"$PROJECT\" 2>/dev/null)\" &&\n-     jq -e 'type == \"object\" and (.source | type == \"string\") and has(\"repository\") and (.source_id != null)' <<< \"$resolved_ticket\" >/dev/null 2>&1; then\n+     jq -e 'type == \"object\" and (.source | type == \"string\") and has(\"repository\") and\n+       (.source != \"gh\" or ((.repository | type) == \"string\" and (.repository | length) > 0)) and\n+       (.source_id != null)' <<< \"$resolved_ticket\" >/dev/null 2>&1; then\n*** End Patch",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "spec-first",
+    "approved-plan",
+    "read-only-proposal",
+    "observational-accounting",
+    "legacy-short-github-identity",
+    "unknown-github-repository-unattributed",
+    "preserve-qualified-and-verified-github-behavior",
+    "no-tests-logs-proofs",
+    "no-nested-workers"
+  ],
+  "results": {
+    "files_changed": [
+      "scripts/nightshift-ticket-source.sh",
+      "scripts/nightshift-agent.sh",
+      "scripts/nightshift-factory.sh"
+    ]
+  }
+}

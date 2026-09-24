@@ -1,0 +1,26 @@
+{
+  "status": "SUCCESS",
+  "reason": "Tests were executed by the write-capable controller; I inspected the supplied evidence. All five recorded commands exited 0, their full-log SHA-256 hashes match docs/35/test-execution.json, and no failures or skips were emitted. The evidence explicitly counts 8 unittest cases and 95 dispatch assertions (103 passed total). The run-metrics, factory-auth, and supplementary boundary logs report PASS without assertion totals. Commands were selected from docs/35/SPEC.md:108 for the issue-35 unit/integration scope because AGENTS.md, CLAUDE.md, and .nightshift.toml specify no test command.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "nightshift/35",
+    "diff": "✅ All supplied test evidence passed\n   103 explicitly counted passes | 0 failed | 0 skipped\n\nController-executed evidence inspected:\n- bash tests/test-ticket-accounting.sh — exit 0; 8 tests passed\n- bash tests/test-run-metrics.sh — exit 0; PASS (no assertion count emitted)\n- bash tests/test-agent-dispatch.sh — exit 0; 95 assertions passed\n- bash tests/test-factory-auth.sh — exit 0; 2 PASS outcomes (no assertion count emitted)\n- python3 docs/35/runtime-boundary-check.py — exit 0; PASS (supplementary validation; no assertion count emitted)\n\nAll recorded log hashes match the evidence manifest. No tests were executed by this read-only role.",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "mandatory context resolver completed",
+    "all returned conventions read",
+    "neutral and legacy conventions silent on test command",
+    "sealed specification command selection",
+    "unit and integration scope only",
+    "controller-supplied execution evidence only",
+    "immutable log hashes verified",
+    "no implementation diagnosis",
+    "read-only role"
+  ],
+  "results": {
+    "passed": 103,
+    "failed": 0
+  }
+}

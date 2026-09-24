@@ -1,0 +1,13 @@
+test_C35_1_ticket_isolation_and_failed_attempts (__main__.Accounting.test_C35_1_ticket_isolation_and_failed_attempts) ... ok
+test_C35_2_replay_cumulative_conflict (__main__.Accounting.test_C35_2_replay_cumulative_conflict) ... ok
+test_C35_3_overlap_and_provider_cache_categories (__main__.Accounting.test_C35_3_overlap_and_provider_cache_categories) ... ok
+test_C35_4_partial_usage_model_and_pricing (__main__.Accounting.test_C35_4_partial_usage_model_and_pricing) ... ok
+test_C35_5_orchestrator_measured_and_unmeasured (__main__.Accounting.test_C35_5_orchestrator_measured_and_unmeasured) ... ok
+test_C35_6_restart_and_stale_atomic_summary (__main__.Accounting.test_C35_6_restart_and_stale_atomic_summary) ... ok
+test_C35_7_breakdowns_match_same_additive_set (__main__.Accounting.test_C35_7_breakdowns_match_same_additive_set) ... ok
+test_C35_8_provider_errors_privacy_and_io (__main__.Accounting.test_C35_8_provider_errors_privacy_and_io) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 2.369s
+
+OK

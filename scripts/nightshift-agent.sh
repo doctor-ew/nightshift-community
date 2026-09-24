@@ -13,6 +13,7 @@ RISK=${NIGHTSHIFT_RISK:-standard} ATTEMPT=1 AUTH=subscription AUTO_ROUTE='' STAG
 TELEMETRY_FILE='' TELEMETRY_STARTED='' TELEMETRY_STATUS=failed
 INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
+ACCOUNTING_EMITTED=false TICKET_JSON='null' ATTRIBUTION=unattributed
 ERROR=''
 # Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
 # telemetry file above: a run-local, typed record of this one invocation for
@@ -46,6 +47,57 @@ emit_observation() {
     ${USAGE_INPUT:+--input-tokens "$USAGE_INPUT"} ${USAGE_OUTPUT:+--output-tokens "$USAGE_OUTPUT"} \
     >/dev/null 2>&1 || true
 }
+emit_accounting_receipts() {
+  [ "$ACCOUNTING_EMITTED" = false ] || return 0
+  ACCOUNTING_EMITTED=true
+  [ -n "${NIGHTSHIFT_RUN_DIR:-}" ] && [ -n "${NIGHTSHIFT_RUN_ID:-}" ] || return 0
+  command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 || return 0
+
+  local parsed="$TMP/provider-usage.json" receipts="$TMP/accounting-receipts.jsonl"
+  local status="$1" stage selected_model
+  [ -n "$TMP" ] && [ -f "$TMP/stdout" ] || return 0
+  case "$PROVIDER" in claude|codex) ;; *) return 0 ;; esac
+  python3 "$ROOT/scripts/nightshift-provider-usage.py" --provider "$PROVIDER" --input "$TMP/stdout" > "$parsed" 2>/dev/null || printf '[]\n' > "$parsed"
+  jq -e 'type == "array"' "$parsed" >/dev/null 2>&1 || printf '[]\n' > "$parsed"
+  [ "$(jq 'length' "$parsed")" -gt 0 ] || printf '[{}]\n' > "$parsed"
+  stage="$(role_stage "$ROLE")"
+  if [ -z "$stage" ] && [ -n "$STAGE_OVERRIDE" ]; then
+    case "$STAGE_OVERRIDE" in product|adversarial|implement|review|drift|preflight|deploy) stage="$STAGE_OVERRIDE" ;; esac
+  fi
+  selected_model="$MODEL"
+  jq -c --argjson ticket "$TICKET_JSON" --arg attribution "$ATTRIBUTION" \
+    --arg run_id "$NIGHTSHIFT_RUN_ID" --arg invocation_id "$INVOCATION_ID" \
+    --arg provider "$PROVIDER" --arg selected_model "$selected_model" --arg stage "$stage" \
+    --arg status "$status" --arg role "$ROLE" '
+    to_entries[] | .key as $index | .value as $observation | {
+      schema_version:2,
+      ticket:(if $attribution == "ticket" then $ticket else null end),
+      attribution:$attribution,
+      run_id:$run_id,
+      invocation_id:$invocation_id,
+      receipt_id:($observation.receipt_id // ("provider-" + ($index | tostring))),
+      sequence:($observation.sequence // $index),
+      stream_epoch:($observation.stream_epoch // 0),
+      provider:$provider,
+      selected_model:(if $selected_model == "" then null else $selected_model end),
+      reported_model:($observation.reported_model // null),
+      stage:(if $stage == "" then null else $stage end),
+      status:$status,
+      role:$role,
+      coverage_scope:($observation.coverage_scope // "self"),
+      parent_invocation_id:($observation.parent_invocation_id // null),
+      included_invocation_ids:(if $observation | has("included_invocation_ids") then $observation.included_invocation_ids else null end),
+      child_kind:($observation.child_kind // "none"),
+      usage:($observation.usage // null),
+      cost:($observation.cost // {provider_reported_estimate_usd:null,token_derived_estimate_usd:null,actual_billed_usd:null,pricing_sources:[]})
+    }' "$parsed" > "$receipts" 2>/dev/null || return 0
+
+  local receipt="$TMP/accounting-receipt.json"
+  while IFS= read -r line; do
+    printf '%s\n' "$line" > "$receipt" || continue
+    python3 "$ROOT/scripts/nightshift-run-metrics.py" ingest --run-dir "$NIGHTSHIFT_RUN_DIR" --receipt-file "$receipt" >/dev/null 2>&1 || true
+  done < "$receipts"
+}
 telemetry() (
   # Observational only: any filesystem/serialization failure is non-fatal.
   set -e
@@ -70,6 +122,7 @@ telemetry() (
 )
 cleanup() {
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
+  emit_accounting_receipts "$TELEMETRY_STATUS" || true
   emit_observation "$TELEMETRY_STATUS" || true
   [ -z "$TMP" ] || rm -rf -- "$TMP"; [ -z "$PUBLISH" ] || rm -f -- "$PUBLISH"
 }
@@ -135,6 +188,23 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -z "$ERROR" ] || fail "$ERROR"
+if [ -n "$TASK_KEY" ]; then
+  METRICS_PROJECT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  if [ -n "${NIGHTSHIFT_TICKET_JSON:-}" ] &&
+     jq -e --arg task "$TASK_KEY" 'type == "object" and (.source | type == "string") and
+       has("repository") and
+       (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+       ((.source_id | tostring) == $task)' <<< "$NIGHTSHIFT_TICKET_JSON" >/dev/null 2>&1; then
+    TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$NIGHTSHIFT_TICKET_JSON")"
+    ATTRIBUTION=ticket
+  elif resolved_ticket="$(bash "$ROOT/scripts/nightshift-ticket-source.sh" --derive-id "$TASK_KEY" --project "$METRICS_PROJECT" 2>/dev/null)" &&
+       jq -e 'type == "object" and (.source | type == "string") and has("repository") and
+         (.source != "gh" or ((.repository | type) == "string" and (.repository | length) > 0)) and
+         (.source_id != null)' <<< "$resolved_ticket" >/dev/null 2>&1; then
+    TICKET_JSON="$(jq -c '{source,repository,source_id:(.source_id|tostring)}' <<< "$resolved_ticket")"
+    ATTRIBUTION=ticket
+  fi
+fi
 case "$ROLE" in nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'

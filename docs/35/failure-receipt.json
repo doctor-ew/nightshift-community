@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "task": "35",
+  "ticket": "gh:35",
+  "status": "failed",
+  "gate": "local-verification",
+  "reason": "Verification repair budget exhausted; final CI-equivalent suite fails verbose advisory output compatibility, and ShellCheck reports an unused variable.",
+  "repair_cycles": 3,
+  "repair_history": [
+    {
+      "cycle": 1,
+      "scope": "Accounting completeness/breakdown and factory shell syntax",
+      "artifacts": [
+        "test-repair-1.out.json",
+        "boundary-repair-1.out.json"
+      ]
+    },
+    {
+      "cycle": 2,
+      "scope": "Provider epoch, pricing provenance, namespace and interrupted capture boundaries",
+      "artifacts": [
+        "boundary-contract-repair.out.json"
+      ]
+    },
+    {
+      "cycle": 3,
+      "scope": "Nonfatal missing GitHub namespace compatibility",
+      "artifacts": [
+        "namespace-repair.out.json"
+      ]
+    }
+  ],
+  "remaining_failures": [
+    {
+      "command": "bash evals/run-tests.sh",
+      "exit_code": 1,
+      "result": "37 passed, 1 failed, 38 total",
+      "file": "tests/test-factory-cli.sh",
+      "line": 90,
+      "detail": "Verbose advisory mode expects no --json argument; unconditional factory JSON capture violates that assertion."
+    },
+    {
+      "command": "shellcheck --severity=warning scripts/nightshift-agent.sh scripts/nightshift-factory.sh scripts/nightshift-ticket-source.sh",
+      "exit_code": 1,
+      "file": "scripts/nightshift-ticket-source.sh",
+      "line": 81,
+      "detail": "SC2034: local task variable is unused."
+    }
+  ],
+  "passed": {
+    "focused_tests": 103,
+    "focused_failed": 0,
+    "independent_review": "Claude APPROVE with warnings",
+    "final_behavioral_proof": "pass, 8 scenarios",
+    "runtime_boundary": "Codex and Claude receipts persisted, token total139, estimate0.02, billed unknown"
+  },
+  "downstream": {
+    "drift": "not admitted",
+    "qa": "not admitted",
+    "preflight": "not admitted",
+    "push": "not performed",
+    "pr": "not opened"
+  },
+  "worktree": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35",
+  "branch": "nightshift/35",
+  "head": "1e19b3d8a4fb46fb3e20ec3248e512be6ed679f2",
+  "author_provider": "codex",
+  "reviewer_provider": "claude",
+  "operator_interruption": "Earlier third Claude spec dispatch interrupted solely for user routing steering; not counted as gate failure.",
+  "evidence": [
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/evals-final.log",
+      "sha256": "99ac61f51978e219b7b1ee382c326e4b395bb0bb789877c98a199ad68b3bf4ed"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/shellcheck-final.log",
+      "sha256": "ee32482548d2a85f20e091fc3c2eb9206172e2264f825e61951df2bc44eb6cc6"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/GREEN-final.log",
+      "sha256": "f028fd9162a5654d7236e82c2cd82a7477fffa666e6350319f8df46e07fe4232"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/runtime-boundary-final.log",
+      "sha256": "fc64fd7f9e4cea34ef1c24004feaedf669113fba1ac7ee7668405afb0f5bf43a"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/factory-auth-final.log",
+      "sha256": "ea17737b2ef75e7ac5cf3fbe3f6ae5711adf78aaf3b987e9ebba708485c551f3"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/agent-dispatch-final.log",
+      "sha256": "d4fbf0dba93c608e5ab9cdbbec2517de39526d9c6253d7e2fa766a5c630b65b5"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/run-metrics-final.log",
+      "sha256": "d9612dccce252888d470a34afe82b96e1de54ffc6218a4ff7278de4e05718cba"
+    },
+    {
+      "path": "/Users/drew.schillinger/shuttlebay/doctorews-laboratory/nightshift-community-worktrees/35/docs/35/factory-preflight-final.log",
+      "sha256": "98867e2601c61dbe036d7eade099c42907e2535a5cd7242a49493a7ccb0c9776"
+    }
+  ],
+  "timestamp": "2026-09-15T16:28:36.068619+00:00"
+}

@@ -1,0 +1,26 @@
+{
+  "status": "SUCCESS",
+  "reason": "Complete read-only proposal for the bounded accounting contract repair; not tested by dispatcher contract.",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "nightshift/35",
+    "diff": "diff --git a/scripts/nightshift-run-metrics.py b/scripts/nightshift-run-metrics.py\n--- a/scripts/nightshift-run-metrics.py\n+++ b/scripts/nightshift-run-metrics.py\n@@ -487,7 +487,10 @@ def _breakdowns(receipts):\n             bucket = receipt.get(dimension) or \"unknown\"\n             buckets.setdefault(bucket, []).append(receipt)\n         for bucket, members in sorted(buckets.items()):\n-            result[dimension][bucket] = {\"usage\": _usage_total(members), \"cost\": _cost_total(members)}\n+            result[dimension][bucket] = {\n+                \"known_subtotal\": _usage_total(members),\n+                \"cost\": _cost_total(members),\n+            }\n     return result\n \n \n@@ -504,16 +507,15 @@ def _build_ticket_report(directory, ticket):\n         usage = receipt.get(\"usage\")\n         measured = isinstance(usage, dict) and any(_nonneg_int(usage.get(field)) is not None for field in USAGE_FIELDS)\n         if not measured:\n             missing_usage += 1\n-            continue\n-        missing_usage += sum(1 for field in USAGE_FIELDS if _nonneg_int(usage.get(field)) is None)\n-        if all(_nonneg_int(usage.get(field)) is not None for field in USAGE_FIELDS):\n+        else:\n+            missing_usage += sum(1 for field in USAGE_FIELDS if _nonneg_int(usage.get(field)) is None)\n+        if measured and all(_nonneg_int(usage.get(field)) is not None for field in USAGE_FIELDS):\n             partition_total = sum(usage[field] for field in USAGE_FIELDS)\n             supplied_total = _nonneg_int(usage.get(\"total\"))\n             if supplied_total is not None and supplied_total != partition_total:\n                 usage_conflicts += 1\n         if receipt.get(\"reported_model\") is None:\n             missing_model += 1\n         cost = receipt.get(\"cost\") if isinstance(receipt.get(\"cost\"), dict) else {}\n         if _finite_float(cost.get(\"token_derived_estimate_usd\")) is None:\n             missing_pricing += 1\n",
+    "provider": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "rules_fired": [
+    "read_only_proposal",
+    "spec_digest_only",
+    "accounting_report_functions_only",
+    "missing_usage_does_not_skip_completeness_accounting",
+    "breakdown_known_subtotal_contract",
+    "preserve_separate_cost_breakdowns",
+    "tests_not_read",
+    "not_tested"
+  ],
+  "results": {
+    "files_changed": [
+      "scripts/nightshift-run-metrics.py"
+    ]
+  }
+}

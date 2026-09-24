@@ -17,6 +17,7 @@
 #   {
 #     "source":      "gh|jira|monday|notion|bd",
 #     "source_id":   "<id within source>",
+#     "repository":  "<verified source namespace or null>",
 #     "external_ref":"<source>-<id>",
 #     "title":       "...",
 #     "body":        "...",
@@ -63,39 +64,88 @@ if [ "${1:-}" = "--derive-id" ]; then
 
   derive_error() { jq -cn --arg msg "$1" '{error:$msg}' >&2; exit 1; }
 
+  github_repository_from_origin() {
+    local origin_url
+    origin_url="$(git -C "$D_PROJECT" config --get remote.origin.url 2>/dev/null || true)"
+    [ -n "$origin_url" ] || return 1
+    jq -Rer '
+      try (
+        capture("^(?:https://github\\.com/|ssh://git@github\\.com/|git@github\\.com:)(?<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/?$").repository
+        | sub("\\.git$"; "")
+        | ascii_downcase
+      ) catch empty
+    ' <<< "$origin_url"
+  }
+
+  github_identity_from_ticket() {
+    local task="$1" id="$2" ticket_file="$D_PROJECT/docs/$1/ticket.json"
+    [ -f "$ticket_file" ] || return 1
+    jq -cer --arg id "$id" '
+      select(type == "object" and .source == "gh" and ((.source_id | tostring) == $id))
+      | (.url | capture("^https://github\\.com/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/(?<id>[0-9]+)$")) as $issue
+      | (($issue.owner + "/" + $issue.repo) | ascii_downcase) as $repository
+      | select($issue.id == $id)
+      | select(
+          (has("repository") | not) or .repository == null or
+          ((.repository | type) == "string" and ((.repository | ascii_downcase) == $repository))
+        )
+      | {
+          source:"gh",
+          repository:$repository,
+          source_id:(.source_id | tostring),
+          external_ref:("gh-" + (.source_id | tostring))
+        }
+    ' "$ticket_file"
+  }
+
   # Local Markdown specs already have a cheap, network-free, non-fetching
   # identity derivation; reuse it verbatim rather than re-implementing it.
   if [[ "$D_REF" == spec:* ]] || [ -f "$D_PROJECT/$D_REF" ] || { [[ "$D_REF" = /* ]] && [ -f "$D_REF" ]; }; then
     normalizer="$(cd "$(dirname "$0")" && pwd)/nightshift-spec-source.py"
-    (cd "$D_PROJECT" && python3 "$normalizer" "$D_REF") | jq '{source,source_id,external_ref}'
+    (cd "$D_PROJECT" && python3 "$normalizer" "$D_REF") | jq '{source,repository:null,source_id,external_ref}'
     exit "${PIPESTATUS[0]}"
   fi
 
   case "$D_REF" in
     gh:*)
-      raw="${D_REF#gh:}"; id="${raw##*#}"
+      raw="${D_REF#gh:}"; id="${raw##*#}"; repository=""
       [ -n "$id" ] || derive_error "gh ref requires an issue number"
-      jq -cn --arg sid "$id" '{source:"gh",source_id:$sid,external_ref:("gh-"+$sid)}' ;;
+      if [[ "$raw" == *"#"* ]]; then
+        repository="${raw%#*}"
+        [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || derive_error "qualified gh ref requires owner/repository#number"
+        repository="$(printf '%s' "$repository" | tr '[:upper:]' '[:lower:]')"
+      else
+        repository="$(github_repository_from_origin || true)"
+        if [ -z "$repository" ]; then
+          if github_identity_from_ticket "$id" "$id"; then
+            exit 0
+          fi
+        fi
+      fi
+      jq -cn --arg sid "$id" --arg repository "$repository" \
+        '{source:"gh",repository:(if $repository == "" then null else $repository end),source_id:$sid,external_ref:("gh-"+$sid)}' ;;
     jira:*)
       raw="${D_REF#jira:}"
       [ -n "$raw" ] || derive_error "jira ref requires an issue key"
-      jq -cn --arg sid "$raw" '{source:"jira",source_id:$sid,external_ref:("jira-"+$sid)}' ;;
+      jq -cn --arg sid "$raw" '{source:"jira",repository:null,source_id:$sid,external_ref:("jira-"+$sid)}' ;;
     monday:*)
       raw="${D_REF#monday:}"
       [ -n "$raw" ] || derive_error "monday ref requires an item id"
-      jq -cn --arg sid "$raw" '{source:"monday",source_id:$sid,external_ref:("monday-"+$sid)}' ;;
+      jq -cn --arg sid "$raw" '{source:"monday",repository:null,source_id:$sid,external_ref:("monday-"+$sid)}' ;;
     notion:*)
       raw="${D_REF#notion:}"
       [ -n "$raw" ] || derive_error "notion ref requires a page id"
-      jq -cn --arg sid "$raw" '{source:"notion",source_id:$sid,external_ref:("notion-"+$sid)}' ;;
+      jq -cn --arg sid "$raw" '{source:"notion",repository:null,source_id:$sid,external_ref:("notion-"+$sid)}' ;;
     bd:*|bd-*)
       raw="$D_REF"; [[ "$D_REF" == bd:* ]] && raw="${D_REF#bd:}"
       command -v bd >/dev/null 2>&1 && (cd "$D_PROJECT" && bd show "$raw" --json) >/dev/null 2>&1 || derive_error "bd show failed for $raw; beads unavailable or issue not found"
-      jq -cn --arg sid "$raw" '{source:"bd",source_id:$sid,external_ref:$sid}' ;;
+      jq -cn --arg sid "$raw" '{source:"bd",repository:null,source_id:$sid,external_ref:$sid}' ;;
     *)
-      if [ -f "${D_PROJECT}/docs/${D_REF}/SPEC.md" ]; then
+      if github_identity_from_ticket "$D_REF" "$D_REF"; then
+        :
+      elif [ -f "${D_PROJECT}/docs/${D_REF}/SPEC.md" ]; then
         # Existing task folder: the folder key is already the canonical identity.
-        jq -cn --arg sid "$D_REF" '{source:"task",source_id:$sid,external_ref:$sid}'
+        jq -cn --arg sid "$D_REF" '{source:"task",repository:null,source_id:$sid,external_ref:$sid}'
       elif command -v bd >/dev/null 2>&1 && (cd "$D_PROJECT" && bd show "$D_REF" --json) >/dev/null 2>&1; then
         mapped=""
         for f in "${D_PROJECT}"/docs/*/.bd-id; do
@@ -108,7 +158,7 @@ if [ "${1:-}" = "--derive-id" ]; then
         if [ -z "$mapped" ]; then
           derive_error "bead $D_REF exists but no docs/*/.bd-id points to it; run nightshift-product bd:$D_REF or pass the task key directly"
         fi
-        jq -cn --arg sid "$mapped" --arg bead "$D_REF" '{source:"task",source_id:$sid,external_ref:$sid,bead_id:$bead}'
+        jq -cn --arg sid "$mapped" --arg bead "$D_REF" '{source:"task",repository:null,source_id:$sid,external_ref:$sid,bead_id:$bead}'
       else
         derive_error "bare ref '$D_REF' did not resolve as a task key or a beads issue; prefix it with gh:/jira:/monday:/notion:/bd: to disambiguate"
       fi
@@ -167,8 +217,12 @@ fetch_gh() {
       --json number,title,body,state,labels,url 2>&1); then
     emit_error "gh issue view failed: $json"
   fi
-  echo "$json" | jq --arg src "gh" --arg sid "$id" '{
+  echo "$json" | jq --arg src "gh" --arg sid "$id" '
+    (.url | capture("^https://github\\.com/(?<owner>[^/]+)/(?<repo>[^/]+)/issues/[0-9]+$")
+      | ((.owner + "/" + .repo) | ascii_downcase)) as $repository |
+  {
     source:       $src,
+    repository:   $repository,
     source_id:    $sid,
     external_ref: ("gh-" + $sid),
     title:        .title,
@@ -192,6 +246,7 @@ fetch_jira() {
   fi
   echo "$json" | jq --arg src "jira" --arg sid "$key" --arg base "${JIRA_BASE_URL%/}" '{
     source:       $src,
+    repository:   null,
     source_id:    $sid,
     external_ref: ("jira-" + $sid),
     title:        .fields.summary,
@@ -221,6 +276,7 @@ fetch_monday() {
     if $i == null then error("monday: item not found") else
       {
         source:       $src,
+        repository:   null,
         source_id:    $sid,
         external_ref: ("monday-" + $sid),
         title:        $i.name,
@@ -245,6 +301,7 @@ fetch_notion() {
   echo "$json" | jq --arg src "notion" --arg sid "$page_id" '
     {
       source:       $src,
+      repository:   null,
       source_id:    $sid,
       external_ref: ("notion-" + $sid),
       title:        ([.properties[]? | select(.title?) | .title[]?.plain_text] | join("") // "(untitled)"),
@@ -266,6 +323,7 @@ fetch_bd() {
     (if type == "array" then .[0] else . end) as $i |
     {
       source:       $src,
+      repository:   null,
       source_id:    $sid,
       external_ref: $sid,
       title:        ($i.title // ""),
