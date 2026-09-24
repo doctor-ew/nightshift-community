@@ -1,0 +1,143 @@
+{
+  "source": "nightshift-community",
+  "base": "0179a0c64876c4eafface25af7c418253eab5a06",
+  "files": [
+    {
+      "path": ".nightshift.toml",
+      "bytes": 1205,
+      "sha256": "33a805a39e9fa0ec1fd1a1d5c7d9a74e79cd6707eb2c3dcf0b025904ce94876a"
+    },
+    {
+      "path": "dashboard/README.md",
+      "bytes": 5681,
+      "sha256": "c703c9b773b98cf4960e4268efaec4eb5d4394f52f4dd47452e23360a51f160b"
+    },
+    {
+      "path": "dashboard/dist/assets/app.css",
+      "bytes": 8250,
+      "sha256": "d2ff72d70510baac8d9542e8701a636a3cdee5834368f8df3d9722c11878acd7"
+    },
+    {
+      "path": "dashboard/dist/assets/app.js",
+      "bytes": 221495,
+      "sha256": "c60e74c9d1276c9e1588579c5abe13460e181c7b2c006fc48981a40f11d69350"
+    },
+    {
+      "path": "dashboard/server.py",
+      "bytes": 9339,
+      "sha256": "24029c00a15462ac3b1023caacf07dc11413b2bc817dc6df96945cd1fb6ca295"
+    },
+    {
+      "path": "dashboard/src/app.css",
+      "bytes": 8650,
+      "sha256": "9153bada8e327f7b93180b15bf1f8aa339fd1eef4fbe0907c3f50d562192ef4a"
+    },
+    {
+      "path": "dashboard/src/app.jsx",
+      "bytes": 26111,
+      "sha256": "9304a93df43dc43b26cc5f7cfa5c7ed900c97f39f291c97d66270a4719892b26"
+    },
+    {
+      "path": "dashboard/src/model.mjs",
+      "bytes": 4044,
+      "sha256": "2ef8b45d1cc8ea92b032d4bf14e2dddb96bcf5bce411358887d976e9691d4987"
+    },
+    {
+      "path": "dashboard/test-model.mjs",
+      "bytes": 4658,
+      "sha256": "ea69259a04afe03f8663b48809e533792972aebe56ccd61b11e753ad33f21ef6"
+    },
+    {
+      "path": "dashboard/test_server.py",
+      "bytes": 11786,
+      "sha256": "25648eaddf362cb27eb64003311ef4ade75438653cbb95393942b62bd76e750f"
+    },
+    {
+      "path": "docs/DEVELOPER-QUICKSTART.md",
+      "bytes": 16148,
+      "sha256": "0f22b4a7253ff1a9f222c5495f83d91ffd56239e5fdf8e3683ef919e91cd7471"
+    },
+    {
+      "path": "handoff_20260907.md",
+      "bytes": 4784,
+      "sha256": "f2ba596699d1f99094ca37789e082f5641ca19f4c576f97fdeb397baaec1404e"
+    },
+    {
+      "path": "scripts/nightshift-agent.sh",
+      "bytes": 25579,
+      "sha256": "7b6ac913fa552311b9b9c3b61ebfc2d40de9e69c4ae54c8b292ff478606cf47f"
+    },
+    {
+      "path": "scripts/nightshift-console-actions.py",
+      "bytes": 9635,
+      "sha256": "a190ac6622511a3a52f7928339ed4b8e35bad008d634331320503832efb5bb5c"
+    },
+    {
+      "path": "scripts/nightshift-dashboard-start.py",
+      "bytes": 5175,
+      "sha256": "69ca31cae3ecf9ad2549c5e948a946f5f135f59a06a3516c6a84bdb01588abd6"
+    },
+    {
+      "path": "scripts/nightshift-dashboard.sh",
+      "bytes": 37286,
+      "sha256": "daeeec986fe5d04449d3cf253a00cb189a8a02055a057cca66e977a13251dbb3"
+    },
+    {
+      "path": "scripts/nightshift-factory.sh",
+      "bytes": 39373,
+      "sha256": "0b529c89ce489458acdee2d4d79fbdbaa343d1d0ee66d189098965a86b24964c"
+    },
+    {
+      "path": "scripts/nightshift-init.py",
+      "bytes": 6915,
+      "sha256": "cee20eeb83750ada0d58872470f16c3a40538aa9497223608220445a61f54f8c"
+    },
+    {
+      "path": "scripts/nightshift-output.py",
+      "bytes": 8448,
+      "sha256": "85c21f41a4a6f470d5c29426538c29cfb94a16a601b6ab3959b9bea2468ac27b"
+    },
+    {
+      "path": "scripts/nightshift-ticket-source.sh",
+      "bytes": 14566,
+      "sha256": "83a0c938b201f73d8a6454a1be64cd318826a229e7fc67818f44cd5bf5ec802a"
+    },
+    {
+      "path": "tests/test-agent-dispatch.sh",
+      "bytes": 20306,
+      "sha256": "9560732e946451562f62e2527f8486e4fa20e18abd802fb56348d1463483351a"
+    },
+    {
+      "path": "tests/test-console-actions.sh",
+      "bytes": 5187,
+      "sha256": "57454affeae26118da7f2f73e67fafd9d7e4c6f2778fe58966b6670500910147"
+    },
+    {
+      "path": "tests/test-dashboard-start.py",
+      "bytes": 3493,
+      "sha256": "7ddf69bd86adb887a4c2d404b3625d59510a083426c3b244bbf7d0cc2bb7ff5e"
+    },
+    {
+      "path": "tests/test-factory-cli.sh",
+      "bytes": 11830,
+      "sha256": "c67983a16d17101aceb46dc03f57ed80605d1662b5f2c2d1aa016a59e89f3e83"
+    },
+    {
+      "path": "tests/test-init.py",
+      "bytes": 6924,
+      "sha256": "f98223ff1b207b40270acbd52021504984cb481f7af3fab0886c58c66b78857e"
+    },
+    {
+      "path": "tests/test-output.py",
+      "bytes": 7059,
+      "sha256": "aafb0205e9d0f73e98e6164cb24bcd6a6b8b321f5edbe62e4b6cca3393545a40"
+    }
+  ],
+  "status": "retained-for-review",
+  "excluded": [
+    "dependency directories",
+    "bytecode caches",
+    "process locks",
+    "nested Git metadata"
+  ]
+}

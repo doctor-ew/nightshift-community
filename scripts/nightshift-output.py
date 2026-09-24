@@ -145,6 +145,8 @@ def run(launcher, argv):
             continue
         if name == 'stderr':
             diagnostics.append(line.rstrip())
+            if line.startswith('nightshift: awaiting spec approval;'):
+                final = line.strip()
             if any(word in line.lower() for word in ('warning', ' error ', 'authrequired')):
                 warnings += 1
             # Billing mode should remain explicit even with reduced output.
