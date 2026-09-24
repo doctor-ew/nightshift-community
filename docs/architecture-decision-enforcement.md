@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Proposed extension to the existing controller; not implemented or accepted by this document. All UI scope remains. Codex remains the primary provider, with explicit Claude delegation. Existing repositories, ticket evidence, decisions, and retry allowances must be preserved.
+The initial implementation is in the controller review branch; see `docs/architecture-decision-usage.md` for supported behavior and limits. The broader acceptance experiment below is not complete. All UI scope remains. Codex remains the primary provider, with explicit Claude delegation. Existing repositories, ticket evidence, decisions, and retry allowances must be preserved.
 
 ## Problem
 

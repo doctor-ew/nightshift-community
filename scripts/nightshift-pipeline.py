@@ -61,7 +61,7 @@ def view(project, task):
             validate_receipt(row['receipt'],task,stage,target)
     except (OSError,ValueError,KeyError):
         state=dict(state,status='stale',next_action='revalidate_changed_evidence')
-    return {k:state.get(k) for k in ('version','task','status','next_action','completed','findings','decisions','final_evidence','attempts')}
+    return {k:state.get(k) for k in ('version','task','status','next_action','completed','findings','decisions','final_evidence','attempts','architecture','architecture_check','beads')}
 
 
 def routes(project, settings):
@@ -94,6 +94,8 @@ def source(project, task):
 def inputs(project, task, stage, state):
     docs=Path(project)/'docs'/task
     value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),policy=state['plan'],decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
+    value['architecture']=load('architecture').resolve(project)
+    value['architecture_checker']=sha(HERE/'nightshift-architecture.py')
     value['spec']={n:sha(docs/n) if (docs/n).is_file() else None for n in ('SPEC.md','behavior-scenarios.json')}
     if stage in ('review','drift','qa'):value['source']=source(project,task)
     # A source edit requires final review again, not a fresh implementation plan.
@@ -139,6 +141,8 @@ class Pipeline:
         selected=routes(self.project,self.settings)  # before any paid work
         decisions=load('console-decisions').read(load('console-decisions').location(self.project,self.task))['requests']
         self.state['decisions']=[dict(sha256=d['sha256'],question=d['question'],response=d['response']) for d in decisions]
+        self.state['architecture']=load('architecture').resolve(self.project)
+        self.state['beads']=load('architecture').mirror(self.project,self.state['architecture'],self.state.get('beads',{}),dict(external_ref=self.settings['ref']+'#nightshift-architecture-links',title='Architecture links for '+self.task,body='Ticket: '+self.settings['ref'],source='nightshift',source_id=self.task))
         self.state['plan']=selected
         self.state['request']=self.settings['ref']
         request=Path(self.settings['ref'].removeprefix('spec:'))
@@ -256,7 +260,8 @@ class Pipeline:
                 if accounting and (accounting['next_action']=='stop' or 'pending' in accounting['attempts'].values()):
                     self.state.update(status='blocked',next_action='inspect_exhausted_or_interrupted_'+stage);self.save();return 1
                 signature=inputs(self.project,self.task,stage,self.state)
-                if any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature for a in self.state['attempts']):
+                current_source=source(self.project,self.task)
+                if any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
                     self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
                 if stage=='implement':
                     result=proof(self.project,self.task,'development')
@@ -275,6 +280,17 @@ class Pipeline:
                     if code:raise ValueError('worker_exit_'+str(code))
                     value=validate_receipt(receipt,self.task,stage,self.project)
                     if value['status']!='pass':raise ValueError('stage_failed')
+                    if load('architecture').resolve(self.project)!=self.state['architecture']:
+                        raise ValueError('architecture_changed_during_dispatch')
+                    if stage in ('implement','review','drift','qa') and self.state['architecture']:
+                        checked=load('architecture').check(self.project,self.task,self.state['architecture'])
+                        self.state['architecture_check']=checked
+                        recovery.atomic(receipt.with_suffix('.architecture.json'),checked)
+                        if checked['status']!='pass':
+                            if len(checked['findings'])>20:
+                                raise ValueError('architecture_findings_exceed_stage_limit; full findings retained in architecture receipt')
+                            value=dict(value,status='fail',findings=checked['findings'])
+                            raise ValueError('stage_failed')
                     if stage=='product':
                         docs=self.project/'docs'/self.task
                         if not (docs/'SPEC.md').is_file() or not (docs/'behavior-scenarios.json').is_file():raise ValueError('draft_artifacts_missing')
@@ -287,7 +303,7 @@ class Pipeline:
                     if self.state.get('finding_stage')==stage:self.state['findings']=[]
                     self.save()
                 except (OSError,ValueError,subprocess.SubprocessError) as error:
-                    attempt.update(status='fail',reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith('worker_exit_') else 'schema',finished_at=time.time())
+                    attempt.update(status='fail',source_sha256=source(self.project,self.task),reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith('worker_exit_') else 'schema',finished_at=time.time())
                     self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
                     self.state['findings']=(value or {}).get('findings',[]) or [dict(id=stage+'-evidence',target=str(receipt),problem=str(error))]
                     self.state.update(status='blocked',next_action=stage,finding_stage=stage);self.save()
