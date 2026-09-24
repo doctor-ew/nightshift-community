@@ -1,6 +1,7 @@
 """Explicit, model-free initialization of a Nightshift project and Git baseline."""
 import argparse
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -32,7 +33,11 @@ def main():
     parser.add_argument('--model')
     parser.add_argument('--include', action='append', default=[], metavar='FILE',
                         help='Explicit starter file to include in the baseline commit; repeatable')
+    parser.add_argument('--mex', choices=('auto', 'off'), default='auto', help='Prepare MEX graph and install the pinned CLI if missing (default: auto)')
+    parser.add_argument('--mex-timeout', type=int, default=60, help='Total MEX preparation allowance in seconds (1–600; default: 60)')
     args = parser.parse_args()
+    if not 1 <= args.mex_timeout <= 600:
+        parser.error('--mex-timeout must be between 1 and 600')
     selector = ''
     directory = args.project
     for value in args.targets:
@@ -114,7 +119,20 @@ def main():
         if git(project, 'diff', '--cached', '--name-only').stdout.strip():
             git(project, 'commit', '-m', 'chore: initialize Nightshift project')
     git(project, 'rev-parse', '--verify', 'HEAD^{commit}')
-    print(json.dumps({'status': 'ready', 'project': str(project),
+    graph_ignore = project/'.mex/.gitignore'
+    graph_ignore_existed = graph_ignore.exists()
+    mex = {'status': 'disabled', 'model_started': False}
+    if args.mex == 'auto':
+        spec = importlib.util.spec_from_file_location('mex', ROOT/'scripts/nightshift-mex.py')
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        print('nightshift init: checking MEX and preparing graph (bounded to '+str(args.mex_timeout)+' seconds).', file=sys.stderr)
+        mex = module.prepare(project, args.mex_timeout)
+        print('nightshift init: MEX '+mex['status']+' ('+str(mex['elapsed_seconds'])+'s); '+mex.get('reason', mex['action']), file=sys.stderr)
+    if not graph_ignore_existed and graph_ignore.is_file() and not graph_ignore.is_symlink():
+        git(project, 'add', '--', '.mex/.gitignore')
+        git(project, 'commit', '-m', 'chore: ignore derived MEX indexes')
+        files.append('.mex/.gitignore')
+    print(json.dumps({'status': 'ready', 'project': str(project), 'mex': mex,
                       'baseline': git(project, 'rev-parse', 'HEAD').stdout.strip(),
                       'included_files': files, 'model_started': False}))
     print('Next: nightshift <brief.md or ticket-ref> (add a runtime selector to override saved settings).')

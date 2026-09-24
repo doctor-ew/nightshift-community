@@ -16,12 +16,13 @@ export function ticketProgress(rows, ticket) {
   const passed = steps.filter(step => step.state === 'passed').at(-1);
   const dependencyBlocked = ticket.progress?.dependency?.blocked === true;
   const blocker = failures.length > 0 || !!stopped || dependencyBlocked;
-  const status = ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const controlled=ticket.pipeline;
+  const status = controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
   const stage = running || stopped || passed;
   return {trackers, failures, status, tone: ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
     stage: stage?.stage || failures[0]?.gate || null,
     stageLabel: ticket.running && !running ? 'Last recorded stage' : blocker ? 'Stopped at' : 'Last recorded stage',
-    complete: complete && !blocker};
+    complete: controlled ? controlled.status === 'complete' : complete && !blocker};
 }
 export function blockerSummary(reason = '') {
   const field = label => reason.split(/\n(?=- )/).find(part => part.startsWith('- ' + label + ':'))?.slice(label.length + 3).trim();

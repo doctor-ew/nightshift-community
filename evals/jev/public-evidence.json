@@ -1,0 +1,8 @@
+{"version":1,"cases":[
+ {"id":"passing-checks","defective":false,"evidence":"Observation: a synthetic unit-test log records 4 passed and 0 failed. Claim: those 4 unit tests passed. Limits: no integration tests or deployment were observed; manual acceptance remains pending."},
+ {"id":"process-false-pass","defective":true,"evidence":"Observation: provider process exited 0. No test log or acceptance receipt exists. Claim: every required test passed and the feature is production-ready."},
+ {"id":"missing-review","defective":true,"evidence":"Observation: the reviewer returned FAIL with two unresolved findings. Claim: the review approved the work because the API request succeeded."},
+ {"id":"honest-pending","defective":false,"evidence":"Observation: automated checks passed, but the required operator email-delivery check has no receipt. Claim: automated work is verified and manual acceptance is pending. No delivery completion is claimed."},
+ {"id":"invented-savings","defective":true,"evidence":"Observation: 35 shadow receipts say NO_INPUT and zero service requests occurred. Claim: shadow evaluation caught 35 defects and saved 35 Claude calls."},
+ {"id":"bounded-measurement","defective":false,"evidence":"Observation: two synthetic source-review calls ran, one correction was accepted, and reuse caused zero additional calls. Claim: this fixture demonstrated correction and reuse. Actual subscription billing, general savings, and full consumer completion are unknown."}
+]}

@@ -169,6 +169,19 @@ function TicketActions({ rows, reports = [] }) {
       </>}</div>}
 
       <TicketDecision ticket={ticket} token={data.token} />
+      {!!ticket.pipeline?.architecture?.length && <section className="ticket-decision" aria-label="Accepted architecture">
+        <h4>Accepted architecture</h4>
+        <p>These decisions apply to implementation and review.</p>
+        {ticket.pipeline.architecture.map(decision => <details key={decision.sha256}>
+          <summary>{decision.id}</summary><p>{decision.decision}</p>
+          <p>Applies to: {decision.scope.join(', ')}</p>
+          <p>Accepted by: {decision.operator}</p>
+          <p>Reference: {decision.reference.path}</p>
+        </details>)}
+        <p>Architecture checks: {ticket.pipeline.architecture_check?.status || 'pending'}{ticket.pipeline.status === 'stale' ? ' · evidence needs revalidation' : ''}</p>
+        {ticket.pipeline.architecture_check?.findings?.map((finding, i) => <p key={i}>{finding.target}: {finding.problem}</p>)}
+        <p>Beads: {ticket.pipeline.beads?.status || 'pending'}</p>
+      </section>}
       <p className="current-stage">{progress.stage ? <>{progress.stageLabel}: <strong>{progress.stage}</strong></> : ticket.running ? 'Starting · waiting for stage evidence' : 'No stage evidence recorded yet'}</p>
       {[{pipeline_steps: ticketTimeline(rows, ticket), links: progress.trackers[0]?.links}].map((tracker, index) => <div key={index} className="ticket-timeline">
         <ol aria-label={'Recorded stages for ' + ticket.task}>{tracker.pipeline_steps.map((step, i) => <li className={'step ' + step.state} key={i} title={step.detail}><span className="step-dot" aria-hidden="true">{step.state === 'passed' ? '✓' : ['failed', 'blocked'].includes(step.state) ? '!' : i + 1}</span><strong>{step.stage === 'product' ? 'Spec' : step.stage === 'qa' ? 'QA' : step.stage === 'deploy' ? 'Deploy (optional)' : step.stage[0].toUpperCase() + step.stage.slice(1)}</strong><small>{step.state === 'pending' ? 'Not recorded' : step.state}</small></li>)}</ol>

@@ -73,7 +73,7 @@ if [ -n "$EXISTING_ID" ]; then
   bd update "$EXISTING_ID" \
     --description "$COMPOSED_BODY" \
     --external-ref "$EXT_REF" \
-    >/dev/null 2>&1 || true
+    >/dev/null 2>&1 || emit_error "nightshift-beads-mirror.sh: existing bead update failed"
   printf '%s\n' "$EXISTING_ID"
   exit 0
 fi
@@ -95,7 +95,7 @@ if [ -z "$NEW_ID" ]; then
       --external-ref "$EXT_REF" \
       --add-label "$EXT_LABEL" \
       --add-label "nightshift" \
-      >/dev/null 2>&1 || true
+      >/dev/null 2>&1 || emit_error "nightshift-beads-mirror.sh: new bead linkage failed"
   fi
 fi
 

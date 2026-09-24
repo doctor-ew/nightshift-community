@@ -66,11 +66,22 @@ elif name in ('codex', 'claude'):
         (project / '.nightshift.toml').write_text(manifest + '\n' + extra)
         (home / '.nightshift.toml').write_text(global_extra)
 
+    invocation = 0
     def run(*args, status=0, extra_env=None, cwd=None):
+        global invocation
+        invocation += 1
+        # Parser/auth fixtures exercise one stage worker. Controller completion
+        # and persistent accounting are covered by test-pipeline.py.
+        stage_env = {}
+        if not set(args).intersection(('batch','help','explain','architect','dev','pm','ux-designer','architecture','ux','bmad')) and any(a.endswith('.md') or a.startswith(('gh:', 'bd:', 'spec:')) for a in args):
+            handoff=base/'cli-handoff.json';handoff.write_text('{}')
+            stage_env=dict(NIGHTSHIFT_PIPELINE_STAGE='product', NIGHTSHIFT_PIPELINE_TASK='cli-fixture',
+                NIGHTSHIFT_STAGE_HANDOFF=str(handoff), NIGHTSHIFT_STAGE_RECEIPT=str(base/'cli-receipt.json'),
+                NIGHTSHIFT_BUDGET_TASK='budget-fixture' if 'budget-test.md' in args else 'cli-'+str(invocation))
         calls.write_text('')
         result = subprocess.run([str(binary / 'nightshift'),
                                  *args, '--project', str(project), '--branch', 'none'],
-                                cwd=cwd or project, env=env | (extra_env or {}),
+                                cwd=cwd or project, env=env | stage_env | (extra_env or {}),
                                 capture_output=True, text=True, timeout=30)
         assert result.returncode == status, (args, result.returncode, result.stdout, result.stderr)
         return [json.loads(line) for line in calls.read_text().splitlines()]
@@ -113,10 +124,10 @@ elif name in ('codex', 'claude'):
     config('[runtime]\nprovider="codex"\nmodel="configured-codex"\n')
     args = worker(run('prompt.md'))
     assert args[args.index('--model') + 1] == 'configured-codex'
-    assert '$nightshift prompt.md' in args[-1]
-    assert str(installed / 'commands/nightshift-eng.md') in args[-1]
+    assert 'Execute only the product stage' in args[-1]
+    assert str(installed / 'commands/nightshift-product.md') in args[-1]
     args = worker(run('codex', 'prompt with spaces.md'))
-    assert "$nightshift 'prompt with spaces.md'" in args[-1]
+    assert 'Execute only the product stage' in args[-1]
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n'
            '[runtime.models]\ncodex="configured-codex"\n')
     args = worker(run('codex', 'gh:123'))
@@ -190,7 +201,7 @@ elif name in ('codex', 'claude'):
     (project / 'codex').mkdir()
     (project / 'codex' / 'prompt.md').write_text('# File, not runtime\nRequirement.\n')
     args = worker(run('codex/prompt.md', cwd=base))
-    assert '--model' not in args and '$nightshift codex/prompt.md' in args[-1]
+    assert '--model' not in args and 'Execute only the product stage' in args[-1]
     for invalid in ('[runtime.aliases.qwen]\nprovider="local"\nmodel=12\n',
                     '[runtime.aliases.qwen]\nprovider="other"\nmodel="m"\n',
                     '[runtime.aliases]\nqwen="string"\n'):
