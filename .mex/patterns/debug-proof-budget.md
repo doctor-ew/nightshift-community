@@ -59,3 +59,11 @@ If admission still fails, compare policy identity and exact record keys before i
 ## Repeated registered artifacts
 
 If the dashboard shows a repair-admission blocker, inspect the prior attempt and registered artifact. Formatting or renaming the finding is not a correction. Preserve counters; correct the relevant content or contract, then rerun the bounded dispatcher. Provider-switch guidance remains manual. Source: `docs/RETRY-BUDGETS.md`, `scripts/nightshift-retry-budget.py` (`repair_admission`).
+
+## Console recovery resumes
+
+Inspect the checkpoint before launching another diagnosis. Completed steps are
+reused only while inputs and retained receipts match. Changed inputs invalidate
+results without clearing attempts or extending the deadline. Configuration must
+resolve before any console attempt is charged. Sources:
+`scripts/nightshift-recovery-state.py`, `tests/test-recovery-state.py`.

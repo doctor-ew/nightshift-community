@@ -142,14 +142,25 @@ class RepairTests(unittest.TestCase):
             self.assertNotIn(text,bundle)
         self.assertLessEqual(len(bundle),100000)
 
-    def test_worker_requires_review_and_verification_before_resume(self):
-        docs=self.p/'docs/42';docs.mkdir(parents=True)
+    def test_failure_sequence_reuses_answers_review_and_budget_then_reports_manual_pending(self):
+        fixture_spec=importlib.util.spec_from_file_location('fixture',ROOT/'tests/nightshift-behavior-fixture.py')
+        fixture=importlib.util.module_from_spec(fixture_spec);fixture_spec.loader.exec_module(fixture)
+        fixture.prepare(ROOT,self.p,task='42',manual=True,final=True)
+        source='fixture_source_42.py'
+        (self.p/source).write_text('answer = 0\n')
+        repair_patch=self.patch.replace('file.txt',source).replace('-before','-answer = 0').replace('+after','+answer = 42')
+        with (self.p/'.git/info/exclude').open('a') as stream:
+            stream.write('\n/helpers/\n/routing.json\n/.nightshift.toml\n')
+        docs=self.p/'docs/42';docs.mkdir(parents=True,exist_ok=True)
         (docs/'BLOCKED.md').write_text('actual failure evidence')
-        settings=dict(ref='spec:brief.md',provider='codex',model='',policy='standard',auth='subscription',branch='auto',base='HEAD',push=False,pr=False)
+        settings=dict(ref='spec:brief.md',provider='claude',model='',policy='claude-only',auth='subscription',branch='auto',base='HEAD',push=False,pr=False)
         m.actions.save(self.p,'42',settings)
         owner=m.actions.directory(self.p).parent/'worktrees';owner.mkdir()
         (owner/'42.json').write_text(json.dumps({'worktree':str(self.p), 'base_sha':self.git('rev-parse','HEAD').strip()}))
-        routing=json.loads((ROOT/'routing.json').read_text());(self.p/'routing.json').write_text(json.dumps(routing))
+        routing=json.loads((ROOT/'routing.json').read_text())
+        routing['roles']['nightshift-repair-analyst']['gears']['1'] = dict(provider='codex', model='fixture')
+        routing['allowed_providers'] = ['codex', 'claude']
+        (self.p/'routing.json').write_text(json.dumps(routing))
         (self.p/'.nightshift.toml').write_text('[providers]\nrouting_file = "routing.json"\n')
         helpers=self.p/'helpers';helpers.mkdir()
         (helpers/'nightshift-run-metrics.py').write_text('print("{}")')
@@ -158,48 +169,84 @@ class RepairTests(unittest.TestCase):
         script='''import json,os,sys
 from pathlib import Path
 a=sys.argv
-if 'verification.json' not in a[a.index('--out')+1]:
+if 'verification-' not in a[a.index('--out')+1]:
     assert '1: actual failure evidence' in Path(a[a.index('--in')+1]).read_text(), 'diagnosis and review must receive evidence'
-assert a[1] == ('nightshift-run-all-tests' if 'verification.json' in a[a.index('--out')+1] else 'nightshift-repair-analyst'), 'repair must not dispatch proof-gated implementation roles'
-out=Path(a[a.index('--out')+1]);kind=out.stem
+assert a[1] == ('nightshift-run-all-tests' if 'verification-' in a[a.index('--out')+1] else 'nightshift-repair-analyst'), 'repair must not dispatch proof-gated implementation roles'
+out=Path(a[a.index('--out')+1]);kind=out.stem.rsplit('-',1)[0]
 with open(os.environ['ORDER'],'a') as f:f.write(kind+'\\n')
-if kind==os.environ.get('FAIL_PHASE'):out.write_text(json.dumps({'status':'FAIL'}));sys.exit(1)
-out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','diff':os.environ['PATCH']},'results':{'files_changed':['file.txt']}}))
+if kind==os.environ.get('FAIL_PHASE'):out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude'},'rules_fired':['review_independence:fresh-session'],'results':{'passed':0,'failed':0}}));sys.exit(0)
+if kind=='verification':assert Path('fixture_source_42.py').read_text()=='answer = 42\\n'
+out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','diff':os.environ['PATCH']},'rules_fired':['review_independence:fresh-session'] if kind!='proposal' else [],'reason':'assert retained file equals after: 1 passed','results':({'passed':1,'failed':0} if kind=='verification' else {'files_changed':['fixture_source_42.py']})}))
 '''
         (helpers/'dispatch.py').write_text(script)
         (helpers/'nightshift-agent.sh').write_text('exec python3 "'+str(helpers/'dispatch.py')+'" "$@"\n')
         factory=helpers/'factory.sh';factory.write_text('echo resumed >> "$ORDER"\n')
         previous=m.HERE,m.actions.FACTORY;m.HERE=helpers;m.actions.FACTORY=factory
+        (self.p/'.nightshift').mkdir(exist_ok=True)
         old=dict(os.environ)
         try:
             os.environ.pop('NIGHTSHIFT_ROUTING_FILE', None)
-            os.environ.update(ORDER=str(self.p/'order'),PATCH=self.patch,FAIL_PHASE='verification')
+            os.environ.update(ORDER=str(self.p/'.nightshift/order'),PATCH=repair_patch,FAIL_PHASE='verification')
+            decisions=m._recovery.load('console-decisions')
+            question=dict(question='Use a separate Claude reviewer?',reason='Restricted policy',options=[],decision_key='review-policy')
+            q=decisions.request(self.p,'42',question)
+            decisions.respond(self.p,'42',q['sha256'],'','Claude-only; use a fresh reviewer. Preserve the draft and continue.')
+            budget=m._recovery.load('ticket-budget')
+            budget.update(self.p,'42','reserve','historical',max_calls=12)
+            budget.update(self.p,'42','finish','historical',outcome='failed')
+            budget_bytes=budget.ledger_path(self.p,'42').read_bytes()
+            # Missing routing rejects the console action before a repair budget or process exists.
+            os.environ['NIGHTSHIFT_ROUTING_FILE']=str(self.p/'missing-routing.json')
+            current=m.actions.state(self.p,'42')
+            with self.assertRaisesRegex(ValueError,'routing file is missing'):
+                m.actions.action(self.p,'42',current['sha256'],'repair')
+            self.assertFalse((m.actions.directory(self.p)/'42.repair-budget.json').exists())
+            self.assertFalse((self.p/'.nightshift/order').exists())
+            os.environ.pop('NIGHTSHIFT_ROUTING_FILE')
             evidence=m.actions.directory(self.p)/'repair-one';evidence.mkdir()
             with self.assertRaises(ValueError):m.worker(self.p,'42','auto',evidence)
-            self.assertNotIn('resumed',(self.p/'order').read_text())
-            self.assertEqual((self.p/'file.txt').read_text(),'after\n') # retained, not silently rolled back
-            (self.p/'file.txt').write_text('before\n');os.environ.pop('FAIL_PHASE')
+            self.assertNotIn('resumed',(self.p/'.nightshift/order').read_text())
+            self.assertEqual((self.p/source).read_text(),'answer = 42\n') # retained, not silently rolled back
+            first_state=m._recovery.snapshot(self.p,'42')
+            self.assertEqual(first_state['next_action'],'verification')
+            self.assertEqual(first_state['plan']['routes']['review']['provider'],'claude')
+            os.environ.pop('FAIL_PHASE')
             evidence=m.actions.directory(self.p)/'repair-two';evidence.mkdir()
             self.assertEqual(m.worker(self.p,'42','auto',evidence),0)
-            self.assertTrue((self.p/'order').read_text().endswith('proposal\nreview\nverification\nresumed\n'))
-            (self.p/'file.txt').write_text('before\n')
+            self.assertEqual((self.p/'.nightshift/order').read_text(),'proposal\nreview\nverification\nverification\nresumed\n')
+            continued=m._recovery.snapshot(self.p,'42')
+            self.assertEqual(continued['deadline_at'],first_state['deadline_at'])
+            self.assertEqual(len(continued['attempts']),4)
+            self.assertEqual(continued['delivery_status'],'pending_manual_acceptance',continued.get('delivery_evidence'))
+            self.assertEqual(continued['next_action'],'operator_verify_manual_acceptance')
+            self.assertEqual(budget.ledger_path(self.p,'42').read_bytes(),budget_bytes)
+            self.assertIsNotNone(decisions.request(self.p,'42',dict(question,reason='Asked again after resume'))['response'])
+            self.assertEqual(len(decisions.read(decisions.location(self.p,'42'))['requests']),1)
+            current=m.actions.state(self.p,'42')
+            self.assertFalse(current['finished'])
+            self.assertFalse(m.actions.action(self.p,'42',current['sha256'],'resume')['launched'])
+            cleanup=m._recovery.load('cleanup')
+            self.assertIn(source,cleanup.inventory(self.p,'42'))
+
+            (self.p/source).write_text('answer = 0\n')
             child,_=self.child_context(task='42')
             self.assertFalse((child/'routing.json').exists())
             self.assertFalse((child/'.nightshift.toml').exists())
             (child/'docs/child/BLOCKED.md').write_text('actual failure evidence')
+            (child/source).write_text('answer = 0\n')
             evidence=m.actions.directory(self.p)/'repair-child';evidence.mkdir()
             self.assertEqual(m.worker(self.p,'42','auto',evidence),0)
-            self.assertEqual((self.p/'file.txt').read_text(),'before\n')
-            self.assertEqual((child/'file.txt').read_text(),'after\n')
+            self.assertEqual((self.p/source).read_text(),'answer = 0\n')
+            self.assertEqual((child/source).read_text(),'answer = 42\n')
             receipt=json.loads((evidence/'status.json').read_text())
             self.assertEqual(receipt['task'],'child')
             self.assertEqual(receipt['parent_task'],'42')
             batch=self.p/'.nightshift/batch-current.json'
             value=json.loads(batch.read_text());value['statuses']['spec:child.md']['status']='in_progress';batch.write_text(json.dumps(value))
             evidence=m.actions.directory(self.p)/'repair-active';evidence.mkdir()
-            before_order=(self.p/'order').read_text()
+            before_order=(self.p/'.nightshift/order').read_text()
             self.assertEqual(m.worker(self.p,'42','auto',evidence),1)
-            self.assertEqual((self.p/'order').read_text(),before_order)
+            self.assertEqual((self.p/'.nightshift/order').read_text(),before_order)
             self.assertEqual(json.loads((evidence/'status.json').read_text())['phase'],'blocked')
 
 
