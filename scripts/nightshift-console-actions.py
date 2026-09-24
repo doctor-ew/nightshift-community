@@ -159,7 +159,11 @@ def state(project, task):
         finished = False  # recovery completion never substitutes for delivery checks
         if not running:
             live.update(next=recovery['next_action'], action_required=recovery['next_action'])
-    return dict(recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
+    pipeline=_recovery.load('pipeline').view(project,task)
+    if pipeline:
+        finished=pipeline['status']=='complete'
+        if not running:live.update(next=pipeline['next_action'],action_required=pipeline['next_action'])
+    return dict(pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
 
 
 def list_tickets(project):
@@ -278,10 +282,10 @@ def action(project, task, expected, operation, provider="auto"):
             raise ValueError('Answer the pending decision in the portal before continuing')
         if current['finished']:
             raise ValueError('This ticket is finished; use the terminal for an intentional new run.')
-        if operation in ('resume', 'repair') and (current.get('recovery') or {}).get('next_action') == 'operator_verify_manual_acceptance' and current['recovery']['inputs'] == _recovery.workspace(current['recovery']['worktree']):
+        if not current.get('pipeline') and operation in ('resume', 'repair') and (current.get('recovery') or {}).get('next_action') == 'operator_verify_manual_acceptance' and current['recovery']['inputs'] == _recovery.workspace(current['recovery']['worktree']):
             return dict(status='pending_manual_acceptance', launched=False, message='Automated recovery passed; recorded manual acceptance remains pending.')
         settings = resume_settings(project, task, current['settings'])
-        if operation == 'resume' and current.get('recovery') and current['recovery']['next_action'] in ('proposal', 'review', 'apply', 'verification', 'resume_pipeline', 'inspect_required_checks'):
+        if operation == 'resume' and not current.get('pipeline') and current.get('recovery') and current['recovery']['next_action'] in ('proposal', 'review', 'apply', 'verification', 'resume_pipeline', 'inspect_required_checks'):
             operation = 'repair'
         if operation == 'repair':
             owner = read(directory(project).parent / 'worktrees' / (task + '.json'))
@@ -302,7 +306,7 @@ def action(project, task, expected, operation, provider="auto"):
             target = Path(selected_target.get('worktree', owner['worktree']))
             target_task = selected_target.get('task', task)
             _recovery.plan(target, dict(settings, _task=target_task), provider)
-        if operation != 'repair':
+        if operation != 'repair' and not (operation=='resume' and current.get('pipeline')):
             cleaned = subprocess.run([sys.executable, str(HERE / 'nightshift-cleanup.py'), task,
                                       '--project', str(project)], capture_output=True, text=True, timeout=30)
             receipt = json.loads(cleaned.stdout)

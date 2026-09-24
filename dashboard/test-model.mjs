@@ -87,3 +87,12 @@ test('ticket usage never borrows totals from the previous build', () => {
   const fresh = {ticket:{source_id:'fresh'},usage:{known_subtotal:{total:12}}};
   assert.deepEqual(ticketUsage([old,fresh], {task:'fresh'}), [fresh]);
 });
+test('controller evidence overrides stale process and batch success', () => {
+  const rows = [{ticket:'sample',source:'batch',state:'complete'}];
+  const ticket = {task:'sample',finished:true,pipeline:{status:'pending_manual_acceptance',next_action:'operator_verify_manual_acceptance'}};
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.equal(ticketProgress(rows,ticket).status,'Manual acceptance pending');
+  ticket.pipeline.status='stale';
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.equal(ticketProgress(rows,ticket).status,'Changed evidence · revalidation required');
+});
