@@ -1,0 +1,13 @@
+{
+  "role": "nightshift-run-all-tests",
+  "provider": "codex",
+  "model": "gpt-5.4",
+  "gear": "1",
+  "started_at": "2026-09-23T17:22:29Z",
+  "finished_at": "2026-09-23T17:22:32Z",
+  "status": "failed",
+  "pid": 50009,
+  "usage_observations": [
+    {}
+  ]
+}

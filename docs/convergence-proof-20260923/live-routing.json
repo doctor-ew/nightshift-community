@@ -58,19 +58,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "haiku"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "haiku"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         }
       },
       "$comment": "Read-only search role. Strongest candidate for a local model once one is pulled \u2014 no design judgment required."
@@ -81,19 +81,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         }
       },
       "$comment": "Codex/local are always read-only; spec file writes require a separately authorized integration."
@@ -104,19 +104,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         }
       },
       "$comment": "Gear is the escalation axis (Phase 2, dp-ocw). Effort rises with gear; provider may also change."
@@ -127,19 +127,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         }
       }
     },
@@ -149,19 +149,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         }
       }
     },
@@ -170,20 +170,20 @@
       "sandbox": "workspace-write",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "claude-opus-5-5"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "haiku"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "haiku"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "haiku"
         }
       },
       "$comment": "Runs commands and parses output. No design role \u2014 effort does not need to rise with gear."
@@ -194,19 +194,19 @@
       "gears": {
         "1": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "2": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "3": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "sonnet"
         },
         "4": {
           "provider": "claude",
-          "model": "claude-opus-5-5"
+          "model": "opus"
         }
       },
       "$comment": "Gear is the escalation axis (Phase 2, dp-ocw). Effort rises with gear; provider may also change."
@@ -221,19 +221,19 @@
     "routes": [
       {
         "provider": "codex",
-        "model": "gpt-6-astra"
+        "model": "gpt-5.4"
       },
       {
         "provider": "claude",
-        "model": "claude-opus-5-5"
+        "model": "sonnet"
       }
     ]
   },
   "profiles": {
     "workshop": {
       "provider": "claude",
-      "writer_model": "claude-opus-5-5",
-      "reviewer_model": "claude-opus-5-5",
+      "writer_model": "sonnet",
+      "reviewer_model": "sonnet",
       "cross_provider": false,
       "review_isolation": "fresh tool-free session; human spec approval"
     }
