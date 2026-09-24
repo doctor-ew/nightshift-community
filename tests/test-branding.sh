@@ -264,3 +264,21 @@ test -L "$FIXTURE/bin/nightshift"
 test -L "$FIXTURE/runtime/scripts/nightshift-setup.py"
 test "$(find "$FIXTURE/runtime/.backup" -path '*/retired/*' -type l | wc -l | tr -d ' ')" = 3
 echo 'PASS: installer archives owned aliases and preserves unrelated symlinks'
+
+python3 - "$FIXTURE" <<'PYCONFIG'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+for name in ('runtime/routing.json','runtime/nightshift.toml','claude/nightshift-routing.json'):
+    path=root/name;data=path.read_bytes();path.unlink();path.write_bytes(data)
+(root/'runtime/nightshift.toml').write_text((root/'runtime/nightshift.toml').read_text()+'\n# retained operator configuration\n')
+PYCONFIG
+before=$(shasum -a 256 "$FIXTURE/runtime/nightshift.toml")
+bash "$ROOT/install.sh" --runtime all --repair --target "$FIXTURE/claude" \
+  --codex-target "$FIXTURE/codex" --nightshift-target "$FIXTURE/runtime" \
+  --bin-target "$FIXTURE/bin" > "$FIXTURE/repair.log" 2>&1
+[ "$before" = "$(shasum -a 256 "$FIXTURE/runtime/nightshift.toml")" ]
+bash "$ROOT/install.sh" --check --runtime all --target "$FIXTURE/claude" \
+  --codex-target "$FIXTURE/codex" --nightshift-target "$FIXTURE/runtime" \
+  --bin-target "$FIXTURE/bin" > "$FIXTURE/check.json"
+echo 'PASS: repair preserves and audits operator configuration'

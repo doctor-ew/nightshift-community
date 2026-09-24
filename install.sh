@@ -133,7 +133,12 @@ install_one() {
   if [ "$REPAIR" = yes ]; then
     case "$(basename "$dst")" in
       routing.json|nightshift-routing.json|nightshift.toml)
-        [ ! -e "$dst" ] || return 0 ;;
+        if [ -e "$dst" ]; then
+          # Preserved regular configuration remains part of the audited install.
+          # External links retain their existing boundary and fail the audit.
+          [ -L "$dst" ] || INSTALL_PAIRS+=("$dst" "$src")
+          return 0
+        fi ;;
     esac
     if [ -L "$dst" ]; then
       local existing
