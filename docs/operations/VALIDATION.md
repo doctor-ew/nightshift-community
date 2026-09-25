@@ -65,9 +65,10 @@ Follow-up fixes make all six inherited suites pass locally: explicit stage fixtu
 replace obsolete monolithic-worker expectations, synthetic routes are pinned, homes
 are isolated, and the sealed trajectory recorder includes its required dependencies.
 The new operation report-path failure is also fixed for Linux. Production gates and
-the recorded trajectory baseline are unchanged. Full remote CI reruns are pending.
+the recorded trajectory baseline are unchanged. Remote CI results are recorded on PRs #63 and #64; use the checks for their current
+heads rather than the historical baseline result.
 
-Issue #62 remains open for integrated acceptance, including dependency-stack integration and successful remote CI reruns. `ROLLOUT.md` proposes separate live validation;
+Issue #62 remains open for integrated acceptance, including dependency-stack integration and current-head CI. `ROLLOUT.md` proposes separate live validation;
 no live provider, real ticket, installed runtime, merge or deployment was invoked.
 Operator checkout changes and retained ticket evidence were preserved. A CX port
 is a later task; no private configuration or ticket evidence is included here.

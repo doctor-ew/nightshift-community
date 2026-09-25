@@ -4,7 +4,7 @@
   "interface_tests": {
     "command": "python3 tests/test-operation-interfaces.py",
     "passed": 4,
-    "seconds": 25.021
+    "seconds": 23.159
   },
   "dashboard_model_tests_passed": 14,
   "dashboard_http_tests_passed": 11,
@@ -48,8 +48,10 @@
     "live_certification": false
   },
   "interactive_browser": {
-    "status": "pending",
-    "reason": "Browser plugin returned no connected browser"
+    "status": "passed",
+    "surface": "fresh headless Chromium",
+    "report": "BROWSER-VALIDATION.json",
+    "connected_operator_browser": "unavailable; not required for synthetic browser acceptance"
   },
   "live_certification": false
 }
