@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Resolve specialist routing even when an agent shell drops inherited env."""
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -17,20 +18,13 @@ def resolve(root, project=None):
             result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
             project = result.stdout.strip() if result.returncode == 0 else str(Path.cwd())
         project = Path(project).resolve()
-        manifest = project / '.nightshift.toml'
-        if not manifest.exists():
-            # Isolated ticket worktrees often predate checkout-local setup.
-            # Recover the primary checkout's routing instead of bundled defaults.
-            result = subprocess.run(['git', '-C', str(project), 'rev-parse', '--git-common-dir'],
-                                    capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                common = (project / result.stdout.strip()).resolve()
-                primary = common.parent / '.nightshift.toml'
-                if common.name == '.git' and primary.is_file():
-                    project, manifest = common.parent, primary
-        settings = tomllib.loads(manifest.read_text()) if manifest.exists() else {}
+        spec = importlib.util.spec_from_file_location('manifest_context', Path(__file__).with_name('nightshift-project-context.py'))
+        context = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(context)
+        manifest = context.manifest_path(project)
+        settings = tomllib.loads(manifest.read_text()) if manifest.exists() or manifest.is_symlink() else {}
         configured = settings.get('routing', {}).get('file') or settings.get('providers', {}).get('routing_file')
-        path = (project / configured).resolve() if configured else Path(root).resolve() / 'routing.json'
+        path = (manifest.parent / configured).resolve() if configured else Path(root).resolve() / 'routing.json'
     if not path.is_file():
         raise ValueError('Configured routing file is missing: ' + str(path))
     return path

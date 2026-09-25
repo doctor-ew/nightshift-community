@@ -124,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'recovery_decisions_api': 1, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -177,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
+        if self.path not in ('/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -190,10 +190,12 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
-            allowed = {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            allowed = {'task', 'sha256', 'assessment_sha256', 'operator'} if self.path in ('/api/tickets/recovery-authorize','/api/tickets/recovery-resume') else {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
             if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
                 raise ValueError('Invalid approval')
-            if self.path == '/api/workshop/approve':
+            if self.path.startswith('/api/tickets/recovery-'):
+                result = action_module().recovery_action(self.server.project,body['task'],body['sha256'],self.path.rsplit('/',1)[1],body.get('assessment_sha256',''),body.get('operator',''))
+            elif self.path == '/api/workshop/approve':
                 result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
             elif self.path == '/api/tickets/decision':
                 result = decision_module().submit(self.server.project, body['task'], body['sha256'], body['decision_sha256'], body['choice'], body['answer'])

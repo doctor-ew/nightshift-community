@@ -116,6 +116,7 @@ function ArtifactLibrary({ rows }) {
 function TicketActions({ rows, reports = [] }) {
   const [data, setData] = useState({ tickets: [] }), [busy, setBusy] = useState(''), [message, setMessage] = useState('');
   const [providers, setProviders] = useState({});
+  const [assessments, setAssessments] = useState({}), [operators, setOperators] = useState({});
   useEffect(() => {
     let disposed = false;
     async function refresh() {
@@ -134,9 +135,11 @@ function TicketActions({ rows, reports = [] }) {
     try {
       const response = await fetch('/api/tickets/' + operation, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Nightshift-Token': data.token },
-        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(operation === 'continue' ? { budget_revision: ticket.budget.revision } : {}), ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
+        body: JSON.stringify({ task: ticket.task, sha256: ticket.sha256, ...(['recovery-authorize','recovery-resume'].includes(operation) ? {assessment_sha256: assessments[ticket.task]?.sha256 || '', operator: operators[ticket.task] || ''} : {}), ...(operation === 'continue' ? { budget_revision: ticket.budget.revision } : {}), ...(operation === 'repair' ? { provider: providers[ticket.task] || 'auto' } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not continue this ticket.');
+      if (operation === 'recovery-assess') setAssessments(current => ({...current, [ticket.task]: result}));
+      if (['recovery-authorize','recovery-resume'].includes(operation)) setAssessments(current => ({...current, [ticket.task]: {...current[ticket.task], session: result, requested_allowance: null}}));
       setMessage(ticket.task + ': ' + result.message);
       if (result.status === 'running') setData(current => ({ ...current, tickets: current.tickets.map(t => t.task === ticket.task ? { ...t, running: true } : t) }));
     } catch (error) { setMessage(error.message); }
@@ -202,6 +205,27 @@ function TicketActions({ rows, reports = [] }) {
       {ticket.repair && <div className="repair-status" role="status"><strong>Repair: {ticket.repair.phase}</strong><p>{ticket.repair.message || ''}</p>{ticket.repair.changed_files?.map(path => <div key={path}>{path}</div>)}{ticket.launch?.log && <EvidenceLink link={{href: 'file://' + ticket.launch.log, label: 'Repair log'}} />}{ticket.launch?.evidence && <EvidenceLink link={{href: 'file://' + ticket.launch.evidence + '/status.json', label: 'Repair evidence'}} />}</div>}
       <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={!!busy || ticket.running || ticket.finished || needsDecision || ticket.repair_remaining === 0} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.repair_remaining === 0 && <p role="status">Repair attempts exhausted. Review the diagnosis above; another repair click cannot proceed.</p>}{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={!!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
       <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished || needsDecision} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
+      <details className="recovery-actions"><summary>Recover externally completed work</summary>
+        <button className="secondary" disabled={!!busy || ticket.running} onClick={() => act(ticket, 'recovery-assess')}>Review recovery evidence</button>
+        {assessments[ticket.task] && <div>
+          <p>{assessments[ticket.task].next_step}</p>
+          <p>Source commit: {assessments[ticket.task].evidence.workspace.head}</p>
+          <p>Recorded commit author: {assessments[ticket.task].evidence.author.name}. Implementation agent session: {assessments[ticket.task].evidence.author.execution_identity}.</p>
+          <p>Tests will be rerun in an isolated copy. Prior reports and process exits alone do not approve work.</p>
+          <details><summary>Retained findings and exact evidence</summary><pre className="spec-preview">{JSON.stringify(assessments[ticket.task].evidence, null, 2)}</pre></details>
+          <p>Recovery decisions: {assessments[ticket.task].decisions?.status || 'Unavailable in this runtime'}. {assessments[ticket.task].decisions?.reason || ''}</p>
+          <p>Jev answers bounded evidence questions. Independent review handles uncertain answers, scope, test oracles and sampled checks. Authorization and test outcomes are controller checks.</p>
+          {assessments[ticket.task].requested_allowance && <p>Requested separate allowance: {assessments[ticket.task].requested_allowance.wall_seconds} wall seconds, {assessments[ticket.task].requested_allowance.active_seconds} active seconds, and at most {assessments[ticket.task].requested_allowance.provider_calls} provider calls, including Jev and independent reviews.</p>}
+          <p>{assessments[ticket.task].session ? 'Existing recovery allowance; resuming cannot add time or calls.' : 'No time is granted by this assessment. Original limits, usage and failures remain recorded.'}</p>
+          <label>Authorizing operator<input value={operators[ticket.task] || ''} onChange={event => setOperators(current => ({...current,[ticket.task]:event.target.value}))} placeholder="Your name or operator ID" /></label>
+          <button disabled={!!busy || ticket.running || assessments[ticket.task].decisions?.status !== 'ready' || !operators[ticket.task]?.trim() || ['blocked','pending_manual_acceptance'].includes(assessments[ticket.task].session?.status)} onClick={() => act(ticket, assessments[ticket.task].session ? 'recovery-resume' : 'recovery-authorize')}>
+            {busy === ticket.task ? 'Verifying recovery evidence…' : assessments[ticket.task].session ? 'Resume authorized recovery' : 'Authorize bounded independent recovery review'}
+          </button>
+          {assessments[ticket.task].session && <p>Recovery: {assessments[ticket.task].session.status}. Next: {assessments[ticket.task].session.next_action}. {assessments[ticket.task].session.reason || ''}</p>}
+          {ticket.pipeline?.recovery_status?.allowance && <p>Recovery usage: {ticket.pipeline.recovery_status.allowance.calls_used} calls; {Math.ceil(ticket.pipeline.recovery_status.allowance.active_used)} active seconds. Recovery executes tests and decisions sequentially; waiting for each call is counted once in this separate allowance.</p>}
+          <p>Recovery never repeats implementation. Manual acceptance remains a separate operator step.</p>
+        </div>}
+      </details>
       <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
       {!!artifacts.length && <details><summary>Files and evidence ({artifacts.length})</summary>{artifacts.map((link, i) => <div className="evidence" key={i}><EvidenceLink link={link} /></div>)}</details>}
     </article>;})}</div>

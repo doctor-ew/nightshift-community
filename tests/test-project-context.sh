@@ -47,6 +47,25 @@ class ContextContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def test_retained_worktree_inherits_primary_manifest(self):
+        self.run_command(['git', 'init', '-q', self.project])
+        self.run_command(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'baseline'])
+        target = self.base / 'retained'
+        result = self.run_command(['git', 'worktree', 'add', '-b', 'retained', target])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        primary = self.project / '.nightshift.toml'
+        primary.write_text('[tests]\ncommand="python3 tests/check.py"\n')
+        value = self.payload('--project', target)
+        self.assertEqual(value['project'], str(target))
+        self.assertEqual(value['manifest'], str(primary))
+        self.assertEqual(value['test_command_source'], str(primary))
+        self.assertEqual(value['test_command'], 'python3 tests/check.py')
+        local = target / '.nightshift.toml'
+        local.write_text('[tests]\ncommand="bash tests/local.sh"\n')
+        self.assertEqual(self.payload('--project', target)['manifest'], str(local))
+        local.write_text('invalid [ toml')
+        self.assertNotEqual(self.resolve('--project', target).returncode, 0)
+
     def test_root_precedence_and_conflict(self):
         env = dict(self.env, NIGHTSHIFT_PROJECT_DIR=str(self.project), CLAUDE_PROJECT_DIR=str(self.other))
         self.assertNotEqual(self.resolve('--root-only', env=env).returncode, 0)

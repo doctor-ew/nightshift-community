@@ -53,6 +53,11 @@ class RoutingPathTests(unittest.TestCase):
             configured=project/'custom.json'; configured.write_text('{}')
             with patch.dict(os.environ, {}, clear=True):
                 self.assertEqual(routing.resolve(root,child),configured)
+                (project/'.nightshift.toml').rename(project/'nightshift.toml')
+                self.assertEqual(routing.resolve(root,child),configured)
+                (child/'.nightshift.toml').symlink_to(child/'missing.toml')
+                with self.assertRaises(OSError):
+                    routing.resolve(root,child)
 
     def test_explicit_override_and_install_default(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -6,7 +6,10 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-dispatch.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/runtime/scripts" "$TMP/bin" "$TMP/out dir"
 cp -R "$ROOT/agents" "$ROOT/contracts" "$TMP/runtime/"
-cp "$ROOT/routing.json" "$TMP/runtime/routing.json"
+# These cases assert Claude-specific authentication and extractor tool isolation.
+# Pin the fixture route; repository defaults are independently configurable.
+jq '.roles["nightshift-code-fact-extractor"].gears["1"]={provider:"claude",model:"fixture"}' \
+  "$ROOT/routing.json" > "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-ticket-budget.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"

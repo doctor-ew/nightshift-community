@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-09-23"
+last_updated: "2026-09-25"
 ---
 
 # Session Bootstrap
@@ -114,3 +114,5 @@ Controller follow-up: existing drafts pass deterministic validation without auth
 Accepted architecture candidate (#58): `scripts/nightshift-architecture.py` stores explicit operator-accepted, upstream-linked project decisions in common Git state; Beads mirrors references and MEX remains supplemental source retrieval. The controller independently executes scoped path/literal checks after workers, retains findings and budgets, and the existing ticket UI shows decisions and results. `tests/test-architecture.sh` includes cross-worktree next-ticket regression and existing controller tests. This is a draft implementation, not an installed runtime or semantic-model acceptance. Operation and limitations: `docs/architecture-decision-usage.md`.
 
 MEX init integration: `scripts/nightshift-mex.py` prepares the CLI and graph during `scripts/nightshift-init.py`, within a configurable 60-second default allowance. Existing fresh graphs are reused; incompatible graphs remain untouched. `tests/test-mex-init.py` covers lifecycle selection and init integration; live small-repository init/repeat left a clean checkout. See `docs/architecture-decision-usage.md` for measured timings and package-install limits.
+
+Bounded semantic recovery candidate: controller authorization, hashes, test results and budgets remain deterministic. `scripts/nightshift-decision-engine.py` evaluates compact mapped obligations with durable cache validation and selective independent review; `scripts/nightshift-recovery-decisions.py` enforces complete evidence selection before authorization. CLI/browser share the recovery controller. Synthetic regression evidence and rollout limits: `docs/DECISION-RECOVERY.md`, `docs/DECISION-VALIDATION.json`. Not installed or live-model certified.

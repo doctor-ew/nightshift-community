@@ -19,9 +19,13 @@ export function ticketProgress(rows, ticket) {
   const controlled=ticket.pipeline;
   const status = controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
   const stage = running || stopped || passed;
+  const recovery = controlled?.recovery_status;
+  const controlledStage = recovery ? recovery.next_action : controlled?.attempts?.at(-1)?.stage;
+  const controlledFailure = controlled?.attempts?.filter(a => a.status === 'fail').at(-1);
   return {trackers, failures, status, tone: ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
-    stage: stage?.stage || failures[0]?.gate || null,
-    stageLabel: ticket.running && !running ? 'Last recorded stage' : blocker ? 'Stopped at' : 'Last recorded stage',
+    stoppingReason: recovery ? recovery.reason || '' : controlledFailure?.reason || '',
+    stage: controlledStage || stage?.stage || failures[0]?.gate || null,
+    stageLabel: recovery ? 'Recovery next step' : controlledStage ? (ticket.running ? 'Current stage' : controlled?.attempts?.at(-1)?.status === 'fail' ? 'Stopped at' : 'Last recorded stage') : ticket.running && !running ? 'Last recorded stage' : blocker ? 'Stopped at' : 'Last recorded stage',
     complete: controlled ? controlled.status === 'complete' : complete && !blocker};
 }
 export function blockerSummary(reason = '') {
@@ -66,8 +70,16 @@ export function filterRows(rows, query, state, provider) {
 // Planned stages are visible before any tracker exists; no success is inferred.
 export function ticketTimeline(rows, ticket) {
   const recorded = rows.filter(row => row.ticket === ticket.task).flatMap(row => row.pipeline_steps || []);
-  return ['product', 'adversarial', 'implement', 'review', 'drift', 'qa'].map(stage =>
-    recorded.find(step => step.stage === stage) || {stage, state:'pending', detail:'No stage evidence recorded yet'});
+  return ['product', 'adversarial', 'implement', 'review', 'drift', 'qa'].map(stage => {
+    const completed = ticket.pipeline?.completed?.[stage];
+    const attempt = ticket.pipeline?.attempts?.filter(a => a.stage === stage).at(-1);
+    if (completed?.recovery_binding && ticket.pipeline?.status !== 'stale') return {stage,state:'passed',detail:'Independently verified recovery receipt; historical failures retained'};
+    if (completed?.recovery_binding && ticket.pipeline?.status === 'stale') return {stage,state:'pending',detail:'Recovery evidence changed; revalidation required'};
+    if (attempt && attempt.status !== 'pass') return {stage, state: attempt.status === 'fail' ? 'failed' : 'running', detail: attempt.reason || 'Controller attempt in progress'};
+    if (completed) return {stage, state: 'passed', detail: 'Controller retained completed-stage receipt'};
+    if (ticket.pipeline) return {stage, state:'pending', detail:'No controller stage evidence recorded yet'};
+    return recorded.find(step => step.stage === stage) || {stage, state:'pending', detail:'No stage evidence recorded yet'};
+  });
 }
 export function ticketUsage(reports, ticket) {
   return reports.filter(report => report.ticket?.source_id === ticket.task);

@@ -59,9 +59,14 @@ def view(project, task):
             if sha(row['receipt'])!=row['sha256'] or inputs(target,task,stage,state)!=row['input_sha256']:
                 raise ValueError('stale_stage_evidence')
             validate_receipt(row['receipt'],task,stage,target)
+            if row.get('recovery_binding'):load('controller-recovery').validate_adopted(project,task,state,row)
     except (OSError,ValueError,KeyError):
         state=dict(state,status='stale',next_action='revalidate_changed_evidence')
-    return {k:state.get(k) for k in ('version','task','status','next_action','completed','findings','decisions','final_evidence','attempts','architecture','architecture_check','beads')}
+    sessions=state.get('recovery_sessions',{})
+    if sessions:
+        latest=max(sessions.values(),key=lambda row:row['authorized_at'])
+        state['recovery_status']={key:latest.get(key) for key in ('binding','status','next_action','reason','allowance','decision_calls')}
+    return {k:state.get(k) for k in ('recovery_status','version','task','status','next_action','completed','findings','decisions','final_evidence','attempts','architecture','architecture_check','beads')}
 
 
 def routes(project, settings):
@@ -246,6 +251,9 @@ class Pipeline:
         fd=os.open(self.directory/'controller.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
         with os.fdopen(fd,'w') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.state=snapshot(self.project,self.task) or self.state
+            if self.state.get('recovery_sessions'):
+                raise ValueError('Use the explicit recovery operation; normal resume cannot repeat adopted implementation or renew recovery')
             if not self.refresh():return 1
             while self.state['next_action'] in STAGES:
                 stage=self.state['next_action']
@@ -360,7 +368,7 @@ def main():
         pipeline=Pipeline(target,args.task,settings);code=pipeline.run()
         print(json.dumps(pipeline.state));return code
     except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:
-        if pipeline:
+        if pipeline and not pipeline.state.get('recovery_sessions'):
             pipeline.state.update(status='blocked',next_action='repair_configuration',error=str(error));pipeline.save()
         print(json.dumps(dict(status='blocked',reason=str(error))),file=sys.stderr);return 1
 

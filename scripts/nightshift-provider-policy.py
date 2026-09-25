@@ -28,8 +28,8 @@ def mode(project=None):
             roots.append(common.parent)
     for root in dict.fromkeys(roots):
         canonical = root / '.nightshift.toml'
-        path = canonical if canonical.exists() else root / 'nightshift.toml'
-        if not path.exists():
+        path = canonical if canonical.exists() or canonical.is_symlink() else root / 'nightshift.toml'
+        if not path.exists() and not path.is_symlink():
             continue
         data = tomllib.loads(path.read_text())
         providers = data.get('providers', {})
