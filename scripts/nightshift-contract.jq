@@ -12,6 +12,11 @@ def valid_contract($role):
   and (.rules_fired | strings)
   and (if $role == "nightshift-engineer" or $role == "nightshift-architect" or $role == "nightshift-repair-analyst" then
     (.results | keys_are(["files_changed"]) and (.files_changed | strings))
+  elif $role == "nightshift-operation-worker" then
+    (.results | keys_are(["binding","decision","findings","resolved","coverage"])
+      and (.binding | type == "string")
+      and (.decision | . == "approve" or . == "repair" or . == "abstain")
+      and (.findings | strings) and (.resolved | strings) and (.coverage | strings))
   elif $role == "nightshift-code-fact-extractor" then
     (.results | keys_are(["claims"]) and (.claims | type == "array" and all(.[];
       keys_are(["claim","status","file","line","inspected_files"])

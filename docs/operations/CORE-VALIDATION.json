@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "synthetic_only": true,
+  "base_pr": 61,
+  "base_commit": "69763060dfbdac23797434f7172599116ea643f2",
+  "suites": [
+    {
+      "command": "python3 tests/test-operations.py",
+      "passed": 24,
+      "seconds": 103.318
+    },
+    {
+      "command": "python3 tests/test-operation-decisions.py",
+      "passed": 3,
+      "seconds": 16.889
+    },
+    {
+      "command": "python3 tests/test-operation-review-regressions.py",
+      "passed": 7,
+      "seconds": 6.879
+    }
+  ],
+  "independent_review": {
+    "disposition": "No remaining blocker found in audited changes",
+    "regressions_passed": 7,
+    "provider_mode": "synthetic",
+    "limits": [
+      "No live provider accuracy certification",
+      "No installed runtime or real ticket invoked",
+      "No interactive browser certification"
+    ]
+  },
+  "semantic_metrics": {
+    "synthetic": true,
+    "request_bytes": [
+      2638,
+      2621,
+      2619
+    ],
+    "jev_calls": 3,
+    "independent_escalations": 2,
+    "cache_hits": 3,
+    "usage": {
+      "calls": 6,
+      "measured_seconds": 0.0031716670491732657,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0.0031716670491732657,
+      "unknown": 0,
+      "request_bytes": 13221
+    },
+    "live_certification": false
+  },
+  "legacy_baseline_comparison": [
+    {
+      "test": "test-factory-auth.sh",
+      "exit_code": 65,
+      "output": ""
+    },
+    {
+      "test": "test-factory-preflight.sh",
+      "exit_code": 1,
+      "output": "FAIL: AC1 valid .markdown did not reach stub provider"
+    }
+  ],
+  "legacy_ci": {
+    "run": "https://github.com/doctor-ew/nightshift-community/actions/runs/36086974043",
+    "passed_suites": 41,
+    "failed_suites": 6
+  },
+  "safety": {
+    "operator_checkout_modified": false,
+    "installed_runtime_modified": false,
+    "real_ticket_invoked": false,
+    "real_allowance_granted": false,
+    "real_provider_invoked": false,
+    "merged": false,
+    "deployed": false
+  }
+}

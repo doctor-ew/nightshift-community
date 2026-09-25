@@ -171,6 +171,7 @@ fail() {
        results:(if $role == "nightshift-code-fact-extractor" then {claims:[]}
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
+         elif $role == "nightshift-operation-worker" then {binding:"",decision:"abstain",findings:[],resolved:[],coverage:[]}
          elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",evidence:[]}
          elif $role == "nightshift-recovery-reviewer" then {binding:"",stage:"adoption",reviewer_id:"",decision:"reject",findings:[],dispositions:[],cases:[],ac_ids:[]}
          elif $role == "nightshift-behavior-reviewer" then {decision:"repair",scenario_ids:[],findings:[],reviewed_input_sha256:""}
@@ -221,7 +222,7 @@ if [ -n "$TASK_KEY" ]; then
     ATTRIBUTION=ticket
   fi
 fi
-case "$ROLE" in nightshift-decision-reviewer|nightshift-recovery-reviewer|nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-operation-worker|nightshift-decision-reviewer|nightshift-recovery-reviewer|nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
   [ ! -e "$LAUNCH_RECEIPT" ] && [ ! -L "$LAUNCH_RECEIPT" ] || fail 'launch receipt already exists'
@@ -299,8 +300,8 @@ if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
 fi
 EXECUTION_CONTEXT+="$SPEC_REPAIR_CONTEXT"
-if [ "$ROLE" = nightshift-decision-reviewer ]; then
-  EXECUTION_CONTEXT='Independent bounded decision review. Return only the requested judgment and evidence references. No tools, edits, dispatches, authorization or stage completion.'
+if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
+  EXECUTION_CONTEXT='Independent bounded operation. Return only the requested structured result and patch if requested. No tools, edits, dispatches, authorization or stage completion.'
 fi
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
@@ -317,13 +318,17 @@ if [ "$ROLE" = nightshift-decision-reviewer ]; then
   DECISION_BYTES=$( { printf '%s' "$PROMPT"; cat "$TMP/role" "$SCHEMA"; } | wc -c | tr -d ' ')
   [ "$DECISION_BYTES" -le 24576 ] || fail 'decision review prompt and schema exceed 24 KiB'
 fi
+if [ "$ROLE" = nightshift-operation-worker ]; then
+  OPERATION_BYTES=$( { printf '%s' "$PROMPT"; cat "$TMP/role" "$SCHEMA"; } | wc -c | tr -d ' ')
+  [ "$OPERATION_BYTES" -le 65536 ] || fail 'operation prompt and schema exceed 64 KiB'
+fi
 case "$PROVIDER" in
   claude)
     AGENTS="$(jq -n --arg role "$ROLE" --rawfile body "$TMP/role" --arg contract "$CONTRACT" --arg execution "$EXECUTION_CONTEXT" '{($role):{description:"Selected Nightshift role",prompt:($body+"\n"+$contract+"\n"+$execution)}}')"
     # Claude's CLI schema compiler rejects the 2020-12 dialect declaration.
     # Project transport metadata only; keep full authoritative local validation.
     jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
-    if [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
+    if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     elif [ "$ROLE" = nightshift-code-fact-extractor ]; then

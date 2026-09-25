@@ -1,0 +1,457 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spec": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenarios": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rules": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "request",
+        "spec",
+        "scenarios",
+        "rules",
+        "architecture"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "argv": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "enum": [
+                  "python3",
+                  "bash"
+                ]
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": [
+          "id",
+          "argv"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "reviewer_policy": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "require_different_provider": {
+          "type": "boolean"
+        },
+        "semantic_plan": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "require_different_provider",
+        "semantic_plan"
+      ],
+      "additionalProperties": false
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "groom-spec": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "groom-rules": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "groom-adversarial": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "groom": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "implement": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "adopt": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "verify": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "review": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "accept": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "publish": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            },
+            "wall_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "calls",
+            "seconds",
+            "wall_seconds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "groom-spec",
+        "groom-rules",
+        "groom-adversarial",
+        "groom",
+        "implement",
+        "adopt",
+        "verify",
+        "review",
+        "accept",
+        "publish"
+      ],
+      "additionalProperties": false
+    },
+    "aggregate": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        },
+        "wall_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "calls",
+        "seconds",
+        "wall_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "remote": {
+              "type": "string",
+              "minLength": 1
+            },
+            "branch": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "remote",
+            "branch"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "inputs",
+    "scope",
+    "checks",
+    "environment",
+    "reviewer_policy",
+    "limits",
+    "aggregate",
+    "publication"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nightshift operation plan version 1"
+}

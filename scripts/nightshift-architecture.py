@@ -21,7 +21,8 @@ def location(project):
 
 
 def read(project):
-    path = location(project)
+    common = subprocess.check_output(['git', '-C', str(project), 'rev-parse', '--git-common-dir'], text=True).strip()
+    path = (Path(project) / common).resolve() / 'nightshift/architecture.json'
     if not path.exists():
         return {'version': 1, 'records': []}
     if path.is_symlink() or path.stat().st_size > 1_000_000:
