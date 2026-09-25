@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "synthetic_only": true,
+  "interface_tests": {
+    "command": "python3 tests/test-operation-interfaces.py",
+    "passed": 4,
+    "seconds": 23.159
+  },
+  "dashboard_model_tests_passed": 14,
+  "dashboard_http_tests_passed": 11,
+  "factory_metrics": {
+    "synthetic": true,
+    "provider_calls": 4,
+    "requests": [
+      {
+        "operation": "groom-spec",
+        "request_bytes": 3073,
+        "packet_bytes": 650
+      },
+      {
+        "operation": "groom-adversarial",
+        "request_bytes": 6195,
+        "packet_bytes": 731
+      },
+      {
+        "operation": "implement",
+        "request_bytes": 3340,
+        "packet_bytes": 917
+      },
+      {
+        "operation": "review",
+        "request_bytes": 6670,
+        "packet_bytes": 1206
+      }
+    ],
+    "cache_reused_operations": 7,
+    "usage": {
+      "shared": {
+        "calls": 4,
+        "measured_seconds": 1.5585059169970918,
+        "reserved_unknown_seconds": 0,
+        "seconds": 1.5585059169970918,
+        "unknown": 0,
+        "request_bytes": 3504,
+        "wall_seconds": 6.730304002761841
+      }
+    },
+    "live_certification": false
+  },
+  "interactive_browser": {
+    "status": "passed",
+    "surface": "fresh headless Chromium",
+    "report": "BROWSER-VALIDATION.json",
+    "connected_operator_browser": "unavailable; not required for synthetic browser acceptance"
+  },
+  "live_certification": false
+}

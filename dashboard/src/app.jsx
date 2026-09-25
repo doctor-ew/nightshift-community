@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, continuationControl } from './model.mjs';
 import './app.css';
+import {OperationsPanel} from './operations.jsx';
 import {LiveProgress, TicketChat, TicketDecision} from './ticket-live.jsx';
 
 function ConsoleVersion({ children }) {
@@ -288,6 +289,7 @@ function App() {
     <section className="intro"><p className="eyebrow">YOUR LOCAL CONTROL ROOM</p><h1>See the work. Follow the evidence.</h1><p>Recorded run and gate states across your repository. Local evidence and workshop spec approval, on this machine.</p><code className="repo">{data?.root || 'Loading repository…'}</code></section>
     {error && <div className="notice" role="alert">{error}</div>}
     <WorkshopReviews />
+    <OperationsPanel />
     <TicketActions rows={rows} reports={data?.ticket_usage || []} />
     <ArtifactLibrary rows={rows} />
     <details className="workspace disclosure"><summary>Cost and token usage</summary><TicketUsage reports={data?.ticket_usage || []} /></details>

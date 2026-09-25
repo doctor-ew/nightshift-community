@@ -7,17 +7,17 @@
     {
       "command": "python3 tests/test-operations.py",
       "passed": 24,
-      "seconds": 103.318
+      "seconds": 99.697
     },
     {
       "command": "python3 tests/test-operation-decisions.py",
       "passed": 3,
-      "seconds": 16.889
+      "seconds": 15.53
     },
     {
       "command": "python3 tests/test-operation-review-regressions.py",
       "passed": 7,
-      "seconds": 6.879
+      "seconds": 6.265
     }
   ],
   "independent_review": {
@@ -42,9 +42,9 @@
     "cache_hits": 3,
     "usage": {
       "calls": 6,
-      "measured_seconds": 0.003234374016756192,
+      "measured_seconds": 0.0035632920044008642,
       "reserved_unknown_seconds": 0,
-      "seconds": 0.003234374016756192,
+      "seconds": 0.0035632920044008642,
       "unknown": 0,
       "request_bytes": 13250
     },
@@ -81,5 +81,9 @@
     "architecture_regression_passed": 1,
     "semantic_regressions_passed": 3,
     "independent_regressions_passed": 7
+  },
+  "final_combined_run": {
+    "command": "bash tests/test-operations.sh",
+    "passed": 38
   }
 }

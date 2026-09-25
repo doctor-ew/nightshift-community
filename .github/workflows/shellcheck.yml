@@ -24,6 +24,20 @@ jobs:
           npm test
           npm run build
           git diff --exit-code -- dist
+      - name: Verify synthetic dashboard browser controls
+        working-directory: dashboard
+        run: |
+          PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install --with-deps chromium
+          npm run test:browser
+      - name: Retain synthetic browser evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nightshift-operation-browser
+          path: |
+            test-output/browser/*.png
+            test-output/browser/report.json
+          retention-days: 30
       - name: Run offline eval harness
         run: bash evals/run-tests.sh
       - name: Run shellcheck
@@ -32,10 +46,5 @@ jobs:
           scandir: "./scripts"
           severity: warning
           additional_files: "install.sh tests/test-state-dir.sh evals/run-tests.sh"
-      - name: Run behavioral shell regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          for test_script in tests/test-*.sh; do
-            bash "$test_script"
-          done
+      # The offline harness already discovers every behavioral shell suite
+      # and the eval suites. Do not dispatch the same fixtures a second time.

@@ -1,0 +1,19 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "provider_calls": 4,
+  "checks": [
+    "UI/CLI admission parity",
+    "factory recipe",
+    "manual acceptance required",
+    "duplicate resume without dispatch",
+    "explicit acceptance",
+    "source drift",
+    "external adoption without implementation",
+    "failed verification remains failed",
+    "blocked review",
+    "reload persistence",
+    "desktop/mobile rendering without script errors"
+  ],
+  "live_certification": false
+}
