@@ -55,7 +55,8 @@ Automated Chromium browser execution now passes against the actual built UI and
 HTTP server with isolated synthetic providers. Eleven checks cover admission and
 CLI parity, recipe execution, replay, explicit acceptance, source drift, adoption,
 failed verification, blocked review, reload persistence and desktop/mobile rendering.
-See `BROWSER-VALIDATION.json` and the adjacent screenshots. A fresh headless profile
+See `BROWSER-VALIDATION.json` and the `nightshift-operation-browser` CI artifact.
+Screenshots are retained as test artifacts outside the UTF-8 source inventory. A fresh headless profile
 was used; the operator's connected browser was unavailable and was not modified.
 
 The inspected PR #61 CI run reported 41 passing suites and six failures. Locally,

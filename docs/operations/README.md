@@ -109,7 +109,8 @@ From `dashboard`, run `npm ci --ignore-scripts`, `npx playwright install chromiu
 and `npm run test:browser`. The runner creates a temporary Git repository, home and
 synthetic provider executables, starts the real dashboard and clicks its controls
 through a fresh headless Chromium profile. It also compares results with the CLI.
-Screenshots and a JSON receipt are written to ignored `test-output/browser`.
+Screenshots and a JSON receipt are written to ignored `test-output/browser` and
+retained by CI as the `nightshift-operation-browser` artifact for 30 days.
 `NIGHTSHIFT_BROWSER_ARTIFACTS` selects another report directory. No real ticket or
 provider is used. The CI workflow runs this test before the offline evaluation
 harness. For a shared browser cache, set `PLAYWRIGHT_SKIP_BROWSER_GC=1` before
