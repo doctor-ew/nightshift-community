@@ -25,6 +25,7 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 case "${1:-}" in
+  ops) shift; exec python3 "$SCRIPT_DIR/nightshift-operations.py" "$@" ;;
   exec|evaluate) exec python3 "$SCRIPT_DIR/nightshift-efficiency.py" "$@" ;;
 esac
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
@@ -85,6 +86,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift <runtime> <ticket-ref> [options]
        nightshift <runtime>/<model-or-alias> <ticket-ref> [options]
        nightshift batch <tickets-or-query> [options]
+       nightshift ops <view|assess|authorize|run|chain|migrate> TASK [OPERATION] [options]
        nightshift [runtime/model] <help|explain|architect|dev|pm|ux-designer|architecture|ux|bmad> [request] [options]
        nightshift exec [--no-enabled] -- COMMAND [ARG ...]
        nightshift evaluate [--input FILE] [--no-enabled]
@@ -232,6 +234,13 @@ if [ -n "${NIGHTSHIFT_PIPELINE_TASK:-}" ]; then
   NIGHTSHIFT_FACTORY_ATTRIBUTION=ticket
 fi
 export NIGHTSHIFT_TICKET_JSON
+# Explicit operation plans never enter legacy ticket budgets or nested stages.
+if [ "$MODE" = eng ] && [ -z "${NIGHTSHIFT_PIPELINE_STAGE:-}" ] && [ -n "$NIGHTSHIFT_TICKET_JSON" ]; then
+  OPERATION_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
+  if [[ "$OPERATION_TASK" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$ ]] && [ -f "$PROJECT/docs/$OPERATION_TASK/operations.json" ]; then
+    exec python3 "$SCRIPT_DIR/nightshift-operations.py" factory "$OPERATION_TASK" --project "$PROJECT"
+  fi
+fi
 
 # One run-scoped, private metrics context for this factory invocation,
 # propagated to role/worktree descendants through the environment. Metrics
