@@ -102,3 +102,15 @@ Routes and evaluator settings are bound to authorization and evidence. No provid
 fallback or downstream-specific configuration is installed by these operations.
 
 See `CONTRACT.md` for migration design and `ROLLOUT.md` for the separate live proposal.
+
+## Repeatable browser verification
+
+From `dashboard`, run `npm ci --ignore-scripts`, `npx playwright install chromium`,
+and `npm run test:browser`. The runner creates a temporary Git repository, home and
+synthetic provider executables, starts the real dashboard and clicks its controls
+through a fresh headless Chromium profile. It also compares results with the CLI.
+Screenshots and a JSON receipt are written to ignored `test-output/browser`.
+`NIGHTSHIFT_BROWSER_ARTIFACTS` selects another report directory. No real ticket or
+provider is used. The CI workflow runs this test before the offline evaluation
+harness. For a shared browser cache, set `PLAYWRIGHT_SKIP_BROWSER_GC=1` before
+installing to preserve other cached test-browser versions.

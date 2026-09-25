@@ -43,7 +43,7 @@ export function OperationsPanel() {
     try {const result=await post({action:'chain',grant:id});const failed=result.results.find(row=>!['passed','reused'].includes(row.status));if(failed)setError(failed.reason||failed.next_action||failed.status);await inspect(false);}
     catch(e){setError(e.message);}finally{setBusy(false);}
   }
-  return <section className="workspace" aria-label="Engineering operations">
+  return <section className="workspace operations-panel" aria-label="Engineering operations">
     <h2>Engineering operations</h2>
     <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Existing ticket history remains below.</p>
     <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);}} /></label>

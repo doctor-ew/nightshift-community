@@ -24,6 +24,11 @@ jobs:
           npm test
           npm run build
           git diff --exit-code -- dist
+      - name: Verify synthetic dashboard browser controls
+        working-directory: dashboard
+        run: |
+          PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install --with-deps chromium
+          npm run test:browser
       - name: Run offline eval harness
         run: bash evals/run-tests.sh
       - name: Run shellcheck

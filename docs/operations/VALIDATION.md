@@ -51,18 +51,23 @@ calibrated confidence, cost savings or real-ticket delivery.
 
 ## Integration limits
 
-Interactive browser execution remains pending: the browser plugin reported no
-connected browser. HTTP parity and the built UI are tested; visual behavior and
-actual browser clicks are not certified by those tests.
+Automated Chromium browser execution now passes against the actual built UI and
+HTTP server with isolated synthetic providers. Eleven checks cover admission and
+CLI parity, recipe execution, replay, explicit acceptance, source drift, adoption,
+failed verification, blocked review, reload persistence and desktop/mobile rendering.
+See `BROWSER-VALIDATION.json` and the adjacent screenshots. A fresh headless profile
+was used; the operator's connected browser was unavailable and was not modified.
 
 The inspected PR #61 CI run reported 41 passing suites and six failures. Locally,
 `tests/test-factory-auth.sh` exited 65 and `tests/test-factory-preflight.sh` exited 1
 with the same outcomes on both the candidate and an untouched PR #61 worktree.
-The other four inherited CI failures were not claimed resolved. Full stack CI is
-not green. See the linked run in `CORE-VALIDATION.json`.
+Follow-up fixes make all six inherited suites pass locally: explicit stage fixtures
+replace obsolete monolithic-worker expectations, synthetic routes are pinned, homes
+are isolated, and the sealed trajectory recorder includes its required dependencies.
+The new operation report-path failure is also fixed for Linux. Production gates and
+the recorded trajectory baseline are unchanged. Full remote CI reruns are pending.
 
-Issue #62 remains open for integrated acceptance, including dependency-stack CI
-and connected-browser verification. `ROLLOUT.md` proposes separate live validation;
+Issue #62 remains open for integrated acceptance, including dependency-stack integration and successful remote CI reruns. `ROLLOUT.md` proposes separate live validation;
 no live provider, real ticket, installed runtime, merge or deployment was invoked.
 Operator checkout changes and retained ticket evidence were preserved. A CX port
 is a later task; no private configuration or ticket evidence is included here.

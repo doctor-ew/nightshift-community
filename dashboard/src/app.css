@@ -58,3 +58,8 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 @media(max-width:700px){.live-facts{grid-template-columns:1fr;}.live-progress .run-head{flex-wrap:wrap;}}
 
 .ticket-decision {padding:1.4rem;border:1px solid #bb9461;border-radius:12px;margin:1rem 0;background:#29251e}.ticket-decision fieldset {border:0;padding:0;margin:1rem 0}.decision-option {display:flex;gap:.7rem;align-items:flex-start;padding:.65rem 0}.decision-option input {margin-top:.3rem}.decision-option small {display:block;margin-top:.3rem}.ticket-decision textarea {width:100%;box-sizing:border-box}.ticket-decision h4 {margin-top:0}
+
+/* Keep operation evidence readable without expanding the entire dashboard. */
+.operations-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; padding: 12px; background: #141a23; border-radius: 6px; }
+.operations-panel input, .operations-panel select { max-width: 100%; }
+.operations-panel .artifact-row > * { min-width: 0; }

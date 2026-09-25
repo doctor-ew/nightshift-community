@@ -38,10 +38,11 @@ else:
 def isolated(root):
     f.fixture(root)
     bin=root/'.nightshift-fixture-bin';bin.mkdir()
+    home=bin/'home';home.mkdir()
     for name in ('codex','claude'):
         path=bin/name;path.write_text(MOCK);path.chmod(0o755)
     (root/'.gitignore').write_text('__pycache__/\n.nightshift-fixture-bin/\n.synthetic-calls.jsonl\n')
-    env=dict(os.environ,PATH=str(bin)+os.pathsep+os.environ['PATH'],SYNTHETIC_CALLS=str(root/'.synthetic-calls.jsonl'),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_OUTPUT_CHILD='1',PYTHONDONTWRITEBYTECODE='1')
+    env=dict(os.environ,HOME=str(home),NIGHTSHIFT_HOME=str(home/'.nightshift'),PATH=str(bin)+os.pathsep+os.environ['PATH'],SYNTHETIC_CALLS=str(root/'.synthetic-calls.jsonl'),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_OUTPUT_CHILD='1',PYTHONDONTWRITEBYTECODE='1')
     for key in ('NIGHTSHIFT_ROLE_CHILD','NIGHTSHIFT_BUDGET_TASK','NIGHTSHIFT_BUDGET_PROJECT','NIGHTSHIFT_TICKET_JSON','NIGHTSHIFT_ROUTING_FILE','NIGHTSHIFT_PROVIDER_POLICY'):
         env.pop(key,None)
     return env
@@ -84,7 +85,7 @@ class Interfaces(unittest.TestCase):
         status,replayed=self.http('/api/operations',dict(action='chain',task='demo',grant='shared'));self.assertEqual(status,200,replayed)
         self.assertEqual((self.root/'.synthetic-calls.jsonl').read_text().splitlines(),calls)
         metrics=[json.loads(row) for row in calls]
-        Path(os.environ.get('NIGHTSHIFT_SYNTHETIC_METRICS','/private/tmp/nightshift-operation-metrics.json')).write_text(json.dumps(dict(synthetic=True,provider_calls=len(calls),requests=metrics,cache_reused_operations=len(replayed['results']),usage=result['view']['usage'],live_certification=False),indent=2)+'\n')
+        Path(os.environ.get('NIGHTSHIFT_SYNTHETIC_METRICS', str(Path(tempfile.gettempdir()) / 'nightshift-operation-metrics.json'))).write_text(json.dumps(dict(synthetic=True,provider_calls=len(calls),requests=metrics,cache_reused_operations=len(replayed['results']),usage=result['view']['usage'],live_certification=False),indent=2)+'\n')
     def test_killed_controller_retains_unknown_call_without_redispatch(self):
         code,a=self.cli('assess','demo','groom-spec');self.assertEqual(code,0,a)
         code,g=self.cli('authorize','demo','groom-spec','--binding',a['binding'],'--operator','synthetic','--request','crash-grant');self.assertEqual(code,0,g)
