@@ -11,6 +11,10 @@ with tempfile.TemporaryDirectory(prefix='nightshift-metrics-test-') as temp:
     git('init','-q');git('config','user.name','fixture');git('config','user.email','fixture@local')
     (project/'README.md').write_text('# fixture\n');(project/'.gitignore').write_text('.nightshift/\n')
     shutil.copy(root/'nightshift.toml',project/'.nightshift.toml');shutil.copy(root/'routing.json',project/'routing.json')
+    # Pin the observed child route rather than depending on changing defaults.
+    routing=json.loads((project/'routing.json').read_text())
+    routing['roles']['nightshift-engineer']['gears']['1']={'provider':'claude','model':'sonnet'}
+    (project/'routing.json').write_text(json.dumps(routing))
     git('add','.');git('commit','-qm','fixture')
     (project/'requirements.md').write_text('# task\n'+prompt)
     stub=binary/'codex'
@@ -36,10 +40,13 @@ if sys.argv[1:2]==["auth"]:
     print(json.dumps({"loggedIn":True,"authMethod":"claude.ai","apiProvider":"firstParty"}));sys.exit(0)
 print(json.dumps({"type":"result","usage":{"input_tokens":7,"output_tokens":3},"result":"SECRETFIXTURE_CREDENTIAL_981734","structured_output":{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"provider":"claude","model":"sonnet","branch":"fixture","diff":""},"rules_fired":[],"results":{"files_changed":[]}}}))
 ''');claude.chmod(0o755)
-    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),OPENAI_API_KEY=secret,FIXTURE_PROJECT=str(project),FIXTURE_ROOT=str(root))
+    # Measure real stage transports without claiming a stub exit completes a ticket.
+    handoff=base/'handoff.json';handoff.write_text('{}')
+    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),OPENAI_API_KEY=secret,FIXTURE_PROJECT=str(project),FIXTURE_ROOT=str(root),NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='fixture',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(base/'receipt.json'))
+    (base/'home').mkdir();env['HOME']=str(base/'home')
     def run(code=0,roles=False):
         r=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),'spec:requirements.md','--project',str(project),'--branch','none','--auth','subscription','--provider','codex'],env=dict(env,STUB_EXIT=str(code),STUB_ROLE_RUN='yes' if roles else 'no'),stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
-        assert r.returncode==code,f'AC6 original provider exit changed: {r.returncode} expected{code}'
+        assert r.returncode==code,f'AC6 original provider exit changed: {r.returncode} expected{code}: {r.stderr}'
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(run,[0,75]))
     directory=project/'.git/nightshift/runs'
     assert directory.is_dir(),'AC4 no per-run measurements persisted after actual provider executions'
