@@ -2,6 +2,7 @@
 """Synthetic compact semantic obligations and raw-cache validation."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -43,7 +44,7 @@ class Decisions(unittest.TestCase):
         self.assertTrue(all(r['cache_hit'] for r in cached['receipts']));self.assertEqual(len(self.calls),3)
         first=next((self.c.directory/'decisions').glob('*.jev.json'));first.write_text('{}')
         self.assertNotEqual(self.c.assess('review')['status'],'current')
-        Path('/private/tmp/nightshift-operation-semantic-metrics.json').write_text(json.dumps(dict(synthetic=True,request_bytes=self.calls,jev_calls=len(self.calls),independent_escalations=sum(len(r['calls'])-1 for r in record['receipts']),cache_hits=len(cached['receipts']),usage=self.c.usage(g['id']),live_certification=False),indent=2)+'\n')
+        Path(os.environ.get('NIGHTSHIFT_SYNTHETIC_SEMANTIC_METRICS', str(Path(tempfile.gettempdir()) / 'nightshift-operation-semantic-metrics.json'))).write_text(json.dumps(dict(synthetic=True,request_bytes=self.calls,jev_calls=len(self.calls),independent_escalations=sum(len(r['calls'])-1 for r in record['receipts']),cache_hits=len(cached['receipts']),usage=self.c.usage(g['id']),live_certification=False),indent=2)+'\n')
     def test_incomplete_mapping_no_grant_or_dispatch(self):
         path=self.root/'docs/demo/semantic.json';data=json.loads(path.read_text());data['obligations'][0]['references'][0]['end_line']=999;path.write_text(json.dumps(data))
         count=len(self.w.calls);a=self.c.assess('review');self.assertEqual(a['status'],'blocked');self.assertEqual(len(self.w.calls),count);self.assertFalse(self.calls)

@@ -7,7 +7,7 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FACTORY="${REPO_DIR}/scripts/nightshift-factory.sh"
 export NIGHTSHIFT_SYNC_CHECK=off
 export NIGHTSHIFT_DASHBOARD=off
-cd "$REPO_DIR"
+export NIGHTSHIFT_UPDATE_GUARD=1
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-factory-auth.XXXXXX")"
 TMP_ROOT="$(cd "$TMP_ROOT" && pwd -P)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
@@ -17,6 +17,24 @@ assert_contains() { case "$1" in *"$2"*) ;; *) fail "expected '$2' in '$1'" ;; e
 
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/home/.nightshift"
 cp "$REPO_DIR/nightshift.toml" "$REPO_DIR/routing.json" "$TMP_ROOT/"
+export HOME="$TMP_ROOT/home"
+# Auth and argv tests exercise an explicit controller-selected stage. Pipeline
+# completion is tested separately; stub process success never approves a gate.
+printf '{}\n' > "$TMP_ROOT/handoff.json"
+export FIXTURE_FACTORY="$FACTORY" FIXTURE_STAGE_ROOT="$TMP_ROOT"
+FACTORY="$TMP_ROOT/factory-fixture"
+cat > "$FACTORY" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" != batch ]; then
+  export NIGHTSHIFT_PIPELINE_STAGE=product NIGHTSHIFT_PIPELINE_TASK=auth-fixture
+  export NIGHTSHIFT_STAGE_HANDOFF="$FIXTURE_STAGE_ROOT/handoff.json"
+  export NIGHTSHIFT_STAGE_RECEIPT="$FIXTURE_STAGE_ROOT/receipt.json"
+fi
+exec bash "$FIXTURE_FACTORY" "$@"
+EOF
+chmod +x "$FACTORY"
+cd "$TMP_ROOT"
 cat > "$TMP_ROOT/bin/codex" <<'EOF'
 #!/usr/bin/env bash
 if [ "${1:-}" = "login" ] && [ "${2:-}" = "status" ]; then
@@ -45,15 +63,15 @@ subscription=$(PATH="$TMP_ROOT/bin:$PATH" HOME="$TMP_ROOT/home" NIGHTSHIFT_HOME=
 assert_contains "$subscription" 'authentication: ChatGPT subscription'
 assert_contains "$subscription" 'EXECUTION_MODE=true/true'
 assert_contains "$subscription" 'OPENAI_API_KEY='
-assert_contains "$subscription" 'inner Nightshift factory worker'
-assert_contains "$subscription" 'Do not run the terminal launcher'
-assert_contains "$subscription" 'Authorized role dispatch is different'
-assert_contains "$subscription" 'Do not launch Codex directly'
+assert_contains "$subscription" 'Execute only the product stage'
+assert_contains "$subscription" 'deterministic controller owns sequencing, budgets and completion'
+assert_contains "$subscription" 'Do not invoke another factory'
+assert_contains "$subscription" 'independent review uses a separate routed session'
 case "$subscription" in *'do not start another Codex process'*) fail 'blanket verifier prohibition returned';; esac
 if NIGHTSHIFT_ROLE_CHILD=1 "$FACTORY" --help >/dev/null 2>&1; then fail 'role child launched factory'; fi
 if NIGHTSHIFT_ROLE_CHILD=1 bash "$REPO_DIR/scripts/nightshift-agent.sh" >/dev/null 2>&1; then fail 'role child nested dispatcher'; fi
-assert_contains "$subscription" 'Do not deploy, merge a PR'
-assert_contains "$subscription" 'Follow ticket dependencies in order'
+assert_contains "$subscription" 'Do not invoke another factory, change stage, publish'
+assert_contains "$subscription" 'Never claim pass from model/process success'
 set +e
 capacity=$(PATH="$TMP_ROOT/bin:$PATH" HOME="$TMP_ROOT/home" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" OPENAI_API_KEY=secret CODEX_EXIT_STATUS=75 "$FACTORY" gh:1 --branch none 2>&1)
 capacity_status=$?
@@ -102,9 +120,9 @@ for auth_status in '{}' 'not-json' '{"loggedIn":false}' '{"loggedIn":true,"authM
 done
 claude_api=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" gh:1 --provider claude --auth api --branch none 2>&1)
 assert_contains "$claude_api" 'ANTHROPIC_API_KEY=present'
-assert_contains "$claude_api" '/nightshift-eng gh:1 --auth api'
-assert_contains "$claude_api" 'Publication authorization: push=false, pr=false'
-assert_contains "$claude_api" 'an absent remote is not a blocker'
+assert_contains "$claude_api" 'Execute only the product stage'
+assert_contains "$claude_api" 'Do not invoke another factory, change stage, publish'
+assert_contains "$claude_api" 'Preserve prior evidence and counters'
 git -C "$TMP_ROOT" init -q -b main
 if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch auto 2>&1); then fail 'unborn repository launched a model'; fi
 assert_contains "$blocked" 'BASE_MISSING'
@@ -138,10 +156,10 @@ p=Path(sys.argv[1]);p.write_text(p.read_text().replace('[providers]', '[provider
 PYMODE
 policy_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none 2>&1)
 assert_contains "$policy_output" 'CLAUDE_ARGS='
-assert_contains "$policy_output" 'Provider policy: claude-only'
-assert_contains "$policy_output" 'permits a fresh isolated Claude reviewer session'
-assert_contains "$policy_output" 'Current invocation provider policy supersedes historical reviewer-provider requests'
-assert_contains "$policy_output" 'operator-owned delivery check remains pending manual acceptance'
+assert_contains "$policy_output" 'Current provider policy: claude-only'
+assert_contains "$policy_output" 'fresh Claude session under Claude-only policy'
+assert_contains "$policy_output" 'apply them within the resolved provider policy'
+assert_contains "$policy_output" 'Keep required manual acceptance pending'
 case "$policy_output" in *'does not permit same-provider self-approval'*) fail 'contradictory reviewer policy';; esac
 for selected in codex local; do
   if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none --provider "$selected" --model fixture --provider-policy standard 2>&1); then
@@ -155,8 +173,8 @@ echo 'PASS: Claude-only factory policy and explicit runtime rejection'
 
 # The individual stage receives only options its parser supports.
 args_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --provider claude --project "$TMP_ROOT" --base main --push --pr 2>&1)
-assert_contains "$args_output" '/nightshift-eng gh:1 --base main'
-assert_contains "$args_output" 'Publication authorization: push=true, pr=true'
+assert_contains "$args_output" 'Execute only the product stage'
+assert_contains "$args_output" 'Do not invoke another factory, change stage, publish'
 assert_contains "$args_output" '--disallowedTools Agent,Task'
 case "$args_output" in *'/nightshift-eng gh:1 --branch'*|*'/nightshift-eng gh:1 --base main --push'*) fail 'factory flags leaked into stage parser';; esac
 python3 - "$TMP_ROOT/.nightshift/agents" <<'PYRECORD'
