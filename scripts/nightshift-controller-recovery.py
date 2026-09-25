@@ -548,6 +548,34 @@ def adopt(state, session, stage, directory):
     state.update(next_action=session['next_action'],status='recovering')
 
 
+def resolve_retained_ref(project, ref):
+    """Resolve only recorded invocation identities; never query a ticket provider."""
+    if not isinstance(ref, str) or not ref or any(c in ref for c in '\0\r\n'):
+        raise ValueError('recovery_invalid_reference')
+    console = load('console-actions')
+    matches = set()
+    for path in sorted(console.directory(project).glob('*.json')):
+        try:
+            record = console.read(path)
+        except (OSError, ValueError):
+            if path.stem == ref:
+                raise ValueError('recovery_invalid_retained_invocation')
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get('settings'), dict):
+            continue
+        if path.stem != ref and record['settings'].get('ref') != ref:
+            continue
+        if record.get('task') != path.stem:
+            raise ValueError('recovery_retained_identity_changed')
+        console.validate(path.stem, record['settings'])
+        matches.add(path.stem)
+    if not matches:
+        raise ValueError('recovery_retained_reference_not_found')
+    if len(matches) != 1:
+        raise ValueError('recovery_retained_reference_ambiguous')
+    return matches.pop()
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('operation',choices=['assess','authorize','resume']);parser.add_argument('ref')
@@ -556,7 +584,7 @@ def main():
     parser.add_argument('--output')
     args=parser.parse_args()
     try:
-        task=args.ref.removeprefix('jira:')
+        task=resolve_retained_ref(args.project,args.ref)
         if args.verify and args.operation!='assess':raise ValueError('--verify requires assess')
         result=assessment(args.project,task,True) if args.verify else operate(args.project,task,args.operation,args.expected,args.operator)
         content=json.dumps(result,indent=2)

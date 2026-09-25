@@ -17,7 +17,9 @@ explicit recovery operation.
 ## Implemented sequence
 
 1. `nightshift recover assess` reads the retained controller and registered
-   worktree. It binds source, specification, scenarios, findings, test commands,
+   worktree. The CLI accepts a retained task key or its exact recorded invocation
+   reference, including qualified GitHub and specification references. Missing or
+   ambiguous matches fail without contacting a ticket provider. It binds source, specification, scenarios, findings, test commands,
    routing, reviewer identity, decision policy and runtime assets to one assessment.
 2. A committed recovery plan supplies exact requirement, source, assertion and
    observation mappings. Admission checks complete source/context coverage for

@@ -8,6 +8,7 @@ real allowance or real model was changed by this validation.
 | `python3 tests/test-decision-engine.py` | Pass | 20 |
 | `python3 tests/test-recovery-decisions.py` | Pass | 9 |
 | `python3 tests/test-controller-recovery.py` | Pass | 15 |
+| `python3 tests/test-recovery-reference.py` | Pass | 4 |
 | `python3 tests/test-pipeline.py` | Pass | 5 |
 | `python3 tests/test-console-continuation.py` | Pass | 7 |
 | `python3 tests/test-jev-evaluation.py` | Pass | 2 |
