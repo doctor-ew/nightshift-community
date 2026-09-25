@@ -118,3 +118,13 @@ test('granting time cannot replace an unspent allowance', async () => {
   assert.equal(continuationControl({budget:{...budget,exhausted:true,wall_seconds_remaining:0}}).disabled,false);
   assert.equal(continuationControl({budget:{...budget,wall_seconds_remaining:null}}).disabled,false);
 });
+
+test('verified recovery supersedes historical stage failure without hiding stale evidence', async () => {
+  const {ticketTimeline} = await import('./src/model.mjs');
+  const ticket={task:'T-1',pipeline:{status:'pending_manual_acceptance',recovery_status:{status:'pending_manual_acceptance',next_action:'operator_verify_manual_acceptance'},completed:{adversarial:{recovery_binding:'bound'}},attempts:[{stage:'adversarial',status:'fail',reason:'old budget failure'}]}};
+  assert.equal(ticketTimeline([],ticket)[1].state,'passed');
+  assert.equal(ticketProgress([],ticket).stage,'operator_verify_manual_acceptance');
+  assert.equal(ticketProgress([],ticket).stoppingReason,'');
+  ticket.pipeline.status='stale';
+  assert.equal(ticketTimeline([],ticket)[1].state,'pending');
+});

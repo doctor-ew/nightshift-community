@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local ticket recovery actions using recorded invocation policy."""
 import argparse
+import contextlib
 import importlib.util
 import fcntl
 import hashlib
@@ -166,6 +167,17 @@ def state(project, task):
     return dict(pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
 
 
+def recovery_action(project, task, expected, operation, assessment_sha256='', operator=''):
+    """Same controller operation as the CLI; browser authorization is never implicit."""
+    if state(project,task)['sha256']!=expected:
+        raise ValueError('Run settings changed; refresh recovery evidence')
+    controller=_recovery.load('controller-recovery')
+    if operation=='recovery-assess':return controller.operate(project,task,'assess')
+    if operation not in ('recovery-authorize','recovery-resume'):
+        raise ValueError('Invalid recovery operation')
+    return controller.operate(project,task,operation.removeprefix('recovery-'),assessment_sha256,operator)
+
+
 def list_tickets(project):
     result = []
     for path in sorted(directory(project).glob('*.json'))[:200]:
@@ -279,6 +291,20 @@ def continuation_preflight(project, task, current, settings):
         _recovery.load('pipeline').routes(target, settings)
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise ValueError('Continuation routing is unavailable or invalid; no time granted') from error
+
+
+@contextlib.contextmanager
+def continuation_runtime_lock(project, operation):
+    """Keep the admitted runtime stable until the continuation worker exits."""
+    if operation != 'continue':
+        yield None
+        return
+    result = subprocess.run(['git', '-C', str(HERE.parent), 'rev-parse', '--git-common-dir'],
+                            capture_output=True, text=True)
+    common = (HERE.parent / result.stdout.strip()).resolve() if result.returncode == 0 else directory(project).parent.parent
+    with (common / 'nightshift-update.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_SH)
+        yield lock
 
 
 def action(project, task, expected, operation, provider="auto", budget_revision=""):

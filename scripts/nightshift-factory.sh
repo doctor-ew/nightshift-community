@@ -29,7 +29,7 @@ case "${1:-}" in
 esac
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
-    version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
+    recover|version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-output.py" "$SCRIPT_PATH" "$@" ;;
   esac
 fi
@@ -39,7 +39,7 @@ if [ "${1:-}" = --sync ]; then
 fi
 if [ "${NIGHTSHIFT_UPDATE_GUARD:-}" != 1 ] && [ "${1:-}" != sync ]; then
   case "${1:-}" in
-    version|init|setup|cleanup|dashboard|--help|-h|"") ;;
+    recover|version|init|setup|cleanup|dashboard|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" --run "$@" ;;
   esac
 fi
@@ -47,6 +47,7 @@ if [ "${1:-}" = sync ]; then
   shift
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
+if [ "${1:-}" = "recover" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-controller-recovery.py" "$@"; fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
 if [ "${1:-}" = "cleanup" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$@"; fi
 if [ "${1:-}" = "init" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-init.py" "$@"; fi

@@ -8,7 +8,7 @@ edges:
   - target: context/conventions.md
     condition: when verifying a launcher change
 grounds_to: []
-last_updated: 2026-09-23
+last_updated: "2026-09-25"
 mex:
   id: mx_01M3024GD90Y8AHCKZVBHZGR9G
   type: pattern
@@ -108,3 +108,5 @@ for separately in `docs/WORKSHOP-VERIFICATION.md`; interrupted usage is explicit
 unknown where a receipt is absent. Source tests and installed runtime tests pass.
 
 Portal consumers must use the shared routing resolver with the ticket worktree as explicit project context. Do not assume a consumer has `routing.json`; retain the admitted path for asynchronous workers. Sources: `scripts/nightshift-console-chat.py`, `scripts/nightshift-routing-path.py`, `tests/test-console-chat.py`.
+
+For semantic recovery, keep operator authority and test outcomes in the controller. Build bounded evidence packets from verified source and actual outputs; cache by obligation and authorized session. Never turn missing context into an approval or duplicate allowance. The same CLI/browser operation and explicit deployment limits are documented in `docs/DECISION-RECOVERY.md`.

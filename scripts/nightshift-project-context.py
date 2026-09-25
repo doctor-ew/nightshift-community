@@ -41,6 +41,31 @@ def resolve_project(explicit=None, cwd_default=False):
     return directory(Path.cwd())
 
 
+def manifest_path(project):
+    """Prefer checkout configuration; inherit the primary checkout only when absent.
+
+    Relative configuration paths belong to this manifest's directory. Workspace
+    paths (source, tests and evidence) still belong to the requested worktree.
+    A dangling canonical path is an error, never permission to fall back.
+    """
+    project = Path(project).resolve()
+    roots = [project]
+    result = subprocess.run(['git', '-C', str(project), 'rev-parse',
+                             '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
+                            capture_output=True, text=True, timeout=5)
+    if result.returncode == 0:
+        top, common = map(Path, result.stdout.splitlines())
+        roots.append(top)
+        if common.name == '.git':
+            roots.append(common.parent)
+    for root in dict.fromkeys(roots):
+        for name in ('.nightshift.toml', 'nightshift.toml'):
+            path = root / name
+            if path.exists() or path.is_symlink():
+                return path
+    return project / 'nightshift.toml'
+
+
 def discover(project, scope=None):
     target = directory(project / scope if scope else project)
     if not target.is_relative_to(project):
@@ -62,9 +87,7 @@ def discover(project, scope=None):
                 except (OSError, UnicodeError, RuntimeError) as exc:
                     raise ContextError('CONVENTION_INVALID') from exc
                 conventions.append(str(path))
-    canonical = project / '.nightshift.toml'
-    legacy = project / 'nightshift.toml'
-    manifest = canonical if canonical.exists() or canonical.is_symlink() else legacy
+    manifest = manifest_path(project)
     command = None
     if manifest.exists() or manifest.is_symlink():
         try:

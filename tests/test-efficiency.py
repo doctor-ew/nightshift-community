@@ -303,7 +303,11 @@ class Efficiency(unittest.TestCase):
         evidence=project/'evidence.txt';evidence.write_text('explicit fixture evidence')
         home=self.base/'home';home.mkdir()
         self.stub('codex',"import sys,os\nif sys.argv[1:3]==['login','status']: print('Logged in using ChatGPT')\nelse: sys.exit(int(os.environ.get('FIXTURE_PROVIDER_STATUS','0')))")
-        env=dict(self.env,HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_OUTPUT_CHILD='1',
+        # Exercise one factory worker and its efficiency hook, not controller admission.
+        handoff=self.base/'handoff.json';handoff.write_text('{}')
+        env=dict(self.env,NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='fixture',
+                 NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(self.base/'stage-receipt.json'),
+                 HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_OUTPUT_CHILD='1',
                  NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',
                  NIGHTSHIFT_JEV_INPUT=str(evidence),NIGHTSHIFT_JEV_ALLOW_LOOPBACK='true')
         calls=[]
