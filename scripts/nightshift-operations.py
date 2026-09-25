@@ -434,6 +434,7 @@ class Operations:
             names.update(p['scope']); names.update(c['argv'][1] for c in p['checks'])
         data = {name: safe(self.project, name).read_text() for name in sorted(names) if safe(self.project, name).exists()}
         value = dict(version=VERSION, operation=operation, binding=assessed['binding'], artifacts=data,
+            accepted_architecture=assessed['dependencies']['accepted_architecture'],
             scope=p['scope'], cases=self.scenarios(p) if operation!='groom-spec' else [], provenance=self.provenance(operation), findings=sorted(set(assessed['findings'] + self.repair_findings(operation))), checks=p['checks'],
             verification=self.state['results'].get('verify', {}).get('observations') if operation=='review' else None)
         body = json.dumps(value, sort_keys=True).encode()

@@ -31,9 +31,9 @@ def fixture(root):
 
 
 class Worker:
-    def __init__(self):self.calls=[];self.fail=False;self.patch='';self.sleep=0
+    def __init__(self):self.calls=[];self.packets=[];self.fail=False;self.patch='';self.sleep=0
     def __call__(self,operation,packet,route,output,seconds):
-        self.calls.append((operation,len(json.dumps(packet,sort_keys=True).encode())))
+        self.calls.append((operation,len(json.dumps(packet,sort_keys=True).encode())));self.packets.append(packet)
         time.sleep(self.sleep)
         return dict(status='FAIL' if self.fail else 'SUCCESS',reason='concrete classification finding' if self.fail else '',attempts=1,
             artifacts=dict(branch='',diff=self.patch,provider=route['provider'],model=route['model']),rules_fired=[],
@@ -158,6 +158,7 @@ class Operations(unittest.TestCase):
     def test_accepted_architecture_is_checked_by_verifier(self):
         m.load('architecture').accept(self.root,dict(id='no-forbidden',decision='Do not use forbidden marker',operator='synthetic',upstream='https://example.invalid/issues/1',scope=['app.py'],reference='app.py',constraints=[dict(kind='forbidden_literal',value='FORBIDDEN')]))
         self.groom();self.run_op('implement')
+        self.assertEqual(self.worker.packets[-1]['accepted_architecture'][0]['id'],'no-forbidden')
         (self.root/'app.py').write_text('def answer(): return 2 # FORBIDDEN\n')
         result=self.run_op('verify');self.assertEqual(result['reason'],'architecture_constraints_failed')
     def test_preflight_is_read_only_and_no_implicit_upstream(self):

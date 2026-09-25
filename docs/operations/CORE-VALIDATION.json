@@ -42,11 +42,11 @@
     "cache_hits": 3,
     "usage": {
       "calls": 6,
-      "measured_seconds": 0.0031716670491732657,
+      "measured_seconds": 0.003234374016756192,
       "reserved_unknown_seconds": 0,
-      "seconds": 0.0031716670491732657,
+      "seconds": 0.003234374016756192,
       "unknown": 0,
-      "request_bytes": 13221
+      "request_bytes": 13250
     },
     "live_certification": false
   },
@@ -75,5 +75,11 @@
     "real_provider_invoked": false,
     "merged": false,
     "deployed": false
+  },
+  "followup_validation": {
+    "change": "Supply accepted architecture records to bounded worker inputs",
+    "architecture_regression_passed": 1,
+    "semantic_regressions_passed": 3,
+    "independent_regressions_passed": 7
   }
 }
