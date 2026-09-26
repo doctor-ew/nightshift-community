@@ -84,6 +84,7 @@ class AdditionalReview(unittest.TestCase):
         self.assertFalse(self.c.state['authorizations']);self.assertFalse(self.case.worker.calls)
     def test_dispatcher_accepts_bound_fail_only(self):
         assessed=self.c.assess('groom-spec');plan=self.m.plan(self.case.root,'demo');packet=self.c.packet('groom-spec',assessed,plan);route=self.c.route('groom-spec',plan)
+        self.c.active_grant=self.c.authorize(['groom-spec'],assessed['binding'],'synthetic','dispatch-fixture')['id']
         value=self.case.worker('groom-spec',packet,route,None,1);value['status']='FAIL';value['results'].update(decision='repair',findings=['Synthetic semantic failure'])
         output=self.case.root/'failure-response.json';runner=self.m.load('controller-recovery');real_load=self.m.load
         for code,change,accepted in [(1,None,True),(2,None,False),(1,'binding',False),(1,'provider',False)]:
@@ -91,7 +92,7 @@ class AdditionalReview(unittest.TestCase):
                 response=copy.deepcopy(value)
                 if change=='binding':response['results']['binding']='0'*64
                 if change=='provider':response['artifacts']['provider']='unbound-provider'
-                def bounded(*args):output.write_text(json.dumps(response));return code
+                def bounded(*args,**kwargs):output.write_text(json.dumps(response));return code
                 with patch.object(runner,'bounded',bounded),patch.object(self.m,'load',side_effect=lambda name:runner if name=='controller-recovery' else real_load(name)):
                     if accepted:self.assertEqual(self.c.dispatch('groom-spec',packet,route,output,1),response)
                     else:
