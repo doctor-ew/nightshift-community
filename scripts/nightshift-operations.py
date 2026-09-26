@@ -303,7 +303,8 @@ class Operations:
             if record['operation']!=operation:continue
             history=decisions.read(decisions.location(self.project,record['task']))['requests']
             item=next((r for r in history if r['sha256']==record['sha256']),None)
-            if item:rows.append(dict(record,current=record['basis']==basis,question=item))
+            if item is None:raise ValueError('operation_question_evidence_missing:restore_retained_record')
+            rows.append(dict(record,current=record['basis']==basis,question=item))
         return rows
 
     def question(self,operation,binding,value):
@@ -311,8 +312,12 @@ class Operations:
         if assessed.get('binding')!=binding:raise ValueError('stale_question_evidence')
         exact(value,'question reason options')
         if len(json.dumps(value).encode())>6000:raise ValueError('question_context_too_large')
+        if not bounded_text(value['question']):raise ValueError('invalid_operation_question')
+        normalized=' '.join(value['question'].casefold().split())
         basis=self.question_basis(assessed['dependencies'],operation)
-        task='op-question-'+digest(dict(project=str(self.project),task=self.task,operation=operation,basis=basis,question=value))[:32]
+        for retained in self.decision_rows(operation,assessed['dependencies']):
+            if retained['current'] and ' '.join(retained['question']['question'].casefold().split())==normalized:return retained['question']
+        task='op-question-'+digest(dict(project=str(self.project),task=self.task,operation=operation,basis=basis,question=normalized))[:32]
         rows=self.state.setdefault('questions',[])
         if len(rows)>=100 and not any(row['task']==task for row in rows):raise ValueError('question_history_full:retain_evidence')
         item=load('console-decisions').request(self.project,task,dict(value,continuation='none',decision_key='operation-clarification'))
