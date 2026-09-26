@@ -31,6 +31,7 @@ jobs:
           npm run test:browser
           NIGHTSHIFT_PACKAGE_BROWSER=1 npm run test:browser
           python3 ../tests/test-package-authoring-browser.py
+          python3 ../tests/test-intake-browser.py
       - name: Retain synthetic browser evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -43,6 +44,8 @@ jobs:
             test-output/packages-browser/report.json
             test-output/authoring-browser/*.png
             test-output/authoring-browser/report.json
+            test-output/intake-browser/*.png
+            test-output/intake-browser/report.json
           retention-days: 30
       - name: Run offline eval harness
         run: bash evals/run-tests.sh

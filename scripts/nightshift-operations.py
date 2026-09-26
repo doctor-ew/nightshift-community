@@ -827,8 +827,9 @@ def factory(project, task):
 
 
 def api(project, body):
-    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation'}:
+    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices'}:
         raise ValueError('invalid_operation_request')
+    if isinstance(body.get('action'),str) and body['action'].startswith('intake-'):return load('intake').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
         package_body=dict(body,action=body['action'][len('packages-'):])
         return load('package-controller').api(project,package_body)

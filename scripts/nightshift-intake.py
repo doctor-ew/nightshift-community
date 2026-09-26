@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+"""Model-free, create-only operation intake through shared source contracts."""
+from contextlib import contextmanager
+import fcntl
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import tempfile
+
+HERE=Path(__file__).resolve().parent
+spec=importlib.util.spec_from_file_location('intake_operations',HERE/'nightshift-operations.py')
+ops=importlib.util.module_from_spec(spec);spec.loader.exec_module(ops)
+
+
+MAX_BYTES=ops.MAX_REQUEST
+
+def safe(project,name):
+    path=ops.safe(project,name)
+    if str(Path(name))!=name or any(part in ('.git','.nightshift','.codex','.claude','.agents') or part.startswith('.env') for part in Path(name).parts):
+        raise ValueError('unsafe_intake_path')
+    return path
+
+
+def file_record(project,name):
+    path=safe(project,name)
+    if not path.exists():return None
+    if path.stat().st_size>MAX_BYTES:raise ValueError('intake_input_too_large')
+    return dict(sha256=ops.sha(path),mode=stat.S_IMODE(path.stat().st_mode))
+
+
+def create_artifact(project,name,content,mode):
+    """Create through directory descriptors without following parent links."""
+    directory=os.open('/',os.O_RDONLY|os.O_DIRECTORY)
+    try:
+        for part in Path(project).parts[1:]:
+            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=directory)
+            os.close(directory);directory=child
+        for part in Path(name).parts[:-1]:
+            try:os.mkdir(part,dir_fd=directory)
+            except FileExistsError:pass
+            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=directory)
+            os.close(directory);directory=child
+        fd=os.open(Path(name).name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,mode,dir_fd=directory)
+        with os.fdopen(fd,'wb') as stream:
+            stream.write(content.encode());stream.flush();os.fsync(stream.fileno());os.fchmod(stream.fileno(),mode)
+    finally:os.close(directory)
+
+
+def runtime():
+    revision=subprocess.check_output(['git','-C',str(HERE.parent),'rev-parse','HEAD'],text=True).strip()
+    installed=shutil.which('nightshift')
+    tools={name:subprocess.run(['bash',str(HERE/'nightshift-capability.sh'),'--presence',name],capture_output=True).returncode==0 for name in ('git','python3','jq','gh','codex','claude','ollama')}
+    return dict(tools=tools,serving_revision=revision,controller_sha256=ops.sha(Path(__file__)),operations_sha256=ops.sha(HERE/'nightshift-operations.py'),installed_launcher=str(Path(installed).resolve()) if installed else None,installed_revision='unverified',capabilities=['guided-intake-v1','operations-v1'],endpoint='local-reviewed-worktree',provider_auth='unverified:no_provider_probe')
+
+
+def resolve(project,reference):
+    if not ops.bounded_text(reference) or len(reference)>1024 or reference.startswith('-'):raise ValueError('source_reference_required')
+    if reference.startswith('spec:') or (project/reference).is_file():
+        safe(project,reference.removeprefix('spec:'))
+    elif not re.fullmatch(r'gh:(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#)?[0-9]+',reference):
+        raise ValueError('intake_source_profile_unsupported:use_project_markdown_or_github')
+    env={**os.environ,'GIT_TERMINAL_PROMPT':'0','GH_PROMPT_DISABLED':'1','PYTHONDONTWRITEBYTECODE':'1'}
+    with tempfile.TemporaryDirectory(prefix='nightshift-intake-source-') as folder:
+        output=Path(folder)/'source.json'
+        code=ops.load('controller-recovery').bounded(['bash',str(HERE/'nightshift-ticket-source.sh'),reference],project,env,30,output)
+        if code or output.stat().st_size>ops.MAX_REQUEST//2:raise ValueError('source_unavailable_or_oversized:check_reference_tool_and_auth')
+        source=json.loads(output.read_text())
+    if not isinstance(source,dict) or not isinstance(source.get('body'),str) or not source['body'].strip():raise ValueError('source_body_required')
+    if reference.startswith('gh:'):
+        match=re.fullmatch(r'gh:([^#]+)#([0-9]+)',reference)
+        requested_id=reference.rsplit('#',1)[-1].removeprefix('gh:')
+        if str(source.get('source_id'))!=requested_id:raise ValueError('source_identity_mismatch')
+        if source.get('source')!='gh' or not source.get('repository') or source.get('external_ref')!='gh-'+str(source.get('source_id')):raise ValueError('source_identity_mismatch')
+        if match and (source['repository']!=match[1].lower() or str(source['source_id'])!=match[2]):raise ValueError('source_identity_mismatch')
+        if source.get('url','').lower()!='https://github.com/'+source['repository'].lower()+'/issues/'+str(source['source_id']):raise ValueError('source_identity_mismatch')
+    else:
+        name=reference.removeprefix('spec:');body=safe(project,name).read_text()
+        if source.get('source_id')!='spec-'+__import__('hashlib').sha256(name.encode()).hexdigest()[:16] or source.get('external_ref')!='spec:'+name:raise ValueError('source_identity_mismatch')
+        if source.get('source')!='spec' or source.get('source_path')!=name or source['body']!=body or source.get('source_revision')!=__import__('hashlib').sha256(body.encode()).hexdigest():raise ValueError('source_identity_mismatch')
+    task=str(source['source_id'])
+    if source['source']=='gh':task='gh-'+ops.digest(dict(repository=source.get('repository'),id=task))[:16]
+    ops.location(project,task)
+    return source,task
+
+
+def readiness(project,reference):
+    result=subprocess.run(['bash',str(HERE/'nightshift-preflight-check.sh'),'--project',str(project),'--branch','none','--ref',reference],capture_output=True,text=True,timeout=30)
+    try:value=json.loads(result.stdout)
+    except ValueError:value=dict(status='blocked',reason='readiness_unavailable',next_action='inspect_project_baseline_and_manifest')
+    return dict(admission=value,provider_auth='unverified:no_provider_probe',provider_calls=0)
+
+
+class Intake:
+    def __init__(self,project,task):
+        self.project=Path(project).resolve();self.task=task
+        self.directory=ops.location(self.project,task).parent.parent/'intake'/task
+        self.path=self.directory/'state.json'
+    @contextmanager
+    def lease(self):
+        if os.environ.get('NIGHTSHIFT_ROLE_CHILD')=='1':raise ValueError('worker_cannot_prepare_intake')
+        if self.directory.resolve()!=self.directory.absolute():raise ValueError('unsafe_intake_state')
+        self.directory.mkdir(parents=True,exist_ok=True,mode=0o700)
+        fd=os.open(self.directory/'lease',os.O_CREAT|os.O_WRONLY|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'w') as stream:
+            try:fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:raise ValueError('intake_busy') from None
+            self.state=ops.read(self.path) if self.path.exists() else dict(version=1,project=str(self.project),task=self.task,drafts={},requests={})
+            if self.state['project']!=str(self.project) or self.state['task']!=self.task:raise ValueError('intake_identity_changed')
+            yield
+    def save(self):
+        if len(json.dumps(self.state).encode())>1000000:raise ValueError('intake_history_full:retain_evidence')
+        ops.recovery.atomic(self.path,self.state)
+    def proposal(self,source,options):
+        allowed={'scope','checks','requirements','rules','architecture','allowance'}
+        if not isinstance(options,dict) or set(options)-allowed:raise ValueError('invalid_intake_choices')
+        if len(json.dumps(options,sort_keys=True))>4000:raise ValueError('intake_choices_too_large:no_truncation')
+        missing=[key for key in allowed if not options.get(key)]
+        if missing:return {},None,sorted(missing)
+        for key in ('rules','architecture'):
+            path=safe(self.project,options[key])
+            if not path.is_file() or path.stat().st_size>ops.MAX_REQUEST or not path.read_text().strip():raise ValueError('intake_context_missing:'+key)
+        checks=options['checks'];cases=options['requirements'];scope=options['scope']
+        if not isinstance(cases,list) or not cases:raise ValueError('intake_requirements_required')
+        ids=set()
+        for case in cases:
+            ops.exact(case,'id requirement manual')
+            if not ops.bounded_text(case['id']) or case['id'] in ids or not ops.bounded_text(case['requirement']) or type(case['manual']) is not bool:raise ValueError('invalid_intake_requirement')
+            ids.add(case['id'])
+        allowance=ops.limits(options['allowance'])
+        prefix='docs/'+self.task+'/'
+        inputs=dict(request=prefix+'REQUEST.md',spec=prefix+'SPEC.md',scenarios=prefix+'scenarios.json',rules=options['rules'],architecture=options['architecture'])
+        plan=dict(version=1,inputs=inputs,scope=scope,checks=checks,environment={},reviewer_policy=dict(version=1,require_different_provider=True,semantic_plan=None),limits={op:dict(allowance) for op in ops.OPS},aggregate=allowance,publication=None)
+        files={inputs['request']:source['body'],inputs['spec']:source['body'],inputs['scenarios']:json.dumps(dict(version=1,cases=cases),indent=2)+'\n',prefix+'operations.json':json.dumps(plan,indent=2)+'\n',prefix+'ticket.json':json.dumps(source,indent=2)+'\n'}
+        for name in scope:
+            path=safe(self.project,name)
+            if name in files:raise ValueError('intake_scope_overlaps_artifacts')
+        for check in checks:
+            ops.exact(check,'id argv')
+            if not isinstance(check['argv'],list) or len(check['argv'])!=2:raise ValueError('invalid_intake_check')
+            path=safe(self.project,check['argv'][1])
+            if not path.is_file():raise ValueError('intake_test_oracle_missing')
+        with tempfile.TemporaryDirectory(prefix='nightshift-intake-validation-') as directory:
+            target=Path(directory).resolve()
+            for name,text in files.items():
+                path=safe(target,name);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text)
+            ops.plan(target,self.task)
+        if len(json.dumps(files).encode())>ops.MAX_REQUEST:raise ValueError('intake_proposal_too_large:no_truncation')
+        return files,plan,[]
+    def context(self,source):
+        routing=ops.load('routing-path').resolve(HERE.parent,self.project)
+        manifest=ops.load('project-context').manifest_path(self.project)
+        decisions=ops.load('console-decisions')
+        return dict(routing_sha256=ops.sha(routing),manifest_sha256=ops.sha(manifest) if manifest.exists() else None,
+                    head=subprocess.check_output(['git','-C',str(self.project),'rev-parse','HEAD'],text=True).strip(),
+                    decisions=decisions.snapshot(self.project,self.task),intake_decisions=decisions.snapshot(self.project,'intake-'+self.task+'-'+ops.digest(source)[:12]))
+    def preview(self,reference,source,options):
+        with self.lease():
+            files,plan,missing=self.proposal(source,options)
+            decision=None
+            if missing:
+                decisions=ops.load('console-decisions');decision_task='intake-'+self.task+'-'+ops.digest(source)[:12]
+                decision=decisions.request(self.project,decision_task,dict(question='Provide the unresolved intake choices: '+', '.join(missing),reason='These choices determine scope, evidence and allowance. An answer prepares a draft only; it cannot run a worker.',options=[],continuation='none',decision_key='intake-choices'))
+            names=set(files)
+            if plan:names.update([plan['inputs']['rules'],plan['inputs']['architecture'],*plan['scope'],*(c['argv'][1] for c in plan['checks'])])
+            if source.get('source_path'):names.add(source['source_path'])
+            records={name:file_record(self.project,name) for name in sorted(names)}
+            dependencies={name:record['sha256'] if record else None for name,record in records.items()}
+            modes={name:record['mode'] if record else None for name,record in records.items()}
+            payload=dict(source=source,reference=reference,options=options,files=files,dependencies=dependencies,modes=modes,plan=plan,missing=missing,runtime=runtime(),context=self.context(source))
+            binding=ops.digest(payload)
+            prior=self.state['drafts'].get(binding)
+            if prior:return prior
+            row=dict(version=1,task=self.task,binding=binding,status='needs_decision' if missing else 'preview',decision=decision,**payload,readiness=readiness(self.project,reference),provider_calls=0)
+            self.state['drafts'][binding]=row;self.save();return row
+    def validate_prepared_inputs(self,row):
+        for name,expected in row['dependencies'].items():
+            actual=file_record(self.project,name)
+            desired=dict(sha256=__import__('hashlib').sha256(row['files'][name].encode()).hexdigest(),mode=0o644) if name in row['files'] else (dict(sha256=expected,mode=row['modes'][name]) if expected is not None else None)
+            if actual!=desired:raise ValueError('intake_input_changed:'+name)
+    def apply(self,binding,operator,request,cancel=False):
+        if not ops.bounded_text(operator) or not isinstance(request,str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}',request):raise ValueError('intake_operator_and_request_required')
+        with self.lease():
+            payload=dict(binding=binding,operator=operator,cancel=cancel)
+            previous=self.state['requests'].get(request)
+            if previous:
+                if previous['payload']!=payload:raise ValueError('request_id_conflict')
+                if previous['status']=='cancelled':return previous
+            row=self.state['drafts'].get(binding)
+            if not row:raise ValueError('intake_preview_missing')
+            immutable=('source','reference','options','files','dependencies','modes','plan','missing','runtime','context')
+            if ops.digest({key:row[key] for key in immutable})!=binding:raise ValueError('intake_preview_integrity')
+            if cancel:
+                if row['status']=='prepared':raise ValueError('intake_already_prepared:no_execution_to_cancel')
+                result=dict(status='cancelled',payload=payload,task=self.task,provider_calls=0)
+                row['status']='cancelled';self.state['requests'][request]=result;self.save();return result
+            if row['status']=='cancelled':raise ValueError('intake_cancelled')
+            if row['status']=='prepared':
+                source,task=resolve(self.project,row['reference'])
+                if source!=row['source'] or task!=self.task or runtime()!=row['runtime'] or self.context(source)!=row['context']:raise ValueError('intake_preview_stale')
+                receipt=next(value for value in self.state['requests'].values() if value['payload']['binding']==binding and value['status']=='prepared')
+                if any(ops.sha(safe(self.project,name))!=digest or stat.S_IMODE(safe(self.project,name).stat().st_mode)!=0o644 for name,digest in receipt['files'].items()):raise ValueError('prepared_intake_changed')
+                self.validate_prepared_inputs(row)
+                return receipt
+            if row['missing']:raise ValueError('intake_decisions_required')
+            source,task=resolve(self.project,row['reference'])
+            if source!=row['source'] or task!=self.task or runtime()!=row['runtime'] or self.context(source)!=row['context']:raise ValueError('intake_preview_stale')
+            journal=self.state.setdefault('journal',{})
+            for name,expected in row['dependencies'].items():
+                path=safe(self.project,name);actual=ops.sha(path) if path.is_file() else None
+                mode=stat.S_IMODE(path.stat().st_mode) if path.is_file() else None
+                desired=__import__('hashlib').sha256(row['files'][name].encode()).hexdigest() if name in row['files'] else None
+                owned=journal.get(name)==dict(binding=binding,sha256=desired,mode=0o644)
+                if (actual,mode)!=(expected,row['modes'][name]) and not (owned and actual==desired and mode==0o644):raise ValueError('intake_input_changed:'+name)
+                if name in row['files'] and expected is not None:raise ValueError('intake_preserves_existing_file:'+name)
+            result=dict(status='applying',payload=payload,task=self.task,provider_calls=0)
+            self.state['requests'][request]=result;self.save()
+            for name,text in row['files'].items():
+                path=safe(self.project,name)
+                if path.exists():
+                    if journal.get(name)!=dict(binding=binding,sha256=__import__('hashlib').sha256(text.encode()).hexdigest(),mode=0o644) or path.read_bytes()!=text.encode() or stat.S_IMODE(path.stat().st_mode)!=0o644:raise ValueError('intake_input_changed:'+name)
+                    continue
+                journal[name]=dict(binding=binding,sha256=__import__('hashlib').sha256(text.encode()).hexdigest(),mode=0o644);self.save()
+                try:create_artifact(self.project,name,text,0o644)
+                except FileExistsError:
+                    journal[name]['conflict']=True;self.save();raise ValueError('intake_destination_conflict:'+name) from None
+            source,task=resolve(self.project,row['reference'])
+            if source!=row['source'] or task!=self.task or runtime()!=row['runtime'] or self.context(source)!=row['context']:raise ValueError('intake_preview_stale')
+            self.validate_prepared_inputs(row)
+            result.update(status='prepared',files={name:__import__('hashlib').sha256(text.encode()).hexdigest() for name,text in row['files'].items()})
+            row['status']='prepared';self.save();return result
+
+
+def api(project,body):
+    project=Path(project).resolve();action=body['action']
+    if action=='intake-bootstrap':return dict(runtime=runtime(),provider_calls=0)
+    if action=='intake-preview':
+        source,task=resolve(project,body['source'])
+        return Intake(project,task).preview(body['source'],source,body.get('choices',{}))
+    if action=='intake-answer':
+        intake=Intake(project,body['task'])
+        with intake.lease():
+            row=intake.state['drafts'].get(body['binding'])
+            if not row or row['status']!='needs_decision':raise ValueError('intake_question_not_current')
+            source,task=resolve(project,row['reference'])
+            if source!=row['source'] or task!=intake.task:raise ValueError('intake_source_changed')
+            _,_,missing=intake.proposal(source,body['choices'])
+            if missing:raise ValueError('intake_choices_incomplete:'+','.join(missing))
+            decisions=ops.load('console-decisions')
+            decisions.respond(project,row['decision']['task'],row['decision']['sha256'],'',json.dumps(body['choices'],sort_keys=True))
+            reference=row['reference']
+        return intake.preview(reference,source,body['choices'])
+    if action in ('intake-apply','intake-cancel'):
+        return Intake(project,body['task']).apply(body['binding'],body['operator'],body['request'],action=='intake-cancel')
+    raise ValueError('unknown_intake_action')
+
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action',choices=['bootstrap','preview','answer','apply','cancel'])
+    parser.add_argument('--project',default=os.getcwd())
+    for key in ('task','source','binding','operator','request'):parser.add_argument('--'+key)
+    parser.add_argument('--choices',type=json.loads,default={})
+    args=vars(parser.parse_args());project=args.pop('project');args['action']='intake-'+args['action']
+    try:print(json.dumps(api(project,{k:v for k,v in args.items() if v is not None})))
+    except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
+        print(json.dumps(dict(status='blocked',reason=str(error))));raise SystemExit(1)

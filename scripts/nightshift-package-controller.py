@@ -177,8 +177,12 @@ class Packages:
             if len(prep)+sum(c['allowance']['calls'] for c in graph['children'])>graph['aggregate']['calls'] or prep_seconds+sum(c['allowance']['seconds'] for c in graph['children'])>graph['aggregate']['seconds']:
                 raise ValueError('parent_allowance_insufficient_after_preparation')
             if any(c['status']!='finished' for c in prep.values()):raise ValueError('unknown_preparation_usage')
+            # The first composition reservation fixes this task's wall window.
+            # A different operator or assessment may narrow it, never renew it.
+            deadline=min([self.clock()+remaining_wall]+[prior['deadline'] for prior in self.state['authorizations'].values()])
+            if self.clock()>=deadline:raise ValueError('parent_composition_wall_exhausted')
             grant=dict(version=1,id=request,request_digest=ops.digest(payload),binding=binding,operator=operator,graph=graph,
-                       deadline=self.clock()+remaining_wall,preparation_wall=wall,preparation_calls=prep,
+                       deadline=deadline,preparation_wall=wall,preparation_calls=prep,
                        allocations={c['id']:dict(limit=c['allowance'],status='reserved') for c in graph['children']},status='authorized')
             self.state['authorizations'][request]=grant;self.save();return grant
 

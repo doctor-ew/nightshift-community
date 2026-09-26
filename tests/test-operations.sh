@@ -16,3 +16,4 @@ python3 "$ROOT/tests/test-operation-byte-preservation-review.py"
 
 python3 "$ROOT/tests/test-semantic-handoffs.py"
 python3 "$ROOT/tests/test-semantic-handoffs-review.py"
+python3 "$ROOT/tests/test-semantic-cache-review.py"
