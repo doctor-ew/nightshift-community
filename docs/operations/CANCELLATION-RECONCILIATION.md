@@ -93,3 +93,14 @@ Exact structured evidence: `CANCELLATION-RECONCILIATION-VALIDATION.json`.
 This slice integrates #93 namespace binding, #94 semantic provenance and #97
 clarification retention above #95. It has not been merged into the default branch
 or installed. #96 typed verification integration remains a subsequent slice.
+
+## Compatible base and startup follow-up
+
+The replacement branch starts at the actual #95 head
+`6fef11f8c37f8a4b2b19b3ece41d0fa5d0c1d894`. It preserves the reviewed #98
+tree and integrates #100's owned-process startup fix. It does not rewrite or
+remove #98 history. Runtime `6a306702dc4f4f25f1cd2caaaac542e9a95b5796`
+passes nine startup, eleven reconciliation and six parent cancellation tests.
+The actual Chromium cancellation flow passes with one synthetic call, zero replay
+calls and the same unknown-call reservation. The original #98 branch conflicts
+with its base and is superseded for integration by this replacement.
