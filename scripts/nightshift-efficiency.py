@@ -378,14 +378,19 @@ def bounded_request(settings, key, body):
             raise Invalid(content)
         return content
     finally:
-        writer.close()
-        if started:
-            if worker.is_alive():
-                worker.kill()
-            worker.join()
-        if worker is not None:
-            worker.close()
-        reader.close()
+        try:
+            writer.close()
+            if worker is not None:
+                try:
+                    # start() can be interrupted after ownership is established.
+                    if started or worker.pid is not None:
+                        if worker.is_alive():
+                            worker.kill()
+                        worker.join()
+                finally:
+                    worker.close()
+        finally:
+            reader.close()
 
 
 

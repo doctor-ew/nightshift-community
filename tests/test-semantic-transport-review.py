@@ -56,12 +56,33 @@ class Transport(unittest.TestCase):
     def test_spawn_failure_closes_pipes_without_join(self):
         from unittest.mock import Mock
         for construction in (False,True):
-            context=Mock();reader=Mock();writer=Mock();worker=Mock();context.Pipe.return_value=(reader,writer)
+            context=Mock();reader=Mock();writer=Mock();worker=Mock();worker.pid=None;context.Pipe.return_value=(reader,writer)
             if construction:context.Process.side_effect=OSError('synthetic-only')
             else:context.Process.return_value=worker;worker.start.side_effect=OSError('synthetic-only')
             with patch.object(e.multiprocessing,'get_context',return_value=context):
                 with self.assertRaisesRegex(e.Invalid,'^REQUEST_FAILED$'):e.bounded_request(self.settings,'synthetic-only',b'{}')
             reader.close.assert_called_once();writer.close.assert_called_once();worker.join.assert_not_called();worker.is_alive.assert_not_called()
+    def test_post_spawn_interrupt_and_error_reap_owned_worker(self):
+        from unittest.mock import Mock
+        for failure in (KeyboardInterrupt('synthetic post-spawn interruption'),OSError('synthetic post-spawn error')):
+            with self.subTest(failure=type(failure).__name__):
+                context=Mock();reader=Mock();writer=Mock();worker=Mock()
+                context.Pipe.return_value=(reader,writer);context.Process.return_value=worker
+                worker.pid=424242;worker.is_alive.return_value=True;worker.start.side_effect=failure
+                with patch.object(e.multiprocessing,'get_context',return_value=context):
+                    expected=KeyboardInterrupt if isinstance(failure,KeyboardInterrupt) else e.Invalid
+                    with self.assertRaises(expected):e.bounded_request(self.settings,'synthetic-only',b'{}')
+                worker.kill.assert_called_once();worker.join.assert_called_once();worker.close.assert_called_once()
+                reader.close.assert_called_once();writer.close.assert_called_once()
+    def test_cleanup_error_still_closes_both_pipe_ends(self):
+        from unittest.mock import Mock
+        context=Mock();reader=Mock();writer=Mock();worker=Mock()
+        context.Pipe.return_value=(reader,writer);context.Process.return_value=worker
+        worker.pid=424242;worker.is_alive.return_value=True;worker.start.side_effect=KeyboardInterrupt('synthetic post-spawn interruption')
+        worker.kill.side_effect=OSError('synthetic cleanup failure')
+        with patch.object(e.multiprocessing,'get_context',return_value=context):
+            with self.assertRaises(BaseException):e.bounded_request(self.settings,'synthetic-only',b'{}')
+        reader.close.assert_called_once();writer.close.assert_called_once();worker.close.assert_called_once()
     def test_actual_launcher_semantic_handoff_and_replay(self):
         with tempfile.TemporaryDirectory(prefix='nightshift-semantic-launcher-') as temporary:
             root=Path(temporary);env=f.isolated(root)
