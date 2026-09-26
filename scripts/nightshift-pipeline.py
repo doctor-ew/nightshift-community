@@ -192,7 +192,10 @@ class Pipeline:
         worker_receipt=self.project/'docs'/self.task/('.nightshift-'+receipt.name)
         worker_receipt.parent.mkdir(parents=True,exist_ok=True)
         if worker_receipt.exists():raise ValueError('worker_receipt_already_exists')
-        argv=['bash',str(HERE/'nightshift-factory.sh'),self.task,'--project',str(self.project),'--branch','none','--provider',route['provider'],'--model',route['model'],'--provider-policy',self.state['plan']['policy'],'--auth',self.settings['auth'],'--dashboard','off']
+        # Product needs source identity before any retained contract exists.
+        # Later stages keep the canonical task key and all existing ownership.
+        reference=self.settings['ref'] if stage=='product' else self.task
+        argv=['bash',str(HERE/'nightshift-factory.sh'),reference,'--project',str(self.project),'--branch','none','--provider',route['provider'],'--model',route['model'],'--provider-policy',self.state['plan']['policy'],'--auth',self.settings['auth'],'--dashboard','off']
         env=dict(os.environ,NIGHTSHIFT_PIPELINE_STAGE=stage,NIGHTSHIFT_PIPELINE_TASK=self.task,NIGHTSHIFT_PIPELINE_TICKET_JSON=os.environ.get('NIGHTSHIFT_TICKET_JSON',''),NIGHTSHIFT_STAGE_RECEIPT=str(worker_receipt),NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_ROUTING_FILE=self.state['plan']['routing_path'],NIGHTSHIFT_BUDGET_TASK=os.environ.get('NIGHTSHIFT_BUDGET_TASK',self.task),NIGHTSHIFT_BUDGET_PROJECT=os.environ.get('NIGHTSHIFT_BUDGET_PROJECT',str(self.project)))
         # Existing ticket admission owns the deadline; no replacement allowance.
         budget=load('ticket-budget').snapshot(self.project,self.task)

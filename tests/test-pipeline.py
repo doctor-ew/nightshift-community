@@ -14,6 +14,56 @@ m=load('pipeline','scripts/nightshift-pipeline.py')
 f=load('fixture','tests/nightshift-behavior-fixture.py')
 
 class PipelineTest(unittest.TestCase):
+ def test_fresh_source_reaches_real_child_input_admission(self):
+  for ref in ('jira:FIXTURE-66', 'gh:fixture/public-repo#66', 'spec:input with spaces.md', 'input with spaces.md'):
+   with self.subTest(ref=ref), tempfile.TemporaryDirectory() as tmp:
+    base=Path(tmp).resolve();p=base/'project';p.mkdir();home=base/'home';home.mkdir()
+    (p/'input with spaces.md').write_text('# Synthetic request\nImplement a fixture.\n')
+    for args in (('init','-q'),('add','input with spaces.md'),('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','fixture baseline')):
+     subprocess.run(['git','-C',str(p),*args],check=True,capture_output=True)
+    binary=base/'bin';binary.mkdir();dispatches=base/'forbidden-dispatches'
+    for name in ('bd','claude','codex','ollama','gh','curl'):
+     stub=binary/name;stub.write_text('#!/bin/sh\nprintf "%s\\n" "$0" >> "$NIGHTSHIFT_TEST_DISPATCHES"\nexit 97\n');stub.chmod(0o755)
+    env=dict(PATH=str(binary)+os.pathsep+os.environ['PATH'],HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',NIGHTSHIFT_TEST_DISPATCHES=str(dispatches))
+    with patch.dict(os.environ,env,clear=True):
+     identity=json.loads(subprocess.check_output(['bash',str(ROOT/'scripts/nightshift-ticket-source.sh'),'--derive-id',ref,'--project',str(p)],text=True))
+     task=identity['source_id'];settings=dict(ref=ref,auth='subscription')
+     controller=m.Pipeline(p,task,settings)
+     controller.state['plan']=dict(stages={stage:dict(provider='claude',model='fixture') for stage in ('product','adversarial')},policy='claude-only',routing_path=str(ROOT/'routing.json'))
+     ledger=m.load('ticket-budget');ledger.update(p,task,'reserve','retained',max_calls=10);ledger.update(p,task,'finish','retained',outcome='failed')
+     ledger_before=ledger.ledger_path(p,task).read_bytes()
+     decisions=m.load('console-decisions');q=decisions.request(p,task,dict(question='Scope?',reason='Fixture',options=[],decision_key='scope'))
+     decisions.respond(p,task,q['sha256'],'','Preserve source identity.')
+     approval=decisions.location(p,task);approval_before=approval.read_bytes()
+     handoff=controller.directory/'handoff.json';handoff.write_text('{}')
+     receipt=controller.directory/'fresh.json'
+     with patch.dict(os.environ,{'NIGHTSHIFT_TICKET_JSON':json.dumps(identity)}):
+      code=controller.dispatch('product',handoff,receipt)
+     log=receipt.with_suffix('.log').read_text()
+     observations=[json.loads(line) for line in log.splitlines() if line.startswith('{') and 'checks' in line]
+     self.assertTrue(observations,log)
+     admission=observations[-1]
+     self.assertEqual(admission['reason'],'MANIFEST_MISSING',log)
+     self.assertEqual(admission['checks']['baseline'],'pass')
+     self.assertEqual(admission['checks']['input'],'pass')
+     self.assertEqual(admission['checks']['manifest'],'fail')
+     self.assertNotEqual(code,0)
+     self.assertEqual(admission['tasks'],[task])
+     self.assertFalse(receipt.exists())
+     self.assertEqual(ledger.ledger_path(p,task).read_bytes(),ledger_before)
+     self.assertEqual(approval.read_bytes(),approval_before)
+     self.assertFalse(dispatches.exists())
+     # Retained input admits the canonical next-stage key without reopening its source.
+     docs=p/'docs'/task;docs.mkdir(parents=True,exist_ok=True);(docs/'SPEC.md').write_text('# Retained contract\n')
+     controller.settings['ref']='spec:missing original input.md'
+     retained=controller.directory/'retained.json'
+     with patch.dict(os.environ,{'NIGHTSHIFT_TICKET_JSON':json.dumps(identity)}):
+      controller.dispatch('adversarial',handoff,retained)
+     self.assertIn('MANIFEST_MISSING',retained.with_suffix('.log').read_text())
+     self.assertEqual(ledger.ledger_path(p,task).read_bytes(),ledger_before)
+     self.assertEqual(approval.read_bytes(),approval_before)
+     self.assertFalse(dispatches.exists())
+
  def test_saved_answers_missing_routes_failed_evidence_resume_and_manual_boundary(self):
   with tempfile.TemporaryDirectory() as tmp:
    p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)
