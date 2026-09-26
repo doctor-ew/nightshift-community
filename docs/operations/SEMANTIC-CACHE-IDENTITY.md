@@ -17,3 +17,5 @@ Ten existing handoff tests pass in 29.462 seconds and three version 1 operation-
 ## Status and limits
 
 Implementation: independently reviewed cache-identity correction on #88. Integration: remaining semantic role-provenance and explicit escalation-coverage findings are not fixed by this change. Configured-disabled semantics and stage opt-in behavior also remain part of #68 acceptance. Certification: synthetic only; no accuracy, calibration or savings claim. Tokens, provider KV-cache consumption, billing and independent reviewer usage remain unknown. No live provider, runtime activation, merge or deployment occurred.
+
+Committed-revision receipt at `92d9559ad33aa19db9568cb31ae378b404f090ee`: 8 synthetic calls (3 evaluator, 3 escalation and 2 preparation workers), 3 semantic receipt-cache hits and 0 replay calls, 24,597 request bytes, 0.0037029160048405174 measured synthetic worker seconds, 0 unknown usage. The fixture passed in 3.513 seconds. Exact sizes are in `SEMANTIC-CACHE-VALIDATION.json`; these stub timings are not evaluator latency or quality measurements.

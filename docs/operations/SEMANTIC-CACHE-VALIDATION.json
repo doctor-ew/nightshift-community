@@ -1,0 +1,50 @@
+{
+  "synthetic": true,
+  "stage": "groom-adversarial",
+  "evaluator_request_bytes": [
+    2750,
+    2706,
+    2756
+  ],
+  "worker_requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 7533
+    },
+    {
+      "operation": "review",
+      "request_bytes": 2744
+    },
+    {
+      "operation": "review",
+      "request_bytes": 2713
+    },
+    {
+      "operation": "review",
+      "request_bytes": 2745
+    }
+  ],
+  "evaluator_calls": 3,
+  "independent_escalations": 3,
+  "cache_hits": 3,
+  "replay_calls": 0,
+  "usage": {
+    "calls": 8,
+    "measured_seconds": 0.0037029160048405174,
+    "reserved_unknown_seconds": 0,
+    "seconds": 0.0037029160048405174,
+    "unknown": 0,
+    "request_bytes": 24597
+  },
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "runtime_revision": "92d9559ad33aa19db9568cb31ae378b404f090ee",
+  "bridge_sha256": "c89e228baf576cde7ec2cbc5e4984245318151e9c33bfeb38f79f43749734426",
+  "independent_reviewer_usage": null
+}
