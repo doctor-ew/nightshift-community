@@ -122,6 +122,31 @@ class SupervisorReview(unittest.TestCase):
         self.assertEqual(len(original.calls), 4)
         self.assertEqual(self.c.usage(grant)['calls'], 4)
 
+    def test_verification_exhaustion_allows_changed_external_verification(self):
+        (self.root/'app.py').write_text('def answer(): return 1\n')
+        original = self.worker
+        def ineffective_repair(operation, packet, route, output, seconds):
+            original.patch = ''
+            if operation == 'implement' and packet['findings']:
+                before = packet['artifacts']['app.py']
+                after = before + '# attempted repair ' + str(len(original.calls)) + '\n'
+                original.patch = ''.join(difflib.unified_diff(before.splitlines(True), after.splitlines(True), fromfile='a/app.py', tofile='b/app.py'))
+            return original(operation, packet, route, output, seconds)
+        self.c.worker = ineffective_repair
+        result = s.run(self.c, self.grant())
+        self.assertEqual(result['supervisor']['reason'], 'repair_limit_exhausted')
+        self.assertEqual(sum(a['operation'] == 'verify' and a['status'] == 'failed' for a in self.c.state['attempts']), 3)
+        calls = list(original.calls)
+        (self.root/'app.py').write_text('def answer(): return 2 # corrected externally\n')
+        original.patch = ''
+        resumed = f.m.Operations(self.root, 'demo', original)
+        assessed = resumed.assess('adopt')
+        external = resumed.authorize(f.m.RECIPES['external'], assessed['binding'], 'synthetic-reviewer', 'external-verify',
+            dict(binding=assessed['binding'], identity='external-human', provider='human'))
+        result = resumed.chain(external['id'])
+        self.assertEqual(result['view']['status'], 'pending_manual_acceptance')
+        self.assertEqual(sum(op == 'implement' for op, _ in original.calls), sum(op == 'implement' for op, _ in calls))
+
     def test_repeated_findings_exhaust_then_external_adoption(self):
         original = self.worker
         def fail_review(operation, packet, route, output, seconds):
