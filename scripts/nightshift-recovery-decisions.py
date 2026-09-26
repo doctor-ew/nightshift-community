@@ -46,8 +46,9 @@ def plan(value):
     if not (target/name).exists() and not (target/name).is_symlink():raise ValueError('recovery_decision_plan_missing:'+name)
     path=safe(target,name)
     data=json.loads(path.read_text())
-    if set(data)-{'version','checks','decisions','limits','environment'} or not {'version','checks','decisions','limits'}<=set(data) or data['version']!=1 or not data['decisions'] or len(data['decisions'])>64:
+    if set(data)-{'version','checks','decisions','limits','environment','semantic_mode'} or not {'version','checks','decisions','limits'}<=set(data) or data['version']!=1 or not data['decisions'] or len(data['decisions'])>64:
         raise ValueError('recovery_decision_plan_invalid')
+    if data.get('semantic_mode','jev') not in ('jev','independent'):raise ValueError('recovery_semantic_mode_invalid')
     environment=data.get('environment',{})
     if not isinstance(environment,dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]{0,80}',k) or k in ('PATH','HOME','TMPDIR','SYSTEMROOT') or k.startswith(('GIT_','LD_','DYLD_','NIGHTSHIFT_')) or not isinstance(v,str) or len(v)>4096 for k,v in environment.items()):
         raise ValueError('recovery_decision_environment_invalid')
@@ -65,7 +66,15 @@ def plan(value):
     if [(c['id'],c['argv']) for c in checks]!=[(c['id'],c['argv']) for c in value['checks']]:
         raise ValueError('recovery_decision_checks_changed')
     ids=set();case_ids={c['id'] for c in value['cases'] if c['applicability']['kind']=='deterministic'}
-    findings={f['id'] for f in value['findings']};acs=set(value['ac_ids'])
+    findings={f['id'] for f in value['findings']}
+    declared=set(value['ac_ids']);acs=set();classified=set()
+    for case in value['cases']:
+        case_acs=case.get('ac_ids')
+        if not isinstance(case_acs,list) or not case_acs or any(not isinstance(a,str) for a in case_acs) or not set(case_acs)<=declared:
+            raise ValueError('recovery_decision_case_ac_invalid')
+        classified.update(case_acs)
+        if case['applicability']['kind']=='deterministic':acs.update(case_acs)
+    if classified!=declared:raise ValueError('recovery_decision_ac_unclassified')
     spec='docs/'+value['task']+'/SPEC.md';scenarios='docs/'+value['task']+'/behavior-scenarios.json'
     required=set(value['source_files'])|{spec,scenarios}|{c['argv'][1] for c in checks}
     files={name:safe(target,name).read_text().splitlines(keepends=True) for name in required}
@@ -148,8 +157,10 @@ def packets(value, verification, gate):
 
 def readiness(value):
     try:
-        data=plan(value);cfg=configuration(value['worktree'])
+        data=plan(value);mode=data.get('semantic_mode','jev')
         if value['reviewer_route']['provider']!='claude':raise ValueError('decision_reviewer_tool_free_transport_unavailable')
+        cfg=(dict(semantic_mode='independent',provider=value['reviewer_route']['provider'],model=value['reviewer_route']['model'],timeout_seconds=120,max_bytes=engine.MAX_BYTES) if mode=='independent' else configuration(value['worktree']))
+        if mode=='independent':engine.independent_identity(cfg)
         observed={}
         for row in data['decisions']:
             for ref in row['references']:
@@ -159,7 +170,8 @@ def readiness(value):
         for gate in KINDS:
             for packet in packets(value,placeholder,gate):
                 # Reserve 4 KiB for observed output and transport framing. No truncation.
-                if len(engine.request_body(packet,cfg))>engine.MAX_BYTES-4096:raise ValueError('decision_request_too_large_preflight')
-        return dict(status='ready',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
+                body=(engine.encoded(engine.independent_envelope(packet,'decision-review-'+'0'*32)) if mode=='independent' else engine.request_body(packet,cfg))
+                if len(body)>engine.MAX_BYTES-4096:raise ValueError('decision_request_too_large_preflight')
+        return dict(status='ready',semantic_mode=mode,plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
     except (OSError,ValueError,KeyError,TypeError) as error:
         return dict(status='blocked',reason=str(error),max_request_bytes=engine.MAX_BYTES)

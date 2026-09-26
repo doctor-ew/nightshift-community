@@ -271,3 +271,126 @@ class Engine:
         record['receipt_sha256']=digest({k:v for k,v in record.items() if k not in ('receipt_sha256','cache_hit')})
         atomic(path,record)
         return record
+
+
+def independent_envelope(packet, reviewer_id):
+    """Exact tool-free reviewer input, bounded before allowance reservation."""
+    validate(packet)
+    if not isinstance(reviewer_id, str) or not re.fullmatch(r'decision-review-[0-9a-f]{32}', reviewer_id):
+        raise ValueError('decision_reviewer_identity_invalid')
+    value = dict(packet=packet, packet_sha256=digest(packet), reviewer_id=reviewer_id, mode='independent')
+    if len(encoded(value)) > MAX_BYTES:
+        raise ValueError('decision_review_request_too_large')
+    return value
+
+
+def validate_independent_result(review, packet, reviewer_id):
+    if not isinstance(review, dict) or set(review) != {'decision','packet_sha256','reviewer_id','evidence'} or review['packet_sha256'] != digest(packet) or review['reviewer_id'] != reviewer_id or review['decision'] not in ('yes','no','abstain'):
+        raise ValueError('decision_independent_result_invalid')
+    references = review['evidence']
+    if not isinstance(references, list) or not references or any(not isinstance(ref, str) for ref in references) or len(set(references)) != len(references) or any(ref not in {r['id'] for r in packet['evidence']} for ref in references):
+        raise ValueError('decision_independent_evidence_invalid')
+    if review['decision'] == 'yes' and {r['role'] for r in packet['evidence'] if r['id'] in references} != required_roles(packet):
+        raise ValueError('decision_independent_evidence_incomplete')
+    return review
+
+
+def independent_identity(settings):
+    keys = {'semantic_mode','provider','model','timeout_seconds','max_bytes'}
+    if set(settings) != keys or settings['semantic_mode'] != 'independent' or settings['provider'] != 'claude' or not isinstance(settings['model'], str) or not settings['model'] or type(settings['timeout_seconds']) not in (int,float) or not math.isfinite(settings['timeout_seconds']) or not 0 < settings['timeout_seconds'] <= 120 or type(settings['max_bytes']) is not int or settings['max_bytes'] != MAX_BYTES:
+        raise ValueError('decision_independent_settings_invalid')
+    return dict(settings)
+
+
+def validate_independent_receipt(record, packet, settings, authority, directory):
+    identity = independent_identity(settings)
+    key = digest(dict(authority=authority, packet=packet, settings=identity, rubric=RUBRIC, semantic_mode='independent'))
+    canonical = {k:v for k,v in record.items() if k not in ('receipt_sha256','cache_hit')}
+    if record.get('key') != key or record.get('packet_sha256') != digest(packet) or record.get('semantic_mode') != 'independent' or record.get('receipt_sha256') != digest(canonical):
+        raise ValueError('decision_cache_integrity')
+    artifacts = {}
+    for suffix, expected in record.get('artifacts', {}).items():
+        if suffix not in ('packet','request','review'):
+            raise ValueError('decision_cache_integrity')
+        path = Path(directory)/(key+'.'+suffix+'.json')
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
+            raise ValueError('decision_cache_artifact_changed')
+        value = json.loads(path.read_text())
+        if digest(value) != expected:
+            raise ValueError('decision_cache_artifact_changed')
+        artifacts[suffix] = value
+    request = independent_envelope(packet, record.get('reviewer_id'))
+    if artifacts.get('packet') != packet or artifacts.get('request') != request or record.get('request_bytes') != len(encoded(request)):
+        raise ValueError('decision_cache_artifact_changed')
+    if record['status'] == 'complete':
+        if len(record.get('calls', [])) != 1 or record['calls'][0].get('kind') != 'independent' or record['calls'][0].get('status') != 'complete':
+            raise ValueError('decision_cache_unfinished')
+        review = validate_independent_result(artifacts.get('review'), packet, record['reviewer_id'])
+        if review['decision'] not in ('yes','no') or record.get('decision') != review['decision']:
+            raise ValueError('decision_cache_verdict_changed')
+    elif record['status'] != 'blocked' or record.get('decision') != 'abstain':
+        raise ValueError('decision_cache_verdict_changed')
+    return record
+
+
+class IndependentEngine:
+    """Explicit independent review only; never contacts or falls back from Jev.
+
+    The enclosing controller holds the same lease and explicit allowance as the
+    assisted mode. review(packet, reviewer_id) executes its tool-free route.
+    """
+    def __init__(self, directory, authority, settings, reserve, finish, review):
+        if not isinstance(authority, str) or not authority:
+            raise ValueError('decision_authority_required')
+        self.directory, self.authority = Path(directory), authority
+        self.settings = independent_identity(settings)
+        self.reserve, self.finish, self.review = reserve, finish, review
+
+    def decide(self, packet):
+        validate(packet)
+        key = digest(dict(authority=self.authority, packet=packet, settings=self.settings, rubric=RUBRIC, semantic_mode='independent'))
+        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path = self.directory/(key+'.json')
+        if path.is_symlink():
+            raise ValueError('decision_cache_unsafe')
+        if path.exists():
+            record = json.loads(path.read_text())
+            if record.get('key') != key or record.get('packet_sha256') != digest(packet) or record.get('semantic_mode') != 'independent':
+                raise ValueError('decision_cache_invalid')
+            if record['status'] == 'pending':
+                return dict(record, status='blocked', decision='abstain', reason='decision_unfinished_reservation', cache_hit=True)
+            validate_independent_receipt(record, packet, self.settings, self.authority, self.directory)
+            return dict(record, cache_hit=True)
+        reviewer_id = 'decision-review-' + __import__('uuid').uuid4().hex
+        request = independent_envelope(packet, reviewer_id)
+        record = dict(version=1, key=key, semantic_mode='independent', packet_sha256=digest(packet), reviewer_id=reviewer_id,
+                      status='pending', decision='abstain', reason='', rubric=RUBRIC, request_bytes=len(encoded(request)), request_bytes_scope='exact serialized reviewer input envelope; CLI role/schema framing not measured', calls=[],
+                      artifacts={'packet':digest(packet), 'request':digest(request)}, cache_hit=False)
+        atomic(path, record)
+        atomic(self.directory/(key+'.packet.json'), packet)
+        atomic(self.directory/(key+'.request.json'), request)
+        try:
+            token = self.reserve('independent', key, record['request_bytes'])
+            record['calls'].append(dict(kind='independent', reservation=token, status='pending'))
+            atomic(path, record)
+            outcome = 'error'
+            try:
+                review = self.review(packet, reviewer_id)
+                if len(encoded(review)) > MAX_BYTES:
+                    raise ValueError('decision_response_too_large')
+                atomic(self.directory/(key+'.review.json'), review)
+                record['artifacts']['review'] = digest(review)
+                validate_independent_result(review, packet, reviewer_id)
+                record['decision'] = review['decision']
+                outcome = 'complete'
+            finally:
+                self.finish(token, outcome)
+                record['calls'][-1]['status'] = outcome
+                atomic(path, record)
+            record.update(status='complete' if record['decision'] in ('yes','no') else 'blocked',
+                          reason='decision_supported' if record['decision']=='yes' else 'decision_not_supported' if record['decision']=='no' else 'decision_abstained')
+        except (ValueError,OSError,KeyError,TypeError,EOFError) as error:
+            record.update(status='blocked', decision='abstain', reason=str(error))
+        record['receipt_sha256'] = digest({k:v for k,v in record.items() if k not in ('receipt_sha256','cache_hit')})
+        atomic(path, record)
+        return record

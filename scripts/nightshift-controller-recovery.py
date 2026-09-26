@@ -179,11 +179,14 @@ def assessment(project, task, verify=False):
     if verify:
         result['verification'] = verify_checks(value, timeout=600)
         current_binding(project,task,binding)
-        if value['decision_readiness']['status']=='ready':
+        if result['verification']['status']=='pass' and value['decision_readiness']['status']=='ready':
             adapter=load('recovery-decisions')
             for gate in GATES:
                 for packet in adapter.packets(value,result['verification'],gate):
-                    adapter.engine.request_body(packet,value['decision_readiness']['settings'])
+                    if value['decision_readiness'].get('semantic_mode','jev')=='independent':
+                        adapter.engine.independent_envelope(packet,'decision-review-'+'0'*32)
+                    else:
+                        adapter.engine.request_body(packet,value['decision_readiness']['settings'])
     return result
 
 
@@ -254,12 +257,14 @@ def verify_checks(value, timeout):
     return dict(binding=digest(value), status='pass' if len(results)==len(value['checks']) and all(r['exit_code']==0 for r in results) else 'fail', checks=results)
 
 
-def compact_review(value,packet,mode,output,timeout):
+def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
     """One isolated reviewer sees only the obligation; primary answer is withheld."""
-    decision=load('decision-engine');reviewer_id='decision-review-'+uuid.uuid4().hex
-    envelope=dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode)
+    decision=load('decision-engine');reviewer_id=reviewer_id or 'decision-review-'+uuid.uuid4().hex
+    envelope=(decision.independent_envelope(packet,reviewer_id) if mode=='independent' else dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode))
     if len(decision.encoded(envelope))>decision.MAX_BYTES:raise ValueError('decision_review_request_too_large')
-    request=output.with_suffix('.input.json');p.recovery.atomic(request,envelope)
+    request=output.with_suffix('.input.json')
+    if mode=='independent':decision.atomic(request,envelope)
+    else:p.recovery.atomic(request,envelope)
     routing=p.read(value['plan']['routing_path'])
     routing['roles']['nightshift-decision-reviewer']=dict(prompt='agents/nightshift-decision-reviewer.md',sandbox='read-only',gears={'1':value['reviewer_route']})
     route_file=output.with_suffix('.routing.json');p.recovery.atomic(route_file,routing)
@@ -293,6 +298,7 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
         if request_id in calls:raise ValueError('decision_duplicate_reservation')
         budget['calls_used']+=1
         calls[request_id]=dict(kind=kind,request_bytes=request_bytes,status='pending',started_at=time.time())
+        if kind=='independent':calls[request_id]['request_bytes_scope']='exact serialized reviewer input envelope; CLI role/schema framing not measured'
         save();return request_id
     def finish(request_id,outcome):
         session['decision_calls'][request_id].update(status=outcome,finished_at=time.time())
@@ -304,8 +310,15 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     def escalate(packet,primary,mode):
         output=directory/('decision-'+decision.digest(packet)+'.review.json')
         return (escalator or compact_review)(value,packet,mode,output,max(.001,min(120,remaining())))
-    evaluator=decision.Engine(directory/'decisions',session['binding'],settings,reserve,finish,
-                              transport=invoke_jev,escalate=escalate)
+    semantic_mode=value['decision_readiness'].get('semantic_mode','jev')
+    if semantic_mode=='independent':
+        def independent_review(packet,reviewer_id):
+            output=directory/('decision-'+decision.digest(packet)+'.review.json')
+            return (escalator or compact_review)(value,packet,'independent',output,max(.001,min(120,remaining())),reviewer_id=reviewer_id)
+        evaluator=decision.IndependentEngine(directory/'decisions',session['binding'],settings,reserve,finish,independent_review)
+    else:
+        evaluator=decision.Engine(directory/'decisions',session['binding'],settings,reserve,finish,
+                                  transport=invoke_jev,escalate=escalate)
     receipts=[]
     for packet in packets:
         current_binding(value['worktree'],value['task'],session['binding'])
@@ -313,20 +326,23 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
         if receipt['status']!='complete' or receipt['decision']!='yes':
             # The detailed negative/abstention receipt stays durable in decisions/.
             raise ValueError('recovery_decision_blocked:'+packet['id']+':'+receipt['reason'])
-    return dict(mode='compact',binding=digest(value),stage=stage,decisions=receipts,
+    return dict(mode='compact',semantic_mode=semantic_mode,binding=digest(value),stage=stage,decisions=receipts,
                 manual_cases=[c['id'] for c in value['cases'] if c['applicability']['kind']=='manual'])
 
 
 def validate_compact(report,value,stage,checks):
     adapter=load('recovery-decisions');decision=adapter.engine
     if report.get('binding')!=digest(value) or report.get('stage')!=stage:raise ValueError('recovery_stale_approval')
+    semantic_mode=value['decision_readiness'].get('semantic_mode','jev')
+    if report.get('semantic_mode','jev')!=semantic_mode:raise ValueError('recovery_semantic_mode_changed')
     packets=adapter.packets(value,checks,stage)
     if len(report.get('decisions',[]))!=len(packets):raise ValueError('recovery_incomplete_decisions')
     for packet,receipt in zip(packets,report['decisions']):
-        decision.validate_receipt(receipt,packet,value['decision_readiness']['settings'],digest(value),p.root(value['worktree'],value['task'])/('recovery-'+digest(value))/'decisions')
+        validator=decision.validate_independent_receipt if semantic_mode=='independent' else decision.validate_receipt
+        validator(receipt,packet,value['decision_readiness']['settings'],digest(value),p.root(value['worktree'],value['task'])/('recovery-'+digest(value))/'decisions')
         if receipt.get('packet_sha256')!=decision.digest(packet) or receipt.get('status')!='complete' or receipt.get('decision')!='yes':
             raise ValueError('recovery_unapproved_decision')
-        if receipt.get('reported_model')!=value['decision_readiness']['settings']['model']:
+        if semantic_mode=='jev' and receipt.get('reported_model')!=value['decision_readiness']['settings']['model']:
             raise ValueError('recovery_decision_model_changed')
     if report.get('manual_cases')!=[c['id'] for c in value['cases'] if c['applicability']['kind']=='manual']:
         raise ValueError('recovery_manual_case_cannot_pass')
@@ -457,7 +473,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             now = time.time()
             session = dict(binding=expected, operator=operator, authorized_at=now, evidence=value,
                 allowance=dict(value['limits'], started_at=now, deadline_at=now+value['limits']['wall_seconds'], active_used=0, calls_used=0),
-                decision_mode='compact' if compact else 'legacy_fixture',
+                decision_mode='compact' if compact else 'legacy_fixture', semantic_mode=value['decision_readiness'].get('semantic_mode','jev'),
                 steps={}, status='running', next_action='verify')
             sessions[expected] = session
             state.setdefault('recovery_origin', copy.deepcopy({k:v for k,v in state.items() if k not in ('recovery_sessions','recovery_origin')}))
@@ -465,6 +481,8 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             p.recovery.atomic(directory / 'state.json', state)
         elif session['status'] in ('blocked','pending_manual_acceptance'):
             return summary(session)
+        if compact and session.get('semantic_mode','jev')!=value['decision_readiness'].get('semantic_mode','jev'):
+            raise ValueError('recovery_semantic_mode_changed')
         if compact != (session.get('decision_mode')=='compact'):
             raise ValueError('recovery_operation_mode_changed')
         session_dir = directory / ('recovery-' + expected)
