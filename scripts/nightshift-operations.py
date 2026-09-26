@@ -199,12 +199,19 @@ class Operations:
             raise ValueError('concrete_worker_model_required')
         return dict(provider=route['provider'], model=route['model'], role=role, routing=str(routing), policy=policy.mode(self.project))
 
+    load_digest = staticmethod(digest)
+
+    def retry_account(self, attempt, category):
+        return load('retry-budget').account(self.directory / (attempt['operation'] + '.retry.json'), attempt['request'], category)
+
+    def repair_evidence(self, operation):
+        gates = ('groom-adversarial',) if operation == 'groom-spec' else ('verify', 'review') if operation == 'implement' else ()
+        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status'] == 'failed'), None)
+        return {k: latest.get(k, {}) for k in ('request', 'binding', 'signature', 'findings', 'evidence')} if latest else None
+
     def repair_findings(self, operation):
-        gate = 'groom-adversarial' if operation == 'groom-spec' else 'review'
-        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] == gate and a['status']=='failed'), None)
-        if latest:
-            return latest.get('findings', [])
-        return []
+        evidence = self.repair_evidence(operation)
+        return evidence['findings'] if evidence else []
 
     def provenance(self, operation):
         key = 'groom-spec' if operation == 'groom-adversarial' else 'implement'
@@ -226,6 +233,7 @@ class Operations:
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
             base['repair_findings'] = self.repair_findings(operation)
+            base['repair_evidence'] = self.repair_evidence(operation)
         base['upstream'] = {k: self.state['results'].get(k, {}).get('digest') for k in DEPS[operation]}
         if operation in ('implement', 'adopt'):
             base['scope'] = p['scope']
@@ -241,7 +249,7 @@ class Operations:
         if operation in AI:
             base['route'] = self.route(operation, p)
         if operation=='verify':
-            base['contract'] = self.state['results'].get('groom',{}).get('digest') if self.valid('groom',p,context) else self.state['results'].get('adopt',{}).get('digest')
+            base['contract'] = self.state['results'].get('adopt',{}).get('digest') if self.valid('adopt',p,context) else self.state['results'].get('groom',{}).get('digest')
         if operation == 'review':
             base['implementation'] = self.state['results'].get('implement', {}).get('digest')
         if operation == 'publish':
@@ -304,14 +312,22 @@ class Operations:
         if operation == 'publish' and p['publication'] is None:
             blockers.append('publication_target_required')
         # Canonical substantive signature deliberately excludes request IDs and finding wording.
-        signature_deps = {k:v for k,v in deps.items() if k not in ('upstream','implementation','route','reviewer_policy','semantic_settings','executor_sha256','assets')} if operation in REVIEW else deps
+        signature_deps = {k:v for k,v in deps.items() if k not in ('upstream','implementation','route','reviewer_policy','semantic_settings','executor_sha256','assets','contract')} if operation in REVIEW or operation == 'verify' else deps
         signature = digest(dict(dependencies=signature_deps, source=context['source'] if operation == 'implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')} if operation=='groom-spec' else None))
         prior = [a for a in self.state['attempts'] if a['operation'] == operation]
         if any(a['status'] in ('pending', 'checkpoint') for a in self.state['attempts']):
             blockers.append('unfinished_operation:resume_existing_request')
         if any(a['status'] == 'failed' and a['signature'] == signature for a in prior):
             blockers.append('unchanged_failure_requires_repair')
-        if sum(a['status'] == 'failed' for a in prior) >= 3:
+        cap_prior = prior
+        implementation = self.state['results'].get('implement', {})
+        if operation in ('verify', 'review') and implementation.get('external') and self.valid('adopt', p, context):
+            # Explicit adoption scopes verification/review to changed external work;
+            # historical failures and identical-failure guards remain intact.
+            key = 'implementation' if operation == 'review' else 'contract'
+            adopted = implementation['digest'] if operation == 'review' else self.state['results']['adopt']['digest']
+            cap_prior = [a for a in prior if a.get('prepared', {}).get('assessment', {}).get('dependencies', {}).get(key) == adopted]
+        if sum(a['status'] == 'failed' for a in cap_prior) >= 3:
             blockers.append('repair_limit_exhausted')
         current = self.valid(operation, p, context)
         result = dict(version=VERSION, operation=operation, status='current' if current else 'blocked' if blockers else 'ready', blockers=blockers,
@@ -337,14 +353,14 @@ class Operations:
             except (OSError, ValueError, KeyError) as error:
                 rows.append(dict(operation=operation, status='blocked', blockers=[str(error)], next_action='repair_inputs'))
         return dict(version=VERSION, task=self.task, operations=rows, authorizations=self.state['authorizations'], attempts=self.state['attempts'],
-                    calls=self.state['calls'], usage={key:dict(self.usage(key),wall_seconds=max(0,self.clock()-g['created'])) for key,g in self.state['authorizations'].items()}, recipes=RECIPES, next_actions=[r['operation'] for r in rows if r['status']=='ready'],
+                    calls=self.state['calls'], supervisors=self.state.get('supervisors', {}), usage={key:dict(self.usage(key),wall_seconds=max(0,self.clock()-g['created'])) for key,g in self.state['authorizations'].items()}, recipes=RECIPES, next_actions=[r['operation'] for r in rows if r['status']=='ready'],
                     status='accepted' if any(r['operation']=='accept' and r['status']=='current' for r in rows) else 'pending_manual_acceptance' if any(r['operation']=='review' and r['status']=='current' for r in rows) else 'incomplete')
 
     def policy_binding(self,p):
         routing=load('routing-path').resolve(HERE.parent,self.project)
         return dict(routing_sha256=sha(routing),provider_policy=load('provider-policy').mode(self.project),
                     semantic_settings=load('operation-decisions').configuration(self) if p['reviewer_policy']['semantic_plan'] else None,
-                    executor_sha256=sha(Path(__file__)), worker_sha256=sha(HERE/'nightshift-agent.sh'),
+                    executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
                     schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'))
 
@@ -354,6 +370,9 @@ class Operations:
         if not isinstance(operations, list) or not operations or len(set(operations)) != len(operations) or any(o not in OPS for o in operations):
             raise ValueError('invalid_recipe')
         with self.lease():
+            if isinstance(attestation, dict) and 'bounded_repair' in attestation:
+                if attestation['bounded_repair'] is not True or operations not in (RECIPES['factory'], RECIPES['groom']):
+                    raise ValueError('invalid_bounded_repair_authority')
             old = self.state['authorizations'].get(request)
             payload = dict(operations=operations, expected=expected, operator=operator, attestation=attestation)
             if old:
@@ -437,6 +456,14 @@ class Operations:
             accepted_architecture=assessed['dependencies']['accepted_architecture'],
             scope=p['scope'], cases=self.scenarios(p) if operation!='groom-spec' else [], provenance=self.provenance(operation), findings=sorted(set(assessed['findings'] + self.repair_findings(operation))), checks=p['checks'],
             verification=self.state['results'].get('verify', {}).get('observations') if operation=='review' else None)
+        repair = self.repair_evidence(operation)
+        if repair:
+            for name, expected in repair.get('evidence', {}).items():
+                if sha(self.directory / name) != expected:
+                    raise ValueError('stale_repair_evidence')
+            tests = next((name for name in repair.get('evidence', {}) if name.endswith('.tests.json')), None)
+            if tests:
+                value['failed_verification'] = read(self.directory / tests)['observations']
         body = json.dumps(value, sort_keys=True).encode()
         framing = 4096 + 2*(HERE.parent/'agents/nightshift-operation-worker.md').stat().st_size + (HERE.parent/'contracts/nightshift-operation-worker.schema.json').stat().st_size
         if len(body) + framing > MAX_REQUEST:
@@ -631,8 +658,9 @@ class Operations:
                 return self.finalize(attempt)
             except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:
                 if attempt['status']=='checkpoint': raise
-                attempt.update(status='failed',reason=str(error),finished=self.clock())
+                attempt.update(status='failed',reason=str(error),finished=self.clock(), evidence=result['evidence'])
                 if output.exists():
+                    attempt['evidence'][output.name] = sha(output)
                     try: attempt['findings']=read(output).get('results',{}).get('findings',[])
                     except (ValueError,OSError): pass
                 if not attempt['findings']: attempt['findings']=[str(error)]
@@ -747,6 +775,8 @@ def factory(project, task):
     controller=Operations(project,task)
     for grant in reversed(list(controller.state['authorizations'].values())):
         if grant['operations']==RECIPES['factory']:
+            if (grant.get('attestation') or {}).get('bounded_repair'):
+                return load('operation-supervisor').run(controller, grant['id'])
             return controller.chain(grant['id'])
     return dict(status='blocked',reason='factory_recipe_requires_explicit_authorization',recipe=RECIPES['factory'],view=controller.view())
 
@@ -762,13 +792,14 @@ def api(project, body):
     if action=='authorize': return controller.authorize(body['operations'],body['binding'],body['operator'],body['request'],body.get('attestation'))
     if action=='run': return controller.execute(body['grant'],body['operation'],body['request'])
     if action=='chain': return controller.chain(body['grant'])
+    if action=='supervise': return load('operation-supervisor').run(controller, body['grant'])
     if action=='migrate': return controller.migrate(body['operator'],body['request'])
     raise ValueError('unknown_operation_action')
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('view','assess','authorize','run','chain','migrate','factory'))
+    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory'))
     parser.add_argument('task');parser.add_argument('operation',nargs='?',choices=OPS)
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--binding');parser.add_argument('--operator');parser.add_argument('--request');parser.add_argument('--grant')
     parser.add_argument('--recipe',choices=RECIPES);parser.add_argument('--attestation',type=json.loads)

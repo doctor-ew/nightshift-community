@@ -27,6 +27,8 @@ model=args[args.index('--model')+1] if '--model' in args else args[args.index('-
 with open(os.environ['SYNTHETIC_CALLS'],'a') as out:out.write(json.dumps(dict(operation=packet['operation'],request_bytes=sum(len(a.encode()) for a in args),packet_bytes=len(json.dumps(packet,sort_keys=True).encode())))+'\\n')
 if os.environ.get('SYNTHETIC_PAUSE'):__import__('time').sleep(float(os.environ['SYNTHETIC_PAUSE']))
 value=dict(status='SUCCESS',reason='',attempts=1,artifacts=dict(branch='',diff='',provider=provider,model=model),rules_fired=[],results=dict(binding=packet['binding'],decision='approve',findings=[],resolved=packet['findings'],coverage=['scope','rules','architecture','scenarios','correctness','test_oracles',*[c['id'] for c in packet.get('cases',[])]]))
+if os.environ.get('SYNTHETIC_REPAIR') and packet['operation']=='implement' and packet['findings']:
+ value['artifacts']['diff']='--- a/app.py\\n+++ b/app.py\\n@@ -1,2 +1,2 @@\\n def answer():\\n-    return 1\\n+    return 2\\n'
 if provider=='claude':print(json.dumps(dict(structured_output=value)))
 else:
  key='--output-last-message' if '--output-last-message' in args else '-o'
@@ -68,8 +70,9 @@ class Interfaces(unittest.TestCase):
         argv=['bash',str(ROOT/'scripts/nightshift-factory.sh'),'ops',*args,'--project',str(self.root)]
         if fish:
             import shlex
-            argv=['fish','-c',' '.join(shlex.quote(x) for x in argv)]
+            argv=['fish','--no-config','-c',' '.join(shlex.quote(x) for x in argv)]
         result=subprocess.run(argv,env=self.env,capture_output=True,text=True,timeout=120)
+        self.assertTrue(result.stdout.strip(), result.stderr)
         return result.returncode,json.loads(result.stdout)
     def test_http_cli_fish_factory_parity_and_duplicate_reservations(self):
         code,a=self.cli('assess','demo','groom-spec',fish=bool(shutil.which('fish')));self.assertEqual(code,0,a)
@@ -86,6 +89,25 @@ class Interfaces(unittest.TestCase):
         self.assertEqual((self.root/'.synthetic-calls.jsonl').read_text().splitlines(),calls)
         metrics=[json.loads(row) for row in calls]
         Path(os.environ.get('NIGHTSHIFT_SYNTHETIC_METRICS', str(Path(tempfile.gettempdir()) / 'nightshift-operation-metrics.json'))).write_text(json.dumps(dict(synthetic=True,provider_calls=len(calls),requests=metrics,cache_reused_operations=len(replayed['results']),usage=result['view']['usage'],live_certification=False),indent=2)+'\n')
+    def test_real_launcher_supervised_fault_repair_and_replay(self):
+        (self.root/'app.py').write_text('def answer():\n    return 1\n')
+        self.env['SYNTHETIC_REPAIR']='1'
+        code,a=self.cli('assess','demo','groom-spec');self.assertEqual(code,0,a)
+        code,g=self.cli('authorize','demo','--recipe','factory','--binding',a['binding'],'--operator','synthetic','--request','repair-launcher','--attestation','{"bounded_repair":true}')
+        self.assertEqual(code,0,g)
+        code,result=self.cli('supervise','demo','--grant',g['id']);self.assertEqual(code,0,result)
+        self.assertEqual(result['view']['status'],'pending_manual_acceptance')
+        calls=(self.root/'.synthetic-calls.jsonl').read_text().splitlines()
+        self.assertEqual(len(calls),5)
+        self.assertEqual([json.loads(row)['operation'] for row in calls],['groom-spec','groom-adversarial','implement','implement','review'])
+        code,replay=self.cli('supervise','demo','--grant',g['id']);self.assertEqual(code,0,replay)
+        self.assertEqual((self.root/'.synthetic-calls.jsonl').read_text().splitlines(),calls)
+        self.assertEqual(len(replay['view']['authorizations']),1)
+        if os.environ.get('NIGHTSHIFT_SUPERVISOR_METRICS'):
+            Path(os.environ['NIGHTSHIFT_SUPERVISOR_METRICS']).write_text(json.dumps(dict(synthetic=True, provider_calls=5, replay_provider_calls=0,
+                requests=[json.loads(row) for row in calls], usage=result['view']['usage'],
+                decisions=result['supervisor']['decisions'], provider_token_usage=None, billed_cost=None, live_certification=False),indent=2)+'\n')
+
     def test_killed_controller_retains_unknown_call_without_redispatch(self):
         code,a=self.cli('assess','demo','groom-spec');self.assertEqual(code,0,a)
         code,g=self.cli('authorize','demo','groom-spec','--binding',a['binding'],'--operator','synthetic','--request','crash-grant');self.assertEqual(code,0,g)

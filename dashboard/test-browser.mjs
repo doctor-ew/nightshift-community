@@ -25,8 +25,8 @@ async function assess(){
   await page.waitForFunction(()=>!document.querySelector('[aria-label="Engineering operations"] input').disabled);
   return value.view;
 }
-async function execute(){
-  const response=page.waitForResponse(r=>r.url().endsWith('/api/operations') && r.request().postDataJSON()?.action==='chain',{timeout:90000});
+async function execute(action='chain'){
+  const response=page.waitForResponse(r=>r.url().endsWith('/api/operations') && r.request().postDataJSON()?.action===action,{timeout:90000});
   await panel.getByRole('button',{name:'Authorize and run selected operations',exact:true}).click();
   const value=await (await response).json();
   await page.waitForFunction(()=>!document.querySelector('[aria-label="Engineering operations"] input').disabled);
@@ -50,6 +50,10 @@ try {
   result=await (await replay).json();assert.deepEqual(result.results.map(({next_action,...receipt})=>receipt),originalResults.map(({next_action,...receipt})=>receipt));assert.equal(calls(),4);
   await page.waitForFunction(()=>!document.querySelector('[aria-label="Engineering operations"] input').disabled);
   await panel.getByText('Retained authorizations and recovery',{exact:true}).click();
+  await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
+  await panel.getByLabel('Repair eligible failures within this allowance').check();
+  result=await execute('supervise');assert.equal(result.status,'passed');assert.equal(calls(),4);
+  sameView(await assess(),cli('view','demo'));
   await panel.getByRole('button',{name:'Select accept',exact:true}).click();
   assert(await panel.getByRole('button',{name:'Authorize and run selected operations',exact:true}).isDisabled());
   await panel.getByRole('checkbox').check();result=await execute();assert.equal(result.results[0].status,'passed');assert.equal(calls(),4);
@@ -76,7 +80,7 @@ try {
   await panel.screenshot({path:resolve(artifacts,'operations-mobile.png')});
   assert(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'Operation panel overflows mobile viewport');
   assert.deepEqual(errors,[]);
-  const report={synthetic:true,browser:browser.version(),provider_calls:calls(),checks:['UI/CLI admission parity','factory recipe','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','desktop/mobile rendering without script errors'],live_certification:false};
+  const report={synthetic:true,browser:browser.version(),provider_calls:calls(),checks:['UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','desktop/mobile rendering without script errors'],live_certification:false};
   writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report));
 } catch(error) {

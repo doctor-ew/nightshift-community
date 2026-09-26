@@ -25,10 +25,11 @@ export function OperationsPanel() {
     try {
       const operations=selected.operations;
       const first=data.operations.find(row=>row.operation===operations[0]);
-      const attestation=first.operation==='adopt' ? {binding:first.binding,identity:author,provider:authorProvider,model:authorModel||'unknown'} : first.operation==='accept' ? {binding:first.binding,accepted} : first.operation==='publish' ? {binding:first.binding,publication:first.dependencies.publication} : undefined;
+      const attestation=first.operation==='adopt' ? {binding:first.binding,identity:author,provider:authorProvider,model:authorModel||'unknown'} : first.operation==='accept' ? {binding:first.binding,accepted} : first.operation==='publish' ? {binding:first.binding,publication:first.dependencies.publication} : selected.boundedRepair ? {bounded_repair:true} : undefined;
       const grant=await post({action:'authorize',operations,binding:first.binding,operator,request:crypto.randomUUID(),...(attestation ? {attestation} : {})});
-      const result=await post({action:'chain',grant:grant.id});
-      const failed=result.results.find(row=>!['passed','reused'].includes(row.status));
+      const result=await post({action:selected.boundedRepair ? 'supervise' : 'chain',grant:grant.id});
+      const failed=result.results?.find(row=>!['passed','reused'].includes(row.status));
+      if (result.status==='blocked') setError(result.reason || result.supervisor?.reason || 'Inspect retained repair evidence.');
       if (failed) setError(failed.reason || failed.next_action || failed.status);
       setSelected(null); await inspect(false);
     } catch(e) {setError(e.message);} finally {setBusy(false);}
@@ -40,7 +41,7 @@ export function OperationsPanel() {
   }
   async function resume(id) {
     setBusy(true);setError('');
-    try {const result=await post({action:'chain',grant:id});const failed=result.results.find(row=>!['passed','reused'].includes(row.status));if(failed)setError(failed.reason||failed.next_action||failed.status);await inspect(false);}
+    try {const result=await post({action:data.authorizations[id].attestation?.bounded_repair ? 'supervise' : 'chain',grant:id});if(result.status==='blocked')setError(result.reason||result.supervisor?.reason||'Inspect retained repair evidence.');const failed=result.results?.find(row=>!['passed','reused'].includes(row.status));if(failed)setError(failed.reason||failed.next_action||failed.status);await inspect(false);}
     catch(e){setError(e.message);}finally{setBusy(false);}
   }
   return <section className="workspace operations-panel" aria-label="Engineering operations">
@@ -59,13 +60,14 @@ export function OperationsPanel() {
       </div>)}</div>
       {Object.entries(data.recipes).map(([name,operations])=><button key={name} disabled={busy} onClick={()=>{setSelected({operations});setAccepted(false);}}>Select {name} recipe</button>)}
       {selected && <div><p>Selected operations: {selected.operations.join(' → ')}</p>
-        <p>Aggregate ceiling: {data.operations.find(r=>r.operation===selected.operations[0])?.aggregate?.calls} provider calls; {data.operations.find(r=>r.operation===selected.operations[0])?.aggregate?.seconds} provider execution seconds. Stops at the first failure. Manual acceptance and publication remain separate.</p>
+        <p>Aggregate ceiling: {data.operations.find(r=>r.operation===selected.operations[0])?.aggregate?.calls} provider calls; {data.operations.find(r=>r.operation===selected.operations[0])?.aggregate?.seconds} provider execution seconds. Eligible automatic repairs use this same ceiling when explicitly selected. Manual acceptance and publication remain separate.</p>
+        {['factory','groom'].some(name=>JSON.stringify(data.recipes[name])===JSON.stringify(selected.operations)) && <label><input type="checkbox" checked={!!selected.boundedRepair} onChange={e=>setSelected({...selected,boundedRepair:e.target.checked})} />Repair eligible failures within this allowance</label>}
         {selected.operations[0]==='adopt' && <><label>External author identity<input value={author} onChange={e=>setAuthor(e.target.value)} /></label><label>Actual author provider<select value={authorProvider} onChange={e=>setAuthorProvider(e.target.value)}><option value="">Select actual author</option>{['human','codex','claude','local'].map(p=><option key={p}>{p}</option>)}</select></label><label>Actual author model (if known)<input value={authorModel} onChange={e=>setAuthorModel(e.target.value)} /></label></>}
         {selected.operations[0]==='accept' && <label><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} />I completed the declared manual acceptance cases for this exact evidence.</label>}
         {selected.operations[0]==='publish' && <p>Publish target: {JSON.stringify({target:data.operations.find(r=>r.operation==='publish')?.dependencies?.publication,remote:data.operations.find(r=>r.operation==='publish')?.dependencies?.publication_target})}</p>}
         <button disabled={busy||!operator.trim()||(selected.operations[0]==='adopt'&&(!author.trim()||!authorProvider))||(selected.operations[0]==='accept'&&!accepted)} onClick={authorizeRun}>Authorize and run selected operations</button>
       </div>}
-      <details><summary>Retained authorizations and recovery</summary>{Object.values(data.authorizations).map(g=><div key={g.id}><p>{g.id}: {g.operations.join(' → ')}</p><button disabled={busy} onClick={()=>resume(g.id)}>Resume {g.id}</button></div>)}<pre>{JSON.stringify({usage:data.usage,attempts:data.attempts,calls:data.calls},null,2)}</pre></details>
+      <details><summary>Retained authorizations and recovery</summary>{Object.values(data.authorizations).map(g=><div key={g.id}><p>{g.id}: {g.operations.join(' → ')}</p><button disabled={busy} onClick={()=>resume(g.id)}>Resume {g.id}</button></div>)}<pre>{JSON.stringify({supervisors:data.supervisors,usage:data.usage,attempts:data.attempts,calls:data.calls},null,2)}</pre></details>
     </>}
   </section>;
 }
