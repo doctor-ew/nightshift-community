@@ -102,7 +102,7 @@ class Packages:
         observed={'preparation:'+key:value for key,value in g['preparation_calls'].items()}
         reserved=0
         for key,allocation in g['allocations'].items():
-            if key not in self.state['children']:
+            if key not in self.state['children'] or self.state['children'][key].get('status')=='materializing':
                 reserved+=allocation['limit']['seconds'];continue
             c=self.child(key)
             for ident,row in c.state['calls'].items():observed[key+':'+ident]=row
@@ -145,12 +145,16 @@ class Packages:
         architecture=p['inputs']['architecture']
         files[architecture]+=('\n\nDeclared package dependencies:\n'+__import__('json').dumps(dependencies,sort_keys=True)+'\n').encode()
         hashes={name:__import__('hashlib').sha256(data).hexdigest() for name,data in files.items()}
+        authority=ops.load('architecture').read(self.project)
+        authority_digest=ops.digest(authority)
         row=self.state['children'].get(key)
         target=self.directory/'workspaces'/key
         if row and row.get('status')!='materializing':
             c=self.child(key)
+            if ops.digest(ops.load('architecture').read(target))!=row['authority']:
+                raise ValueError('package_architecture_authority_changed')
             if any(a['status'] in ('pending','checkpoint') for a in c.state['attempts']):
-                if hashes!=row['inputs']:raise ValueError('pending_package_requires_reconciliation')
+                if hashes!=row['inputs'] or authority_digest!=row['authority']:raise ValueError('pending_package_requires_reconciliation')
                 return c
             changed={name for name in set(hashes)|set(row['inputs']) if hashes.get(name)!=row['inputs'].get(name)}
             if changed.intersection(child['writes']):raise ValueError('external_package_changes_require_adoption')
@@ -159,10 +163,10 @@ class Packages:
                 dest=ops.safe(target,name);dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(files[name])
         else:
             if row:
-                if row['inputs']!=hashes:raise ValueError('materialization_inputs_changed')
+                if row['inputs']!=hashes or row['authority']!=authority_digest:raise ValueError('materialization_inputs_changed')
             else:
                 if target.exists():raise ValueError('untracked_package_workspace')
-                self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,status='materializing')
+                self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,authority=authority_digest,status='materializing')
                 self.save()
             target.mkdir(parents=True,exist_ok=True)
             for name,data in files.items():
@@ -178,8 +182,25 @@ class Packages:
             head=subprocess.run(['git','-C',str(target),'rev-parse','--verify','HEAD'],capture_output=True)
             if head.returncode:
                 subprocess.run(['git','-C',str(target),'-c','user.name=Nightshift','-c','user.email=nightshift@example.invalid','commit','-qm','Package input checkpoint'],check=True)
-        self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,status='ready')
+        # Project accepted records verbatim; this is not a new acceptance.
+        authority_path=target/'.git/nightshift/architecture.json'
+        if authority_path.resolve()!=authority_path.absolute():raise ValueError('unsafe_package_architecture')
+        authority_path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+        ops.recovery.atomic(authority_path,authority)
+        self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,authority=authority_digest,status='ready')
         self.save();return self.child(key)
+
+    def enforce_usage(self,g):
+        observed=self.usage(g['id'])
+        if observed['unknown_calls']:raise ValueError('unknown_package_usage_requires_reconciliation')
+        if observed['calls']>g['graph']['aggregate']['calls'] or observed['execution_seconds']>g['graph']['aggregate']['seconds']:
+            raise ValueError('parent_aggregate_exceeded')
+        for key,allocation in g['allocations'].items():
+            row=self.state['children'].get(key)
+            if not row or row.get('status')=='materializing':continue
+            calls=self.child(key).state['calls']
+            if len(calls)>allocation['limit']['calls'] or sum(c['seconds'] for c in calls.values() if c['status']=='finished')>allocation['limit']['seconds']:
+                raise ValueError('package_allocation_exceeded:'+key)
 
     def run(self,grant):
         with self.lease():
@@ -187,18 +208,23 @@ class Packages:
             if not g:raise ValueError('package_authorization_required')
             assessed=self.assess()
             if assessed['status']!='ready' or assessed['binding']!=g['binding']:raise ValueError('package_authorized_inputs_changed')
+            try:self.enforce_usage(g)
+            except ValueError as error:return self.block(g,str(error))
             for child in g['graph']['children']:
                 key=child['id'];allocation=g['allocations'][key]
                 if self.clock()>=g['deadline']:return self.block(g,'parent_deadline_exhausted')
                 try:
                     c=self.materialize(child,grant)
-                    request='package-'+ops.digest([grant,key,self.state['children'][key]['inputs']])[:40]
+                    p,context=c.context()
+                    adopted=c.valid('adopt',p,context)
+                    request='package-'+ops.digest([grant,key,self.state['children'][key]['inputs'],self.state['children'][key]['authority'],c.state['results'].get('adopt',{}).get('digest') if adopted else None])[:40]
                     if all(c.assess(op)['status']=='current' for op in ops.RECIPES['factory']):
                         result=dict(status='passed',reused=True)
                     else:
                         if request not in c.state['authorizations']:
-                            a=c.assess('groom-spec')
-                            c.authorize(ops.RECIPES['factory'],a['binding'],g['operator'],request,{'bounded_repair':True})
+                            recipe=['verify','review'] if adopted else ops.RECIPES['factory']
+                            a=c.assess(recipe[0])
+                            request=c.authorize(recipe,a['binding'],g['operator'],request,None if adopted else {'bounded_repair':True})['id']
                         # Always reconcile this restriction before dispatch, including
                         # a crash after child authorization but before this checkpoint.
                         with c.lease():
@@ -210,7 +236,10 @@ class Packages:
                             if remaining_calls<=0 or remaining_seconds<=0:raise ValueError('package_allocation_exhausted')
                             cg['aggregate'].update(calls=min(cg['aggregate']['calls'],remaining_calls),seconds=min(cg['aggregate']['seconds'],remaining_seconds))
                             c.save()
-                        result=ops.load('operation-supervisor').run(c,request)
+                        if adopted:
+                            result=c.chain(request)
+                            result['status']='passed' if all(row['status'] in ('passed','reused') for row in result['results']) else 'blocked'
+                        else:result=ops.load('operation-supervisor').run(c,request)
                     if result['status']!='passed':return self.block(g,'package_failed:'+key,result)
                     p,context=c.context()
                     if not c.valid('review',p,context):return self.block(g,'package_review_not_current:'+key)
@@ -224,9 +253,13 @@ class Packages:
             for child in g['graph']['children']:
                 c=self.child(child['id']);p,ctx=c.context()
                 if not c.valid('review',p,ctx):return self.block(g,'stale_child_before_parent_acceptance:'+child['id'])
+                if ops.load('architecture').read(c.project)!=ops.load('architecture').read(self.project):
+                    return self.block(g,'stale_package_architecture:'+child['id'])
                 for dep,evidence in self.state['children'][child['id']]['dependencies'].items():
                     if self.child(dep).state['results']['review']['digest']!=evidence['review']:
                         return self.block(g,'stale_dependency_before_parent_acceptance:'+child['id']+':'+dep)
+            try:self.enforce_usage(g)
+            except ValueError as error:return self.block(g,str(error))
             integration=next(c for c in g['graph']['children'] if c['integration'])
             g.update(status='pending_manual_acceptance',integration=integration['id']);self.save()
             return dict(status=g['status'],grant=g,usage=self.usage(grant))
@@ -234,3 +267,18 @@ class Packages:
     def block(self,g,reason,result=None):
         g.update(status='blocked',reason=reason,result=result);self.save()
         return dict(status='blocked',reason=reason,grant=g,usage=self.usage(g['id']))
+
+
+def api(project,body):
+    if not isinstance(body,dict) or set(body)-{'task','action','binding','operator','request','grant'}:
+        raise ValueError('invalid_package_request')
+    c=Packages(project,body['task']);action=body['action']
+    if action=='assess':return c.assess()
+    if action=='view':
+        try:assessment=c.assess()
+        except (OSError,ValueError,KeyError,TypeError) as error:assessment=dict(status='blocked',reason=str(error))
+        return dict(assessment=assessment,state=c.state,usage={key:c.usage(key) for key in c.state['authorizations']})
+    if action=='prepare':return c.prepare(body['grant'])
+    if action=='authorize':return c.authorize(body['binding'],body['operator'],body['request'])
+    if action=='run':return c.run(body['grant'])
+    raise ValueError('unknown_package_action')

@@ -115,12 +115,17 @@ def template(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('validate', 'template'))
+    parser.add_argument('action', choices=('validate', 'template', 'assess', 'view', 'prepare', 'authorize', 'run'))
     parser.add_argument('--project', default='.')
-    parser.add_argument('--graph', required=True)
+    parser.add_argument('--graph')
+    for name in ('task','binding','operator','request','grant'):parser.add_argument('--'+name)
     args = parser.parse_args()
     try:
         project = Path(args.project).resolve()
+        if args.action not in ('validate','template'):
+            body={key:value for key,value in vars(args).items() if value is not None and key not in ('project','graph')}
+            result=ops.load('package-controller').api(project,body)
+            print(json.dumps(result));return 1 if result.get('status') in ('blocked','failed') else 0
         value = ops.read(ops.safe(project, args.graph))
         result = validate(project, value, args.graph)
         if args.action == 'template':

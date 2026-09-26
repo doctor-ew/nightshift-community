@@ -46,13 +46,50 @@ class Controller(unittest.TestCase):
         self.assertEqual(again['status'],'pending_manual_acceptance',again)
         self.assertEqual(self.worker.calls,calls)
         self.assertEqual(again['usage'],result['usage'])
+    def test_external_child_adoption_invalidates_descendant_only(self):
+        self.prepare();self.assertEqual(self.c.run('compose')['status'],'pending_manual_acceptance')
+        right=self.c.child('right');retained=(right.directory/'state.json').read_bytes()
+        left=self.c.child('left');(left.project/'left.py').write_text('def value(): return 1 # external revision\n')
+        a=left.assess('adopt')
+        g=left.authorize(['adopt'],a['binding'],'synthetic','external',dict(binding=a['binding'],identity='external-author',provider='human'))
+        self.assertEqual(left.execute(g['id'],'adopt','external-adoption')['status'],'passed')
+        prior=len(self.worker.calls)
+        result=self.c.run('compose');self.assertEqual(result['status'],'pending_manual_acceptance',result)
+        self.assertEqual((right.directory/'state.json').read_bytes(),retained)
+        self.assertEqual(sum(op=='implement' for op,_ in self.worker.calls[prior:]),1)
+        left=self.c.child('left')
+        self.assertEqual(sum(a['operation']=='implement' for a in left.state['attempts']),1)
+        self.assertTrue(left.state['results']['implement']['external'])
+        integration=self.c.child('integration')
+        self.assertIn('external revision',(integration.project/'left.py').read_text())
+        self.assertEqual(len(self.worker.calls)-prior,5)
+        calls=list(self.worker.calls);self.assertEqual(self.c.run('compose')['status'],'pending_manual_acceptance')
+        self.assertEqual(self.worker.calls,calls)
+
+    def test_semantic_challenge_can_reject_id_complete_graph(self):
+        original=self.worker
+        def worker(operation,*args):
+            original.fail=operation=='groom-adversarial'
+            return original(operation,*args)
+        self.c.preparation.worker=worker
+        prep=self.c.preparation;a=prep.assess('groom-spec')
+        prep.authorize(m.ops.RECIPES['groom'],a['binding'],'synthetic','prepare')
+        result=self.c.prepare('prepare')
+        self.assertEqual(result['status'],'blocked',result)
+        packet=original.packets[-1]
+        self.assertIn('docs/left/operations.json',packet['artifacts'])
+        self.assertIn('left_test.py',packet['artifacts'])
+        self.assertFalse(self.c.state['authorizations'])
+        self.assertFalse(self.c.state['children'])
+
     def test_invalid_graph_does_not_dispatch(self):
         self.graph['children'][0]['depends_on']=['integration']
         (self.root/'graph.json').write_text(json.dumps(self.graph))
         with self.assertRaises(ValueError):self.c.assess()
         self.assertEqual(self.worker.calls,[])
     def test_parent_integration_failure_cannot_pass(self):
-        (self.root/'integration_test.py').write_text('raise SystemExit(1)\n')
+        (self.root/'integration.py').write_text('import left, right\ndef value(): return left.value() + right.value()\n')
+        (self.root/'integration_test.py').write_text('import unittest\nfrom integration import value\nclass T(unittest.TestCase):\n def test_parent_total(self): self.assertEqual(value(), 3)\nunittest.main()\n')
         self.prepare();result=self.c.run('compose')
         self.assertEqual(result['status'],'blocked',result)
         self.assertEqual(result['reason'],'package_failed:integration')

@@ -803,6 +803,9 @@ def factory(project, task):
 def api(project, body):
     if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation'}:
         raise ValueError('invalid_operation_request')
+    if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
+        package_body=dict(body,action=body['action'][len('packages-'):])
+        return load('package-controller').api(project,package_body)
     controller=Operations(project,body['task'])
     action=body['action']
     if action=='factory': return factory(project,body['task'])
