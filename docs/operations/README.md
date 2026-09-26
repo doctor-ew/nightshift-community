@@ -117,3 +117,5 @@ harness. For a shared browser cache, set `PLAYWRIGHT_SKIP_BROWSER_GC=1` before
 installing to preserve other cached test-browser versions.
 
 Cancellation and retained-evidence recovery: [operation cancellation and reconciliation](CANCELLATION-RECONCILIATION.md).
+
+Supported typed Verify profiles and legacy compatibility: [typed verification integration](TYPED-VERIFICATION-INTEGRATION.md).

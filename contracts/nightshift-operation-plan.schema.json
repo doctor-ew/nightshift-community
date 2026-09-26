@@ -62,7 +62,8 @@
               {
                 "enum": [
                   "python3",
-                  "bash"
+                  "bash",
+                  "node"
                 ]
               },
               {
@@ -72,6 +73,15 @@
             ],
             "minItems": 2,
             "maxItems": 2
+          },
+          "adapter": {
+            "enum": [
+              "python-unittest-v1",
+              "unittest-v1",
+              "node-test-v1",
+              "legacy-wrapper-v1",
+              "legacy-log-v1"
+            ]
           }
         },
         "required": [

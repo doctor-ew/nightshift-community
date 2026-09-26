@@ -112,9 +112,10 @@ def plan(project, task):
         raise ValueError('declared_checks_required')
     ids = set()
     for check in value['checks']:
-        exact(check, 'id argv')
-        if not bounded_text(check['id']) or check['id'] in ids or not isinstance(check['argv'], list) or len(check['argv']) != 2 or check['argv'][0] not in ('python3', 'bash'):
+        exact(check, 'id argv'+(' adapter' if 'adapter' in check else ''))
+        if not bounded_text(check['id']) or check['id'] in ids or not isinstance(check['argv'], list) or len(check['argv']) != 2 or check['argv'][0] not in ('python3', 'bash', 'node'):
             raise ValueError('invalid_test_command')
+        load('verification-adapters').profile(check)
         safe(project, check['argv'][1]); ids.add(check['id'])
     if not isinstance(value['environment'], dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]*', k) or k.startswith(('NIGHTSHIFT_', 'PYTHON', 'LD_', 'DYLD_')) or k in ('PATH', 'HOME', 'TMPDIR', 'BASH_ENV', 'ENV') or not isinstance(v, str) for k, v in value['environment'].items()):
         raise ValueError('invalid_test_environment')
@@ -247,7 +248,10 @@ class Operations:
         if p['reviewer_policy']['semantic_plan']: excluded.add(p['reviewer_policy']['semantic_plan'])
         source = {k:dict(sha256=v,mode=stat.S_IMODE(safe(self.project,k).stat().st_mode)) if v is not None else None for k,v in files.items() if k not in excluded}
         tests = {c['argv'][1]: sha(safe(self.project, c['argv'][1])) if safe(self.project, c['argv'][1]).exists() else None for c in p['checks']}
-        env = dict(declared=p['environment'], python=sys.version, executables={n: sha(shutil.which(n)) for n in ('python3', 'bash') if shutil.which(n)})
+        env = dict(declared=p['environment'], python=sys.version, executables={n: sha(shutil.which(n)) for n in ('python3', 'bash', 'node') if shutil.which(n)})
+        effective=load('controller-recovery').clean_environment();effective.update(p['environment']);effective['NIGHTSHIFT_ROLE_CHILD']='1'
+        env['effective']=effective
+        if any(load('verification-adapters').profile(c)=='python-unittest-v1' for c in p['checks']):env['typed_runtime']=load('verification-adapters').identity(effective)
         return p, dict(artifacts=artifacts, source=source, tests=tests, environment=env, accepted_architecture=load('architecture').resolve(self.project))
 
     def route(self, operation, p):
@@ -288,16 +292,16 @@ class Operations:
         row = self.state['results'].get(key, {})
         return row.get('provenance', {'provider': 'unknown', 'model': 'unknown', 'identity': 'unknown'})
 
-    def question_basis(self,dependencies,operation):
+    def question_basis(self,dependencies,operation,context=None):
         basis={k:v for k,v in dependencies.items() if k not in ('decisions','repair_findings','repair_evidence')}
         if operation in ('implement','groom-spec'):
-            _,context=self.context()
+            if context is None:_,context=self.context()
             basis['question_source']=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')}
         return digest(basis)
 
-    def decision_rows(self,operation,dependencies):
+    def decision_rows(self,operation,dependencies,context=None):
         if not any(r['operation']==operation for r in self.state.get('questions',[])):return []
-        basis=self.question_basis(dependencies,operation);rows=[]
+        basis=self.question_basis(dependencies,operation,context);rows=[]
         decisions=load('console-decisions')
         for record in self.state.get('questions',[]):
             if record['operation']!=operation:continue
@@ -345,7 +349,10 @@ class Operations:
         base['assets'] = {}
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
-        if operation=='verify':base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+        if operation=='verify':
+            base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+            for check in p['checks']:base['assets'].update(load('verification-adapters').assets(check))
+            base['assets'].update({name:sha(HERE/name) for name in ('nightshift-controller-recovery.py','nightshift-recovery-exec.py')})
         if load('operation-decisions').selected(self,p,operation):
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
@@ -374,7 +381,7 @@ class Operations:
             if p['publication']:
                 base['publication_target'] = subprocess.check_output(['git','-C',str(self.project),'remote','get-url','--push',p['publication']['remote']],text=True).strip()
                 base['publication_head'] = subprocess.check_output(['git','-C',str(self.project),'rev-parse','HEAD'],text=True).strip()
-        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base) if r['current'] and r['question'].get('response')]
+        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base,context) if r['current'] and r['question'].get('response')]
         if answers:base['decisions']=answers
         return base
 
@@ -386,7 +393,7 @@ class Operations:
             if row['digest'] != digest({k: v for k, v in row.items() if k != 'digest'}):
                 return False
             dependencies=self.dependencies(operation,p,context)
-            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies)):return False
+            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies,context)):return False
             if row['dependencies'] != dependencies:
                 return False
             if operation=='verify' and not (self.valid('groom',p,context) or self.valid('adopt',p,context)):return False
@@ -411,7 +418,7 @@ class Operations:
         p, context = self.context()
         deps = self.dependencies(operation, p, context)
         blockers = []
-        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps)):blockers.append('operator_decision_required')
+        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps,context)):blockers.append('operator_decision_required')
         required = list(deps['artifacts'])
         if any(context['artifacts'][k] is None for k in required):
             blockers.append('missing_input_artifacts')
@@ -465,7 +472,7 @@ class Operations:
                 if operation in ('groom-adversarial','review'):load('operation-decisions').readiness(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             except (ValueError, OSError) as error:
                 result.update(status='blocked', next_action='repair_inputs', blockers=[str(error)])
-        result['questions']=self.decision_rows(operation,deps)
+        result['questions']=self.decision_rows(operation,deps,context)
         if operation=='accept':result['manual_cases']=[dict(case,case_sha256=digest(case)) for case in self.scenarios(p) if case['manual']]
         return result
 
@@ -680,22 +687,38 @@ class Operations:
                 if src.exists():
                     dest = target/name; dest.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, dest)
             env = runner.clean_environment(); env.update(p['environment']); env['NIGHTSHIFT_ROLE_CHILD']='1'
-            for check in p['checks']:
+            adapter=load('verification-adapters')
+            for check_index,check in enumerate(p['checks']):
                 remaining = seconds-(time.monotonic()-start)
-                if remaining <= 0: raise ValueError('verification_deadline')
                 self.cancellation_check(self.active_grant)
                 output = self.directory / (self.active_request+'.observation-'+digest(check)+'.log')
+                events=output.with_suffix('.events.json')
+                binding=digest(dict(request=self.active_request,grant=self.active_grant,check=check,assets=adapter.assets(check),inputs=self.dependencies('verify',p,self.context()[1])))
+                code=-1;reason=None;interrupted=None
                 try:
-                    code = runner.bounded(check['argv'], target, env, remaining, output,cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
+                    if remaining<=0:raise ValueError('verification_deadline')
+                    argv,execution_env=adapter.command(check,target,events,binding,env)
+                    code = runner.bounded(argv, target, execution_env, remaining, output,cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
+                except (OSError,ValueError,subprocess.SubprocessError) as error:
+                    reason=str(error)
+                    if 'operation_cancelled' in reason:interrupted=error
+                except BaseException as error:
+                    reason=type(error).__name__;interrupted=error
                 finally:
-                    if output.exists():recovery.atomic(output.with_suffix('.partial.json'),dict(output=output.name,sha256=sha(output),request=self.active_request,check=check))
-                text = output.read_text(errors='replace')
-                counts = re.findall(r'Ran (\d+) tests?\b|\b(\d+) passed\b', text)
-                count = sum(int(a or b) for a,b in counts)
-                count -= sum(int(n) for n in re.findall(r'(?:skipped|expected failures)=(\d+)',text))
-                count = max(0,count)
-                row = dict(id=check['id'], argv=check['argv'], exit_code=code, tests=count, output=text, output_sha256=hashlib.sha256(output.read_bytes()).hexdigest())
+                    retained={path.name:sha(path) for path in (output,events) if path.is_file() and not path.is_symlink()}
+                    recovery.atomic(output.with_suffix('.partial.json'),dict(evidence=retained,request=self.active_request,check=check,termination=reason))
+                row=adapter.observe(check,events,binding,code,output,reason)
+                row['raw_evidence']=retained
+                row['raw_output_sha256']=row['output_sha256']
+                row['output']='Controller-validated typed observation:\n'+json.dumps({key:row[key] for key in ('version','adapter','binding','complete','status','reason','counts','events_sha256')},sort_keys=True)+'\nRaw process output:\n'+row['output']
+                row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
+                if len(json.dumps(observations+[row],sort_keys=True).encode())>MAX_REQUEST:
+                    row.update(tests=0,status='blocked',reason='verification_evidence_too_large',output='Verification evidence exceeds the bounded observation envelope; inspect retained raw evidence.',unexecuted=[item['id'] for item in p['checks'][check_index+1:]])
+                    row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
                 observations.append(row)
+                recovery.atomic(output.with_suffix('.typed.json'),row)
+                if interrupted:raise interrupted
+                if row['reason']=='verification_evidence_too_large':break
         return observations
 
     def patch(self, patch, allowed):
@@ -816,6 +839,7 @@ class Operations:
                     if result['architecture']['status']!='pass': raise ValueError('architecture_constraints_failed')
                     result['observations']=self.test(p,min(g['deadline']-self.clock(),g['limits'][operation]['wall_seconds']))
                     raw=self.directory/(request+'.tests.json'); recovery.atomic(raw,{'observations':result['observations']}); result['evidence'][raw.name]=sha(raw)
+                    for observation in result['observations']:result['evidence'].update(observation.get('raw_evidence',{}))
                     if any(r['exit_code']!=0 or r['tests']<=0 for r in result['observations']): raise ValueError('failed_or_vacuous_tests')
                 elif operation=='adopt':
                     result['provenance']={k:g['attestation'].get(k,'unknown') for k in ('provider','model','identity')}

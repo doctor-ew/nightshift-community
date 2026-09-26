@@ -145,7 +145,7 @@ class Intake:
             path=safe(self.project,name)
             if name in files:raise ValueError('intake_scope_overlaps_artifacts')
         for check in checks:
-            ops.exact(check,'id argv')
+            ops.exact(check,'id argv'+(' adapter' if 'adapter' in check else ''))
             if not isinstance(check['argv'],list) or len(check['argv'])!=2:raise ValueError('invalid_intake_check')
             path=safe(self.project,check['argv'][1])
             if not path.is_file():raise ValueError('intake_test_oracle_missing')
