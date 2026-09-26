@@ -27,3 +27,5 @@ python3 "$ROOT/tests/test-owned-process-startup-review.py"
 python3 "$ROOT/tests/test-verification-adapters-review.py"
 python3 "$ROOT/tests/test-verification-controller-review.py"
 python3 "$ROOT/tests/test-operation-context-review.py"
+
+python3 "$ROOT/tests/test-semantic-transport-review.py"
