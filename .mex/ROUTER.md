@@ -160,3 +160,9 @@ Semantic cache identity follow-up: evaluator/mapper/configuration-adapter/transp
 Operation decision/acceptance candidate: evidence-bound nonexecuting questions, exact manual-case testimony and actual-launcher bounded review failure are implemented in `scripts/nightshift-operations.py`. Synthetic evidence and limits: `docs/operations/MANUAL-ACCEPTANCE.md` and `docs/operations/MANUAL-ACCEPTANCE-VALIDATION.json`. No live certification or installed activation is claimed.
 
 Operation decision retention: missing referenced question evidence blocks instead of silently disappearing. Current normalized question text reuses settled answers across rationale/options changes and earlier task identities; changed dependency bases remain distinct. Sources: `scripts/nightshift-operations.py`, `tests/test-operation-hitl-additional-review.py`, `docs/operations/DECISION-RETENTION.md`. Synthetic candidate only; no activation.
+
+Spawned semantic transport follow-up: dynamic controller imports now launch bounded
+HTTP evaluation through a trusted source-path entry point, avoiding unimportable
+multiprocessing targets. Actual synthetic CLI/browser evidence and boundaries:
+`scripts/nightshift-efficiency.py`, `tests/test-semantic-transport-review.py`,
+`docs/operations/SEMANTIC-LAUNCHER.md`. No live endpoint certification is claimed.
