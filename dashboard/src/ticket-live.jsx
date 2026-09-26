@@ -1,10 +1,20 @@
 import React, {useEffect, useState} from 'react';
+import {recoveryProgress} from './model.mjs';
 
 const duration = seconds => typeof seconds !== 'number' ? 'Unknown' : seconds < 60 ? `${Math.floor(seconds)}s` : `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
 const time = value => value ? new Date(typeof value === 'number' ? value * 1000 : value).toLocaleTimeString() : 'No activity recorded';
 
 export function LiveProgress({ticket}) {
   const live = ticket.progress;
+  const recovery = recoveryProgress(ticket);
+  if (recovery) return <section className="live-progress" aria-label="Recorded recovery progress">
+    <h4>{recovery.status}</h4><p>{recovery.explanation}</p>
+    <p>{recovery.calls === null ? 'Recovery call usage unknown' : `${recovery.calls} recovery calls recorded`}</p>
+    <ul>{recovery.steps.map(step=><li key={step.key}>{step.label}: {step.status}</li>)}</ul>
+    {recovery.reason && <p role="status">{recovery.reason}</p>}
+    <p>Worker snapshot: {live?.phase || 'Worker liveness unverified'}</p>
+    <small>Gate statuses above are retained observations. They do not start workers, renew allowances or turn historical failures into success.</small>
+  </section>;
   if (!live) return <section className="live-progress"><h4>You are here</h4><p>Waiting for a live progress snapshot. Recorded gates remain below.</p></section>;
   return <section className="live-progress" aria-label="Live ticket progress">
     <div className="run-head"><h4>You are here</h4><span className={'badge '+(ticket.running?'busy':'')}>{live.phase || 'Status unavailable'}</span></div>

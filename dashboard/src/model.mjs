@@ -5,6 +5,22 @@ export function ticketFailures(rows, task) {
   return rows.filter(row => row.ticket === task && row.source === 'gate' && attention.has(row.state))
     .sort((a, b) => modified(b) - modified(a));
 }
+export function recoveryProgress(ticket) {
+  const pipeline=ticket.pipeline, recovery=pipeline?.recovery_status;
+  if (!recovery || !['running','blocked','pending_manual_acceptance','complete'].includes(recovery.status)) return null;
+  const names={verify:'Verification',adoption:'Adoption',review:'Review',drift:'Drift',qa:'QA'};
+  const stale=pipeline.status==='stale';
+  const next=names[recovery.next_action] || 'Recorded outcome';
+  const complete=pipeline.status==='complete' && recovery.status==='complete' && !stale;
+  const status=stale ? 'Changed evidence · revalidation required' : complete ? 'Complete' : recovery.status==='running' ? `Recovery recorded · ${next}` : recovery.status==='blocked' ? 'Recovery blocked' : recovery.status==='pending_manual_acceptance' ? 'Manual acceptance pending' : 'Recovery completion unconfirmed';
+  const calls=recovery.allowance?.calls_used;
+  return {status, complete, stale, recordedRunning:recovery.status==='running',
+    reason:typeof recovery.reason==='string' ? recovery.reason.slice(0,2048) : '',
+    calls:Number.isSafeInteger(calls) && calls>=0 ? calls : null,
+    steps:Object.entries(names).map(([key,label])=>({key,label,status:stale ? 'stale' : ['pass','fail','pending'].includes(recovery.steps?.[key]?.status) ? recovery.steps[key].status : 'not recorded'})),
+    explanation:stale ? 'Recorded recovery evidence changed. Revalidation is required.' : recovery.status==='running' ? 'The controller recorded recovery in progress. This record does not verify worker liveness; an interrupted process can leave it unchanged.' : 'Recorded recovery outcome. Original failed attempts remain retained.'};
+}
+
 export function ticketProgress(rows, ticket) {
   const related = rows.filter(row => row.ticket === ticket.task);
   const trackers = related.filter(row => row.pipeline_steps?.length);
@@ -17,12 +33,13 @@ export function ticketProgress(rows, ticket) {
   const dependencyBlocked = ticket.progress?.dependency?.blocked === true;
   const blocker = failures.length > 0 || !!stopped || dependencyBlocked;
   const controlled=ticket.pipeline;
-  const status = controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const recoveryView = recoveryProgress(ticket);
+  const status = recoveryView ? recoveryView.status : controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
   const stage = running || stopped || passed;
   const recovery = controlled?.recovery_status;
   const controlledStage = recovery ? recovery.next_action : controlled?.attempts?.at(-1)?.stage;
   const controlledFailure = controlled?.attempts?.filter(a => a.status === 'fail').at(-1);
-  return {trackers, failures, status, tone: ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
+  return {trackers, failures, status, tone: recoveryView ? recoveryView.complete ? 'done' : recoveryView.recordedRunning && !recoveryView.stale ? '' : 'warn' : ticket.running ? 'busy' : blocker ? 'warn' : complete ? 'done' : '',
     stoppingReason: recovery ? recovery.reason || '' : controlledFailure?.reason || '',
     stage: controlledStage || stage?.stage || failures[0]?.gate || null,
     stageLabel: recovery ? 'Recovery next step' : controlledStage ? (ticket.running ? 'Current stage' : controlled?.attempts?.at(-1)?.status === 'fail' ? 'Stopped at' : 'Last recorded stage') : ticket.running && !running ? 'Last recorded stage' : blocker ? 'Stopped at' : 'Last recorded stage',
