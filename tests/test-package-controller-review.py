@@ -64,6 +64,17 @@ class PackageControllerReview(unittest.TestCase):
         self.assertEqual(architecture.location(self.root).read_bytes(), retained)
         self.assertEqual(len(self.worker.calls), 2)
 
+    def test_malformed_graph_view_retains_authority_and_usage(self):
+        grant = self.authorize()
+        before = self.c.usage(grant)
+        calls = list(self.worker.calls)
+        (self.root/'graph.json').write_text('{malformed graph')
+        result = m.api(self.root, dict(task='demo', action='view'))
+        self.assertEqual(result['assessment']['status'], 'blocked')
+        self.assertIn(grant, result['state']['authorizations'])
+        self.assertEqual(result['usage'][grant], before)
+        self.assertEqual(self.worker.calls, calls)
+
     def test_preparation_is_inside_parent_call_ceiling(self):
         self.graph['aggregate']['calls'] = sum(child['allowance']['calls'] for child in self.graph['children'])
         (self.root/'graph.json').write_text(json.dumps(self.graph))
