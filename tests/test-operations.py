@@ -37,7 +37,7 @@ class Worker:
         time.sleep(self.sleep)
         return dict(status='FAIL' if self.fail else 'SUCCESS',reason='concrete classification finding' if self.fail else '',attempts=1,
             artifacts=dict(branch='',diff=self.patch,provider=route['provider'],model=route['model']),rules_fired=[],
-            results=dict(binding=packet['binding'],decision='repair' if self.fail else 'approve',findings=['classification unclear'] if self.fail else [],resolved=packet['findings'],coverage=['scope','rules','architecture','scenarios','correctness','test_oracles',*[c['id'] for c in packet.get('cases',[])]]))
+            results=dict(binding=packet['binding'],decision='repair' if self.fail else 'approve',findings=['classification unclear'] if self.fail else [],resolved=packet['findings'],coverage=['scope','rules','architecture','scenarios','correctness','test_oracles',*[c['id'] for c in packet.get('cases',[])],*packet.get('semantic_coverage',[])]))
 
 
 class Operations(unittest.TestCase):
