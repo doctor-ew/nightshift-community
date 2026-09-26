@@ -76,3 +76,12 @@ upstream references and local identity remain distinct; existing operation and
 new package fixtures cover the boundary; the trajectory schema is unchanged;
 scaffold claims cite source files while graph-index grounding remains unavailable;
 unsupported endpoints and live readiness remain explicitly unverified.
+
+Two additional independent acceptance cases passed in 63.573 seconds. An exhausted
+child retained three failed Reviews and three Implements; unchanged replay made
+zero calls, then explicit external adoption completed without another child
+Implement and preserved the unrelated child's ledger byte for byte. Standalone
+execution of a materialized package retained the exact operation bindings, ledger
+and sole authority when composition resumed. These tests do not establish a
+single cumulative preparation/composition wall deadline; that remains a concrete
+accounting follow-up.
