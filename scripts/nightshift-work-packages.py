@@ -95,6 +95,8 @@ def validate(project, value, graph_path=None, preparation_task=None):
     if preparation_task is not None:
         p=ops.plan(project,preparation_task)
         if p['publication'] is not None:raise ValueError('preparation_publication_requires_separate_authority')
+        for name in p['inputs'].values():
+            if str(Path(name))!=name:raise ValueError('noncanonical_preparation_input')
         protected.update(p['inputs'].values())
         protected.add(str(ops.plan_path(project,preparation_task).relative_to(project)))
         if graph_path is not None and p['inputs']['spec']!=str(graph_path):raise ValueError('preparation_manifest_mismatch')
