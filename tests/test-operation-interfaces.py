@@ -27,6 +27,10 @@ model=args[args.index('--model')+1] if '--model' in args else args[args.index('-
 with open(os.environ['SYNTHETIC_CALLS'],'a') as out:out.write(json.dumps(dict(operation=packet['operation'],request_bytes=sum(len(a.encode()) for a in args),packet_bytes=len(json.dumps(packet,sort_keys=True).encode())))+'\\n')
 if os.environ.get('SYNTHETIC_PAUSE'):__import__('time').sleep(float(os.environ['SYNTHETIC_PAUSE']))
 value=dict(status='SUCCESS',reason='',attempts=1,artifacts=dict(branch='',diff='',provider=provider,model=model),rules_fired=[],results=dict(binding=packet['binding'],decision='approve',findings=[],resolved=packet['findings'],coverage=['scope','rules','architecture','scenarios','correctness','test_oracles',*[c['id'] for c in packet.get('cases',[])]]))
+if os.environ.get('SYNTHETIC_PACKAGE_BUNDLE') and packet['operation']=='groom-spec' and 'graph.json' in packet['artifacts']:
+ import difflib
+ before=packet['artifacts']['graph.json'];after=Path(os.environ['SYNTHETIC_PACKAGE_BUNDLE']).read_text()
+ value['artifacts']['diff']=''.join(difflib.unified_diff(before.splitlines(keepends=True),after.splitlines(keepends=True),fromfile='a/graph.json',tofile='b/graph.json'))
 if os.environ.get('SYNTHETIC_REPAIR') and packet['operation']=='implement' and packet['findings']:
  value['artifacts']['diff']='--- a/app.py\\n+++ b/app.py\\n@@ -1,2 +1,2 @@\\n def answer():\\n-    return 1\\n+    return 2\\n'
 if provider=='claude':print(json.dumps(dict(structured_output=value)))

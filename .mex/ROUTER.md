@@ -142,3 +142,10 @@ same controller. `tests/test-work-packages.sh` covers deterministic and independ
 controller regressions; `dashboard/test-packages-browser.mjs` exercises synthetic
 browser composition. Status and remaining acceptance gaps:
 `docs/operations/WORK-PACKAGES.md`. No live certification or activation is implied.
+
+Autonomous package preparation: version 3 inline artifacts use
+`scripts/nightshift-package-bundle.py` for bounded disposable validation; existing
+Groom authority writes only the parent specification artifact. Independent challenge
+receives schema-bound child evidence. `scripts/nightshift-package-controller.py`
+retains preparation wall phases and evidence coverage before allocating parent wall
+time. Evidence and boundaries: `docs/operations/PACKAGE-AUTHORING.md`.
