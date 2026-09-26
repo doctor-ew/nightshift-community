@@ -95,6 +95,7 @@ try {
   writeFileSync(resolve(root,'test_app.py'),'import unittest\nfrom app import answer\nclass Test(unittest.TestCase):\n    def test_answer(self): self.assertEqual(answer(),2)\nunittest.main()\n');
   writeFileSync(resolve(root,'.synthetic-review-failure'),'synthetic bounded review rejection');
   await panel.getByLabel('Task key').fill('exhausted');await assess();
+  await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');
   await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
   await panel.getByLabel('Repair eligible failures within this allowance').check();
   const beforeExhaustion=calls();result=await execute('supervise');
