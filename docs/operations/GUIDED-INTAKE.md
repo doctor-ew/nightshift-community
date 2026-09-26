@@ -60,3 +60,20 @@ rejection. Actual Chromium tests prepare a fresh local-file request and a synthe
 GitHub issue without terminal intervention, then run the existing operations through
 synthetic executable providers. They retain desktop/mobile interaction evidence.
 No real provider, installed-runtime change, live ticket or deployment is involved.
+
+## Candidate receipt
+
+At `65acbdc`, Chromium 153.0.8010.12 passes both fresh-source flows, reload-retained
+choices, shared CLI preview bindings, separate authorization and desktop/mobile
+viewport containment. Preview makes zero provider calls; the two subsequently
+authorized factories make eight synthetic executable calls. Packet accounting is
+4,158 bytes for local intake and 4,118 for GitHub intake, with zero unknown usage.
+Exact requests, revision and source hashes are in `GUIDED-INTAKE-VALIDATION.json`.
+Provider tokens, cache consumption and billing remain unknown.
+
+Six intake tests, eleven independent intake cases, eleven existing console-decision
+cases and five actual operation-interface cases pass. Dashboard model tests pass
+14/14; the launcher regression and ShellCheck pass. The browser revision includes
+a responsive-layout fix after visual inspection caught horizontal overflow.
+Public PR #87's four composition-window regressions also pass in this integration
+branch. Its prior browser receipt remains separately qualified to its original SHA.
