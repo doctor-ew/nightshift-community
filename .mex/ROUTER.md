@@ -128,3 +128,12 @@ Failed test evidence remains hash-bound, replay preserves request identity and
 usage, and changed external adoption can Verify/Review after exhaustion without
 Implement. Synthetic evidence and limitations: `docs/operations/BOUNDED-REPAIR.md`.
 Not activated or live-provider certified.
+
+Work-package composition: `scripts/nightshift-work-packages.py` validates versioned
+graphs and templates; `scripts/nightshift-package-controller.py` composes shared
+operations with isolated child repositories, retained allocations, inherited
+accepted architecture, and explicit parent integration. CLI and browser use the
+same controller. `tests/test-work-packages.sh` covers deterministic and independent
+controller regressions; `dashboard/test-packages-browser.mjs` exercises synthetic
+browser composition. Status and remaining acceptance gaps:
+`docs/operations/WORK-PACKAGES.md`. No live certification or activation is implied.

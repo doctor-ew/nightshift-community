@@ -37,8 +37,8 @@ else:
 '''
 
 
-def isolated(root):
-    f.fixture(root)
+def isolated(root, initialize=True):
+    if initialize:f.fixture(root)
     bin=root/'.nightshift-fixture-bin';bin.mkdir()
     home=bin/'home';home.mkdir()
     for name in ('codex','claude'):
