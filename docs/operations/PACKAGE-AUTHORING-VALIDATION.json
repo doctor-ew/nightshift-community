@@ -1,0 +1,103 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "provider_calls": 14,
+  "replay_calls": 0,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 6639,
+      "packet_bytes": 4216
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 17047,
+      "packet_bytes": 11583
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3153,
+      "packet_bytes": 730
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6322,
+      "packet_bytes": 858
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3415,
+      "packet_bytes": 992
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6788,
+      "packet_bytes": 1324
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3157,
+      "packet_bytes": 734
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6326,
+      "packet_bytes": 862
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3422,
+      "packet_bytes": 999
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6796,
+      "packet_bytes": 1332
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3907,
+      "packet_bytes": 1484
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 7076,
+      "packet_bytes": 1612
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4190,
+      "packet_bytes": 1767
+    },
+    {
+      "operation": "review",
+      "request_bytes": 7570,
+      "packet_bytes": 2106
+    }
+  ],
+  "usage": {
+    "calls": 14,
+    "execution_seconds": 4.960263873996155,
+    "unknown_calls": 0,
+    "reserved_seconds": 0,
+    "request_bytes": 30599,
+    "orchestration_provider_calls": 0,
+    "preparation_wall": {
+      "elapsed_seconds": 2.6998016834259033,
+      "reserved_seconds": 0,
+      "unknown_phases": 0
+    }
+  },
+  "live_certification": false,
+  "revision": "1997b4b8455ef1dc0d1e50ce4f03e95f9628a604",
+  "source_sha256": {
+    "scripts/nightshift-package-controller.py": "c784413cf094a0c542074a5a877a17969d14c4820ef91bb5240d7dadd2107dfb",
+    "scripts/nightshift-package-bundle.py": "92975cddc8d516db1991f41c7c4bdf0391a05a56653bcb954f83de0eef4fead3",
+    "scripts/nightshift-work-packages.py": "520ef3b105a2299d9c0b89874b4881b60bd2a99a3b476d2ce0085084bd782e2a",
+    "scripts/nightshift-operations.py": "fa8b51a677a13f80fc6488f08374a5078571a6285cae7bdb8a8a54037a7baea2"
+  },
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "independent_reviewer_usage": null
+}

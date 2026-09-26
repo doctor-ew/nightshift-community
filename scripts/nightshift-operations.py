@@ -133,6 +133,18 @@ def plan(project, task):
     return value
 
 
+def scenarios(project,p):
+    value=read(safe(project,p['inputs']['scenarios']))
+    exact(value,'version cases')
+    if value['version']!=1 or not isinstance(value['cases'],list) or not value['cases']:raise ValueError('acceptance_cases_required')
+    ids=set()
+    for case in value['cases']:
+        exact(case,'id requirement manual')
+        if not bounded_text(case['id']) or case['id'] in ids or not bounded_text(case['requirement']) or type(case['manual']) is not bool:raise ValueError('invalid_acceptance_case')
+        ids.add(case['id'])
+    return value['cases']
+
+
 class Operations:
     def __init__(self, project, task, worker=None, clock=time.time):
         self.project = Path(project).resolve()
@@ -175,19 +187,30 @@ class Operations:
     def modes(self):
         return {k:stat.S_IMODE(safe(self.project,k).stat().st_mode) for k,v in self.corpus().items() if v is not None}
 
+    def package_schema(self,p):
+        path=safe(self.project,p['inputs']['spec'])
+        if not path.exists():return None
+        try:value=read(path)
+        except (ValueError,UnicodeError):return None
+        if not isinstance(value,dict) or value.get('version')!=3 or 'artifacts' not in value:return None
+        schemas=read(HERE.parent/'contracts/nightshift-work-packages.schema.json')['oneOf']
+        return next(schema for schema in schemas if schema['properties']['version']['const']==3)
+
     def package_inputs(self, p):
         """Resolve declared package evidence without granting draft validity."""
         path = safe(self.project, p['inputs']['spec'])
         if not path.exists(): return set()
         try: graph = read(path)
         except (ValueError, UnicodeError): return set()
-        if not isinstance(graph, dict) or set(graph)-{'templates'} != {'version','parent','requirements','children','aggregate'}: return set()
+        if not isinstance(graph, dict) or set(graph)-{'templates','artifacts'} != {'version','parent','requirements','children','aggregate'}: return set()
         names = set()
         for child in graph['children']:
             names.add(child['plan'])
             names.update(child['reads'])
             names.update(child['writes'])
-        for name in names: safe(self.project, name)
+        for name in names:
+            if graph.get('version')==3:load('package-bundle').safe_name(self.project,name)
+            else:safe(self.project,name)
         return names
 
     def context(self):
@@ -243,6 +266,7 @@ class Operations:
         base['artifacts'] = {k: a[k] for k in names}
         base['accepted_architecture'] = context['accepted_architecture']
         base['executor_sha256'] = sha(Path(__file__))
+        if self.package_schema(p):base['package_schema_sha256']=sha(HERE.parent/'contracts/nightshift-work-packages.schema.json')
         base['assets'] = {}
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
@@ -455,15 +479,7 @@ class Operations:
             self.save()
 
     def scenarios(self,p):
-        value=read(safe(self.project,p['inputs']['scenarios']))
-        exact(value,'version cases')
-        if value['version']!=1 or not isinstance(value['cases'],list) or not value['cases']:raise ValueError('acceptance_cases_required')
-        ids=set()
-        for case in value['cases']:
-            exact(case,'id requirement manual')
-            if not bounded_text(case['id']) or case['id'] in ids or not bounded_text(case['requirement']) or type(case['manual']) is not bool:raise ValueError('invalid_acceptance_case')
-            ids.add(case['id'])
-        return value['cases']
+        return scenarios(self.project,p)
 
     def packet(self, operation, assessed, p):
         names = set(p['inputs'].values())
@@ -475,6 +491,9 @@ class Operations:
             accepted_architecture=assessed['dependencies']['accepted_architecture'],
             scope=p['scope'], cases=self.scenarios(p) if operation!='groom-spec' else [], provenance=self.provenance(operation), findings=sorted(set(assessed['findings'] + self.repair_findings(operation))), checks=p['checks'],
             verification=self.state['results'].get('verify', {}).get('observations') if operation=='review' else None)
+        package_schema=self.package_schema(p)
+        if package_schema:
+            value['package_authoring']=dict(schema=package_schema,instruction='Author complete child plans, specs and checks as inline artifact text. Preserve existing project inputs. Do not grant authority. Independent challenge must evaluate semantic requirement coverage, interfaces, test oracles and parent integration, not only IDs.')
         repair = self.repair_evidence(operation)
         if repair:
             for name, expected in repair.get('evidence', {}).items():
@@ -569,13 +588,13 @@ class Operations:
             if result.returncode: raise ValueError('invalid_patch')
             names = [line.split('\t')[-1] for line in result.stdout.splitlines()]
             if not names or any(n not in allowed for n in names): raise ValueError('patch_outside_authorized_scope')
-            result = subprocess.run(['git','apply','--whitespace=error','-'],input=patch,text=True,capture_output=True,cwd=target)
+            result = subprocess.run(['git','-c','core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol','apply','--whitespace=error','-'],input=patch,text=True,capture_output=True,cwd=target)
             if result.returncode: raise ValueError('patch_does_not_apply')
             changes={}
             for name in names:
                 path=safe(target,name)
                 if not path.is_file(): raise ValueError('removal_requires_separate_authority')
-                changes[name]=dict(before=sha(safe(self.project,name)) if safe(self.project,name).exists() else None, text=path.read_text(), after=sha(path))
+                changes[name]=dict(before=sha(safe(self.project,name)) if safe(self.project,name).exists() else None, text=path.read_bytes().decode('utf-8'), after=sha(path))
             return changes
 
     def integrate(self, changes):
@@ -588,8 +607,8 @@ class Operations:
             mode=stat.S_IMODE(dest.stat().st_mode) & 0o777 if dest.exists() else 0o644
             fd,tmp=tempfile.mkstemp(prefix='.nightshift-write-',dir=dest.parent)
             os.fchmod(fd,mode)
-            with os.fdopen(fd,'w') as stream:
-                stream.write(row['text']); stream.flush(); os.fsync(stream.fileno())
+            with os.fdopen(fd,'wb') as stream:
+                stream.write(row['text'].encode('utf-8')); stream.flush(); os.fsync(stream.fileno())
             os.replace(tmp,dest)
 
     def execute(self, grant_id, operation, request, supervised=False):

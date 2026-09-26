@@ -63,13 +63,70 @@ class Packages:
         if cases!=set(graph['requirements']):raise ValueError('parent_requirement_cases_mismatch')
         current=self.preparation.valid('groom',p,ctx)
         routes=ops.load('routing-path').resolve(HERE.parent,self.project)
-        policy={str(n):ops.sha(n) for n in (routes,HERE/'nightshift-package-controller.py',HERE/'nightshift-work-packages.py')}
+        policy={str(n):ops.sha(n) for n in (routes,HERE/'nightshift-package-controller.py',HERE/'nightshift-work-packages.py',HERE/'nightshift-package-bundle.py')}
         settings=self.project/'.nightshift.toml'
         policy['project_settings']=ops.sha(settings) if settings.exists() else None
         return dict(status='ready' if current else 'blocked',reason=None if current else 'independent_decomposition_challenge_required',graph=graph,
-                    binding=ops.digest(dict(graph=graph,challenge=self.preparation.state['results'].get('groom'),policy=policy)),policy=policy)
+                    binding=ops.digest(dict(graph=graph,challenge=self.preparation.state['results'].get('groom'),policy=policy,preparation_phases=sorted(self.state.get('preparations',{})))),policy=policy)
+
+    def preparation_wall(self):
+        phases=self.state.get('preparations',{})
+        return dict(elapsed_seconds=sum(row.get('elapsed_seconds',0) for row in phases.values() if row['status']=='complete'),
+                    reserved_seconds=sum(row['limit_seconds'] for row in phases.values() if row['status']!='complete'),
+                    unknown_phases=sum(row['status']!='complete' for row in phases.values()))
+
+    def unmeasured_preparation(self):
+        phases=self.state.get('preparations',{}).values()
+        covered_calls={key for phase in phases for key in phase.get('calls',[])}
+        covered_attempts={key for phase in self.state.get('preparations',{}).values() for key in phase.get('attempts',[])}
+        return bool(set(self.preparation.state['calls'])-covered_calls or {row['request'] for row in self.preparation.state['attempts']}-covered_attempts)
+
+    def preparation_receipt(self,phase):
+        self.preparation.reload()
+        phase.update(calls=list(self.preparation.state['calls']),attempts=[row['request'] for row in self.preparation.state['attempts']])
 
     def prepare(self,grant):
+        """Charge a durable active wall span, including validation and restart."""
+        with self.lease():
+            self.preparation.reload()
+            authorization=self.preparation.state['authorizations'].get(grant)
+            if not authorization or authorization['operations']!=ops.RECIPES['groom']:
+                raise ValueError('decomposition_groom_authorization_required')
+            phases=self.state.setdefault('preparations',{})
+            phase=phases.get(grant)
+            if phase and phase['status']=='complete':
+                if phase['result'].get('status')!='ready':return phase['result']
+                assessed=self.assess()
+                if self.unmeasured_preparation() or assessed.get('binding')!=phase['result'].get('binding'):
+                    return dict(status='blocked',reason='preparation_wall_receipt_not_current')
+                return assessed
+            if not phase:
+                if self.unmeasured_preparation():raise ValueError('unmeasured_preparation_wall_requires_reconciliation')
+                if self.preparation_wall()['unknown_phases']:raise ValueError('unknown_preparation_wall_requires_reconciliation')
+                p=ops.plan(self.project,self.task)
+                ceiling=ops.limits(ops.read(ops.safe(self.project,p['inputs']['spec']))['aggregate'])
+                available=ceiling['wall_seconds']-self.preparation_wall()['elapsed_seconds']
+                if available<=0:raise ValueError('parent_preparation_wall_exhausted')
+                started=self.clock()
+                phase=dict(grant=grant,status='running',started=started,deadline=min(authorization['deadline'],started+available),limit_seconds=available)
+                phases[grant]=phase;self.save()
+            try:
+                if self.clock()<phase['started']:raise ValueError('preparation_clock_reversed')
+                if self.clock()>=phase['deadline']:raise ValueError('parent_preparation_wall_exhausted')
+                with self.preparation.lease():
+                    g=self.preparation.state['authorizations'][grant]
+                    g['deadline']=min(g['deadline'],phase['deadline']);self.preparation.save()
+                result=self._prepare(grant)
+                if self.clock()>phase['deadline']:result=dict(status='blocked',reason='parent_preparation_wall_exhausted')
+            except (OSError,ValueError,KeyError,TypeError) as error:
+                phase.update(status='complete',finished=self.clock(),elapsed_seconds=max(0,self.clock()-phase['started']),result=dict(status='blocked',reason=str(error)))
+                self.preparation_receipt(phase);self.save();raise
+            except BaseException:
+                phase['status']='unknown';self.preparation_receipt(phase);self.save();raise
+            phase.update(status='complete',finished=self.clock(),elapsed_seconds=max(0,self.clock()-phase['started']),result=result)
+            self.preparation_receipt(phase);self.save();return result
+
+    def _prepare(self,grant):
         """Author draft, deterministically validate, then independently challenge."""
         self.preparation.reload()
         g=self.preparation.state['authorizations'].get(grant)
@@ -107,6 +164,13 @@ class Packages:
             for prior in self.state['authorizations'].values():
                 if prior['request_digest']==ops.digest(payload):return prior
             graph=assessed['graph']
+            wall=self.preparation_wall()
+            if wall['unknown_phases']:raise ValueError('unknown_preparation_wall_requires_reconciliation')
+            if not self.state.get('preparations'):raise ValueError('preparation_wall_receipt_required')
+            if self.unmeasured_preparation() or not any(phase['status']=='complete' and phase['result'].get('status')=='ready' and phase['result'].get('binding')==binding for phase in self.state['preparations'].values()):
+                raise ValueError('preparation_wall_receipt_not_current')
+            remaining_wall=graph['aggregate']['wall_seconds']-wall['elapsed_seconds']
+            if remaining_wall<sum(c['allowance']['wall_seconds'] for c in graph['children']):raise ValueError('parent_wall_allocation_insufficient_after_preparation')
             # Preparation is already charged once; orchestration is never a call.
             prep=self.preparation.state['calls']
             prep_seconds=sum(c['seconds'] if c['status']=='finished' else c['reserved_seconds'] for c in prep.values())
@@ -114,7 +178,7 @@ class Packages:
                 raise ValueError('parent_allowance_insufficient_after_preparation')
             if any(c['status']!='finished' for c in prep.values()):raise ValueError('unknown_preparation_usage')
             grant=dict(version=1,id=request,request_digest=ops.digest(payload),binding=binding,operator=operator,graph=graph,
-                       deadline=self.clock()+graph['aggregate']['wall_seconds'],preparation_calls=prep,
+                       deadline=self.clock()+remaining_wall,preparation_wall=wall,preparation_calls=prep,
                        allocations={c['id']:dict(limit=c['allowance'],status='reserved') for c in graph['children']},status='authorized')
             self.state['authorizations'][request]=grant;self.save();return grant
 
@@ -126,7 +190,8 @@ class Packages:
     def usage(self,grant):
         g=self.state['authorizations'][grant]
         self.preparation.reload()
-        observed={'preparation:'+key:value for key,value in self.preparation.state['calls'].items()}
+        preparation_calls=dict(g['preparation_calls']);preparation_calls.update(self.preparation.state['calls'])
+        observed={'preparation:'+key:value for key,value in preparation_calls.items()}
         reserved=0
         for key,allocation in g['allocations'].items():
             if key not in self.state['children'] or self.state['children'][key].get('status')=='materializing':
@@ -140,7 +205,7 @@ class Packages:
             else:reserved+=unknown
         return dict(calls=len(observed),execution_seconds=sum(c['seconds'] for c in observed.values() if c['status']=='finished'),
                     unknown_calls=sum(c['status']!='finished' for c in observed.values()),reserved_seconds=reserved,
-                    request_bytes=sum(c['request_bytes'] for c in observed.values()),orchestration_provider_calls=0)
+                    request_bytes=sum(c['request_bytes'] for c in observed.values()),orchestration_provider_calls=0,preparation_wall=g.get('preparation_wall'))
 
     def dependencies(self,child,graph):
         by_id={row['id']:row for row in graph['children']}
@@ -155,7 +220,9 @@ class Packages:
         files={};modes={}
         for name in set(child['reads']+child['writes']+[child['plan']]):
             path=ops.safe(self.project,name)
-            if path.is_file():
+            if name in g['graph'].get('bundle',{}):
+                files[name]=g['graph']['bundle'][name].encode();modes[name]=child['input_modes'][name]
+            elif path.is_file():
                 files[name]=path.read_bytes();modes[name]=ops.stat.S_IMODE(path.stat().st_mode)
         dependencies={}
         for dep in self.dependencies(child,g['graph']):
@@ -171,7 +238,7 @@ class Packages:
         routing=ops.load('routing-path').resolve(HERE.parent,self.project)
         files['routing.json']=Path(routing).read_bytes()
         if (self.project/'.nightshift.toml').exists():files['.nightshift.toml']=(self.project/'.nightshift.toml').read_bytes()
-        p=ops.plan(self.project,key)
+        p=child['operation_plan']
         # Dependency interfaces/provenance are explicit versioned author inputs.
         architecture=p['inputs']['architecture']
         files[architecture]+=('\n\nDeclared package dependencies:\n'+__import__('json').dumps(dependencies,sort_keys=True)+'\n').encode()
@@ -243,6 +310,15 @@ class Packages:
         self.state['children'][key]=dict(workspace=str(target),inputs=hashes,modes=modes,dependencies=dependencies,authority=authority_digest,status='ready')
         self.save();return self.child(key)
 
+    def enforce_preparation(self,g):
+        self.preparation.reload()
+        if self.unmeasured_preparation():raise ValueError('preparation_wall_receipt_not_current')
+        wall=self.preparation_wall()
+        if wall['unknown_phases']:raise ValueError('unknown_preparation_wall_requires_reconciliation')
+        if wall!=g.get('preparation_wall'):raise ValueError('preparation_wall_changed_after_authorization')
+        if not any(phase['status']=='complete' and phase['result'].get('status')=='ready' and phase['result'].get('binding')==g['binding'] for phase in self.state.get('preparations',{}).values()):
+            raise ValueError('preparation_wall_receipt_not_current')
+
     def enforce_usage(self,g):
         observed=self.usage(g['id'])
         if observed['unknown_calls']:raise ValueError('unknown_package_usage_requires_reconciliation')
@@ -266,7 +342,9 @@ class Packages:
             if not g:raise ValueError('package_authorization_required')
             assessed=self.assess()
             if assessed['status']!='ready' or assessed['binding']!=g['binding']:raise ValueError('package_authorized_inputs_changed')
-            try:self.enforce_usage(g)
+            try:
+                self.enforce_preparation(g)
+                self.enforce_usage(g)
             except ValueError as error:return self.block(g,str(error))
             for child in g['graph']['children']:
                 key=child['id'];allocation=g['allocations'][key]
@@ -316,7 +394,9 @@ class Packages:
                 for dep,evidence in self.state['children'][child['id']]['dependencies'].items():
                     if self.child(dep).state['results']['review']['digest']!=evidence['review']:
                         return self.block(g,'stale_dependency_before_parent_acceptance:'+child['id']+':'+dep)
-            try:self.enforce_usage(g)
+            try:
+                self.enforce_preparation(g)
+                self.enforce_usage(g)
             except ValueError as error:return self.block(g,str(error))
             integration=next(c for c in g['graph']['children'] if c['integration'])
             g.update(status='pending_manual_acceptance',integration=integration['id']);self.save()
