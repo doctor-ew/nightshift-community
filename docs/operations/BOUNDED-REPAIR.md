@@ -64,3 +64,22 @@ under #67; interruption reconciliation beyond existing checkpoints belongs #71.
 - `tests/test-operation-supervisor.py` and
   `tests/test-operation-supervisor-review.py`: synthetic acceptance.
 - `dashboard/src/operations.jsx` and `dashboard/test-browser.mjs`: shared controls.
+
+## Measured synthetic acceptance
+
+The actual launcher fault → repair → Verify → Review fixture uses five synthetic
+provider processes, with argv request sizes 3,073 / 6,236 / 3,340 / 4,253 / 6,737
+bytes. The repair request includes retained failing test observations. Replay
+makes zero additional provider calls. One original authorization remains.
+Measured worker execution is 1.764 seconds; observed grant wall time is 8.113
+seconds. No unfinished reservation remains in this fixture. Token usage and
+billing remain null because the synthetic executables do not report them.
+Exact runtime revision, file hashes, packets and accounting are in
+`docs/operations/BOUNDED-REPAIR-METRICS.json`.
+
+Eleven independent adversarial tests pass, including exhausted Verify and Review
+followed by explicitly adopted changed external code without Implement; unchanged
+re-adoption remains blocked. Five functional tests pass. Actual Chromium passes
+twelve shared-controller/UI checks with four synthetic calls, including explicit
+supervisor authorization over current results and no repeated dispatch. These
+measurements establish fixture behavior, not live model quality or savings.

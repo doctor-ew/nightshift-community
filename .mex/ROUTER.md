@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-09-25"
+last_updated: "2026-09-26"
 ---
 
 # Session Bootstrap
@@ -120,3 +120,11 @@ Bounded semantic recovery candidate: controller authorization, hashes, test resu
 Composable operations review candidate: `scripts/nightshift-operations.py` provides independently authorized Groom suboperations, implementation, external adoption, deterministic verification, independent review and explicit acceptance/publication. The factory recipe uses the same executor; old ledgers are retained unchanged. Contract and synthetic validation: `docs/operations/CONTRACT.md`, `tests/test-operations.py`, `tests/test-operation-review-regressions.py`. This candidate is not installed or live-certified.
 
 Operation browser regression: `tests/test-operation-browser.py` launches a temporary synthetic repository and home; `dashboard/test-browser.mjs` exercises the built dashboard with pinned headless Chromium and compares CLI results. It covers acceptance, replay, drift, external adoption, verification failure and desktop/mobile rendering. Evidence: `docs/operations/BROWSER-VALIDATION.json`; live providers and installed-runtime rollout remain separate.
+
+
+Bounded operation repair candidate: explicitly repair-authorized factory/Groom
+recipes use `scripts/nightshift-operation-supervisor.py` over the shared executor.
+Failed test evidence remains hash-bound, replay preserves request identity and
+usage, and changed external adoption can Verify/Review after exhaustion without
+Implement. Synthetic evidence and limitations: `docs/operations/BOUNDED-REPAIR.md`.
+Not activated or live-provider certified.
