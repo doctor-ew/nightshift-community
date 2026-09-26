@@ -46,6 +46,24 @@ class PackageControllerReview(unittest.TestCase):
         assessed = self.prepare()
         return self.c.authorize(assessed['binding'], 'synthetic-reviewer', 'graph-grant')['id']
 
+    def test_child_preserves_accepted_architecture_without_new_acceptance(self):
+        architecture = m.ops.load('architecture')
+        (self.root/'left.py').write_text('def value(): return 1 # FORBIDDEN\n')
+        architecture.accept(self.root, dict(id='no-forbidden', decision='Do not use the forbidden literal.',
+            operator='synthetic-reviewer', upstream='https://example.invalid/issues/67', scope=['left.py'],
+            reference='rules.md', constraints=[dict(kind='forbidden_literal', value='FORBIDDEN')]))
+        retained = architecture.location(self.root).read_bytes()
+        accepted = architecture.resolve(self.root)
+        grant = self.authorize()
+        with self.c.lease():
+            child = self.c.materialize(self.c.state['authorizations'][grant]['graph']['children'][0], grant)
+        _, context = child.context()
+        self.assertEqual(context['accepted_architecture'], accepted,
+            'Private child contexts must preserve accepted parent authority, not merely architecture prose')
+        self.assertEqual(architecture.check(child.project, 'left', context['accepted_architecture'])['status'], 'fail')
+        self.assertEqual(architecture.location(self.root).read_bytes(), retained)
+        self.assertEqual(len(self.worker.calls), 2)
+
     def test_preparation_is_inside_parent_call_ceiling(self):
         self.graph['aggregate']['calls'] = sum(child['allowance']['calls'] for child in self.graph['children'])
         (self.root/'graph.json').write_text(json.dumps(self.graph))
