@@ -42,8 +42,10 @@ jobs:
           path: |
             test-output/browser/*.png
             test-output/browser/report.json
+            test-output/browser/journey.json
             test-output/packages-browser/*.png
             test-output/packages-browser/report.json
+            test-output/packages-browser/journey.json
             test-output/authoring-browser/*.png
             test-output/authoring-browser/report.json
             test-output/intake-browser/*.png
