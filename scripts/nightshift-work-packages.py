@@ -20,23 +20,37 @@ def names(value, label, empty=False):
     return value
 
 
-def validate(project, value, graph_path=None):
+def validate(project, value, graph_path=None, preparation_task=None):
     project = Path(project).resolve()
-    ops.exact(value, 'version parent requirements children aggregate')
-    if type(value['version']) is not int or value['version'] != VERSION:
+    version=value.get('version') if isinstance(value,dict) else None
+    ops.exact(value, 'version parent requirements children aggregate'+(' templates' if version==2 else ''))
+    if type(version) is not int or version not in (1,2):
         raise ValueError('unsupported_package_version')
     if not isinstance(value['parent'], str) or not value['parent'].startswith('spec:') or str(Path(value['parent'][5:])) != value['parent'][5:]:
         raise ValueError('noncanonical_parent_reference')
+    templates={}
+    if version==2:
+        if not isinstance(value['templates'],list) or not 1<=len(value['templates'])<=16:raise ValueError('package_templates_required')
+        for template in value['templates']:
+            ops.exact(template,'id version operations')
+            if not isinstance(template['id'],str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}',template['id']) or template['id'] in templates:
+                raise ValueError('invalid_package_template')
+            if type(template['version']) is not int or template['version']!=1 or template['operations']!=ops.RECIPES['factory']:
+                raise ValueError('unsupported_package_recipe')
+            templates[template['id']]=template
     aggregate = ops.limits(value['aggregate'])
     core = {k: value[k] for k in ('version', 'parent', 'requirements')}
     if not isinstance(value['children'], list):
         raise ValueError('children_required')
+    core['version']=1
     core['children'] = [{k: c[k] for k in ('id', 'ref', 'depends_on', 'requirements', 'integration')} for c in value['children']]
     ordered = ops.load('decomposition').validate(core, project)
     packages = {}
     owners = {}
     for child in value['children']:
-        ops.exact(child, 'id ref depends_on requirements integration plan reads writes interfaces allowance')
+        ops.exact(child, 'id ref depends_on requirements integration plan reads writes interfaces allowance'+(' template' if version==2 else ''))
+        if version==2 and child['template'] not in templates:raise ValueError('unknown_package_template')
+        if child['id']==preparation_task:raise ValueError('preparation_child_identity_collision')
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}', child['id']):
             raise ValueError('invalid_package_id')
         expected = 'docs/' + child['id'] + '/operations.json'
@@ -77,6 +91,15 @@ def validate(project, value, graph_path=None):
         protected.update(ops.plan(project, child['id'])['inputs'].values())
     if graph_path:
         protected.add(str(graph_path))
+    preparation=None
+    if preparation_task is not None:
+        p=ops.plan(project,preparation_task)
+        if p['publication'] is not None:raise ValueError('preparation_publication_requires_separate_authority')
+        protected.update(p['inputs'].values())
+        protected.add(str(ops.plan_path(project,preparation_task).relative_to(project)))
+        if graph_path is not None and p['inputs']['spec']!=str(graph_path):raise ValueError('preparation_manifest_mismatch')
+        if ops.read(ops.safe(project,p['inputs']['spec']))!=value:raise ValueError('preparation_manifest_mismatch')
+        preparation=dict(task=preparation_task,plan_sha256=ops.sha(ops.plan_path(project,preparation_task)),inputs={name:ops.sha(ops.safe(project,name)) if ops.safe(project,name).is_file() else None for name in p['inputs'].values()},allocation=p['aggregate'])
     if protected.intersection(owners):
         raise ValueError('package_write_overlaps_contract')
     for key in ('calls', 'seconds'):
@@ -101,15 +124,15 @@ def validate(project, value, graph_path=None):
                 raise ValueError('package_input_missing:' + name)
         child['input_sha256'] = {name: ops.sha(project/name) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
     resolved = [packages[c['id']] for c in ordered['children']]
-    return dict(version=VERSION, status='valid', parent=ordered['parent'], parent_sha256=ordered['parent_sha256'],
+    return dict(version=version, status='valid', parent=ordered['parent'], parent_sha256=ordered['parent_sha256'],
                 requirements=value['requirements'], aggregate=aggregate,
-                children=resolved,
-                binding=ops.digest(dict(graph=value, parent_sha256=ordered['parent_sha256'], children=resolved)), semantic_approval=False)
+                children=resolved,templates=templates,preparation=preparation,
+                binding=ops.digest(dict(graph=value, parent_sha256=ordered['parent_sha256'], children=resolved,preparation=preparation)), semantic_approval=False)
 
 
 def template(value):
     """Export data only; approval, authority and historical usage never travel."""
-    ops.exact(value, 'version parent requirements children aggregate')
+    ops.exact(value, 'version parent requirements children aggregate'+(' templates' if value.get('version')==2 else ''))
     return json.loads(json.dumps(value))
 
 
@@ -127,9 +150,9 @@ def main():
             result=ops.load('package-controller').api(project,body)
             print(json.dumps(result));return 1 if result.get('status') in ('blocked','failed') else 0
         value = ops.read(ops.safe(project, args.graph))
-        result = validate(project, value, args.graph)
+        result = validate(project, value, args.graph,args.task)
         if args.action == 'template':
-            result = dict(version=VERSION, template=template(value), authority=None, approval=None)
+            result = dict(version=value['version'], template=template(value), authority=None, approval=None)
         print(json.dumps(result))
         return 0
     except (OSError, ValueError, KeyError, TypeError) as error:

@@ -68,6 +68,18 @@ class Packages(unittest.TestCase):
     def test_template_cannot_import_authority(self):
         self.graph['authorization']={'approved':True}
         with self.assertRaises(ValueError):m.template(self.graph)
+    def test_named_versioned_templates_do_not_carry_authority(self):
+        graph=copy.deepcopy(self.graph);graph['version']=2
+        graph['templates']=[dict(id='standard',version=1,operations=m.ops.RECIPES['factory'])]
+        for child in graph['children']:child['template']='standard'
+        result=m.validate(self.root,graph)
+        self.assertEqual(result['version'],2);self.assertFalse(result['semantic_approval'])
+        self.assertEqual(m.template(graph),graph)
+        graph['children'][0]['template']='missing'
+        with self.assertRaisesRegex(ValueError,'unknown_package_template'):m.validate(self.root,graph)
+        graph['children'][0]['template']='standard';graph['templates'][0]['operations']=['publish']
+        with self.assertRaisesRegex(ValueError,'unsupported_package_recipe'):m.validate(self.root,graph)
+
     def test_symlink_input_rejected(self):
         target=self.root/'retained.md';target.write_text('retained');(self.root/'link.md').symlink_to(target)
         self.graph['children'][0]['reads'].append('link.md')

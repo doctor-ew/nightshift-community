@@ -42,7 +42,7 @@ class Packages:
     def assess(self):
         self.preparation.reload()
         p,ctx=self.preparation.context()
-        graph=contracts.validate(self.project,ops.read(ops.safe(self.project,p['inputs']['spec'])),p['inputs']['spec'])
+        graph=contracts.validate(self.project,ops.read(ops.safe(self.project,p['inputs']['spec'])),p['inputs']['spec'],self.task)
         if p['inputs']['request']!=graph['parent'][5:]:raise ValueError('parent_request_mismatch')
         cases={c['id'] for c in self.preparation.scenarios(p)}
         if cases!=set(graph['requirements']):raise ValueError('parent_requirement_cases_mismatch')
@@ -72,7 +72,7 @@ class Packages:
         result=self.preparation.execute(grant,'groom-spec',grant+'.packages-spec')
         if result['status'] not in ('passed','reused'):return dict(status='blocked',result=result)
         p=ops.plan(self.project,self.task)
-        contracts.validate(self.project,ops.read(ops.safe(self.project,p['inputs']['spec'])),p['inputs']['spec'])
+        contracts.validate(self.project,ops.read(ops.safe(self.project,p['inputs']['spec'])),p['inputs']['spec'],self.task)
         for operation in ops.RECIPES['groom'][1:]:
             result=self.preparation.execute(grant,operation,grant+'.packages-'+operation)
             if result['status'] not in ('passed','reused'):return dict(status='blocked',result=result)

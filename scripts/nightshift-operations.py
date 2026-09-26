@@ -181,7 +181,7 @@ class Operations:
         if not path.exists(): return set()
         try: graph = read(path)
         except (ValueError, UnicodeError): return set()
-        if not isinstance(graph, dict) or set(graph) != {'version','parent','requirements','children','aggregate'}: return set()
+        if not isinstance(graph, dict) or set(graph)-{'templates'} != {'version','parent','requirements','children','aggregate'}: return set()
         names = set()
         for child in graph['children']:
             names.add(child['plan'])
