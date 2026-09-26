@@ -59,3 +59,27 @@ All fixtures use disposable repositories and synthetic providers. The local
 Python and Node profiles require separate live endpoint certification before a
 real factory run. Provider configuration remains unchanged. No installed runtime,
 real ticket, live allowance, provider, merge or deployment is used by this work.
+
+## Revision-bound synthetic evidence
+
+The full operation integration passed 183 tests across 21 suites at
+`fffa50bf73d05578ef6ca3cb902d011f382235f7`; intake passed 41. The converged
+runtime `93939e10352bd81abff756683bdb271ced52139e` includes #100 startup
+protection through #101 and #99 assessment-context reuse. It passed 24 core tests
+and 29 independent adapter/controller/context tests. The latter measured ten
+identity probes for a completed view, with fresh source/environment inspection
+between outer assessments. A stale test-list entry for #96's separate API was
+removed; the integrated adapter/controller suites supply its ported coverage.
+
+Actual Chromium 153.0.8010.12 exercised typed observations, CLI parity, manual
+acceptance, duplicate reuse, stale evidence, bounded exhaustion and external
+adoption without another Implement. Thirteen synthetic calls occurred across two
+tickets; the retained usage map covers only the second ticket. The prior
+180-second browser timeout remains retained and is not reported as a pass.
+Exact requests, accounting scopes and unknowns are in
+`TYPED-VERIFICATION-INTEGRATION-VALIDATION.json`.
+
+Node TODO cases remain TODO even when their bodies succeed; this is Node's own
+framework result, not Python's unexpected-success classification. TODO counts
+never supply useful execution. This is local Python 3.14.7 / Node 26.1.0 evidence;
+other runtime versions and live endpoints are not certified by these fixtures.
