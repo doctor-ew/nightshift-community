@@ -12,6 +12,32 @@ legacy=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy)
 m=legacy.m
 
 class Decisions(legacy.RecoveryTest):
+    def test_assertions_in_check_dependency_are_reviewable(self):
+        (self.target/'assertions.py').write_text("from pathlib import Path\nassert Path('source.txt').read_text() == 'fixed\\n'\n")
+        (self.target/'evals/unit/test-source.sh').write_text('#!/bin/sh\nset -eu\npython3 assertions.py\necho PASS\n')
+        subprocess.run(['git','-C',str(self.target),'add','.'],check=True,capture_output=True)
+        subprocess.run(['git','-C',str(self.target),'commit','-qm','assertions in separate test source'],check=True,capture_output=True)
+        self.setup_plan()
+        for row in self.plan['decisions']:
+            for ref in row['references']:
+                if ref['path']=='assertions.py':ref['role']='assertion'
+                elif ref['path']=='evals/unit/test-source.sh':ref['role']='source'
+        self.save_plan()
+        a=self.assess();self.assertEqual(a['decisions']['status'],'ready',a['decisions'])
+        result=self.compact(expected=a['sha256'])
+        self.assertEqual(result['status'],'pending_manual_acceptance',result)
+        self.assertEqual(self.ledger.read_bytes(),self.budget_before)
+
+    def test_assertion_reference_cannot_escape_bound_source(self):
+        self.setup_plan()
+        for row in self.plan['decisions']:
+            for ref in row['references']:
+                if ref['role']=='assertion':ref['path']='../unbound-assertions.py'
+        self.save_plan();a=self.assess()
+        self.assertEqual(a['decisions']['status'],'blocked')
+        self.assertIn('source_unknown',a['decisions']['reason'])
+        self.assertIsNone(a['requested_allowance'])
+
     # Run only these compact tests, not inherited legacy fixture tests.
     def setup_plan(self):
         self.env2=patch.dict(os.environ,{'NIGHTSHIFT_JEV_MODEL':'jev-1.13.0','TYPESAFE_API_KEY':'synthetic-only'})
