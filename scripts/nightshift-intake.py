@@ -51,6 +51,16 @@ def create_artifact(project,name,content,mode):
     finally:os.close(directory)
 
 
+def source_json(project,argv):
+    with tempfile.TemporaryDirectory(prefix="nightshift-intake-source-") as folder:
+        output=Path(folder)/"source.json"
+        env={**os.environ,"GIT_TERMINAL_PROMPT":"0","GH_PROMPT_DISABLED":"1"}
+        code=ops.load("controller-recovery").bounded(argv,project,env,30,output)
+        if code:raise ValueError("source_unavailable:check_reference_tool_and_auth")
+        if output.stat().st_size>ops.MAX_REQUEST//2:raise ValueError("source_too_large:no_truncation")
+        return json.loads(output.read_text())
+
+
 def runtime():
     revision=subprocess.check_output(['git','-C',str(HERE.parent),'rev-parse','HEAD'],text=True).strip()
     installed=shutil.which('nightshift')
@@ -64,20 +74,15 @@ def resolve(project,reference):
         safe(project,reference.removeprefix('spec:'))
     elif not re.fullmatch(r'gh:(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#)?[0-9]+',reference):
         raise ValueError('intake_source_profile_unsupported:use_project_markdown_or_github')
-    env={**os.environ,'GIT_TERMINAL_PROMPT':'0','GH_PROMPT_DISABLED':'1','PYTHONDONTWRITEBYTECODE':'1'}
-    with tempfile.TemporaryDirectory(prefix='nightshift-intake-source-') as folder:
-        output=Path(folder)/'source.json'
-        code=ops.load('controller-recovery').bounded(['bash',str(HERE/'nightshift-ticket-source.sh'),reference],project,env,30,output)
-        if code or output.stat().st_size>ops.MAX_REQUEST//2:raise ValueError('source_unavailable_or_oversized:check_reference_tool_and_auth')
-        source=json.loads(output.read_text())
+    source=source_json(project,['bash',str(HERE/'nightshift-ticket-source.sh'),reference])
     if not isinstance(source,dict) or not isinstance(source.get('body'),str) or not source['body'].strip():raise ValueError('source_body_required')
     if reference.startswith('gh:'):
-        match=re.fullmatch(r'gh:([^#]+)#([0-9]+)',reference)
         requested_id=reference.rsplit('#',1)[-1].removeprefix('gh:')
         if str(source.get('source_id'))!=requested_id:raise ValueError('source_identity_mismatch')
-        if source.get('source')!='gh' or not source.get('repository') or source.get('external_ref')!='gh-'+str(source.get('source_id')):raise ValueError('source_identity_mismatch')
-        if match and (source['repository']!=match[1].lower() or str(source['source_id'])!=match[2]):raise ValueError('source_identity_mismatch')
-        if source.get('url','').lower()!='https://github.com/'+source['repository'].lower()+'/issues/'+str(source['source_id']):raise ValueError('source_identity_mismatch')
+        expected=source_json(project,['bash',str(HERE/'nightshift-ticket-source.sh'),'--derive-id',reference,'--project',str(project)])
+        if (expected.get('source')!='gh' or not expected.get('repository')
+            or any(source.get(key)!=expected.get(key) for key in ('source','repository','source_id','external_ref'))
+            or source.get('url','').lower()!='https://github.com/'+expected['repository'].lower()+'/issues/'+expected['source_id']):raise ValueError('source_identity_mismatch')
     else:
         name=reference.removeprefix('spec:');body=safe(project,name).read_text()
         if source.get('source_id')!='spec-'+__import__('hashlib').sha256(name.encode()).hexdigest()[:16] or source.get('external_ref')!='spec:'+name:raise ValueError('source_identity_mismatch')
