@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "authorized": false,
+  "executed": false,
+  "status": "isolated_topic_profile_proposed_pending_separate_authorization",
+  "candidate_revision": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e",
+  "candidate_scope": "Synthetic-tested topic candidate; not an integrated release, live certification or permission to run a ticket.",
+  "related_procedure": "docs/operations/ENDPOINT-CERTIFICATION-PROPOSAL.md",
+  "live_proposal": "docs/operations/CERTIFICATION-PROPOSAL.json",
+  "destination_root": "/private/tmp/nightshift-community-certification-8300df7",
+  "destinations": {
+    "source": "/private/tmp/nightshift-community-certification-8300df7/nightshift-source",
+    "runtime": "/private/tmp/nightshift-community-certification-8300df7/nightshift-runtime",
+    "claude": "/private/tmp/nightshift-community-certification-8300df7/nightshift-claude",
+    "codex": "/private/tmp/nightshift-community-certification-8300df7/nightshift-codex",
+    "bin": "/private/tmp/nightshift-community-certification-8300df7/nightshift-bin",
+    "evidence": "/private/tmp/nightshift-community-certification-8300df7/nightshift-evidence",
+    "practice": "/private/tmp/nightshift-community-certification-8300df7/nightshift-practice"
+  },
+  "destination_observation": "Root absent during proposal preparation; recheck absence immediately before any authorized creation. If present, stop and review; do not replace or delete it.",
+  "launcher": "/private/tmp/nightshift-community-certification-8300df7/nightshift-bin/nightshift",
+  "command_environment": {
+    "NIGHTSHIFT_HOME": "/private/tmp/nightshift-community-certification-8300df7/nightshift-runtime",
+    "NIGHTSHIFT_UPDATE_GUARD": "1"
+  },
+  "environment_scope": "Apply only the listed task-specific environment to proposed profile commands. Do not repurpose HOME or CODEX_HOME, change global shell configuration/PATH or installed provider runtimes. The Codex adapter destination is specified through --codex-target only. Do not copy private routing, credentials, history or ticket evidence.",
+  "prerequisites": [
+    "Separate authorization for isolated profile creation; no command below has been executed.",
+    "Confirm destination root absent and retain current global launcher resolution and installed inventory privately.",
+    "Refresh candidate review and actual required check states; unresolved failed checks remain blockers and are not relabeled.",
+    "Create destination root and evidence directory with private permissions; retain each command stdout, stderr and exit status."
+  ],
+  "proposed_commands": [
+    {
+      "purpose": "Fresh public source clone",
+      "argv": [
+        "git",
+        "clone",
+        "--no-checkout",
+        "https://github.com/doctor-ew/nightshift-community.git",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source"
+      ]
+    },
+    {
+      "purpose": "Select exact topic candidate",
+      "argv": [
+        "git",
+        "-C",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source",
+        "checkout",
+        "--detach",
+        "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e"
+      ]
+    },
+    {
+      "purpose": "Confirm exact source identity",
+      "argv": [
+        "git",
+        "-C",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source",
+        "rev-parse",
+        "HEAD"
+      ],
+      "expected_stdout": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e"
+    },
+    {
+      "purpose": "Confirm clean source before installation",
+      "argv": [
+        "git",
+        "-C",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source",
+        "status",
+        "--porcelain"
+      ],
+      "expected_stdout": ""
+    },
+    {
+      "purpose": "Install only the isolated topic profile",
+      "argv": [
+        "bash",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source/install.sh",
+        "--symlink",
+        "--runtime",
+        "all",
+        "--target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-claude",
+        "--codex-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-codex",
+        "--nightshift-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-runtime",
+        "--bin-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-bin",
+        "--auth",
+        "subscription",
+        "--update-source",
+        "https://github.com/doctor-ew/nightshift-community.git",
+        "--update-channel",
+        "branch:integration/nightshift"
+      ]
+    },
+    {
+      "purpose": "Read-only audit of same source and all isolated targets",
+      "argv": [
+        "bash",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source/install.sh",
+        "--check",
+        "--symlink",
+        "--runtime",
+        "all",
+        "--target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-claude",
+        "--codex-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-codex",
+        "--nightshift-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-runtime",
+        "--bin-target",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-bin",
+        "--auth",
+        "subscription",
+        "--update-source",
+        "https://github.com/doctor-ew/nightshift-community.git",
+        "--update-channel",
+        "branch:integration/nightshift"
+      ]
+    },
+    {
+      "purpose": "Read-only explicit launcher build display; not sufficient alone for exact revision identity",
+      "argv": [
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-bin/nightshift",
+        "version"
+      ]
+    },
+    {
+      "purpose": "Reconfirm exact source revision after installation",
+      "argv": [
+        "git",
+        "-C",
+        "/private/tmp/nightshift-community-certification-8300df7/nightshift-source",
+        "rev-parse",
+        "HEAD"
+      ],
+      "expected_stdout": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e"
+    }
+  ],
+  "identity_acceptance": {
+    "all_commands_exit": 0,
+    "source_revision": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e",
+    "launcher_resolves_to": "/private/tmp/nightshift-community-certification-8300df7/nightshift-source/scripts/nightshift-factory.sh",
+    "runtime_operations_resolves_to": "/private/tmp/nightshift-community-certification-8300df7/nightshift-source/scripts/nightshift-operations.py",
+    "audit": "install.sh --check must pass against all four listed targets. Retain install-links.json from the isolated runtime and compare actual destinations to this inventory.",
+    "global_launcher": "Before/after global launcher resolution and existing owned installation inventory must be unchanged; keep personal paths private.",
+    "update_policy": "Configuration names Community integration; do not run sync, apply updates or change the pinned checkout under this proposal. NIGHTSHIFT_UPDATE_GUARD=1 prevents ordinary automatic update dispatch; version itself is read-only."
+  },
+  "evidence": {
+    "directory": "/private/tmp/nightshift-community-certification-8300df7/nightshift-evidence",
+    "retain": [
+      "Command argv, exit statuses and sanitized environment identities",
+      "Install and audit output, source revision and launcher/symlink identities",
+      "OS, interpreter and existing provider executable version identities without invoking a provider",
+      "Pre/post global installation inventory privately",
+      "Proposal authorization and any failure receipt"
+    ],
+    "privacy": "Raw logs and operator path inventory stay private; public summaries omit personal paths, credentials and private configuration. /private/tmp is temporary storage; preserve retained evidence to an approved durable location before OS cleanup; no deletion is proposed."
+  },
+  "rollback": {
+    "trigger": "Failed audit, unexpected target change, unresolved candidate identity or decision to retire this profile",
+    "procedure": "Cease invoking the explicit proposed launcher. Stop only processes proven owned by this isolated profile if any were separately started. Retain source, targets and evidence. Do not uninstall, delete, reset, redirect or rewrite the existing installation.",
+    "processes_started_by_this_proposal": 0
+  },
+  "live_certification": {
+    "authorized": false,
+    "integration_revision": null,
+    "assessment_binding": null,
+    "grant": null,
+    "reason": "Issue #2 requires a separately selected integrated revision and fresh source/route/budget bindings. The topic-profile destination inventory does not authorize live provider calls or satisfy #2."
+  },
+  "forbidden": [
+    "Live provider calls",
+    "Real-ticket restart",
+    "Allowance creation or reset",
+    "Global launcher or installed-runtime replacement",
+    "Private configuration/history/ticket-evidence imports",
+    "Merge",
+    "Deployment",
+    "Automatic update application"
+  ]
+}

@@ -121,3 +121,8 @@ not require uninstalling or deleting the existing runtime. The activation propos
 must pin the exact candidate, destination inventory, preserved prior runtime,
 retained state locations, rollback procedure and post-install identity checks. No real-ticket continuation is
 implicit. A changed activated revision requires fresh affected certification.
+
+The separate [topic-profile proposal](TOPIC-PROFILE-ACTIVATION-PROPOSAL.md) pins
+the synthetic candidate and exact proposed isolated destinations, commands and
+rollback. It remains unexecuted and does not replace the future integrated-release
+revision or fresh live assessment required above.
