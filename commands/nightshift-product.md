@@ -95,7 +95,7 @@ PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 REF=$(jq -r '.arguments' <<< "$STAGE_ARGS")
-TICKET_JSON=$(~/.nightshift/scripts/nightshift-ticket-source.sh "$REF" 2>&1)
+TICKET_JSON=$("${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-ticket-source.sh" "$REF" 2>&1)
 # Use `printf '%s'` (not `echo`) when re-piping captured JSON — on shells
 # where echo interprets backslash escapes (the agent's calling shell does),
 # `\n` inside string values gets converted to a literal newline and breaks
@@ -124,9 +124,9 @@ A `bd:*` source still requires Beads and cannot be used with file-only mode.
 
 ```bash
 BD_ID=""
-LEDGER_MODE=$(python3 ~/.nightshift/scripts/nightshift-setup.py --read | jq -r '.ledger.mode // "auto"')
-if [ "$LEDGER_MODE" != files ] && bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
-  BD_ID=$(printf '%s' "$TICKET_JSON" | ~/.nightshift/scripts/nightshift-beads-mirror.sh)
+LEDGER_MODE=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-setup.py" --read | jq -r '.ledger.mode // "auto"')
+if [ "$LEDGER_MODE" != files ] && bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has bd; then
+  BD_ID=$(printf '%s' "$TICKET_JSON" | "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-beads-mirror.sh")
   if [ -z "$BD_ID" ]; then
     echo "BEADS_MIRROR_FAILED — see stderr above."
     exit 1
@@ -151,7 +151,7 @@ else
   TASK_KEY="$SOURCE_ID"
 fi
 
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
 SPEC_DIR="${PROJECT}/docs/${TASK_KEY}"
 SPEC="${SPEC_DIR}/SPEC.md"
@@ -315,7 +315,7 @@ Skip silently if graphify is not installed — it's an enhancement, not a requir
 
 After the extractor returns, write each clean result (`FOUND_MATCH` or `NET_NEW` — no
 conflicts) to the shared cache `$TASK_DIR/.claim-cache.jsonl` via
-`~/.nightshift/scripts/nightshift-claim-cache.sh`. The cache key is computed from
+`"${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-claim-cache.sh"`. The cache key is computed from
 `(identifier_text, $HEAD_SHA, sorted(file_targets))` — for /nightshift-product, `file_targets`
 are the files the extractor inspected (the ticket has no `## Files to Change` table yet;
 the upcoming spec will). This pre-populates the cache so /nightshift-adversarial gets hits on
@@ -550,7 +550,7 @@ Read the answer. Treat empty input, `y`, `Y`, `yes`, `YES` as **Yes**. Treat `n`
 PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT")
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT")
 TRACKER=$(ls "${TASK_DIR}/"bd-*.md 2>/dev/null | head -1)
 ACTIVE=$(ls "${TASK_DIR}/ACTIVE-"* 2>/dev/null | head -1)
 

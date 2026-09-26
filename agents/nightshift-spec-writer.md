@@ -36,7 +36,7 @@ identifier in it is forbidden from the spec body. Put it under Open Questions in
 1. Read the task/ticket content given to you.
 2. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
 `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
-3. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
+3. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` to locate affected files before Grep/Read. No-op when absent.
 4. Read the files you are about to describe. Record `path:line` for each fact as you go — do
    not reconstruct citations afterward from memory.

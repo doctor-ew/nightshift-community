@@ -69,7 +69,7 @@ If scope has grown past 1–2 files, escalate to architect instead.
 
 ### Step 2 — Understand before you write
 
-1. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
+1. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph query <who-calls|what-calls|where-defined> <symbol>` or `mex impact <symbol|file>`
    before Grep/Read for any symbol you're about to touch. Treat mex output as already-read
    source. When mex is absent this step is a no-op — go straight to Grep/Read/Glob.

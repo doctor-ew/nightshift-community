@@ -23,14 +23,14 @@ PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightsh
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK="$ARGUMENTS"
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 QA="${PROJECT}/docs/${TASK}/QA.md"
 mkdir -p "$TASK_DIR" "${PROJECT}/docs/${TASK}"
 
 [ -z "$TASK" ] && { echo "Usage: /nightshift-qa <task-key>"; exit 1; }
 
-CTX_RC=0; bash ~/.nightshift/scripts/nightshift-context-check.sh "qa" "$TASK" || CTX_RC=$?
+CTX_RC=0; bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-context-check.sh" "qa" "$TASK" || CTX_RC=$?
 if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 ```
 
@@ -42,7 +42,7 @@ If `$SPEC` missing: `"No spec at $SPEC — run /nightshift-product first."` and 
 
 ```bash
 OUTLOG="${PROJECT}/docs/${TASK}/QA-output.log"
-RESULT=$(bash ~/.nightshift/scripts/nightshift-pw.sh "$TASK" --run --label qa --out "$OUTLOG")
+RESULT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --run --label qa --out "$OUTLOG")
 echo "$RESULT"
 VERDICT=$(echo "$RESULT" | grep -oE 'PW_(PASS|FAIL|SKIPPED)' | head -1)
 ```
