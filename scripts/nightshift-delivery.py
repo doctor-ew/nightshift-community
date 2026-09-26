@@ -44,9 +44,10 @@ def profile(c):
         if name not in allowed or any(part in ('.git','.nightshift','.codex','.claude','.agents') or part.startswith(('.env','.nightshift')) for part in Path(name).parts):raise ValueError('private_or_unreviewed_delivery_path')
     if not isinstance(value['checks'],list):raise ValueError('invalid_required_checks')
     for check in value['checks']:
-        m.exact(check,'name app_id')
+        m.exact(check,'name app_id actions' if isinstance(check,dict) and 'actions' in check else 'name app_id')
+        if 'actions' in check:m.load('delivery-actions').validate_contract(check['actions'])
         if not m.bounded_text(check['name']) or type(check['app_id']) is not int or check['app_id']<=0:raise ValueError('invalid_required_check_identity')
-    if len(value['checks'])!=len({m.digest(x) for x in value['checks']}):raise ValueError('duplicate_required_checks')
+    if len(value['checks'])!=len({(x['name'],x['app_id']) for x in value['checks']}):raise ValueError('duplicate_required_checks')
     if value['endpoint']=='ci' and not value['checks']:raise ValueError('nonempty_required_checks_required')
     m.exact(value['commit'],'message author_name author_email')
     if any(not m.bounded_text(x) or '\0' in x for x in value['commit'].values()) or '\n' in value['commit']['author_email'] or '\n' in value['commit']['author_name']:raise ValueError('invalid_commit_identity')
@@ -56,7 +57,7 @@ def profile(c):
 class Host:
     """Bounded Git/GitHub transport; tests inject a disposable host instead."""
     def __init__(self,delivery):self.d=delivery
-    def call(self,argv,json_output=False,allowed=(0,),observation=False):
+    def call(self,argv,json_output=False,allowed=(0,),observation=False,bytes_output=False):
         d=self.d;c=d.c;grant=getattr(d,'active_grant',None)
         if getattr(d,'read_only',False):
             if not observation:raise ValueError('reconciliation_cannot_dispatch_remote_mutation')
@@ -68,6 +69,9 @@ class Host:
         code=runner.bounded(argv,c.project,env,seconds,output,cancellation=m.load('operation-reconciliation').paths(c,grant) if grant else None,ownership=output.with_suffix('.ownership.json'))
         if code not in allowed:raise ValueError('delivery_transport_exit:'+str(code)+':'+output.name)
         if output.stat().st_size>2000000:raise ValueError('delivery_host_output_too_large:'+output.name)
+        if bytes_output:
+            if json_output:raise ValueError('conflicting_delivery_output_modes')
+            return output.read_bytes()
         text=output.read_text()
         return json.loads(text) if json_output else text.strip()
     def refs(self,p):
@@ -87,12 +91,20 @@ class Host:
         merge=pr.get('merge_commit_sha')
         if not merge:return dict(head=pr['head']['sha'],base=pr['base']['sha'],merge=None,parents=[],checks=[],state=pr['state'],merged=pr.get('merged',False),protected=False)
         commit=self.call(['gh','api','repos/'+p['repository']+'/git/commits/'+merge],True,observation=True)
-        checks=self.call(['gh','api','repos/'+p['repository']+'/commits/'+merge+'/check-runs'],True,observation=True)
+        checks=self.call(['gh','api','repos/'+p['repository']+'/commits/'+merge+'/check-runs'],True,observation=True) if any('actions' not in check for check in p['checks']) else dict(total_count=0,check_runs=[])
         # A failed protection query cannot be substituted with an assumed policy.
         branch={}
         if getattr(self.d,'active_action',None)=='merge':branch=self.call(['gh','api','repos/'+p['repository']+'/branches/'+quote(p['base'],safe='')+'/protection'],True,observation=True)
         rows=[dict(name=x['name'],head=x['head_sha'],status=x['status'],conclusion=x.get('conclusion'),id=x['id'],app_id=x['app']['id'],output=x.get('output',{})) for x in checks['check_runs']]
         if checks['total_count']!=len(rows):raise ValueError('ci_check_pagination_requires_adapter')
+        if any('actions' in check for check in p['checks']):
+            configured={(check['name'],check['app_id']) for check in p['checks'] if 'actions' in check}
+            rows=[row for row in rows if (row['name'],row['app_id']) not in configured]
+            rows.extend(m.load('delivery-actions').resolve(self,p,pr))
+        latest=self.call(['gh','api','repos/'+p['repository']+'/pulls/'+str(number)],True,observation=True)
+        def identity(row):
+            return (row.get('number'),row.get('state'),row.get('merged',False),row.get('merge_commit_sha'),*(row[side].get(key) for side in ('head','base') for key in ('sha','ref')),*(row[side].get('repo',{}).get('id') for side in ('head','base')))
+        if identity(latest)!=identity(pr):raise ValueError('ci_pull_request_changed')
         return dict(head=pr['head']['sha'],base=pr['base']['sha'],merge=merge,parents=[x['sha'] for x in commit['parents']],checks=rows,state=pr['state'],merged=pr.get('merged',False),protected=branch.get('required_status_checks',{}).get('strict') is True)
     def merge(self,p,number,head):return self.call(['gh','pr','merge',str(number),'--repo',p['repository'],'--squash','--match-head-commit',head])
 
@@ -107,7 +119,7 @@ class Delivery:
         accepted=self.c.assess('accept')
         if require_acceptance and accepted['status']!='current':raise ValueError('delivery_requires_current_acceptance')
         files={name:dict(sha256=m.sha(m.safe(self.c.project,name)),mode=m.safe(self.c.project,name).stat().st_mode&0o777) if m.safe(self.c.project,name).exists() else None for name in p['files']}
-        return dict(profile=p,accepted=accepted['result']['digest'],files=files,policy=self.c.policy_binding(m.plan(self.c.project,self.c.task)),delivery_sha256=m.sha(Path(__file__)),repair_sha256=m.sha(HERE/'nightshift-delivery-repair.py'),compose_sha256=m.sha(HERE/'nightshift-delivery-compose.py'))
+        return dict(profile=p,accepted=accepted['result']['digest'],files=files,policy=self.c.policy_binding(m.plan(self.c.project,self.c.task)),delivery_sha256=m.sha(Path(__file__)),repair_sha256=m.sha(HERE/'nightshift-delivery-repair.py'),compose_sha256=m.sha(HERE/'nightshift-delivery-compose.py'),actions_sha256=m.sha(HERE/'nightshift-delivery-actions.py'))
     def selected_pr(self,p,head=None):
         marker='<!-- nightshift-delivery:'+m.digest([p['repository'],p['branch'],p['base'],self.c.task])+' -->'
         rows=self.host.prs(p)
@@ -285,7 +297,7 @@ class Delivery:
         receipt=c.directory/('delivery-ci-'+m.digest(observed)+'.json');m.recovery.atomic(receipt,observed)
         checks=observed['checks'];identities=[(row['name'],row['app_id']) for row in checks]
         required_ids=[(row['name'],row['app_id']) for row in p['checks']]
-        valid=observed['merge'] and set(observed['parents'])=={head,refs['base']} and p['checks'] and all(identities.count(identity)==1 for identity in required_ids)
+        valid=observed['merge'] and len(observed['parents'])==2 and set(observed['parents'])=={head,refs['base']} and p['checks'] and all(identities.count(identity)==1 for identity in required_ids)
         required=[row for row in checks if (row['name'],row['app_id']) in required_ids]
         valid=valid and observed['state']=='open' and not observed['merged']
         passed=bool(valid and all(row['head']==observed['merge'] and row['status']=='completed' and row['conclusion']=='success' for row in required))
@@ -344,7 +356,7 @@ class Delivery:
         raise ValueError('delivery_repair_requires_existing_factory_authority')
     def profile_current_for_repair(self,g):
         c=self.c;snapshot=g['assessment']['snapshot']
-        return profile(c)==snapshot['profile'] and c.policy_binding(m.plan(c.project,c.task))==snapshot['policy'] and m.sha(Path(__file__))==snapshot['delivery_sha256'] and m.sha(HERE/'nightshift-delivery-repair.py')==snapshot['repair_sha256'] and m.sha(HERE/'nightshift-delivery-compose.py')==snapshot['compose_sha256']
+        return profile(c)==snapshot['profile'] and c.policy_binding(m.plan(c.project,c.task))==snapshot['policy'] and m.sha(Path(__file__))==snapshot['delivery_sha256'] and m.sha(HERE/'nightshift-delivery-repair.py')==snapshot['repair_sha256'] and m.sha(HERE/'nightshift-delivery-compose.py')==snapshot['compose_sha256'] and m.sha(HERE/'nightshift-delivery-actions.py')==snapshot.get('actions_sha256')
     def resume_repair(self,grant,request):
         c=self.c
         with c.lease():

@@ -23,7 +23,7 @@ exactly these fields:
 | `branch` | Current topic branch; cannot be main, master or the base |
 | `base` | Existing remote base branch |
 | `files` | All operation scope paths, optionally request/spec/scenarios inputs; unique explicit paths |
-| `checks` | Required check identities, each with `name` and positive integer `app_id` |
+| `checks` | Required check identities, each with `name`, positive integer `app_id`, and optional explicit `actions` contract |
 | `endpoint` | `branch`, `pr` or `ci`; CI requires nonempty check identities |
 | `merge_policy` | `disabled` or `protected-squash` |
 | `commit` | Exact `message`, `author_name` and `author_email` |
@@ -92,6 +92,49 @@ Host output larger than 2,000,000 bytes is retained but blocks evidence admissio
 it is not truncated into a successful receipt. A closed unmerged PR cannot pass. Protected merge additionally requires strict
 branch checks and the exact source revision; host acceptance without confirmed
 integration remains pending.
+
+## GitHub Actions integration evidence
+
+The default check contract requires checks attached to the exact merge candidate.
+GitHub Actions may attach a pull-request check to the source head even when the
+workflow checks out the merge candidate. An optional `actions` object on a required
+check enables `scripts/nightshift-delivery-actions.py` for GitHub.com:
+
+| Field | Required value |
+| --- | --- |
+| `workflow_path` | Reviewed workflow path under `.github/workflows/` |
+| `workflow_sha256` | SHA-256 of the complete reviewed workflow bytes |
+| `job` | Exact tested job name |
+| `producer_job` | Exact isolated evidence producer job name |
+| `artifact_prefix` | Prefix of the immutable per-run, per-attempt artifact |
+
+The repository workflow supplies `shellcheck`, producer
+`nightshift-integration-evidence`, and prefix `nightshift-integration`. The profile
+must bind the actual reviewed workflow digest; a workflow change invalidates the
+contract. Reviewing that workflow includes verifying that the tested job checks out
+the merge candidate and that the isolated producer does not execute repository code.
+
+The adapter selects the latest pull-request run number within one workflow identity
+and joins the exact attempt job to its check. Same-name push checks and prior attempt
+checks cannot substitute. Mutable `run.pull_requests` metadata is not integration
+proof. The isolated producer records the actual checkout, ordered base/head parents,
+repository IDs, workflow digest, run and attempt. Admission requires the completed
+producer, exact artifact identity, raw ZIP size and digest, one bounded JSON receipt,
+and matching current PR and Git parents. The original check head remains in
+`reported_head`; only verified evidence receives the merge candidate as its effective
+head. Missing, stale, expired or ambiguous evidence remains unknown.
+
+Failure diagnostics are separate from CI authority. When a verified failed check
+has no output, the adapter may retrieve its exact job log (at most 2,000,000 bytes)
+and retain complete records within failed-step time windows (at most 16,384 bytes).
+Timestamps select diagnostic text; they do not prove integration. Missing, malformed
+or oversized diagnostics preserve failure but block automatic repair. Raw log hashes
+and byte counts remain evidence; raw logs are not included in public reports.
+Repair recovery also binds the adapter source digest, preventing changed admission
+code from silently reusing earlier authorization. The producer derives execution
+identity from `GITHUB_SHA` and actual Git parents; webhook `merge_commit_sha` can
+be null or stale and is not admission evidence. Scoped synthetic and hosted receipt
+results are recorded in `ACTIONS-INTEGRATION-VALIDATION.json`.
 
 ## Repair and reconciliation
 
