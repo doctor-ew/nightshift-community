@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import fcntl
 import importlib.util
 import os
+import json
 from pathlib import Path
 import subprocess
 import time
@@ -26,7 +27,21 @@ class Packages:
         if self.state['version']!=1 or self.state['project']!=str(self.project) or self.state['task']!=self.task:
             raise ValueError('package_controller_identity_changed')
 
-    def save(self):ops.recovery.atomic(self.path,self.state)
+    def save(self):
+        if len(json.dumps(self.state).encode())>1800000:
+            raise ValueError('package_state_limit:retain_existing_ledger')
+        ops.recovery.atomic(self.path,self.state)
+
+    def safe_git(self,target):
+        metadata=target/'.git'
+        if metadata.is_symlink() or (metadata.exists() and not metadata.is_dir()):
+            raise ValueError('unsafe_package_git')
+        if metadata.exists():
+            for flag,expected in (('--absolute-git-dir',metadata),('--git-common-dir',metadata),('--show-toplevel',target)):
+                value=subprocess.check_output(['git','-C',str(target),'rev-parse',flag],text=True).strip()
+                if (target/value).resolve()!=expected:
+                    raise ValueError('redirected_package_git')
+
 
     @contextmanager
     def lease(self):
@@ -80,7 +95,7 @@ class Packages:
 
     def authorize(self,binding,operator,request):
         if not ops.bounded_text(operator) or not __import__('re').fullmatch(r'[A-Za-z0-9_.-]{1,100}',request):raise ValueError('operator_and_request_required')
-        with self.lease():
+        with self.lease(), self.preparation.lease():
             payload=dict(binding=binding,operator=operator)
             if request in self.state['authorizations']:
                 prior=self.state['authorizations'][request]
@@ -105,11 +120,13 @@ class Packages:
 
     def child(self,key):
         row=self.state['children'][key]
+        self.safe_git(Path(row['workspace']))
         return ops.Operations(row['workspace'],key,self.worker,self.clock)
 
     def usage(self,grant):
         g=self.state['authorizations'][grant]
-        observed={'preparation:'+key:value for key,value in g['preparation_calls'].items()}
+        self.preparation.reload()
+        observed={'preparation:'+key:value for key,value in self.preparation.state['calls'].items()}
         reserved=0
         for key,allocation in g['allocations'].items():
             if key not in self.state['children'] or self.state['children'][key].get('status')=='materializing':
@@ -135,10 +152,11 @@ class Packages:
 
     def materialize(self,child,grant):
         g=self.state['authorizations'][grant];key=child['id']
-        files={}
+        files={};modes={}
         for name in set(child['reads']+child['writes']+[child['plan']]):
             path=ops.safe(self.project,name)
-            if path.is_file():files[name]=path.read_bytes()
+            if path.is_file():
+                files[name]=path.read_bytes();modes[name]=ops.stat.S_IMODE(path.stat().st_mode)
         dependencies={}
         for dep in self.dependencies(child,g['graph']):
             c=self.child(dep);p,context=c.context()
@@ -147,7 +165,8 @@ class Packages:
             dependencies[dep]=dict(review=c.state['results']['review']['digest'],author=c.state['results']['implement']['provenance'],interfaces=exports)
             for interface in exports:
                 name=interface['path']
-                if name in child['reads']:files[name]=ops.safe(c.project,name).read_bytes()
+                if name in child['reads']:
+                    path=ops.safe(c.project,name);files[name]=path.read_bytes();modes[name]=ops.stat.S_IMODE(path.stat().st_mode)
         # Resolve configuration through the same Community routing mechanism.
         routing=ops.load('routing-path').resolve(HERE.parent,self.project)
         files['routing.json']=Path(routing).read_bytes()
@@ -156,49 +175,57 @@ class Packages:
         # Dependency interfaces/provenance are explicit versioned author inputs.
         architecture=p['inputs']['architecture']
         files[architecture]+=('\n\nDeclared package dependencies:\n'+__import__('json').dumps(dependencies,sort_keys=True)+'\n').encode()
+        for name in files:modes.setdefault(name,0o644)
         hashes={name:__import__('hashlib').sha256(data).hexdigest() for name,data in files.items()}
         authority=ops.load('architecture').read(self.project)
         authority_digest=ops.digest(authority)
         row=self.state['children'].get(key)
         target=self.directory/'workspaces'/key
+        if target.exists():self.safe_git(target)
         if row and row.get('status')!='materializing':
             c=self.child(key)
             if ops.digest(ops.load('architecture').read(target))!=row['authority']:
                 raise ValueError('package_architecture_authority_changed')
             if any(a['status'] in ('pending','checkpoint') for a in c.state['attempts']):
-                if hashes!=row['inputs'] or authority_digest!=row['authority']:raise ValueError('pending_package_requires_reconciliation')
+                if hashes!=row['inputs'] or modes!=row['modes'] or authority_digest!=row['authority']:raise ValueError('pending_package_requires_reconciliation')
                 return c
-            changed={name for name in set(hashes)|set(row['inputs']) if hashes.get(name)!=row['inputs'].get(name)}
+            changed={name for name in set(hashes)|set(row['inputs']) if hashes.get(name)!=row['inputs'].get(name) or modes.get(name)!=row['modes'].get(name)}
             if changed.intersection(child['writes']):raise ValueError('external_package_changes_require_adoption')
             if set(row['inputs'])-set(files):raise ValueError('package_input_removal_requires_reconciliation')
             update=row.get('update')
-            if update and update!=hashes:raise ValueError('package_update_requires_reconciliation')
+            if update and update!=dict(hashes=hashes,modes=modes):raise ValueError('package_update_requires_reconciliation')
             for name in changed:
                 dest=ops.safe(target,name)
                 actual=ops.sha(dest) if dest.exists() else None
-                allowed={row['inputs'].get(name)}
-                if update:allowed.add(hashes[name])
-                if actual not in allowed:raise ValueError('package_operator_input_changed:'+name)
+                mode=ops.stat.S_IMODE(dest.stat().st_mode) if dest.exists() else None
+                allowed={(row['inputs'].get(name),row['modes'].get(name))}
+                if update:allowed.add((hashes[name],modes[name]))
+                if (actual,mode) not in allowed:raise ValueError('package_operator_input_changed:'+name)
             if changed:
-                row['update']=hashes;self.save()
+                row['update']=dict(hashes=hashes,modes=modes);self.save()
             for name in changed:
                 dest=ops.safe(target,name);dest.parent.mkdir(parents=True,exist_ok=True)
                 import tempfile
                 fd,temporary=tempfile.mkstemp(prefix='.package-',dir=dest.parent)
                 with os.fdopen(fd,'wb') as stream:stream.write(files[name]);stream.flush();os.fsync(stream.fileno())
-                os.replace(temporary,dest)
+                os.chmod(temporary,modes[name]);os.replace(temporary,dest)
         else:
             if row:
-                if row['inputs']!=hashes or row['authority']!=authority_digest:raise ValueError('materialization_inputs_changed')
+                if row['inputs']!=hashes or row['modes']!=modes or row['authority']!=authority_digest:raise ValueError('materialization_inputs_changed')
             else:
                 if target.exists():raise ValueError('untracked_package_workspace')
-                self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,authority=authority_digest,status='materializing')
+                self.state['children'][key]=dict(workspace=str(target),inputs=hashes,modes=modes,dependencies=dependencies,authority=authority_digest,status='materializing')
                 self.save()
             target.mkdir(parents=True,exist_ok=True)
+            for path in target.rglob('*'):
+                relative=path.relative_to(target)
+                if relative.parts[0]=='.git':continue
+                if path.is_symlink() or (path.is_file() and relative.as_posix() not in set(files)|{'.gitignore'}):
+                    raise ValueError('unapproved_materialization_input')
             for name,data in files.items():
                 dest=ops.safe(target,name)
-                if dest.exists() and dest.read_bytes()!=data:raise ValueError('materialization_content_changed:'+name)
-                dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
+                if dest.exists() and (dest.read_bytes()!=data or ops.stat.S_IMODE(dest.stat().st_mode)!=modes[name]):raise ValueError('materialization_content_changed:'+name)
+                dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data);dest.chmod(modes[name])
             ignore=ops.safe(target,'.gitignore')
             if ignore.exists() and ignore.read_text()!='__pycache__/\n':raise ValueError('materialization_ignore_changed')
             ignore.write_text('__pycache__/\n')
@@ -207,18 +234,22 @@ class Packages:
             subprocess.run(['git','-C',str(target),'add','.'],check=True)
             head=subprocess.run(['git','-C',str(target),'rev-parse','--verify','HEAD'],capture_output=True)
             if head.returncode:
-                subprocess.run(['git','-C',str(target),'-c','user.name=Nightshift','-c','user.email=nightshift@example.invalid','commit','-qm','Package input checkpoint'],check=True)
+                subprocess.run(['git','-C',str(target),'-c','core.hooksPath=/dev/null','-c','commit.gpgSign=false','-c','user.name=Nightshift','-c','user.email=nightshift@example.invalid','commit','-qm','Package input checkpoint'],check=True)
         # Project accepted records verbatim; this is not a new acceptance.
         authority_path=target/'.git/nightshift/architecture.json'
         if authority_path.resolve()!=authority_path.absolute():raise ValueError('unsafe_package_architecture')
         authority_path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
         ops.recovery.atomic(authority_path,authority)
-        self.state['children'][key]=dict(workspace=str(target),inputs=hashes,dependencies=dependencies,authority=authority_digest,status='ready')
+        self.state['children'][key]=dict(workspace=str(target),inputs=hashes,modes=modes,dependencies=dependencies,authority=authority_digest,status='ready')
         self.save();return self.child(key)
 
     def enforce_usage(self,g):
         observed=self.usage(g['id'])
         if observed['unknown_calls']:raise ValueError('unknown_package_usage_requires_reconciliation')
+        preparation=self.preparation.state['calls']
+        preparation_used=dict(calls=len(preparation),seconds=sum(row['seconds'] for row in preparation.values()))
+        if any(preparation_used[key]+sum(a['limit'][key] for a in g['allocations'].values())>g['graph']['aggregate'][key] for key in ('calls','seconds')):
+            raise ValueError('parent_allowance_insufficient_after_preparation')
         if observed['calls']>g['graph']['aggregate']['calls'] or observed['execution_seconds']>g['graph']['aggregate']['seconds']:
             raise ValueError('parent_aggregate_exceeded')
         for key,allocation in g['allocations'].items():
@@ -229,7 +260,8 @@ class Packages:
                 raise ValueError('package_allocation_exceeded:'+key)
 
     def run(self,grant):
-        with self.lease():
+        # Hold preparation authority while spending its reserved child share.
+        with self.lease(), self.preparation.lease():
             g=self.state['authorizations'].get(grant)
             if not g:raise ValueError('package_authorization_required')
             assessed=self.assess()
