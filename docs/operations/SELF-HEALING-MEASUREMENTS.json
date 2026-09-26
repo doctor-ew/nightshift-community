@@ -1,0 +1,83 @@
+{
+  "executor_sha256": "151d56d7f696e6fcf09621137ed09836229639f103e6353c8e43d78c2933673d",
+  "cases": [
+    {
+      "synthetic": true,
+      "case": "baseline",
+      "status": "pending_manual_acceptance",
+      "calls": [
+        [
+          "groom-spec",
+          650
+        ],
+        [
+          "groom-adversarial",
+          760
+        ],
+        [
+          "implement",
+          917
+        ],
+        [
+          "review",
+          1236
+        ]
+      ],
+      "usage": {
+        "calls": 4,
+        "measured_seconds": 0.0010320000001229346,
+        "reserved_unknown_seconds": 0,
+        "seconds": 0.0010320000001229346,
+        "unknown": 0,
+        "request_bytes": 3563
+      },
+      "wall_seconds": 6.24843754199901,
+      "reused": 7,
+      "token_usage": null,
+      "provider_cache_usage": null,
+      "billing": null,
+      "escalation": 0
+    },
+    {
+      "synthetic": true,
+      "case": "repair",
+      "status": "pending_manual_acceptance",
+      "calls": [
+        [
+          "groom-spec",
+          650
+        ],
+        [
+          "groom-adversarial",
+          760
+        ],
+        [
+          "implement",
+          917
+        ],
+        [
+          "implement",
+          1878
+        ],
+        [
+          "review",
+          2166
+        ]
+      ],
+      "usage": {
+        "calls": 5,
+        "measured_seconds": 0.0015267070011759643,
+        "reserved_unknown_seconds": 0,
+        "seconds": 0.0015267070011759643,
+        "unknown": 0,
+        "request_bytes": 6371
+      },
+      "wall_seconds": 7.357830083001318,
+      "reused": 7,
+      "token_usage": null,
+      "provider_cache_usage": null,
+      "billing": null,
+      "escalation": 0
+    }
+  ]
+}

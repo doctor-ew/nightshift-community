@@ -52,3 +52,23 @@ provider token/cache usage, billing, endpoint-specific drift/live QA and install
 activation remain unverified. Synthetic execution timing is not provider latency
 or a cost saving. #11 and roadmap #65 remain open until their full acceptance is
 met. Deployment and shared-service identity remain optional profiles.
+
+## Review and measured run
+
+Independent design/code review approved executor SHA-256
+`151d56d7f696e6fcf09621137ed09836229639f103e6353c8e43d78c2933673d`.
+The reviewer independently authored six passing regressions (39.071 seconds).
+The four author regressions passed in 30.758 seconds. The actual Chromium fixture
+passed all eleven browser checks with four synthetic executable calls.
+
+`SELF-HEALING-MEASUREMENTS.json` records the same executor hash. Baseline: four
+in-process synthetic worker calls, 3,563 packet bytes, 6.248 seconds wall time.
+Fault/repair: five calls, 6,371 packet bytes, 7.358 seconds wall time. Both replays
+reuse seven results without dispatch. These packet bytes exclude transport framing;
+token usage, provider cache usage and billing remain null. No model escalation
+occurred. These measurements establish accounting behavior, not live quality.
+
+Verification checklist: installed prefixes and runtime-neutral roles are unchanged;
+upstream identity remains separate from local state; existing and new fixtures
+cover the operation boundary; no trajectory schema changed; scaffold claims cite
+source files; live readiness and unsupported endpoints remain explicitly unverified.
