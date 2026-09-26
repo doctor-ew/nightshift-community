@@ -37,5 +37,6 @@ exhaustion followed by external adoption without another child implementation,
 unrelated child ledger preservation, and standalone/composed binding equality.
 The generic CRLF preservation fix and acceptance cases are reused from PR #85;
 its separate artifact-drafting authority profile is not required for inline bundles.
-The complete offline suite for this frozen revision is in progress. No full-suite
-result is claimed until its terminal receipt is recorded.
+The complete offline suite finished with 49 passed suites and zero failures.
+Runtime sources remained at `1997b4b`; documentation-only head `284d9c4` was
+recorded during the run. The retained log is `test-output/roadmap-67/full-offline.log`.
