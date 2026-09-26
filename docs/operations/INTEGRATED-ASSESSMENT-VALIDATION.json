@@ -1,0 +1,163 @@
+{
+  "synthetic": true,
+  "typed": true,
+  "replay_provider_calls": 0,
+  "initial_ticket_usage": {
+    "0d1e22bd-1690-47bf-8be5-7dc2ae78fb0b": {
+      "calls": 4,
+      "measured_seconds": 1.55656754100346,
+      "reserved_unknown_seconds": 0,
+      "seconds": 1.55656754100346,
+      "unknown": 0,
+      "request_bytes": 5556,
+      "wall_seconds": 7.867995977401733
+    }
+  },
+  "usage_scope": "exhaustion ticket only",
+  "browser": "153.0.8010.12",
+  "revision": "5800c44dc1d978a85b02197c1cef32c7bf4deac0",
+  "provider_calls": 13,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 4298,
+      "packet_bytes": 1076
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8964,
+      "packet_bytes": 783
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4185,
+      "packet_bytes": 963
+    },
+    {
+      "operation": "review",
+      "request_bytes": 10915,
+      "packet_bytes": 2734
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3895,
+      "packet_bytes": 673
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8975,
+      "packet_bytes": 794
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4187,
+      "packet_bytes": 965
+    },
+    {
+      "operation": "review",
+      "request_bytes": 10929,
+      "packet_bytes": 2748
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4269,
+      "packet_bytes": 1047
+    },
+    {
+      "operation": "review",
+      "request_bytes": 10975,
+      "packet_bytes": 2794
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4289,
+      "packet_bytes": 1067
+    },
+    {
+      "operation": "review",
+      "request_bytes": 10995,
+      "packet_bytes": 2814
+    },
+    {
+      "operation": "review",
+      "request_bytes": 5998,
+      "packet_bytes": 2776
+    }
+  ],
+  "usage": {
+    "046146cb-b146-4ef1-9024-63ab020b6686": {
+      "calls": 8,
+      "measured_seconds": 2.8604462500006775,
+      "reserved_unknown_seconds": 0,
+      "seconds": 2.8604462500006775,
+      "unknown": 0,
+      "request_bytes": 12902,
+      "wall_seconds": 23.23297882080078
+    },
+    "650794e8-0a7a-49e2-96ef-1b343e0c348d": {
+      "calls": 1,
+      "measured_seconds": 0.3720817089997581,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0.3720817089997581,
+      "unknown": 0,
+      "request_bytes": 2776,
+      "wall_seconds": 7.332950115203857
+    }
+  },
+  "provider_tokens": null,
+  "billed_cost": null,
+  "provider_cache_usage": null,
+  "checks": [
+    "normalized settled clarification reuses answer despite rationale changes",
+    "evidence-bound clarification with no dispatch",
+    "reload-retained answer",
+    "per-case observation and evidence",
+    "UI/CLI admission parity",
+    "factory recipe",
+    "explicit bounded supervisor without redispatch",
+    "manual acceptance required",
+    "duplicate resume without dispatch",
+    "explicit acceptance",
+    "source drift",
+    "external adoption without implementation",
+    "failed verification remains failed",
+    "blocked review",
+    "reload persistence",
+    "three failed reviews exhaust bounded repair",
+    "external adoption after exhaustion without Implement",
+    "desktop/mobile rendering without script errors"
+  ],
+  "live_certification": false,
+  "operations_suite": {
+    "revision": "1f16c53239dd06aacde25355bb0786b7ad93bed6",
+    "tests": 155,
+    "passed": true
+  },
+  "final_core_suite": {
+    "revision": "5800c44dc1d978a85b02197c1cef32c7bf4deac0",
+    "tests": 24,
+    "passed": true,
+    "elapsed_seconds": 86.425
+  },
+  "independent_context_review": {
+    "tests": 4,
+    "passed": true,
+    "operations_sha256": "8cb458d15b426e5683f6125134ec72586a6020e17abcf41960efaea15a3bad1a",
+    "single_sample_before_seconds": 5.9947,
+    "single_sample_after_seconds": 2.0918,
+    "identity_probes_before": 59,
+    "identity_probes_after": 10
+  },
+  "integration": {
+    "included_prs": [
+      93,
+      94,
+      95,
+      96,
+      97
+    ],
+    "cancellation_71_integrated": false,
+    "delivery_73_integrated": false,
+    "merged": false
+  }
+}
