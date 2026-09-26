@@ -30,7 +30,7 @@ export function IntakePanel({onPrepared,blocked=false,onBusy=()=>{}}) {
     <label>Source files in scope, one per line<textarea disabled={busy} value={scope} onChange={e=>setScope(e.target.value)} /></label>
     <label>Required behaviors, one per line<textarea disabled={busy} value={requirements} onChange={e=>setRequirements(e.target.value)} /></label>
     <label>Existing test script<input disabled={busy} value={check} onChange={e=>setCheck(e.target.value)} /></label>
-    <label>Test runner<select disabled={busy} value={runner} onChange={e=>setRunner(e.target.value)}><option>python3</option><option>bash</option></select></label>
+    <label>Test runner (bash retains logs only)<select disabled={busy} value={runner} onChange={e=>setRunner(e.target.value)}><option>python3</option><option>node</option><option>bash</option></select></label>
     <label>Project rules file<input disabled={busy} value={rules} onChange={e=>setRules(e.target.value)} /></label>
     <label>Architecture context file<input disabled={busy} value={architecture} onChange={e=>setArchitecture(e.target.value)} /></label>
     <label>Maximum provider calls<input disabled={busy} type="number" min="1" max="64" value={calls} onChange={e=>setCalls(e.target.value)} /></label>
