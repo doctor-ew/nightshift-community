@@ -16,6 +16,7 @@ f=importlib.util.module_from_spec(fixture_spec);fixture_spec.loader.exec_module(
 
 def fixture(root):
     base=f.fixture(root)
+    (root/'scenarios.json').write_text(json.dumps(dict(version=1,cases=[dict(id='R1',requirement='Combine independent functions into a total.',manual=False)])))
     (root/'parent.md').write_text('Combine independent functions into a total.\n')
     children=[]
     for i, name in enumerate(('left','right','integration')):

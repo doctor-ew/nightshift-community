@@ -220,7 +220,7 @@ class Operations:
     load_digest = staticmethod(digest)
 
     def retry_account(self, attempt, category):
-        return load('retry-budget').account(self.directory / (attempt['operation'] + '.retry.json'), attempt['request'], category)
+        return load('retry-budget').account(self.directory / (attempt['operation'] + '.retry.json'), attempt['request'], category, exclusive=True)
 
     def repair_evidence(self, operation):
         gates = ('groom-adversarial',) if operation == 'groom-spec' else ('verify', 'review') if operation == 'implement' else ()
@@ -378,7 +378,7 @@ class Operations:
         routing=load('routing-path').resolve(HERE.parent,self.project)
         return dict(routing_sha256=sha(routing),provider_policy=load('provider-policy').mode(self.project),
                     semantic_settings=load('operation-decisions').configuration(self) if p['reviewer_policy']['semantic_plan'] else None,
-                    executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
+                    executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'),retry_sha256=sha(HERE/'nightshift-retry-budget.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
                     schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'))
 
@@ -592,11 +592,13 @@ class Operations:
                 stream.write(row['text']); stream.flush(); os.fsync(stream.fileno())
             os.replace(tmp,dest)
 
-    def execute(self, grant_id, operation, request):
+    def execute(self, grant_id, operation, request, supervised=False):
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', request): raise ValueError('invalid_request_id')
         with self.lease():
             g=self.state['authorizations'].get(grant_id)
             if not g or operation not in g['operations']: raise ValueError('operation_not_authorized')
+            if supervised and not (g.get('attestation') or {}).get('bounded_repair'):
+                raise ValueError('bounded_repair_authorization_required')
             previous=next((a for a in self.state['attempts'] if a['request']==request),None)
             if previous:
                 if previous['grant']!=grant_id or previous['operation']!=operation: raise ValueError('request_id_conflict')
@@ -629,6 +631,8 @@ class Operations:
                 if operation=='adopt' and (not bounded_text(att.get('identity')) or att['identity']=='unknown' or att.get('provider') not in ('human','claude','codex','local')): raise ValueError('external_author_provenance_required')
                 if operation=='accept' and att.get('accepted') is not True: raise ValueError('manual_acceptance_pending')
                 if operation=='publish' and att.get('publication')!=p['publication']: raise ValueError('explicit_publication_authority_required')
+            if supervised:
+                self.retry_account(dict(operation=operation,request=request),'pending')
             attempt=dict(version=VERSION, request=request, operation=operation, grant=grant_id, binding=assessed['binding'], signature=assessed['signature'], status='pending', started=self.clock(), findings=[], prepared=dict(assessment=assessed,baseline=g['baseline'],baseline_modes=g['baseline_modes'],plan_sha256=g['plan_sha256'],route=route))
             self.state['attempts'].append(attempt); self.save()
             output=self.directory/(request+'.worker.json')

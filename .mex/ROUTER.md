@@ -137,3 +137,16 @@ same controller. `tests/test-work-packages.sh` covers deterministic and independ
 controller regressions; `dashboard/test-packages-browser.mjs` exercises synthetic
 browser composition. Status and remaining acceptance gaps:
 `docs/operations/WORK-PACKAGES.md`. No live certification or activation is implied.
+Supervisor retry admission follow-up: `scripts/nightshift-operation-supervisor.py`
+uses `Operations.execute` to reserve existing retry accounting only after authority
+validation. Exhausted/unknown retained requests stop before workers; success and
+crash replay finalize once. Evidence: `docs/operations/RETRY-ADMISSION.md` and
+`tests/test-operation-supervisor-admission-review.py`. Synthetic only; not activated.
+
+Package isolation follow-up: `scripts/nightshift-package-controller.py` rejects
+redirected Git metadata and unexpected materialization inputs, preserves input
+modes and bounds durable ledger writes. `scripts/nightshift-work-packages.py`
+checks child scenario coverage. Parent usage includes subsequent preparation
+calls. Synthetic evidence: `docs/operations/PACKAGE-HARDENING.md`. The endpoint
+remains an isolated integration workspace pending manual acceptance, not published
+parent source. Older ledgers are retained without implicit migration.

@@ -43,6 +43,8 @@ def validate(project, value, graph_path=None):
         if child['plan'] != expected:
             raise ValueError('package_plan_identity_mismatch')
         plan = ops.plan(project, child['id'])
+        if not set(child['requirements']) <= {case['id'] for case in ops.Operations(project,child['id']).scenarios(plan)}:
+            raise ValueError('package_requirement_cases_missing')
         allowance = ops.limits(child['allowance'])
         if any(plan['aggregate'][key] > allowance[key] for key in allowance):
             raise ValueError('child_plan_exceeds_package_allowance')
@@ -99,6 +101,7 @@ def validate(project, value, graph_path=None):
             path = ops.safe(project, name)
             if not path.exists() and not owner:
                 raise ValueError('package_input_missing:' + name)
+        child['input_modes'] = {name: ops.stat.S_IMODE((project/name).stat().st_mode) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
         child['input_sha256'] = {name: ops.sha(project/name) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
     resolved = [packages[c['id']] for c in ordered['children']]
     return dict(version=VERSION, status='valid', parent=ordered['parent'], parent_sha256=ordered['parent_sha256'],

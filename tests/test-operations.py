@@ -118,15 +118,21 @@ class Operations(unittest.TestCase):
     def test_parallel_calls_charge_sum_not_idle_or_wall(self):
         g=self.grant(['groom-spec'])
         with self.c.lease():
+            # Synchronize reservations before completion; worker durations are
+            # observations, independent of scheduler/fsync overhead in this test.
+            import threading
+            barrier=threading.Barrier(2)
             def run(index,duration):
                 key='parallel-'+str(index);self.c.reserve(g,'groom-spec',key,10,seconds=.2)
-                started=time.monotonic();time.sleep(duration);elapsed=time.monotonic()-started;self.c.finish(key,elapsed)
-                return elapsed
-            started=time.monotonic()
+                barrier.wait(timeout=10)
+                self.c.finish(key,duration)
+                return duration
             with concurrent.futures.ThreadPoolExecutor(2) as pool:
                 one=pool.submit(run,1,.04);two=pool.submit(run,2,.06);total=one.result()+two.result()
-            wall=time.monotonic()-started
-            self.assertAlmostEqual(self.c.usage(g)['seconds'],total);self.assertEqual(self.c.usage(g)['calls'],2);self.assertGreater(total,wall)
+            self.assertAlmostEqual(self.c.usage(g)['seconds'],total)
+            self.assertEqual(self.c.usage(g)['calls'],2)
+            self.assertAlmostEqual(total,.10)
+            self.assertEqual(self.c.usage(g)['unknown'],0)
     def test_publish_explicit_local_remote_and_replay(self):
         with tempfile.TemporaryDirectory() as remote:
             subprocess.run(['git','init','--bare','-q',remote],check=True)
