@@ -33,6 +33,14 @@ if os.environ.get('SYNTHETIC_PACKAGE_BUNDLE') and packet['operation']=='groom-sp
  value['artifacts']['diff']=''.join(difflib.unified_diff(before.splitlines(keepends=True),after.splitlines(keepends=True),fromfile='a/graph.json',tofile='b/graph.json'))
 if os.environ.get('SYNTHETIC_REPAIR') and packet['operation']=='implement' and packet['findings']:
  value['artifacts']['diff']='--- a/app.py\\n+++ b/app.py\\n@@ -1,2 +1,2 @@\\n def answer():\\n-    return 1\\n+    return 2\\n'
+control=os.environ.get('SYNTHETIC_FAILURE_CONTROL')
+if control and Path(control).exists():
+ if packet['operation']=='review':
+  value.update(status='FAIL',reason='Synthetic review finding');value['results'].update(decision='repair',findings=['Synthetic review finding'])
+ if packet['operation']=='implement' and packet['findings']:
+  import difflib
+  before=packet['artifacts']['app.py'];after=before+'# synthetic repair\\n'
+  value['artifacts']['diff']=''.join(difflib.unified_diff(before.splitlines(keepends=True),after.splitlines(keepends=True),fromfile='a/app.py',tofile='b/app.py'))
 if provider=='claude':print(json.dumps(dict(structured_output=value)))
 else:
  key='--output-last-message' if '--output-last-message' in args else '-o'

@@ -71,3 +71,5 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 .intake-panel textarea:focus-visible {outline:2px solid #89c6ab;outline-offset:3px;}
 .intake-panel button {min-height:44px;max-width:100%;white-space:normal;margin:6px 8px 6px 0;padding:9px 14px;background:#1c232d;color:#cdd8e4;border:1px solid #526074;border-radius:7px;}
 .intake-panel pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;padding:12px;background:#141a23;border-radius:6px;}
+
+.operations-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;max-height:28rem;overflow:auto}.operations-panel fieldset{min-width:0}.operations-panel textarea{display:block;box-sizing:border-box;width:100%;max-width:100%}.operations-panel p,.operations-panel label{overflow-wrap:anywhere}
