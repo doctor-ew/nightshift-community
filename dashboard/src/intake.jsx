@@ -1,14 +1,17 @@
 import React, {useEffect,useState} from 'react';
 
-export function IntakePanel({onPrepared}) {
+export function IntakePanel({onPrepared,blocked=false,onBusy=()=>{}}) {
   const [identity,setIdentity]=useState(null),[token,setToken]=useState(''),[source,setSource]=useState('');
   const [scope,setScope]=useState(''),[requirements,setRequirements]=useState(''),[check,setCheck]=useState(''),[runner,setRunner]=useState('python3');
   const [rules,setRules]=useState(''),[architecture,setArchitecture]=useState(''),[operator,setOperator]=useState('');
-  const [calls,setCalls]=useState(12),[seconds,setSeconds]=useState(180),[preview,setPreview]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [calls,setCalls]=useState(12),[seconds,setSeconds]=useState(180),[preview,setPreview]=useState(null),[error,setError]=useState(''),[pending,setPending]=useState(false);
+  const busy=pending||blocked;
+  function setBusy(value){setPending(value);onBusy(value);}
   useEffect(()=>{fetch('/api/intake',{cache:'no-store'}).then(r=>r.json()).then(v=>{setIdentity(v.view?.runtime);setToken(v.token||'');if(v.error)setError(v.error);}).catch(e=>setError(e.message));},[]);
   const lines=value=>value.split('\n').map(x=>x.trim()).filter(Boolean);
   function choices(){return {scope:lines(scope),checks:check.trim()?[{id:'declared-check',argv:[runner,check.trim()]}]:[],requirements:lines(requirements).map((requirement,index)=>({id:'R'+(index+1),requirement,manual:false})),rules:rules.trim(),architecture:architecture.trim(),allowance:{calls:Number(calls),seconds:Number(seconds),wall_seconds:Number(seconds)}};}
   async function submit(action){
+    if(busy)return;
     setBusy(true);setError('');
     try{
       const answering=action==='preview'&&preview?.status==='needs_decision';
