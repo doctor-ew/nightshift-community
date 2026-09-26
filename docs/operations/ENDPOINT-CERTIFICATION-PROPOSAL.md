@@ -10,7 +10,8 @@ release revision.
 
 ## Candidate selection
 
-Pin the final reviewed delivery candidate by full commit ID and retain its exact
+The synthetic topic candidate is `8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e`.
+Retain its exact
 source, test reports, dependency heads and GitHub check results. Retest any changed
 candidate. A topic-branch test cannot certify an eventual integration commit. Before
 live authorization, resolve the exact integration revision and inspect all required

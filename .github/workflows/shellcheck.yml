@@ -33,7 +33,7 @@ jobs:
           python3 ../tests/test-package-authoring-browser.py
           python3 ../tests/test-intake-browser.py
           python3 ../tests/test-operation-cancellation-browser.py
-          python3 ../tests/test-delivery-browser.py
+          NIGHTSHIFT_DELIVERY_BROWSER_INSTALL=1 NIGHTSHIFT_DELIVERY_BROWSER_REPAIR=1 python3 ../tests/test-delivery-browser.py
       - name: Retain synthetic browser evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

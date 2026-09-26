@@ -79,7 +79,7 @@ the original factory deadline and task-wide CI repair ceiling remain unchanged.
 | `branch_published` | Exact commit was observed at the configured push destination |
 | `pr_open` | One owned pull request matches source repository, branch, base and head |
 | `ci_passed` | Required trusted checks passed on a candidate with exact head/base parents |
-| `ci_failed` | A required current check completed with a substantive failure |
+| `ci_failed` | All required current checks completed with success/failure, and at least one failed |
 | `ci_unknown` | Missing, stale, queued, skipped, cancelled or otherwise nonpassing evidence |
 | `integrated` | The host confirms the separately authorized merge |
 
