@@ -249,7 +249,7 @@ class Operations:
         if operation in AI:
             base['route'] = self.route(operation, p)
         if operation=='verify':
-            base['contract'] = self.state['results'].get('groom',{}).get('digest') if self.valid('groom',p,context) else self.state['results'].get('adopt',{}).get('digest')
+            base['contract'] = self.state['results'].get('adopt',{}).get('digest') if self.valid('adopt',p,context) else self.state['results'].get('groom',{}).get('digest')
         if operation == 'review':
             base['implementation'] = self.state['results'].get('implement', {}).get('digest')
         if operation == 'publish':
@@ -321,10 +321,12 @@ class Operations:
             blockers.append('unchanged_failure_requires_repair')
         cap_prior = prior
         implementation = self.state['results'].get('implement', {})
-        if operation == 'review' and implementation.get('external') and self.valid('adopt', p, context):
-            # Explicit adoption scopes review allowance to changed external work;
+        if operation in ('verify', 'review') and implementation.get('external') and self.valid('adopt', p, context):
+            # Explicit adoption scopes verification/review to changed external work;
             # historical failures and identical-failure guards remain intact.
-            cap_prior = [a for a in prior if a.get('prepared', {}).get('assessment', {}).get('dependencies', {}).get('implementation') == implementation.get('digest')]
+            key = 'implementation' if operation == 'review' else 'contract'
+            adopted = implementation['digest'] if operation == 'review' else self.state['results']['adopt']['digest']
+            cap_prior = [a for a in prior if a.get('prepared', {}).get('assessment', {}).get('dependencies', {}).get(key) == adopted]
         if sum(a['status'] == 'failed' for a in cap_prior) >= 3:
             blockers.append('repair_limit_exhausted')
         current = self.valid(operation, p, context)

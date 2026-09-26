@@ -68,8 +68,9 @@ class Interfaces(unittest.TestCase):
         argv=['bash',str(ROOT/'scripts/nightshift-factory.sh'),'ops',*args,'--project',str(self.root)]
         if fish:
             import shlex
-            argv=['fish','-c',' '.join(shlex.quote(x) for x in argv)]
+            argv=['fish','--no-config','-c',' '.join(shlex.quote(x) for x in argv)]
         result=subprocess.run(argv,env=self.env,capture_output=True,text=True,timeout=120)
+        self.assertTrue(result.stdout.strip(), result.stderr)
         return result.returncode,json.loads(result.stdout)
     def test_http_cli_fish_factory_parity_and_duplicate_reservations(self):
         code,a=self.cli('assess','demo','groom-spec',fish=bool(shutil.which('fish')));self.assertEqual(code,0,a)

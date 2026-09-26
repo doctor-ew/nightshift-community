@@ -23,6 +23,8 @@ def run(controller, grant):
     """No grants, implicit adoption, acceptance or publication are created here."""
     c = controller
     c.directory.mkdir(parents=True, exist_ok=True)
+    if c.directory.resolve() != c.directory.absolute():
+        raise ValueError('unsafe_state_directory')
     fd = os.open(c.directory / 'supervisor.lock', os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as lock:
         try:
@@ -94,7 +96,12 @@ def run(controller, grant):
                     c.save()
                     continue
                 failure_class = category(result)
-                accounting = c.retry_account(result, failure_class)
+                accounting_error = None
+                try:
+                    accounting = c.retry_account(result, failure_class)
+                except (OSError, ValueError) as error:
+                    accounting_error = str(error)
+                    accounting = dict(next_action='stop', error=accounting_error)
                 operation = REPAIRS.get(step['operation']) if failure_class == 'substantive' else None
                 decision = dict(failed_request=step['request'], operation=step['operation'], category=failure_class,
                                 binding=result['binding'], signature=result['signature'], findings=result.get('findings', []),
@@ -102,7 +109,9 @@ def run(controller, grant):
                 record['decisions'].append(decision)
                 p, context = c.context()
                 reason = None
-                if not operation or operation not in g['operations']:
+                if accounting_error:
+                    reason = 'retry_accounting_blocked:' + accounting_error
+                elif not operation or operation not in g['operations']:
                     reason = 'explicit_repair_action_required'
                 elif c.clock() >= g['deadline'] or c.corpus() != g['baseline'] or c.modes() != g['baseline_modes'] or c.policy_binding(p) != g['policy_binding']:
                     reason = 'repair_authority_changed_or_expired'
