@@ -59,6 +59,16 @@ class Packages:
         self.preparation.reload()
         g=self.preparation.state['authorizations'].get(grant)
         if not g or g['operations']!=ops.RECIPES['groom']:raise ValueError('decomposition_groom_authorization_required')
+        p=ops.plan(self.project,self.task)
+        ceiling=ops.limits(ops.read(ops.safe(self.project,p['inputs']['spec']))['aggregate'])
+        with self.preparation.lease():
+            g=self.preparation.state['authorizations'][grant]
+            prior=[c for c in self.preparation.state['calls'].values() if c['grant']!=grant]
+            available=dict(calls=ceiling['calls']-len(prior),seconds=ceiling['seconds']-sum(c['seconds'] if c['status']=='finished' else c['reserved_seconds'] for c in prior))
+            if min(available.values())<=0:raise ValueError('parent_preparation_allowance_exhausted')
+            for key in available:g['aggregate'][key]=min(g['aggregate'][key],available[key])
+            g['deadline']=min(g['deadline'],g['created']+ceiling['wall_seconds'])
+            self.preparation.save()
         result=self.preparation.execute(grant,'groom-spec',grant+'.packages-spec')
         if result['status'] not in ('passed','reused'):return dict(status='blocked',result=result)
         p=ops.plan(self.project,self.task)
@@ -106,9 +116,11 @@ class Packages:
                 reserved+=allocation['limit']['seconds'];continue
             c=self.child(key)
             for ident,row in c.state['calls'].items():observed[key+':'+ident]=row
+            unknown=sum(row['reserved_seconds'] for row in c.state['calls'].values() if row['status']!='finished')
             if allocation['status']!='complete':
                 known=sum(row['seconds'] for row in c.state['calls'].values() if row['status']=='finished')
-                reserved+=max(0,allocation['limit']['seconds']-known)
+                reserved+=max(unknown,allocation['limit']['seconds']-known,0)
+            else:reserved+=unknown
         return dict(calls=len(observed),execution_seconds=sum(c['seconds'] for c in observed.values() if c['status']=='finished'),
                     unknown_calls=sum(c['status']!='finished' for c in observed.values()),reserved_seconds=reserved,
                     request_bytes=sum(c['request_bytes'] for c in observed.values()),orchestration_provider_calls=0)
@@ -159,8 +171,22 @@ class Packages:
             changed={name for name in set(hashes)|set(row['inputs']) if hashes.get(name)!=row['inputs'].get(name)}
             if changed.intersection(child['writes']):raise ValueError('external_package_changes_require_adoption')
             if set(row['inputs'])-set(files):raise ValueError('package_input_removal_requires_reconciliation')
+            update=row.get('update')
+            if update and update!=hashes:raise ValueError('package_update_requires_reconciliation')
             for name in changed:
-                dest=ops.safe(target,name);dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(files[name])
+                dest=ops.safe(target,name)
+                actual=ops.sha(dest) if dest.exists() else None
+                allowed={row['inputs'].get(name)}
+                if update:allowed.add(hashes[name])
+                if actual not in allowed:raise ValueError('package_operator_input_changed:'+name)
+            if changed:
+                row['update']=hashes;self.save()
+            for name in changed:
+                dest=ops.safe(target,name);dest.parent.mkdir(parents=True,exist_ok=True)
+                import tempfile
+                fd,temporary=tempfile.mkstemp(prefix='.package-',dir=dest.parent)
+                with os.fdopen(fd,'wb') as stream:stream.write(files[name]);stream.flush();os.fsync(stream.fileno())
+                os.replace(temporary,dest)
         else:
             if row:
                 if row['inputs']!=hashes or row['authority']!=authority_digest:raise ValueError('materialization_inputs_changed')
