@@ -94,7 +94,7 @@ def plan_path(project, task):
 
 def plan(project, task):
     value = read(plan_path(project, task))
-    exact(value, 'version inputs scope checks environment reviewer_policy limits aggregate publication')
+    exact(value, 'version inputs scope checks environment reviewer_policy limits aggregate publication'+(' package_draft' if 'package_draft' in value else ''))
     if value['version'] != VERSION:
         raise ValueError('unsupported_plan_version')
     exact(value['inputs'], 'request spec scenarios rules architecture')
@@ -130,6 +130,9 @@ def plan(project, task):
         exact(value['publication'], 'remote branch')
         if not re.fullmatch(r'[A-Za-z0-9_-]+', value['publication']['remote']) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9/_-]+', value['publication']['branch']) or value['publication']['branch'] in ('main', 'master'):
             raise ValueError('invalid_publication_target')
+    if value.get('package_draft') is not None:
+        selected=load('package-draft').descriptor(project,value)
+        if str(plan_path(project,task).relative_to(project)) in selected['outputs']:raise ValueError('package_draft_parent_plan_overlap')
     return value
 
 
@@ -243,6 +246,7 @@ class Operations:
         base['artifacts'] = {k: a[k] for k in names}
         base['accepted_architecture'] = context['accepted_architecture']
         base['executor_sha256'] = sha(Path(__file__))
+        if p.get('package_draft') is not None:base['package_draft']=load('package-draft').descriptor(self.project,p)
         base['assets'] = {}
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
@@ -377,6 +381,7 @@ class Operations:
     def policy_binding(self,p):
         routing=load('routing-path').resolve(HERE.parent,self.project)
         return dict(routing_sha256=sha(routing),provider_policy=load('provider-policy').mode(self.project),
+                    draft_validator_sha256=sha(HERE/'nightshift-package-draft.py'),package_draft=load('package-draft').descriptor(self.project,p),
                     semantic_settings=load('operation-decisions').configuration(self) if p['reviewer_policy']['semantic_plan'] else None,
                     executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'),retry_sha256=sha(HERE/'nightshift-retry-budget.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
@@ -468,6 +473,7 @@ class Operations:
     def packet(self, operation, assessed, p):
         names = set(p['inputs'].values())
         names.update(self.package_inputs(p))
+        if p.get('package_draft') is not None:names.add(p['package_draft']['template'])
         if operation in ('implement', 'review'):
             names.update(p['scope']); names.update(c['argv'][1] for c in p['checks'])
         data = {name: safe(self.project, name).read_text() for name in sorted(names) if safe(self.project, name).exists()}
@@ -475,6 +481,8 @@ class Operations:
             accepted_architecture=assessed['dependencies']['accepted_architecture'],
             scope=p['scope'], cases=self.scenarios(p) if operation!='groom-spec' else [], provenance=self.provenance(operation), findings=sorted(set(assessed['findings'] + self.repair_findings(operation))), checks=p['checks'],
             verification=self.state['results'].get('verify', {}).get('observations') if operation=='review' else None)
+        if operation=='groom-spec' and p.get('package_draft') is not None:
+            value['package_draft']=load('package-draft').descriptor(self.project,p)
         repair = self.repair_evidence(operation)
         if repair:
             for name, expected in repair.get('evidence', {}).items():
@@ -569,13 +577,13 @@ class Operations:
             if result.returncode: raise ValueError('invalid_patch')
             names = [line.split('\t')[-1] for line in result.stdout.splitlines()]
             if not names or any(n not in allowed for n in names): raise ValueError('patch_outside_authorized_scope')
-            result = subprocess.run(['git','apply','--whitespace=error','-'],input=patch,text=True,capture_output=True,cwd=target)
+            result = subprocess.run(['git','-c','core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol','apply','--whitespace=error','-'],input=patch,text=True,capture_output=True,cwd=target)
             if result.returncode: raise ValueError('patch_does_not_apply')
             changes={}
             for name in names:
                 path=safe(target,name)
                 if not path.is_file(): raise ValueError('removal_requires_separate_authority')
-                changes[name]=dict(before=sha(safe(self.project,name)) if safe(self.project,name).exists() else None, text=path.read_text(), after=sha(path))
+                changes[name]=dict(before=sha(safe(self.project,name)) if safe(self.project,name).exists() else None, text=path.read_bytes().decode('utf-8'), after=sha(path))
             return changes
 
     def integrate(self, changes):
@@ -588,8 +596,8 @@ class Operations:
             mode=stat.S_IMODE(dest.stat().st_mode) & 0o777 if dest.exists() else 0o644
             fd,tmp=tempfile.mkstemp(prefix='.nightshift-write-',dir=dest.parent)
             os.fchmod(fd,mode)
-            with os.fdopen(fd,'w') as stream:
-                stream.write(row['text']); stream.flush(); os.fsync(stream.fileno())
+            with os.fdopen(fd,'wb') as stream:
+                stream.write(row['text'].encode('utf-8')); stream.flush(); os.fsync(stream.fileno())
             os.replace(tmp,dest)
 
     def execute(self, grant_id, operation, request, supervised=False):
@@ -658,8 +666,9 @@ class Operations:
                     result['review']=checked
                     if operation=='review':result['semantic']=load('operation-decisions').run(self,p,grant_id,operation,self.state['results']['verify']['observations'],route)
                     if operation in ('groom-spec','implement'):
-                        allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
+                        allowed=load('package-draft').outputs(self.project,p) if operation=='groom-spec' else p['scope']
                         changes=self.patch(value['artifacts']['diff'],allowed)
+                        if operation=='groom-spec':result['package_draft']=load('package-draft').validate_candidate(self,p,changes)
                     elif value['artifacts']['diff']: raise ValueError('review_cannot_change_source')
                 elif operation=='groom-rules':
                     result['resolved'] = dict(rules=context['artifacts']['rules'], architecture=context['artifacts']['architecture'], accepted=context['accepted_architecture'])
@@ -709,8 +718,9 @@ class Operations:
                     provenance=dict(provider=route['provider'],model=route['model'],identity=call['id']))
         changes={}
         if operation in ('groom-spec','implement'):
-            allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
+            allowed=load('package-draft').outputs(self.project,p) if operation=='groom-spec' else p['scope']
             changes=self.patch(value['artifacts']['diff'],allowed)
+            if operation=='groom-spec':result['package_draft']=load('package-draft').validate_candidate(self,p,changes)
         elif value['artifacts']['diff']:raise ValueError('review_cannot_change_source')
         if operation=='review':result['semantic']=load('operation-decisions').run(self,p,attempt['grant'],operation,self.state['results']['verify']['observations'],route)
         checkpoint=self.directory/(attempt['request']+'.checkpoint.json')
@@ -736,13 +746,15 @@ class Operations:
         p,ctx=self.context()
         if self.policy_binding(p)!=self.state['authorizations'][attempt['grant']]['policy_binding']:raise ValueError('checkpoint_policy_changed')
         if self.dependencies(operation,p,ctx)!=data['assessment']['dependencies']: raise ValueError('checkpoint_dependencies_changed')
+        if operation=='groom-spec' and p.get('package_draft') is not None:
+            if load('package-draft').validate_candidate(self,p,data['changes'])!=result.get('package_draft'):raise ValueError('package_draft_checkpoint_changed')
         self.integrate(data['changes'])
         p,context=self.context()
         if operation=='groom-spec':
             for key in ('spec','scenarios'):
                 path=safe(self.project,p['inputs'][key])
                 if not path.exists() or not path.read_text().strip(): raise ValueError('draft_outputs_missing')
-            result['outputs']={p['inputs'][k]:sha(safe(self.project,p['inputs'][k])) for k in ('spec','scenarios')}
+            result['outputs']={name:sha(safe(self.project,name)) for name in load('package-draft').outputs(self.project,p)}
         result['source']=context['source']
         result.update(version=VERSION, completed_at=self.clock(), operation=operation, dependencies=self.dependencies(operation,p,context), request=attempt['request'], evidence={**result['evidence'],checkpoint.name:sha(checkpoint)})
         result['digest']=digest(result)

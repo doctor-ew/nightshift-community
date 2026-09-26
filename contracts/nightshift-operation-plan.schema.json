@@ -438,6 +438,74 @@
           "additionalProperties": false
         }
       ]
+    },
+    "package_draft": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "slots": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$"
+              }
+            },
+            "template": {
+              "type": "string",
+              "minLength": 1
+            },
+            "aggregate": {
+              "type": "object",
+              "properties": {
+                "calls": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                },
+                "seconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 3600
+                },
+                "wall_seconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 3600
+                }
+              },
+              "required": [
+                "calls",
+                "seconds",
+                "wall_seconds"
+              ],
+              "additionalProperties": false
+            },
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65536
+            }
+          },
+          "required": [
+            "version",
+            "slots",
+            "template",
+            "aggregate",
+            "max_bytes"
+          ]
+        }
+      ]
     }
   },
   "required": [
