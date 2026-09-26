@@ -160,11 +160,13 @@ def authorize_continuation(path, decision, expected_sha256, attempts=3):
             return state
 
 
-def account(path, attempt, category):
+def account(path, attempt, category, exclusive=False):
     with transaction(path, lambda: {
             'version': 1, 'infrastructure_failures': 0, 'substantive_failures': 0,
             'total': 0, 'limits': {'infrastructure': 3, 'substantive': 4, 'total': 12},
             'attempts': {}, 'next_action': 'continue'}) as (state, save):
+        if exclusive and category=='pending' and any(key!=attempt and value=='pending' for key,value in state['attempts'].items()):
+            raise ValueError('retry_accounting_pending:reconcile_existing_request')
         finalizing = state['attempts'].get(attempt) == 'pending' and category != 'pending'
         if attempt in state['attempts'] and not finalizing:
             if state['attempts'][attempt] != category:
