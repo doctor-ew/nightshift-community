@@ -112,9 +112,11 @@ def plan(project, task):
         raise ValueError('declared_checks_required')
     ids = set()
     for check in value['checks']:
-        exact(check, 'id argv')
+        exact(check, 'id argv'+(' adapter' if 'adapter' in check else ''))
+        if 'adapter' in check and check['adapter']!=load('verification').ADAPTER:raise ValueError('verification_adapter_unsupported')
         if not bounded_text(check['id']) or check['id'] in ids or not isinstance(check['argv'], list) or len(check['argv']) != 2 or check['argv'][0] not in ('python3', 'bash'):
             raise ValueError('invalid_test_command')
+        if 'adapter' in check and check['argv'][0]!='python3':raise ValueError('verification_adapter_command_mismatch')
         safe(project, check['argv'][1]); ids.add(check['id'])
     if not isinstance(value['environment'], dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]*', k) or k.startswith(('NIGHTSHIFT_', 'PYTHON', 'LD_', 'DYLD_')) or k in ('PATH', 'HOME', 'TMPDIR', 'BASH_ENV', 'ENV') or not isinstance(v, str) for k, v in value['environment'].items()):
         raise ValueError('invalid_test_environment')
@@ -225,6 +227,9 @@ class Operations:
         source = {k:dict(sha256=v,mode=stat.S_IMODE(safe(self.project,k).stat().st_mode)) if v is not None else None for k,v in files.items() if k not in excluded}
         tests = {c['argv'][1]: sha(safe(self.project, c['argv'][1])) if safe(self.project, c['argv'][1]).exists() else None for c in p['checks']}
         env = dict(declared=p['environment'], python=sys.version, executables={n: sha(shutil.which(n)) for n in ('python3', 'bash') if shutil.which(n)})
+        if any(c.get('adapter') for c in p['checks']):
+            effective=load('controller-recovery').clean_environment();effective.update(p['environment']);effective['NIGHTSHIFT_ROLE_CHILD']='1'
+            env['effective']=effective;env['typed_runtime']=load('verification').identity(effective)
         return p, dict(artifacts=artifacts, source=source, tests=tests, environment=env, accepted_architecture=load('architecture').resolve(self.project))
 
     def route(self, operation, p):
@@ -270,7 +275,10 @@ class Operations:
         base['assets'] = {}
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
-        if operation=='verify':base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+        if operation=='verify':
+            base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+            if any(c.get('adapter') for c in p['checks']):
+                base['assets'].update({name:sha(HERE/name) for name in ('nightshift-verification.py','nightshift-unittest-runner.py','nightshift-controller-recovery.py','nightshift-recovery-exec.py')})
         if load('operation-decisions').selected(self,p,operation):
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
@@ -563,17 +571,47 @@ class Operations:
                 if src.exists():
                     dest = target/name; dest.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, dest)
             env = runner.clean_environment(); env.update(p['environment']); env['NIGHTSHIFT_ROLE_CHILD']='1'
-            for check in p['checks']:
+            for check_index,check in enumerate(p['checks']):
                 remaining = seconds-(time.monotonic()-start)
-                if remaining <= 0: raise ValueError('verification_deadline')
+                if remaining <= 0:observations.append(dict(id=check['id'],argv=check['argv'],exit_code=-1,tests=0,output='',output_sha256=hashlib.sha256(b'').hexdigest(),adapter=check.get('adapter','legacy-log-v1'),reason='verification_deadline'));continue
                 output = target / ('.observation-' + digest(check) + '.log')
-                code = runner.bounded(check['argv'], target, env, remaining, output)
+                receipt=target/('.typed-'+digest(check)+'.json')
+                argv=[check['argv'][0],'-I',str(HERE/'nightshift-unittest-runner.py'),check['argv'][1],str(receipt)] if check.get('adapter') else check['argv']
+                reason=None
+                try:code=runner.bounded(argv,target,env,remaining,output)
+                except (OSError,ValueError,subprocess.SubprocessError) as error:code=-1;reason=str(error)
+                if not output.exists():output.write_bytes(b'')
                 text = output.read_text(errors='replace')
                 counts = re.findall(r'Ran (\d+) tests?\b|\b(\d+) passed\b', text)
                 count = sum(int(a or b) for a,b in counts)
                 count -= sum(int(n) for n in re.findall(r'(?:skipped|expected failures)=(\d+)',text))
                 count = max(0,count)
                 row = dict(id=check['id'], argv=check['argv'], exit_code=code, tests=count, output=text, output_sha256=hashlib.sha256(output.read_bytes()).hexdigest())
+                row.update(adapter=check.get('adapter','legacy-log-v1'),reason=reason)
+                if check.get('adapter'):
+                    typed=load('verification').observation(receipt,code);row['typed']=typed
+                    row['tests']=typed['counts']['passed'] if typed['status']=='passed' and reason is None else 0
+                    row['typed_raw']=receipt.read_text(errors='replace') if receipt.exists() and not receipt.is_symlink() and receipt.stat().st_size<=1000000 else None
+                    row['raw_output']=row['output'];row['raw_output_sha256']=row['output_sha256']
+                    row['output']='Controller-validated typed observation:\n'+json.dumps(typed,sort_keys=True)+'\nRaw process output:\n'+row['raw_output']
+                    row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
+                retained={}
+                self.directory.mkdir(parents=True,exist_ok=True)
+                for artifact in (output,receipt):
+                    if artifact.exists() and not artifact.is_symlink():
+                        fingerprint=sha(artifact);name='verification-'+fingerprint+'.raw';destination=self.directory/name
+                        try:
+                            fd=os.open(destination,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                        except FileExistsError:
+                            if sha(destination)!=fingerprint:raise ValueError('verification_evidence_collision')
+                        else:
+                            with os.fdopen(fd,'wb') as stream,artifact.open('rb') as original:shutil.copyfileobj(original,stream)
+                        retained[name]=fingerprint
+                row['raw_evidence']=retained
+                if len(json.dumps(observations+[row],sort_keys=True).encode())>MAX_REQUEST:
+                    row=dict(id=check['id'],argv=check['argv'],exit_code=code,tests=0,adapter=check.get('adapter','legacy-log-v1'),reason='verification_evidence_too_large',output='Verification evidence exceeds the bounded observation envelope; inspect retained raw evidence.',raw_evidence=retained,unexecuted=[item['id'] for item in p['checks'][check_index+1:]])
+                    row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
+                    observations.append(row);break
                 observations.append(row)
         return observations
 
@@ -690,6 +728,7 @@ class Operations:
                     if result['architecture']['status']!='pass': raise ValueError('architecture_constraints_failed')
                     result['observations']=self.test(p,min(g['deadline']-self.clock(),g['limits'][operation]['wall_seconds']))
                     raw=self.directory/(request+'.tests.json'); recovery.atomic(raw,{'observations':result['observations']}); result['evidence'][raw.name]=sha(raw)
+                    for observation in result['observations']:result['evidence'].update(observation.get('raw_evidence',{}))
                     if any(r['exit_code']!=0 or r['tests']<=0 for r in result['observations']): raise ValueError('failed_or_vacuous_tests')
                 elif operation=='adopt':
                     result['provenance']={k:g['attestation'].get(k,'unknown') for k in ('provider','model','identity')}
