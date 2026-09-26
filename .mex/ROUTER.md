@@ -151,3 +151,5 @@ retains preparation wall phases and evidence coverage before allocating parent w
 time. Evidence and boundaries: `docs/operations/PACKAGE-AUTHORING.md`.
 
 Package composition wall follow-up: later authorizations, including a different operator or graph binding, cannot exceed the earliest retained composition deadline. Idle before the first composition authorization retains the active preparation policy. Sources: `scripts/nightshift-package-controller.py` (`Packages.authorize`), `tests/test-package-composition-window-review.py`, `docs/operations/COMPOSITION-WINDOW.md`. Synthetic evidence only; no live activation.
+
+Guided intake candidate: `scripts/nightshift-intake.py` and `dashboard/src/intake.jsx` prepare bounded source-linked drafts through shared CLI/HTTP APIs; artifact creation is separate from operation authorization. Journals preserve operator files and partial writes. Sources: `docs/operations/GUIDED-INTAKE.md`, `tests/test-intake-review.py`, `tests/test-intake.py`. Initial qualified GitHub/project-Markdown profile; authentication/model readiness and live certification remain unverified.

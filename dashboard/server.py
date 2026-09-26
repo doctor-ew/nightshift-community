@@ -77,6 +77,12 @@ class DashboardServer(ThreadingHTTPServer):
 
 
 
+def intake_module():
+    spec = importlib.util.spec_from_file_location('intake', ROOT / 'scripts/nightshift-intake.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
 def operation_module():
     spec = importlib.util.spec_from_file_location('operations', ROOT / 'scripts/nightshift-operations.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -149,6 +155,18 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
                 self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')
             return
+        if urlsplit(self.path).path == '/api/intake':
+            try:
+                query = parse_qs(urlsplit(self.path).query, strict_parsing=True)
+                if not query:
+                    value = dict(runtime=intake_module().runtime_identity(), project=self.server.project)
+                elif set(query) == {'task'} and len(query['task']) == 1:
+                    value = intake_module().api(self.server.project, dict(action='view',task=query['task'][0]))
+                else: raise ValueError('Invalid intake query')
+                self.reply(200, json.dumps(dict(view=value,token=self.server.approval_token)).encode(), 'application/json')
+            except (ValueError,OSError,KeyError,TypeError,subprocess.SubprocessError) as error:
+                self.reply(409,json.dumps({'error':str(error)}).encode(),'application/json')
+            return
         if urlsplit(self.path).path == '/api/operations':
             try:
                 query = parse_qs(urlsplit(self.path).query, strict_parsing=True)
@@ -192,7 +210,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
+        if self.path not in ('/api/intake', '/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -201,10 +219,14 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin approval required'); return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (16384 if self.path in ('/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (16384 if self.path in ('/api/intake', '/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
+            if self.path == '/api/intake':
+                result = intake_module().api(self.server.project,body)
+                self.reply(200,json.dumps(result).encode(),'application/json')
+                return
             if self.path == '/api/operations':
                 result = operation_module().api(self.server.project, body)
                 self.reply(200, json.dumps(result).encode(), 'application/json')

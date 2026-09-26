@@ -1,15 +1,18 @@
 import React, {useState} from 'react';
+import {IntakePanel} from './intake.jsx';
 
 export function OperationsPanel() {
   const [packages, setPackages] = useState(null);
+  const [intakeBusy, setIntakeBusy] = useState(false);
   const [task, setTask] = useState(''), [data, setData] = useState(null), [token, setToken] = useState('');
-  const [operator, setOperator] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [operator, setOperator] = useState(''), [operationBusy, setBusy] = useState(false), [error, setError] = useState('');
+  const busy = operationBusy || intakeBusy;
   const [authorProvider, setAuthorProvider] = useState(''), [authorModel, setAuthorModel] = useState('');
   const [selected, setSelected] = useState(null), [author, setAuthor] = useState(''), [accepted, setAccepted] = useState(false);
-  async function inspect(clearError = true) {
+  async function inspect(clearError = true, target = task) {
     if (clearError) setError('');
     try {
-      const response = await fetch('/api/operations?task=' + encodeURIComponent(task), {cache:'no-store'});
+      const response = await fetch('/api/operations?task=' + encodeURIComponent(target), {cache:'no-store'});
       const value = await response.json();
       if (!response.ok) throw new Error(value.error || 'Operation assessment unavailable');
       setData(value.view); setToken(value.token);
@@ -68,6 +71,7 @@ export function OperationsPanel() {
   }
   return <section className="workspace operations-panel" aria-label="Engineering operations">
     <h2>Engineering operations</h2>
+    <IntakePanel disabled={operationBusy} onBusy={setIntakeBusy} onReady={async key=>{setData(null);setTask(key);setSelected(null);setPackages(null);await inspect(true,key);}} />
     <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Existing ticket history remains below.</p>
     <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);setPackages(null);}} /></label>
     <button disabled={busy||!task.trim()} onClick={async()=>{setBusy(true);try{await inspect();}finally{setBusy(false);}}}>Assess operations</button>

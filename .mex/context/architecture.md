@@ -83,3 +83,5 @@ Architecture/UX artifacts feed product/spec verification; they do not advance ga
 Sources: `commands/nightshift-help.md`, `commands/nightshift-architecture.md`,
 `commands/nightshift-ux.md`, `commands/nightshift-bmad.md`,
 `commands/nightshift-product.md`, `commands/nightshift-spec.md`.
+
+Guided intake candidate: `scripts/nightshift-intake.py` and `dashboard/src/intake.jsx` prepare bounded source-linked drafts through shared CLI/HTTP APIs; artifact creation is separate from operation authorization. Journals preserve operator files and partial writes. Sources: `docs/operations/GUIDED-INTAKE.md`, `tests/test-intake-review.py`, `tests/test-intake.py`. Initial qualified GitHub/project-Markdown profile; authentication/model readiness and live certification remain unverified.
