@@ -103,7 +103,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data['tickets'], [])
         body=json.dumps({'task':'42','sha256':'unknown'})
         headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
-        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat','/api/tickets/continue','/api/tickets/recovery-assess','/api/tickets/recovery-authorize','/api/tickets/recovery-resume'):
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat','/api/tickets/continue','/api/tickets/recovery-assess','/api/tickets/recovery-authorize','/api/tickets/recovery-resume','/api/tickets/recovery-accept'):
             self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
             wrong=dict(headers,Origin='https://evil.example')
             self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
@@ -254,6 +254,35 @@ class CollectorRaceTests(unittest.TestCase):
             self.assertIsNone(text)
             self.assertIsNotNone(error)
 
+
+class RecoveryAcceptanceTransport(unittest.TestCase):
+    def test_exact_attestation_forwarded_and_malformed_payload_rejected(self):
+        import importlib.util
+        import threading
+        from types import SimpleNamespace
+        spec=importlib.util.spec_from_file_location('acceptance_http',ROOT/'dashboard/server.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        calls=[]
+        def accept(*args,**kwargs):
+            calls.append((args,kwargs));return {'status':'complete'}
+        server=module.DashboardServer('/synthetic-project',0)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            body=dict(task='fixture',sha256='settings',assessment_sha256='a'*64,operator='synthetic operator',attestation=dict(binding='a'*64,cases=[dict(id='manual',case_sha256='b'*64,passed=True,observation='Observed '+'x'*1800,evidence='Local '+'x'*1800)]))
+            headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(server.server_port),'X-Nightshift-Token':server.approval_token}
+            def request(payload, supplied=headers):
+                conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+                conn.request('POST','/api/tickets/recovery-accept',json.dumps(payload),supplied)
+                response=conn.getresponse();status=response.status;response.read();conn.close();return status
+            with patch.object(module,'action_module',return_value=SimpleNamespace(recovery_action=accept)):
+                self.assertEqual(request(body),200)
+                self.assertEqual(calls,[(('/synthetic-project','fixture','settings','recovery-accept','a'*64,'synthetic operator'),{'attestation':body['attestation']})])
+                for malformed in (dict(body,attestation='not an object'),dict(body,extra=True),dict(body,operator=False)):
+                    self.assertEqual(request(malformed),409)
+                self.assertEqual(request(body,dict(headers,Origin='https://example.invalid')),403)
+                self.assertEqual(len(calls),1)
+        finally:
+            server.shutdown();server.server_close();thread.join(5)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -144,6 +144,7 @@ def evidence(project, task):
               'agents/nightshift-recovery-reviewer.md', 'contracts/nightshift-recovery-reviewer.schema.json',
               'scripts/nightshift-provider-policy.py', 'scripts/nightshift-project-context.py',
               'scripts/nightshift-routing-path.py', 'scripts/nightshift-architecture.py']
+    assets += ['scripts/nightshift-manual-acceptance.py','scripts/nightshift-recovery-acceptance.py']
     assets += ['scripts/nightshift-decision-engine.py','scripts/nightshift-recovery-decisions.py',
                'agents/nightshift-decision-reviewer.md','contracts/nightshift-decision-reviewer.schema.json',
                'scripts/nightshift-efficiency.py']
@@ -259,6 +260,11 @@ def verify_checks(value, timeout):
 
 def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
     """One isolated reviewer sees only the obligation; primary answer is withheld."""
+    policies=(value['plan']['policy'],os.environ.get('NIGHTSHIFT_PROVIDER_POLICY','standard'))
+    if any(policy not in ('standard','claude-only') for policy in policies):
+        raise ValueError('decision_reviewer_policy_invalid')
+    effective_policy='claude-only' if 'claude-only' in policies else 'standard'
+    role_child=os.environ.get('NIGHTSHIFT_ROLE_CHILD')
     decision=load('decision-engine');reviewer_id=reviewer_id or 'decision-review-'+uuid.uuid4().hex
     envelope=(decision.independent_envelope(packet,reviewer_id) if mode=='independent' else dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode))
     if len(decision.encoded(envelope))>decision.MAX_BYTES:raise ValueError('decision_review_request_too_large')
@@ -272,7 +278,9 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
     for key in list(env):
         if key.startswith('NIGHTSHIFT_') or key in ('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','OPENAI_API_KEY'):
             env.pop(key)
-    env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file),NIGHTSHIFT_UPDATE_GUARD='1')
+    env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file),NIGHTSHIFT_UPDATE_GUARD='1',
+               NIGHTSHIFT_HOME=str(HERE.parent),NIGHTSHIFT_PROVIDER_POLICY=effective_policy)
+    if role_child is not None:env['NIGHTSHIFT_ROLE_CHILD']=role_child
     with tempfile.TemporaryDirectory(prefix='nightshift-decision-review-') as tmp:
         code=bounded(['bash',str(HERE/'nightshift-agent.sh'),'nightshift-decision-reviewer','--gear','1',
                       '--in',str(request),'--out',str(output),'--auth','subscription'],tmp,env,timeout,output.with_suffix('.log'))
@@ -405,6 +413,8 @@ def action_lock(project, task):
 
 def validate_adopted(project, task, state, record):
     binding=record['recovery_binding']
+    if state['recovery_sessions'][binding].get('status')=='complete':
+        return load('recovery-acceptance').validate(self_module(),project,task,state,binding)
     session=state['recovery_sessions'][binding]
     current_binding(project,task,binding)
     for stage,step in session['steps'].items():
@@ -447,8 +457,14 @@ def summary(session):
                 reason=session.get('reason',''), message='Recovery ' + session['status'] + '; original budgets and failed evidence retained.' + (' '+session['reason'] if session.get('reason') else ''))
 
 
-def operate(project, task, operation='assess', expected='', operator='', runner=None, verifier=None):
+def self_module():
+    from types import SimpleNamespace
+    return SimpleNamespace(**globals())
+
+
+def operate(project, task, operation='assess', expected='', operator='', runner=None, verifier=None, attestation=None):
     if operation == 'assess': return assessment(project, task)
+    if operation == 'accept': return load('recovery-acceptance').accept(self_module(),project,task,expected,operator,attestation)
     if operation not in ('authorize','resume'): raise ValueError('invalid_recovery_operation')
     if not re.fullmatch(r'[0-9a-f]{64}', expected): raise ValueError('recovery_assessment_required')
     compact = runner is None
@@ -608,15 +624,22 @@ def resolve_retained_ref(project, ref):
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('operation',choices=['assess','authorize','resume']);parser.add_argument('ref')
+    parser.add_argument('operation',choices=['assess','authorize','resume','accept']);parser.add_argument('ref')
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--expected',default='')
     parser.add_argument('--operator',default='');parser.add_argument('--verify',action='store_true')
     parser.add_argument('--output')
+    parser.add_argument('--attestation',help='JSON file containing the exact binding and required manual case observations')
     args=parser.parse_args()
     try:
         task=resolve_retained_ref(args.project,args.ref)
         if args.verify and args.operation!='assess':raise ValueError('--verify requires assess')
-        result=assessment(args.project,task,True) if args.verify else operate(args.project,task,args.operation,args.expected,args.operator)
+        attestation=None
+        if args.attestation:
+            if args.operation!='accept':raise ValueError('--attestation requires accept')
+            with open(args.attestation,'rb') as stream:raw=stream.read(12001)
+            if len(raw)>12000:raise ValueError('manual_acceptance_too_large')
+            attestation=json.loads(raw)
+        result=assessment(args.project,task,True) if args.verify else operate(args.project,task,args.operation,args.expected,args.operator,attestation=attestation)
         content=json.dumps(result,indent=2)
         if args.output:
             with open(args.output,'x') as stream:stream.write(content+'\n')
