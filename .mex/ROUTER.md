@@ -151,3 +151,5 @@ retains preparation wall phases and evidence coverage before allocating parent w
 time. Evidence and boundaries: `docs/operations/PACKAGE-AUTHORING.md`.
 
 Optional stage-bound semantic handoffs use complete mapped preparation/review evidence and the existing durable decision engine. Jev remains optional and has no authorization or scheduling authority. Sources: `scripts/nightshift-operation-decisions.py`, `scripts/nightshift-decision-engine.py`, `tests/test-semantic-handoffs.py`, `docs/operations/SEMANTIC-HANDOFFS.md`. Synthetic control-flow evidence does not establish live accuracy or savings.
+
+Semantic cache identity follow-up: evaluator/mapper/configuration-adapter/transport source hashes bind semantic authority and are revalidated with the current task, policy and route. Changed code requires fresh calls within retained budgets; old receipts cannot be relabeled. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-cache-review.py`, `docs/operations/SEMANTIC-CACHE-IDENTITY.md`. Other typed mapping acceptance remains open.
