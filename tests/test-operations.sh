@@ -23,3 +23,5 @@ python3 "$ROOT/tests/test-operation-hitl-additional-review.py"
 python3 "$ROOT/tests/test-semantic-provenance-review.py"
 python3 "$ROOT/tests/test-typed-verification-review.py"
 python3 "$ROOT/tests/test-operation-context-review.py"
+
+python3 "$ROOT/tests/test-semantic-transport-review.py"
