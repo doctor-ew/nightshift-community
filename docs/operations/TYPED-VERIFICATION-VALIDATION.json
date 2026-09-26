@@ -1,0 +1,124 @@
+{
+  "code_revision": "5fd0a3b70d464d025d19b481f221a4c7a3053968",
+  "synthetic": true,
+  "independent_tests": {
+    "count": 14,
+    "seconds": 13.218
+  },
+  "core_tests": {
+    "count": 24,
+    "seconds": 85.791
+  },
+  "temporary_installation": {
+    "typed_profile": true,
+    "seconds": 21.327,
+    "synthetic": true,
+    "revision": "5fd0a3b70d464d025d19b481f221a4c7a3053968",
+    "endpoint": "review_pending_manual_acceptance",
+    "installed_mode": "temporary_symlink",
+    "provider_calls": 4,
+    "requests": [
+      {
+        "operation": "groom-spec",
+        "request_bytes": 3414,
+        "packet_bytes": 676
+      },
+      {
+        "operation": "groom-adversarial",
+        "request_bytes": 6854,
+        "packet_bytes": 760
+      },
+      {
+        "operation": "implement",
+        "request_bytes": 3705,
+        "packet_bytes": 967
+      },
+      {
+        "operation": "review",
+        "request_bytes": 8805,
+        "packet_bytes": 2711
+      }
+    ],
+    "cache_reused_operations": 7,
+    "usage": {
+      "installed": {
+        "calls": 4,
+        "measured_seconds": 1.4110673750037677,
+        "reserved_unknown_seconds": 0,
+        "seconds": 1.4110673750037677,
+        "unknown": 0,
+        "request_bytes": 5114,
+        "wall_seconds": 9.32726001739502
+      }
+    },
+    "live_certification": false,
+    "activated": false
+  },
+  "browser": {
+    "synthetic": true,
+    "typed": true,
+    "browser": "153.0.8010.12",
+    "provider_calls": 4,
+    "replay_provider_calls": 0,
+    "usage": {
+      "ea8710f9-9ebf-49d6-8ce7-55183325ac20": {
+        "calls": 4,
+        "measured_seconds": 1.427038417004951,
+        "reserved_unknown_seconds": 0,
+        "seconds": 1.427038417004951,
+        "unknown": 0,
+        "request_bytes": 5168,
+        "wall_seconds": 7.233317136764526
+      }
+    },
+    "requests": [
+      {
+        "operation": "groom-spec",
+        "request_bytes": 3414,
+        "packet_bytes": 676
+      },
+      {
+        "operation": "groom-adversarial",
+        "request_bytes": 6881,
+        "packet_bytes": 787
+      },
+      {
+        "operation": "implement",
+        "request_bytes": 3705,
+        "packet_bytes": 967
+      },
+      {
+        "operation": "review",
+        "request_bytes": 8832,
+        "packet_bytes": 2738
+      }
+    ],
+    "provider_tokens": null,
+    "provider_cache_usage": null,
+    "billed_cost": null,
+    "checks": [
+      "UI/CLI admission parity",
+      "factory recipe",
+      "explicit bounded supervisor without redispatch",
+      "manual acceptance required",
+      "duplicate resume without dispatch",
+      "explicit acceptance",
+      "source drift",
+      "external adoption without implementation",
+      "failed verification remains failed",
+      "blocked review",
+      "reload persistence",
+      "desktop/mobile rendering without script errors"
+    ],
+    "live_certification": false
+  },
+  "source_hashes": {
+    "scripts/nightshift-operations.py": "6b8399e5788013ab5428c6e27829c03e6f59a5fffcd72609c078cd92c798459d",
+    "scripts/nightshift-verification.py": "c8b8747add02040a10ec2b713da813070506cef6471c61476df5f5ca3017592c",
+    "scripts/nightshift-unittest-runner.py": "04e4f591893c4c89b38c4c76ef95b9fe51569c1b3cd02a1b54195b224cc65488",
+    "tests/test-typed-verification-review.py": "d7cd96f226d50ffbedf4a347053c455ef682174d068debd87516168d15773202"
+  },
+  "live_certification": false,
+  "activated": false,
+  "downstream_acceptance_cancellation_integration": "pending"
+}
