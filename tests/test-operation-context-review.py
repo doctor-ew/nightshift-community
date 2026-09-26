@@ -59,6 +59,8 @@ class ContextReview(unittest.TestCase):
         self.assertEqual(view['status'],'pending_manual_acceptance');self.assertEqual(context.call_count,len(m.OPS));self.assertEqual(len(probes),len(m.OPS))
         report=dict(synthetic=True,view_seconds=elapsed,identity_subprocesses=len(probes),identity_seconds=sum(probes),context_calls=context.call_count)
         print(json.dumps(report),flush=True)
-        Path('/private/tmp/nightshift-context-threading-review.json').write_text(json.dumps(report,indent=2)+'\n')
+        evidence=ROOT/'test-output/operation-context-review.json'
+        evidence.parent.mkdir(parents=True,exist_ok=True)
+        evidence.write_text(json.dumps(report,indent=2)+'\n')
 
 if __name__=='__main__':unittest.main()
