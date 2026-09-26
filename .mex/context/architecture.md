@@ -86,3 +86,9 @@ Sources: `commands/nightshift-help.md`, `commands/nightshift-architecture.md`,
 
 Intake namespace follow-up: bare GitHub references must match independently derived project-origin identity; qualified references retain explicit repository selection. Existing input/context and journal safeguards remain. Sources: `scripts/nightshift-intake.py`, `tests/test-intake-namespace-review.py`, `docs/operations/INTAKE-NAMESPACE.md`. Synthetic evidence only; no runtime activation.
 Operation decision retention: missing referenced question evidence blocks instead of silently disappearing. Current normalized question text reuses settled answers across rationale/options changes and earlier task identities; changed dependency bases remain distinct. Sources: `scripts/nightshift-operations.py`, `tests/test-operation-hitl-additional-review.py`, `docs/operations/DECISION-RETENTION.md`. Synthetic candidate only; no activation.
+
+Review citation normalization: `scripts/nightshift-controller-recovery.py` uses
+`normalize_review_citations` in `scripts/nightshift-decision-engine.py` to resolve
+unambiguous annotated IDs without a model call. Raw responses and strict evidence
+validation remain retained. Tests: `tests/test-decision-reviewer-schema.py`.
+This adapter requires no Beads and does not certify a live provider.
