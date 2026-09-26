@@ -120,6 +120,59 @@ class PackageControllerReview(unittest.TestCase):
         self.assertEqual(usage['orchestration_provider_calls'], 0)
         self.assertEqual(usage['reserved_seconds'], 0)
 
+    def test_changed_import_preserves_operator_child_edits(self):
+        grant = self.authorize()
+        definition = self.c.state['authorizations'][grant]['graph']['children'][0]
+        with self.c.lease():
+            child = self.c.materialize(definition, grant)
+        name = 'left_test.py'
+        operator_bytes = b'# Operator test changes must survive upstream refresh.\n'
+        (child.project/name).write_bytes(operator_bytes)
+        (self.root/name).write_text('# New upstream test input.\n')
+        before = json.loads(json.dumps(self.c.state['children']['left']))
+        with self.c.lease():
+            with self.assertRaises(ValueError):
+                self.c.materialize(definition, grant)
+        self.assertEqual((child.project/name).read_bytes(), operator_bytes)
+        self.assertEqual(self.c.state['children']['left'], before)
+        self.assertEqual(len(self.worker.calls), 2)
+
+    def test_completed_child_retains_standalone_usage_and_blocks_replay(self):
+        grant = self.authorize()
+        self.assertEqual(self.c.run(grant)['status'], 'pending_manual_acceptance')
+        child = self.c.child('left')
+        retained = json.loads(json.dumps(child.state['calls']))
+        calls = list(self.worker.calls)
+        sample = next(iter(retained.values()))
+        cases = [('call-cap', 'package_allocation_exceeded:left'),
+                 ('seconds-cap', 'package_allocation_exceeded:left'),
+                 ('unknown', 'unknown_package_usage_requires_reconciliation')]
+        for case, reason in cases:
+            with self.subTest(case=case):
+                child.state['calls'] = json.loads(json.dumps(retained))
+                row = dict(sample, id='standalone-' + case, grant='standalone',
+                           seconds=0.01, status='finished', reserved_seconds=7)
+                if case == 'call-cap':
+                    for index in range(9 - len(retained)):
+                        child.state['calls']['standalone-' + str(index)] = dict(row, id='standalone-' + str(index))
+                else:
+                    if case == 'seconds-cap':
+                        row['seconds'] = 61
+                    else:
+                        row.update(status='pending', seconds=None)
+                    child.state['calls'][row['id']] = row
+                child.save()
+                retained_bytes = child.path.read_bytes()
+                resumed = m.Packages(self.root, 'demo', self.worker)
+                result = resumed.run(grant)
+                self.assertEqual(result['status'], 'blocked', result)
+                self.assertEqual(result['reason'], reason)
+                self.assertEqual(self.worker.calls, calls)
+                self.assertEqual(child.path.read_bytes(), retained_bytes)
+                if case == 'unknown':
+                    self.assertEqual(result['usage']['unknown_calls'], 1)
+                    self.assertGreaterEqual(result['usage']['reserved_seconds'], 7)
+
     def test_failed_materialization_keeps_reservation_and_can_restart(self):
         grant = self.authorize()
         retained = m.ops.Operations(self.root, 'left', self.worker)
