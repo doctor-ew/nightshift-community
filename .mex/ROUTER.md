@@ -149,3 +149,5 @@ Groom authority writes only the parent specification artifact. Independent chall
 receives schema-bound child evidence. `scripts/nightshift-package-controller.py`
 retains preparation wall phases and evidence coverage before allocating parent wall
 time. Evidence and boundaries: `docs/operations/PACKAGE-AUTHORING.md`.
+
+Package composition wall follow-up: later authorizations, including a different operator or graph binding, cannot exceed the earliest retained composition deadline. Idle before the first composition authorization retains the active preparation policy. Sources: `scripts/nightshift-package-controller.py` (`Packages.authorize`), `tests/test-package-composition-window-review.py`, `docs/operations/COMPOSITION-WINDOW.md`. Synthetic evidence only; no live activation.

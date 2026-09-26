@@ -48,3 +48,5 @@ The validated proof policy allows 1–64 calls per gate, 0–64 repairs and 0–
 ## Registered repair recurrence
 
 The source dispatcher stores canonical registered-artifact signatures per attempt and refuses a signature previously finalized as substantive. Restart, formatting, finding-ID and output-name changes cannot reset admission. Pending and infrastructure outcomes retain their separate handling. This is source-review accounting, separate from proof-call accounting. Sources: `scripts/nightshift-retry-budget.py` (`repair_admission`, `run_dispatch`), `tests/test-repair-dispatch.py`.
+
+Package composition wall follow-up: later authorizations, including a different operator or graph binding, cannot exceed the earliest retained composition deadline. Idle before the first composition authorization retains the active preparation policy. Sources: `scripts/nightshift-package-controller.py` (`Packages.authorize`), `tests/test-package-composition-window-review.py`, `docs/operations/COMPOSITION-WINDOW.md`. Synthetic evidence only; no live activation.
