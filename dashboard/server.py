@@ -149,6 +149,12 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
                 self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')
             return
+        if self.path == '/api/intake':
+            try:
+                value=operation_module().api(self.server.project,dict(action='intake-bootstrap'))
+                self.reply(200,json.dumps(dict(view=value,token=self.server.approval_token)).encode(),'application/json')
+            except (OSError,ValueError,subprocess.SubprocessError) as error:self.reply(409,json.dumps(dict(error=str(error))).encode(),'application/json')
+            return
         if urlsplit(self.path).path == '/api/operations':
             try:
                 query = parse_qs(urlsplit(self.path).query, strict_parsing=True)
@@ -201,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin approval required'); return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (16384 if self.path in ('/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (16384 if self.path in ('/api/operations', '/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))

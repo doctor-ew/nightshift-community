@@ -91,8 +91,8 @@ def request(project, task, value):
             raise ValueError('Invalid superseded decision hash')
         extra['reopen_reason'] = text(extra['reopen_reason'], 4000)
     operation = value.get('continuation', 'resume')
-    if operation not in ('resume', 'repair'):
-        raise ValueError('Continuation must be resume or repair')
+    if operation not in ('resume', 'repair', 'none'):
+        raise ValueError('Continuation must be resume, repair or none')
     provider = value.get('provider', 'auto')
     if provider not in ('auto', 'claude', 'codex', 'local'):
         raise ValueError('Invalid continuation provider')
@@ -217,6 +217,7 @@ def submit(project, task, settings_sha, decision_sha, choice, answer):
         item = next(r for r in data['requests'] if r['sha256'] == decision_sha)
         if data['requests'][-1] is not item:
             raise ValueError('A newer decision exists; answer retained but continuation rejected')
+        if item.get('continuation_operation')=='none':return dict(status='answer_saved',message='Answer saved; no execution authorized.',decision=item)
         previous = item.get('continuation', {})
         if previous.get('status') == 'resumed':
             return dict(status='resumed', message='Answer recorded; continuation was already launched.', decision=item)

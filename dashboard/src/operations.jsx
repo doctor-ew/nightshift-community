@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import {IntakePanel} from './intake.jsx';
 
 export function OperationsPanel() {
   const [packages, setPackages] = useState(null);
@@ -66,7 +67,7 @@ export function OperationsPanel() {
     try {const result=await post({action:data.authorizations[id].attestation?.bounded_repair ? 'supervise' : 'chain',grant:id});if(result.status==='blocked')setError(result.reason||result.supervisor?.reason||'Inspect retained repair evidence.');const failed=result.results?.find(row=>!['passed','reused'].includes(row.status));if(failed)setError(failed.reason||failed.next_action||failed.status);await inspect(false);}
     catch(e){setError(e.message);}finally{setBusy(false);}
   }
-  return <section className="workspace operations-panel" aria-label="Engineering operations">
+  return <><IntakePanel onPrepared={value=>{setTask(value);setData(null);setSelected(null);setPackages(null);}} /><section className="workspace operations-panel" aria-label="Engineering operations">
     <h2>Engineering operations</h2>
     <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Existing ticket history remains below.</p>
     <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);setPackages(null);}} /></label>
@@ -100,5 +101,5 @@ export function OperationsPanel() {
       </div>}
       <details><summary>Retained authorizations and recovery</summary>{Object.values(data.authorizations).map(g=><div key={g.id}><p>{g.id}: {g.operations.join(' → ')}</p><button disabled={busy} onClick={()=>resume(g.id)}>Resume {g.id}</button></div>)}<pre>{JSON.stringify({supervisors:data.supervisors,usage:data.usage,attempts:data.attempts,calls:data.calls},null,2)}</pre></details>
     </>}
-  </section>;
+  </section></>;
 }

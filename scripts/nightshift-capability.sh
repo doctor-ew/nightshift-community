@@ -17,6 +17,14 @@
 #
 # Deliberately NOT set -euo pipefail: probes must be allowed to fail.
 
+# Presence-only admission never invokes a provider or writes a capability cache.
+if [ "${1:-}" = --presence ]; then
+  case "${2:-}" in
+    git|bash|python3|jq|gh|codex|claude|ollama) command -v "$2" >/dev/null 2>&1; exit $? ;;
+    *) exit 64 ;;
+  esac
+fi
+
 # Semantic adapter lookup is pure: no CLI probes, shared cache, or tool execution.
 if [ "${1:-}" = --resolve ]; then
   shift
