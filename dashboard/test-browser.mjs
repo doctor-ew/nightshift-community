@@ -97,7 +97,7 @@ try {
   mkdirSync(resolve(root,'docs/exhausted'),{recursive:true});
   writeFileSync(resolve(root,'docs/exhausted/operations.json'),readFileSync(resolve(root,'docs/demo/operations.json')));
   writeFileSync(resolve(root,'app.py'),'def answer():\n    return 2\n');
-  writeFileSync(resolve(root,'test_app.py'),'import unittest\nfrom app import answer\nclass Test(unittest.TestCase):\n    def test_answer(self): self.assertEqual(answer(),2)\nunittest.main()\n');
+  writeFileSync(resolve(root,'test_app.py'),'import unittest\nfrom app import answer\nclass Test(unittest.TestCase):\n    def test_answer(self): self.assertEqual(answer(),2)\nif __name__=="__main__":unittest.main()\n');
   writeFileSync(resolve(root,'.synthetic-review-failure'),'synthetic bounded review rejection');
   await panel.getByLabel('Task key').fill('exhausted');await assess();
   await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');

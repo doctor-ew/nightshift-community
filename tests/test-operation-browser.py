@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
             if not url.startswith('http://127.0.0.1:'):
                 raise RuntimeError('Synthetic dashboard did not start')
             env.update(NIGHTSHIFT_BROWSER_URL=url, NIGHTSHIFT_BROWSER_PROJECT=str(root))
-            subprocess.run(['node', str(ROOT / ('dashboard/test-packages-browser.mjs' if packages else 'dashboard/test-browser.mjs'))], env=env, check=True, timeout=180)
+            subprocess.run(['node', str(ROOT / ('dashboard/test-packages-browser.mjs' if packages else 'dashboard/test-browser.mjs'))], env=env, check=True, timeout=360 if os.environ.get('NIGHTSHIFT_TYPED_BROWSER')=='1' else 180)
         finally:
             server.terminate()
             server.communicate(timeout=10)

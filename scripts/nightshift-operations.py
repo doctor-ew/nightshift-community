@@ -287,16 +287,16 @@ class Operations:
         row = self.state['results'].get(key, {})
         return row.get('provenance', {'provider': 'unknown', 'model': 'unknown', 'identity': 'unknown'})
 
-    def question_basis(self,dependencies,operation):
+    def question_basis(self,dependencies,operation,context=None):
         basis={k:v for k,v in dependencies.items() if k not in ('decisions','repair_findings','repair_evidence')}
         if operation in ('implement','groom-spec'):
-            _,context=self.context()
+            if context is None:_,context=self.context()
             basis['question_source']=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')}
         return digest(basis)
 
-    def decision_rows(self,operation,dependencies):
+    def decision_rows(self,operation,dependencies,context=None):
         if not any(r['operation']==operation for r in self.state.get('questions',[])):return []
-        basis=self.question_basis(dependencies,operation);rows=[]
+        basis=self.question_basis(dependencies,operation,context);rows=[]
         decisions=load('console-decisions')
         for record in self.state.get('questions',[]):
             if record['operation']!=operation:continue
@@ -376,7 +376,7 @@ class Operations:
             if p['publication']:
                 base['publication_target'] = subprocess.check_output(['git','-C',str(self.project),'remote','get-url','--push',p['publication']['remote']],text=True).strip()
                 base['publication_head'] = subprocess.check_output(['git','-C',str(self.project),'rev-parse','HEAD'],text=True).strip()
-        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base) if r['current'] and r['question'].get('response')]
+        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base,context) if r['current'] and r['question'].get('response')]
         if answers:base['decisions']=answers
         return base
 
@@ -388,7 +388,7 @@ class Operations:
             if row['digest'] != digest({k: v for k, v in row.items() if k != 'digest'}):
                 return False
             dependencies=self.dependencies(operation,p,context)
-            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies)):return False
+            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies,context)):return False
             if row['dependencies'] != dependencies:
                 return False
             if operation=='verify' and not (self.valid('groom',p,context) or self.valid('adopt',p,context)):return False
@@ -413,7 +413,7 @@ class Operations:
         p, context = self.context()
         deps = self.dependencies(operation, p, context)
         blockers = []
-        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps)):blockers.append('operator_decision_required')
+        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps,context)):blockers.append('operator_decision_required')
         required = list(deps['artifacts'])
         if any(context['artifacts'][k] is None for k in required):
             blockers.append('missing_input_artifacts')
@@ -467,7 +467,7 @@ class Operations:
                 if operation in ('groom-adversarial','review'):load('operation-decisions').readiness(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             except (ValueError, OSError) as error:
                 result.update(status='blocked', next_action='repair_inputs', blockers=[str(error)])
-        result['questions']=self.decision_rows(operation,deps)
+        result['questions']=self.decision_rows(operation,deps,context)
         if operation=='accept':result['manual_cases']=[dict(case,case_sha256=digest(case)) for case in self.scenarios(p) if case['manual']]
         return result
 
