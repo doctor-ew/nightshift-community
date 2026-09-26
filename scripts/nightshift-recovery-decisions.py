@@ -155,6 +155,14 @@ def packets(value, verification, gate):
     return result
 
 
+def review_framing(value,packet,mode=None):
+    mode=mode or value.get('decision_readiness',{}).get('semantic_mode','jev')
+    envelope=dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id='decision-review-'+'0'*32,mode='independent' if mode=='independent' else 'exception')
+    raw=engine.encoded(envelope) if mode=='independent' else json.dumps(envelope,sort_keys=True).encode()
+    route=value['reviewer_route']
+    return load('decision-render').render(HERE.parent,raw,route['provider'],route['model'])
+
+
 def readiness(value):
     try:
         data=plan(value);mode=data.get('semantic_mode','jev')
@@ -167,11 +175,13 @@ def readiness(value):
                 if ref['role']=='observation':observed[ref['path']]=max(observed.get(ref['path'],0),ref['end_line'])
         if any(n>1024 for n in observed.values()):raise ValueError('recovery_decision_observation_too_large')
         placeholder=dict(checks=[dict(id=k,exit_code=0,output='X\n'*n,output_sha256=engine.text_hash('X\n'*n)) for k,n in observed.items()])
+        framing=[]
         for gate in KINDS:
             for packet in packets(value,placeholder,gate):
+                framing.append(review_framing(value,packet,mode)['argument_content_bytes'])
                 # Reserve 4 KiB for observed output and transport framing. No truncation.
                 body=(engine.encoded(engine.independent_envelope(packet,'decision-review-'+'0'*32)) if mode=='independent' else engine.request_body(packet,cfg))
                 if len(body)>engine.MAX_BYTES-4096:raise ValueError('decision_request_too_large_preflight')
-        return dict(status='ready',semantic_mode=mode,plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
+        return dict(status='ready',semantic_mode=mode,review_argument_content_bytes=max(framing),review_argument_scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
     except (OSError,ValueError,KeyError,TypeError) as error:
         return dict(status='blocked',reason=str(error),max_request_bytes=engine.MAX_BYTES)
