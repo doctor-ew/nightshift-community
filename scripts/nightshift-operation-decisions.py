@@ -156,11 +156,22 @@ def readiness(controller,plan,observations,operation='review'):
     return dict(settings=cfg,packets=selected)
 
 
+def evaluator_assets():
+    return {name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+        'nightshift-operation-decisions.py','nightshift-decision-engine.py',
+        'nightshift-recovery-decisions.py','nightshift-efficiency.py')}
+
+
+def evaluator_authority(controller,plan,operation,route,assets):
+    return engine.digest(dict(task=controller.task,worktree=str(controller.project),policy=plan['reviewer_policy'],route=route,operation=operation,evaluator_assets=assets))
+
+
 def run(controller,plan,grant,operation,observations,route):
     prepared=readiness(controller,plan,observations,operation)
     if prepared is None:return None
     starts={};tokens={}
-    authority=engine.digest(dict(task=controller.task,worktree=str(controller.project),policy=plan['reviewer_policy'],route=route,operation=operation))
+    assets=evaluator_assets()
+    authority=evaluator_authority(controller,plan,operation,route,assets)
     def escalation_request(packet):
         return dict(version=1,operation='review',binding=engine.digest(packet),artifacts={'semantic-obligation':json.dumps(packet)},scope=[],findings=[],checks=packet['checks'],verification=None)
     def reserve(kind,key,size):
@@ -194,11 +205,14 @@ def run(controller,plan,grant,operation,observations,route):
     for packet in prepared['packets']:
         receipt=evaluator.decide(packet);receipts.append(receipt)
         if receipt['status']!='complete' or receipt['decision']!='yes':raise ValueError('semantic_decision_blocked:'+receipt['reason'])
-    return dict(operation=operation,authority=authority,settings={k:v for k,v in prepared['settings'].items() if k!='key'},receipts=receipts)
+    return dict(operation=operation,authority=authority,evaluator_assets=assets,settings={k:v for k,v in prepared['settings'].items() if k!='key'},receipts=receipts)
 
 
 def validate(controller,plan,record,observations,operation='review'):
     if record.get('operation','review')!=operation:raise ValueError('semantic_handoff_changed')
+    assets=evaluator_assets()
+    if record.get('evaluator_assets')!=assets:raise ValueError('semantic_evaluator_assets_changed')
+    if record['authority']!=evaluator_authority(controller,plan,operation,controller.route(operation,plan),assets):raise ValueError('semantic_evaluator_authority_changed')
     if record['settings'] != configuration(controller): raise ValueError('semantic_configuration_changed')
     selected=packets(controller,plan,observations,operation)
     if len(selected)!=len(record['receipts']):raise ValueError('semantic_receipts_missing')
