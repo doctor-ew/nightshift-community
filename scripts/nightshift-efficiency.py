@@ -108,7 +108,8 @@ class Receipt:
                                config_sha256=digest(encoded(cfg or {})))
         if cfg and 'jev' in cfg:
             self.provenance['endpoint_sha256'] = digest(cfg['jev']['endpoint'].encode())
-        base = Path(os.environ.get('NIGHTSHIFT_EFFICIENCY_DIR', str(Path.home() / '.nightshift' / 'efficiency')))
+        runtime_home = Path(os.environ.get('NIGHTSHIFT_HOME') or str(Path.home() / '.nightshift'))
+        base = Path(os.environ.get('NIGHTSHIFT_EFFICIENCY_DIR', str(runtime_home / 'efficiency')))
         if not base.is_absolute() or '..' in base.parts:
             raise Invalid('RECEIPT_PATH_INVALID')
         fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)

@@ -28,7 +28,7 @@ REVIEW="${DIR}/REVIEW.md"
 DRIFT="${DIR}/DRIFT.md"
 QA="${DIR}/QA.md"
 PREFLIGHT="${DIR}/PREFLIGHT.md"
-STATE_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK" --create)
+STATE_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 TRACKER="${STATE_DIR}/${TASK}.md"
 BD_ID=$(cat "${DIR}/.bd-id" 2>/dev/null || true)
 ```
@@ -138,7 +138,7 @@ RISKS** and the risk must appear under Risk flags. Do not write **READY** over a
 ```bash
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 [ -f "$TRACKER" ] && sed -i '' "s|^[⬜⏳] /nightshift-preflight.*|✅ /nightshift-preflight — pre-deploy checklist (complete) [$TS]|" "$TRACKER"
-if [ -n "$BD_ID" ] && bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
+if [ -n "$BD_ID" ] && bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has bd; then
   bd note "$BD_ID" "preflight: <verdict> — docs/${TASK}/PREFLIGHT.md"
 fi
 ```

@@ -38,7 +38,7 @@ Verify these identifiers in /path/to/repo:
 Before searching any identifier, capture the extraction timestamp and current commit SHA:
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-extractor-meta.sh
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-extractor-meta.sh"
 ```
 
 Read `EXTRACTED_AT:` and `COMMIT_SHA:` from the output and put both in the report header.
@@ -47,7 +47,7 @@ Run this process for **every** identifier. Do not skip any.
 
 ### Tier 0 — Code graph (optional, when available)
 
-If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, start with
+If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, start with
 `mex graph query where-defined <symbol>` or `mex impact <symbol|file>`. Treat mex output as
 already-read source — do not re-open files it already returned. Fall back to Tiers 1–3 for
 anything mex does not answer. When mex is absent this tier is a no-op; skip it silently.

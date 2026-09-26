@@ -68,7 +68,7 @@ schema of unknown object count; or you estimate needing more than ~10 files / ~2
 
 1. Read `docs/<task-key>/SPEC.md` (or the `SPEC-DIGEST.md` handed to you). This is your source
    of truth. No spec → **stop** and return AGENT BLOCKED.
-2. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
+2. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` or `mex impact <symbol|file>` to locate affected files and modules
    before Grep/Read. Treat mex output as already-read source. When mex is absent this is a no-op.
 3. Identify every file, module, and downstream consumer affected. Write it down as an artifact.

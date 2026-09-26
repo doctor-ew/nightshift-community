@@ -34,7 +34,7 @@ PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 CITATION="${TASK_DIR}/${TASK}-citations.jsonl"
 
@@ -259,7 +259,7 @@ extractor inspected" which can only be observed post-hoc.
 ### 6a — Build file_targets + partition claims
 
 ```bash
-SCRIPT="$HOME/.nightshift/scripts/nightshift-claim-cache.sh"
+SCRIPT="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-claim-cache.sh"
 SHARED_CACHE="${TASK_DIR}/.claim-cache.jsonl"
 HEAD_SHA=$(git rev-parse HEAD)
 
@@ -498,8 +498,8 @@ Now that the spec is APPROVED and the citation file is final, produce the two re
 derivatives the downstream stages consume so they pay for the contract, not the rationale:
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-spec-digest.sh "$TASK"
-bash ~/.nightshift/scripts/nightshift-citations-trim.sh "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-spec-digest.sh" "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-citations-trim.sh" "$TASK"
 ```
 
 - `nightshift-spec-digest.sh` writes `docs/<task-key>/SPEC-DIGEST.md` — only the Acceptance Criteria

@@ -70,7 +70,7 @@ silently overwriting it.
 
 ```bash
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
-bash ~/.nightshift/scripts/nightshift-scope-activate.sh "$TASK" \
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-scope-activate.sh" "$TASK" \
   --project "$PROJECT" --spec "$SPEC" || exit 1
 ```
 
@@ -86,7 +86,7 @@ If `$SPEC` missing — hard stop: `"No spec at docs/${TASK}/SPEC.md. Run /nights
 ## Step -1 — Context budget check
 
 ```bash
-CTX_RC=0; bash ~/.nightshift/scripts/nightshift-context-check.sh "implement" "$TASK" || CTX_RC=$?
+CTX_RC=0; bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-context-check.sh" "implement" "$TASK" || CTX_RC=$?
 if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 ```
 
@@ -112,9 +112,9 @@ Seal the approved spec and public scenario artifact under the bot identity, then
 trimmed citations from the sealed spec.
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-tdd-spec-lock.sh "$TASK"
-bash ~/.nightshift/scripts/nightshift-spec-digest.sh "$TASK"
-bash ~/.nightshift/scripts/nightshift-citations-trim.sh "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-tdd-spec-lock.sh" "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-spec-digest.sh" "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-citations-trim.sh" "$TASK"
 ```
 
 - `SPEC_LOCK_SKIPPED: SPEC.md not found` → block; approved inputs are required.
@@ -233,7 +233,7 @@ Already-fixed-upstream exit:
 When required deterministic cases exist, with the failing tests written and confirmed RED, seal them **before** writing fix code:
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-tdd-red-lock.sh "$TASK"
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-tdd-red-lock.sh" "$TASK"
 ```
 
 - `RED_LOCK_SHA:` → tests sealed under `nightshift-bot@local`; SHA recorded in `.locks`.
@@ -371,9 +371,9 @@ only permitted feedback, and re-run. After **3 failures on the same test**, stop
 - **Supervised:** escalate to the engineer — do not attempt a 4th fix.
 - **Autonomous:** spend the retry budget, then exhaust:
   ```bash
-  N=$(bash ~/.nightshift/scripts/nightshift-retry-increment.sh "$TASK" RETRY_IMPLEMENT | tail -1)
+  N=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-increment.sh" "$TASK" RETRY_IMPLEMENT | tail -1)
   if [ "$N" -ge 3 ]; then
-    bash ~/.nightshift/scripts/nightshift-retry-exhaust.sh "$TASK" implement "3 build failures on the same test"
+    bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-exhaust.sh" "$TASK" implement "3 build failures on the same test"
     # return Step 9 contract status:"FAIL"
   fi
   ```
@@ -392,11 +392,11 @@ Playwright (`nightshift-pw.sh` returns `PW_SKIPPED` → treated as pass).
 PW_SPECS=$(grep -E '^\| `[^`]+`' "$SPEC" | sed -E 's/^\| `([^`]+)`.*/\1/' \
   | grep -E '\.spec\.(t|j)sx?$|/e2e/|/tests?/.*\.spec\.' || true)
 
-DETECT=$(bash ~/.nightshift/scripts/nightshift-pw.sh "$TASK" --detect | grep -oE 'PW_PRESENT: (true|false)')
+DETECT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --detect | grep -oE 'PW_PRESENT: (true|false)')
 if [ "$DETECT" = "PW_PRESENT: true" ] && [ -n "$PW_SPECS" ]; then
   # Pass the ticket's spec paths as the run target (space-joined glob).
   ONLY=$(echo "$PW_SPECS" | tr '\n' ' ' | xargs)
-  E2E=$(bash ~/.nightshift/scripts/nightshift-pw.sh "$TASK" --run --only "$ONLY" --label impl-e2e)
+  E2E=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --run --only "$ONLY" --label impl-e2e)
   echo "$E2E"
   # PW_FAIL here is a build failure: the feature's own E2E does not pass. Fix within scope and
   # re-run (supervised), or fold into the retry budget exactly like a unit-test failure (autonomous).
