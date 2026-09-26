@@ -33,6 +33,7 @@ jobs:
           python3 ../tests/test-package-authoring-browser.py
           python3 ../tests/test-intake-browser.py
           python3 ../tests/test-operation-cancellation-browser.py
+          python3 ../tests/test-delivery-browser.py
       - name: Retain synthetic browser evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -49,6 +50,8 @@ jobs:
             test-output/intake-browser/report.json
             test-output/cancellation-browser/*.png
             test-output/cancellation-browser/report.json
+            test-output/delivery-browser/*.png
+            test-output/delivery-browser/report.json
           retention-days: 30
       - name: Run offline eval harness
         run: bash evals/run-tests.sh

@@ -171,3 +171,5 @@ HTTP evaluation through a trusted source-path entry point, avoiding unimportable
 multiprocessing targets. Actual synthetic CLI/browser evidence and boundaries:
 `scripts/nightshift-efficiency.py`, `tests/test-semantic-transport-review.py`,
 `docs/operations/SEMANTIC-LAUNCHER.md`. No live endpoint certification is claimed.
+
+Reviewed delivery composes explicit commit, branch, PR and CI actions through the shared controller. Durable effect intent, exact remote identity, trusted CI checks, inherited cancellation and existing bounded repair authority remain deterministic. Sources: `scripts/nightshift-delivery.py`, `scripts/nightshift-delivery-compose.py`, `scripts/nightshift-delivery-repair.py`, `docs/operations/REVIEWED-DELIVERY.md`. Candidate only; endpoint certification and activation remain separate under `docs/operations/ENDPOINT-CERTIFICATION-PROPOSAL.md`.

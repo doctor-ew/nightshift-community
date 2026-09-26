@@ -19,9 +19,10 @@ def category(attempt):
     return 'unknown'
 
 
-def run(controller, grant):
+def run(controller, grant, trigger=None):
     """No grants, implicit adoption, acceptance or publication are created here."""
     c = controller
+    record_key=grant if trigger is None else grant+'.ci.'+trigger
     c.directory.mkdir(parents=True, exist_ok=True)
     if c.directory.resolve() != c.directory.absolute():
         raise ValueError('unsafe_state_directory')
@@ -41,13 +42,19 @@ def run(controller, grant):
             allowed = g['operations']
             if any(op in allowed for op in ('adopt', 'accept', 'publish')):
                 raise ValueError('repair_recipe_must_end_at_review')
-            record = c.state.setdefault('supervisors', {}).setdefault(grant, dict(version=1, steps=[], decisions=[], queue=list(allowed), status='running'))
+            if trigger is not None:
+                repair=c.state.get('delivery_repair',{})
+                if repair.get('trigger')!=trigger or repair.get('grant')!=grant or repair.get('kind')!='delivery-ci':raise ValueError('ci_repair_trigger_not_authorized')
+                c.cancellation_check(grant)
+                if c.clock()>=g['deadline'] or c.corpus()!=g['baseline'] or c.modes()!=g['baseline_modes']:raise ValueError('repair_authority_changed_or_expired')
+                if allowed!=list(c.recipes_factory()):raise ValueError('ci_repair_requires_factory_authority')
+            record = c.state.setdefault('supervisors', {}).setdefault(record_key, dict(version=1, grant=grant, trigger=trigger, steps=[], decisions=[], queue=['implement','verify','review'] if trigger else list(allowed), status='running'))
             c.save()
         # The original grant, operation caps and transition ceiling survive restart.
         while True:
             with c.lease():
                 g = c.state['authorizations'][grant]
-                record = c.state['supervisors'][grant]
+                record = c.state['supervisors'][record_key]
                 if record['status'] != 'running':
                     view = c.view()
                     current = all(c.assess(op)['status'] == 'current' for op in g['operations']) if record['status'] == 'passed' else False
@@ -59,13 +66,13 @@ def run(controller, grant):
                         record['reason'] = 'changed_evidence_requires_assessment'
                     c.save()
                     return dict(status=record['status'], supervisor=record, view=c.view())
-                if len(record['steps']) >= 64:
+                if sum(len(row['steps']) for key,row in c.state['supervisors'].items() if key==grant or row.get('grant')==grant) >= 64:
                     record.update(status='blocked', reason='supervisor_transition_limit')
                     c.save()
                     continue
                 if not record['steps'] or record['steps'][-1].get('completed'):
                     operation = record['queue'][0]
-                    request = 'supervise-' + c.load_digest([grant, len(record['steps']), operation])[:48]
+                    request = 'supervise-' + c.load_digest([record_key, len(record['steps']), operation])[:48]
                     record['steps'].append(dict(operation=operation, request=request))
                     c.save()
                 step = dict(record['steps'][-1])
@@ -73,7 +80,7 @@ def run(controller, grant):
                 result = c.execute(grant, step['operation'], step['request'], True)
             except (OSError, ValueError) as error:
                 with c.lease():
-                    record = c.state['supervisors'][grant]
+                    record = c.state['supervisors'][record_key]
                     # A completed worker or partial integration keeps its request.
                     attempt = next((a for a in c.state['attempts'] if a['request'] == step['request']), None)
                     if attempt and attempt['status'] in ('pending', 'checkpoint'):
@@ -83,7 +90,7 @@ def run(controller, grant):
                 continue
             with c.lease():
                 g = c.state['authorizations'][grant]
-                record = c.state['supervisors'][grant]
+                record = c.state['supervisors'][record_key]
                 if result['status'] in ('pending', 'checkpoint'):
                     return dict(status='blocked', reason='reconcile_existing_request', supervisor=record, view=c.view())
                 record['steps'][-1].update(completed=True, status=result['status'])

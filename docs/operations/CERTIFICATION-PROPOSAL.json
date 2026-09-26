@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "authorized": false,
+  "status": "prepared_candidate_proposal_pending_exact_final_candidate_and_assessment",
+  "input": {
+    "path": "docs/operations/CERTIFICATION-PRACTICE.md",
+    "sha256": "c01eb1563ad205a4931243e6a3d6edc3a0a75fd6e4951a45430b362ddfa2613d",
+    "references_to_exercise": [
+      "spec:<practice-path-with-spaces>",
+      "<practice-path-with-spaces>"
+    ]
+  },
+  "endpoint": "review_pending_manual_acceptance",
+  "publication": null,
+  "semantic_handoffs": false,
+  "aggregate_proposal": {
+    "calls": 12,
+    "seconds": 1200,
+    "wall_seconds": 1800
+  },
+  "per_ai_operation_proposal": {
+    "calls": 4,
+    "seconds": 240
+  },
+  "deterministic_check_seconds": 120,
+  "automatic_repair_attempts_per_gate": 3,
+  "auth": "subscription_only",
+  "paid_api_fallback": false,
+  "provider_configuration": "Retain configurable public Community routing; verify availability separately.",
+  "candidate_revision": null,
+  "assessment_binding": null,
+  "grant": null,
+  "installation": "new isolated runtime, Claude adapter, Codex adapter and bin targets; preserve existing launcher",
+  "forbidden": [
+    "real_ticket_restart",
+    "existing_allowance_reset",
+    "global_launcher_replacement",
+    "merge",
+    "deployment"
+  ],
+  "release_certification": "A topic candidate cannot certify a later integrated revision."
+}

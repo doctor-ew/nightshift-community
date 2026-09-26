@@ -281,7 +281,11 @@ class Operations:
     def repair_evidence(self, operation):
         gates = ('groom-adversarial',) if operation == 'groom-spec' else ('verify', 'review') if operation == 'implement' else ()
         latest = next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status'] == 'failed'), None)
+        ci=self.state.get('delivery_repair') if operation=='implement' else None
+        if ci and not any(a is latest for a in self.state['attempts'][ci['attempt_position']:]):latest=ci
         return {k: latest.get(k, {}) for k in ('request', 'binding', 'signature', 'findings', 'evidence')} if latest else None
+
+    def recipes_factory(self):return RECIPES['factory']
 
     def repair_findings(self, operation):
         evidence = self.repair_evidence(operation)
@@ -396,6 +400,7 @@ class Operations:
             if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies,context)):return False
             if row['dependencies'] != dependencies:
                 return False
+            if operation=='review' and not self.valid('implement',p,context):return False
             if operation=='verify' and not (self.valid('groom',p,context) or self.valid('adopt',p,context)):return False
             required = ('adopt',) if operation=='implement' and row.get('external') else DEPS[operation]
             if any(not self.valid(k, p, context) for k in required):
@@ -616,6 +621,8 @@ class Operations:
             for name, expected in repair.get('evidence', {}).items():
                 if sha(self.directory / name) != expected:
                     raise ValueError('stale_repair_evidence')
+            ci=next((name for name in repair.get('evidence',{}) if name.startswith('delivery-ci-')),None)
+            if ci:value['failed_ci']=read(self.directory/ci)
             tests = next((name for name in repair.get('evidence', {}) if name.endswith('.tests.json')), None)
             if tests:
                 value['failed_verification'] = read(self.directory / tests)['observations']
@@ -987,6 +994,7 @@ def factory(project, task):
 def api(project, body):
     if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer','resolution'}:
         raise ValueError('invalid_operation_request')
+    if isinstance(body.get('action'),str) and body['action'].startswith('delivery-'):return load('delivery').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('intake-'):return load('intake').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
         package_body=dict(body,action=body['action'][len('packages-'):])
