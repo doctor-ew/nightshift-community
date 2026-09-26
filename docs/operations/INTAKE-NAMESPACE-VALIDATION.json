@@ -1,0 +1,99 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "cases": [
+    {
+      "source": "spec:request.md",
+      "task": "spec-f4d12eaf709278ff",
+      "binding": "f20265a90dc991eaf6bb7bcfb2427b73a90ca51edcdf8ee4f11c5bc789760f4b",
+      "provider_calls": 4,
+      "bidirectional_busy_assertions": true,
+      "usage": {
+        "a37b4311-a352-4dd8-a978-66a343408d25": {
+          "calls": 4,
+          "measured_seconds": 1.37738183399415,
+          "reserved_unknown_seconds": 0,
+          "seconds": 1.37738183399415,
+          "unknown": 0,
+          "request_bytes": 4158,
+          "wall_seconds": 7.05413818359375
+        }
+      }
+    },
+    {
+      "source": "gh:synthetic/disposable#777",
+      "task": "gh-a856e41da0e2bb82",
+      "binding": "f00380f475ea4b11fd25adbc4fcdcf7dc2bf35722b5ea03105d5ebea0f69aa14",
+      "provider_calls": 4,
+      "bidirectional_busy_assertions": true,
+      "usage": {
+        "5774fec2-6fb4-40a9-8ab9-f45d1d8056ff": {
+          "calls": 4,
+          "measured_seconds": 1.3792834150008275,
+          "reserved_unknown_seconds": 0,
+          "seconds": 1.3792834150008275,
+          "unknown": 0,
+          "request_bytes": 4118,
+          "wall_seconds": 6.991069078445435
+        }
+      }
+    }
+  ],
+  "provider_calls": 8,
+  "preview_provider_calls": 0,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3534,
+      "packet_bytes": 796
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 7001,
+      "packet_bytes": 907
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3801,
+      "packet_bytes": 1063
+    },
+    {
+      "operation": "review",
+      "request_bytes": 7486,
+      "packet_bytes": 1392
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3524,
+      "packet_bytes": 786
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6991,
+      "packet_bytes": 897
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3791,
+      "packet_bytes": 1053
+    },
+    {
+      "operation": "review",
+      "request_bytes": 7476,
+      "packet_bytes": 1382
+    }
+  ],
+  "live_certification": false,
+  "code_revision": "bfec18e06e94d4cff98f7d86ba5ccc713d5cb262",
+  "integration_base": "f870a83677e166b35ff2a00766293f238e000ea4",
+  "intake_sha256": "937f56c0a55ca42ed6ff22793127ef265fe1075a97d035482e24b951a0834770",
+  "browser_log_sha256": "b5d88b7e9b130e5a982721d037ca724ab742bf08dc2198369e19cb3aa24f88fc",
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "replay_calls": null,
+  "replay_note": "Not measured by this browser fixture; existing convergence suite covers duplicate requests.",
+  "independent_tests": 9,
+  "convergence_tests": 15,
+  "existing_tests": 17
+}

@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {execFileSync,spawnSync} from 'node:child_process';
+import {existsSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright';
+const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..'),root=process.env.NIGHTSHIFT_BROWSER_PROJECT,url=process.env.NIGHTSHIFT_BROWSER_URL,artifacts=process.env.NIGHTSHIFT_BROWSER_ARTIFACTS;
+mkdirSync(artifacts,{recursive:true});
+const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const panel=page.getByRole('region',{name:'Engineering operations'});
+const response=action=>page.waitForResponse(r=>r.url().endsWith('/api/operations')&&r.request().postDataJSON()?.action===action,{timeout:60000});
+try{
+ await page.goto(url);await panel.getByLabel('Task key').fill('demo');
+ const viewed=page.waitForResponse(r=>r.url().includes('/api/operations?task='));await panel.getByRole('button',{name:'Assess operations',exact:true}).click();await viewed;
+ await panel.getByLabel('Operator identity',{exact:true}).fill('synthetic-cancellation-operator');
+ await panel.getByRole('button',{name:'Select groom-spec',exact:true}).click();
+ const running=response('chain');await panel.getByRole('button',{name:'Authorize and run selected operations',exact:true}).click();
+ const deadline=Date.now()+15000;while(!existsSync(resolve(root,'.synthetic-calls.jsonl'))&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));
+ assert(existsSync(resolve(root,'.synthetic-calls.jsonl')),'synthetic provider did not start');
+ const cancelled=response('cancel');await panel.getByRole('button',{name:'Request cancellation of active operations',exact:true}).click();
+ const cancel=await(await cancelled).json();assert.equal(cancel.status,'cancellation_requested');
+ const completed=await(await running).json();assert.equal(completed.results[0].status,'pending');
+ const attempt=completed.view.reconciliation[0],grant=completed.view.authorizations[attempt.grant];
+ assert.equal(completed.view.usage[grant.id].unknown,1);assert.equal(completed.view.usage[grant.id].calls,1);
+ await panel.getByText('Retained authorizations and recovery',{exact:true}).click();
+ const preserving=response('reconcile');await panel.getByRole('button',{name:'Preserve cancelled unknown execution '+attempt.request,exact:true}).click();
+ const preserved=await(await preserving).json();assert.equal(preserved.result.status,'cancelled_unknown');assert.equal(preserved.provider_calls,0);
+ const argv=['bash',resolve(repo,'scripts/nightshift-factory.sh'),'ops','run','demo','groom-spec','--grant',grant.id,'--request',attempt.request,'--project',root];
+ const replay=spawnSync(argv[0],argv.slice(1),{env:process.env,encoding:'utf8'});assert.notEqual(replay.status,0);assert.match(JSON.parse(replay.stdout).reason,/operation_cancelled/);
+ const requests=readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse);assert.equal(requests.length,1);
+ await page.reload();await panel.getByLabel('Task key').fill('demo');const reload=page.waitForResponse(r=>r.url().includes('/api/operations?task='));await panel.getByRole('button',{name:'Assess operations',exact:true}).click();const state=(await(await reload).json()).view;assert.equal(state.usage[grant.id].unknown,1);
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:resolve(artifacts,'mobile.png'),fullPage:true});assert.deepEqual(errors,[]);
+ const report={synthetic:true,revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),browser:browser.version(),requests,provider_calls:1,replay_calls:0,usage:state.usage,cancellation:cancel.status,reconciliation:preserved.result.status,provider_tokens:null,billed_cost:null,live_certification:false};writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
+}finally{await browser.close();}

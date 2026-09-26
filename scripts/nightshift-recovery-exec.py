@@ -10,26 +10,29 @@ import time
 
 def run(parent, seconds, output, argv):
     deadline=time.monotonic()+seconds
-    child=subprocess.Popen(argv,stdin=subprocess.DEVNULL,start_new_session=True)
+    child=None
     stopping=False
     def stop(_signum, _frame):
         nonlocal stopping
         stopping=True
     signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
     try:
+        if stopping or os.getppid()!=parent or time.monotonic()>=deadline:return 124
+        child=subprocess.Popen(argv,stdin=subprocess.DEVNULL,start_new_session=True)
         while child.poll() is None:
             if stopping or os.getppid()!=parent or time.monotonic()>=deadline or Path(output).stat().st_size>2_000_000:
                 return 124
             time.sleep(.05)
         return child.returncode
     finally:
-        try:os.killpg(child.pid,signal.SIGTERM)
-        except ProcessLookupError:pass
-        try:child.wait(timeout=2)
-        except subprocess.TimeoutExpired:pass
-        try:os.killpg(child.pid,signal.SIGKILL)
-        except ProcessLookupError:pass
-        child.wait()
+        if child is not None:
+            try:os.killpg(child.pid,signal.SIGTERM)
+            except ProcessLookupError:pass
+            try:child.wait(timeout=2)
+            except subprocess.TimeoutExpired:pass
+            try:os.killpg(child.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+            child.wait()
 
 
 if __name__=='__main__':

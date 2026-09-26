@@ -1,0 +1,13 @@
+{
+  "revision": "8af9fb50167c9b2eaa56dc533b6061fb3aec8f46",
+  "helper_sha256": "6ea698b90303b213f0af94947b8d854dadac7705416216b7d1b88ff44b39b8e3",
+  "independent_tests": 9,
+  "passed": true,
+  "elapsed_seconds": 2.874,
+  "negative_control_failures": 5,
+  "existing_supervisor_regression_passed": true,
+  "provider_calls": 0,
+  "request_bytes": 0,
+  "live_certification": false,
+  "full_issue_71_acceptance": false
+}
