@@ -5,34 +5,34 @@
     {
       "source": "spec:request.md",
       "task": "spec-f4d12eaf709278ff",
-      "binding": "cbad9021acdc18ac65aee1c2d7d54cfe9ccabfa1abff86afc9d4c476c0557be8",
+      "binding": "16b93104dbfa490455874aed4908230e0e1d9080f97f331d79621c452e032f92",
       "provider_calls": 4,
       "usage": {
-        "c2934c77-a234-457d-84a6-57476240757b": {
+        "0ad1b620-6bc9-4d81-8e05-7ef3148cc134": {
           "calls": 4,
-          "measured_seconds": 1.4812276659977215,
+          "measured_seconds": 1.4288024580055207,
           "reserved_unknown_seconds": 0,
-          "seconds": 1.4812276659977215,
+          "seconds": 1.4288024580055207,
           "unknown": 0,
           "request_bytes": 4158,
-          "wall_seconds": 5.62899374961853
+          "wall_seconds": 5.553718090057373
         }
       }
     },
     {
       "source": "gh:synthetic/disposable#777",
       "task": "gh-a856e41da0e2bb82",
-      "binding": "de1c15f9597b29d64c35780b5d44cf3e85abe75d4dd2ffee1ef66bd6812882ca",
+      "binding": "ceb04d3a933a51cf8a221be6152885b97dc2a22cbfae5b0d3c1eaac521f2deec",
       "provider_calls": 4,
       "usage": {
-        "1d5c0bbf-4cc3-4ffd-a310-be596848b90d": {
+        "741ec233-c351-426a-a6c3-f10d527450d5": {
           "calls": 4,
-          "measured_seconds": 1.3645350010010588,
+          "measured_seconds": 1.3987918330021785,
           "reserved_unknown_seconds": 0,
-          "seconds": 1.3645350010010588,
+          "seconds": 1.3987918330021785,
           "unknown": 0,
           "request_bytes": 4118,
-          "wall_seconds": 5.55539608001709
+          "wall_seconds": 5.609215974807739
         }
       }
     }
@@ -82,14 +82,16 @@
     }
   ],
   "live_certification": false,
-  "revision": "65acbdcb65054d7efb28399faa30d4fda5b4cd99",
+  "revision": "ea7e2a50ba18eb9ab03d9cae105a73e4e24d3ff0",
   "source_sha256": {
-    "scripts/nightshift-intake.py": "969b291a1230cecf7d7e003fd5afa0f067bd9edc8d837bd2f0143a7bde22bb14",
+    "scripts/nightshift-intake.py": "342d965200024f40387943ecfa669bb6a06f271b72f7915a916ed07e51127b33",
     "scripts/nightshift-operations.py": "ec51dc9d97492f753a2f820c70450a7ddaaba990eb33cdd5aeda957a4184cac7",
-    "dashboard/src/intake.jsx": "51ba06bb01667c9d57fc3420cf84021fe11750c040c90f150a3f627181896dd6",
+    "dashboard/src/intake.jsx": "24ec24a59a877d301f30254f4d28945c978a351e7bb71023472d6a1030dcbf26",
     "dashboard/server.py": "3a9bafdb58320eef29ecdffbad01ac173165ecad530b74f5670d0567b1505a44"
   },
   "provider_tokens": null,
   "billed_cost": null,
-  "provider_cache_usage": null
+  "provider_cache_usage": null,
+  "focused_intake_tests": 32,
+  "semantic_cache_tests": 6
 }

@@ -77,3 +77,26 @@ cases and five actual operation-interface cases pass. Dashboard model tests pass
 a responsive-layout fix after visual inspection caught horizontal overflow.
 Public PR #87's four composition-window regressions also pass in this integration
 branch. Its prior browser receipt remains separately qualified to its original SHA.
+
+## Convergence receipt
+
+Candidate `ea7e2a50ba18eb9ab03d9cae105a73e4e24d3ff0` selectively incorporates
+public PR #89 preservation safeguards and PR #92 semantic evaluator identity.
+The original #89 branch remains intact. The controller binds normalized source
+identity, input hashes and modes, routing, manifest and retained decisions to the
+preview. Canonical paths exclude private control directories. Creation uses
+exclusive descriptor-relative writes, a retained per-file journal and final input
+validation. A concurrent identical file is not adopted without journal ownership.
+Prepared replay rechecks external inputs as well as generated artifacts. Browser
+intake and operation controls share a busy state.
+
+All 32 intake tests pass, including 15 independent convergence regressions. Six
+semantic-cache regressions pass on the integrated candidate. Chromium
+153.0.8010.12 passes both fresh-source flows and desktop/mobile containment:
+zero preview calls and eight synthetic worker calls total, 8,276 packet bytes,
+zero unknown invocations. Measured synthetic worker execution is
+1.4288024580055207 seconds for local intake and 1.3987918330021785 seconds for
+GitHub intake. Exact individual request sizes and revision hashes are retained in
+`GUIDED-INTAKE-VALIDATION.json`. These are synthetic execution measurements;
+provider tokens, billed cost and provider cache usage remain unknown. Integration
+into the default branch and live certification remain pending.
