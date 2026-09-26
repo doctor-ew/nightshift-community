@@ -128,3 +128,33 @@ test('verified recovery supersedes historical stage failure without hiding stale
   ticket.pipeline.status='stale';
   assert.equal(ticketTimeline([],ticket)[1].state,'pending');
 });
+
+test('more time cannot restore an exhausted current-stage retry allowance', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const ticket = {budget:{revision:'current',calls_reserved:1,max_calls:64,unfinished:0,exhausted:true},pipeline:{next_action:'product',retry_budgets:{product:{next_action:'stop'}}}};
+  assert.match(continuationControl(ticket).reason,/cannot add retries/);
+  assert.equal(continuationControl(ticket).disabled,true);
+  ticket.pipeline.next_action='review';
+  assert.equal(continuationControl(ticket).disabled,false);
+});
+
+test('worker diagnostics remain bounded display data and cannot establish completion', async () => {
+  const {workerDiagnostic,ticketProgress} = await import('./src/model.mjs');
+  const ticket={task:'1',pipeline:{status:'blocked',attempts:[{stage:'product',status:'fail',diagnostic:{label:'UNVALIDATED_WORKER_DIAGNOSTIC',validation_error:'stage_receipt.task:expected_string',reported_findings:[{target:'input',problem:'<script>unsafe()</script>'},{problem:'x'.repeat(2000)},{problem:17},{problem:'fourth'}]}}]}};
+  const diagnostic=workerDiagnostic(ticket);
+  assert.equal(diagnostic.findings[0].problem,'<script>unsafe()</script>');
+  assert.equal(diagnostic.findings[1].problem.length,1024);
+  assert.equal(diagnostic.findings.length,2);
+  assert.equal(ticketProgress([],ticket).complete,false);
+  ticket.pipeline.attempts.push({status:'running'});
+  assert.equal(workerDiagnostic(ticket),null);
+});
+
+test('server-derived retry exhaustion survives stale and inspection view labels', async () => {
+  const {continuationControl,stageRetriesExhausted} = await import('./src/model.mjs');
+  for(const next_action of ['inspect_exhausted_or_interrupted_product','revalidate_changed_evidence']){
+    const ticket={retry_exhausted_stage:'product',budget:{revision:'current',calls_reserved:1,max_calls:64,exhausted:true},pipeline:{next_action}};
+    assert.equal(stageRetriesExhausted(ticket),true);
+    assert.match(continuationControl(ticket).reason,/cannot add retries/);
+  }
+});

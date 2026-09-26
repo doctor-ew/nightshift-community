@@ -276,12 +276,140 @@ if [ "$AUTH" = subscription ]; then
   unset OPENAI_API_KEY CODEX_API_KEY ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_BASE_URL ANTHROPIC_BASE_URL
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
   case "$PROVIDER" in
-    codex)
-      LOGIN=$(codex login status 2>&1) || fail 'ChatGPT subscription login required'
-      [[ "$LOGIN" == *ChatGPT* ]] || fail 'ChatGPT subscription login required';;
-    claude)
-      LOGIN=$(claude auth status --json 2>/dev/null) || fail 'Claude subscription login required'
-      jq -e '.loggedIn == true and .authMethod == "claude.ai" and .apiProvider == "firstParty"' <<< "$LOGIN" >/dev/null || fail 'Claude subscription login required';;
+    codex|claude)
+      # Authentication observation is bounded and separate from a model call.
+      # Retain classifications and counts only; CLI output can contain secrets.
+      LOGIN=$(python3 - "$PROVIDER" "$OUTPUT" <<'PYAUTH'
+import json, os, selectors, shutil, signal, subprocess, sys, time, uuid
+from pathlib import Path
+provider, output = sys.argv[1:]
+record = dict(version=1, scope='authentication_observation_only', provider=provider, auth_mode='subscription', authenticated=None,
+              category='auth_probe_failed', exit_code=None, stdout_bytes=0, stderr_bytes=0,
+              raw_output_retained=False, provider_dispatched=False)
+executable = shutil.which(provider)
+child = None
+started = time.monotonic()
+parent = os.getppid()
+streams = {'stdout': bytearray(), 'stderr': bytearray()}
+
+def interrupted(_signum, _frame):
+    raise KeyboardInterrupt
+
+signal.signal(signal.SIGTERM, interrupted)
+signal.signal(signal.SIGINT, interrupted)
+try:
+    if executable is None:
+        record['category'] = 'auth_cli_missing'
+    else:
+        argv = [executable, 'login', 'status'] if provider == 'codex' else [executable, 'auth', 'status', '--json']
+        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        with selectors.DefaultSelector() as poll:
+            for name in streams:
+                poll.register(getattr(child, name), selectors.EVENT_READ, name)
+            while poll.get_map():
+                if os.getppid() != parent or time.monotonic() - started >= 5:
+                    record['category'] = 'auth_probe_timeout'
+                    break
+                for key, _event in poll.select(.05):
+                    data = os.read(key.fileobj.fileno(), 4096)
+                    if not data:
+                        poll.unregister(key.fileobj)
+                        continue
+                    record[key.data + '_bytes'] += len(data)
+                    streams[key.data].extend(data)
+                if sum(len(value) for value in streams.values()) > 32768:
+                    record['category'] = 'auth_probe_output_limit'
+                    break
+            else:
+                remaining = max(.01, 5 - (time.monotonic() - started))
+                try:
+                    record['exit_code'] = child.wait(timeout=remaining)
+                except subprocess.TimeoutExpired:
+                    record['category'] = 'auth_probe_timeout'
+        if record['category'] not in ('auth_probe_timeout', 'auth_probe_output_limit'):
+            try:
+                stdout = streams['stdout'].decode('utf-8')
+                stderr = streams['stderr'].decode('utf-8')
+            except UnicodeError:
+                record['category'] = 'auth_probe_invalid_output'
+            else:
+                combined = (stdout + '\n' + stderr).lower()
+                denied = any(term in combined for term in ('operation not permitted', 'permission denied', 'access denied', 'sandbox denied'))
+                if denied or record['exit_code'] in (126, 13):
+                    record['category'] = 'auth_probe_denied'
+                elif provider == 'claude':
+                    try:
+                        def unique(pairs):
+                            result = {}
+                            for key, value in pairs:
+                                if key in result: raise ValueError('duplicate')
+                                result[key] = value
+                            return result
+                        status = json.loads(stdout, object_pairs_hook=unique)
+                    except (ValueError, TypeError):
+                        status = None
+                    if isinstance(status, dict) and status.get('loggedIn') is False:
+                        record.update(category='subscription_login_required', authenticated=False)
+                    elif record['exit_code'] != 0:
+                        record['category'] = 'auth_probe_failed'
+                    elif not isinstance(status, dict) or status.get('loggedIn') is not True:
+                        record['category'] = 'auth_probe_invalid_output'
+                    elif status.get('authMethod') == 'claude.ai' and status.get('apiProvider') == 'firstParty':
+                        record.update(category='subscription_confirmed', authenticated=True)
+                    elif isinstance(status.get('authMethod'), str) and status['authMethod'] and isinstance(status.get('apiProvider'), str) and status['apiProvider']:
+                        record['category'] = 'subscription_method_mismatch'
+                    else:
+                        record['category'] = 'auth_probe_invalid_output'
+                else:
+                    lines = [line.strip() for line in (stdout + '\n' + stderr).splitlines() if line.strip()]
+                    if lines in (['Not logged in'], ['Not logged in.']):
+                        record.update(category='subscription_login_required', authenticated=False)
+                    elif record['exit_code'] != 0:
+                        record['category'] = 'auth_probe_failed'
+                    elif lines == ['Logged in using ChatGPT']:
+                        record.update(category='subscription_confirmed', authenticated=True)
+                    elif any(line.startswith('Logged in using an API key') for line in lines):
+                        record['category'] = 'subscription_method_mismatch'
+                    else:
+                        record['category'] = 'auth_probe_invalid_output'
+except PermissionError:
+    record['category'] = 'auth_probe_denied'
+except OSError:
+    record['category'] = 'auth_probe_failed'
+except KeyboardInterrupt:
+    record['category'] = 'auth_probe_interrupted'
+finally:
+    if child is not None:
+        try: os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError: pass
+        try: child.wait(timeout=.2)
+        except subprocess.TimeoutExpired: pass
+        try: os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        child.wait()
+        if record['exit_code'] is None: record['exit_code'] = child.returncode
+record['elapsed_seconds'] = time.monotonic() - started
+record['output_complete'] = record['category'] not in ('auth_probe_timeout', 'auth_probe_output_limit', 'auth_probe_interrupted')
+path = Path(output).with_name(Path(output).name + '.auth-' + uuid.uuid4().hex + '.json')
+try:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(record, stream, sort_keys=True)
+        stream.write('\n')
+except OSError:
+    print('auth_diagnostic_unavailable')
+else:
+    print(record['category'])
+PYAUTH
+      ) || fail 'authentication status could not be verified (auth_probe_failed)'
+      case "$LOGIN" in
+        subscription_confirmed) ;;
+        subscription_login_required) fail "$PROVIDER subscription login required (explicit logged-out status)" ;;
+        subscription_method_mismatch) fail "$PROVIDER subscription authentication method mismatch" ;;
+        auth_cli_missing) fail "$PROVIDER authentication CLI unavailable (auth_cli_missing)" ;;
+        auth_diagnostic_unavailable) fail "$PROVIDER authentication diagnostic could not be retained; dispatch blocked (auth_diagnostic_unavailable)" ;;
+        *) fail "$PROVIDER authentication status could not be verified ($LOGIN); login state unknown" ;;
+      esac;;
   esac
 fi
 # Carry controller mode into the prompt: worker environments alone are not a

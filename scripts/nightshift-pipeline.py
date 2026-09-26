@@ -66,7 +66,7 @@ def view(project, task):
     if sessions:
         latest=max(sessions.values(),key=lambda row:row['authorized_at'])
         state['recovery_status']={key:latest.get(key) for key in ('binding','status','next_action','reason','allowance','decision_calls')}
-    return {k:state.get(k) for k in ('recovery_status','version','task','status','next_action','completed','findings','decisions','final_evidence','attempts','architecture','architecture_check','beads')}
+    return {k:state.get(k) for k in ('recovery_status','version','task','status','next_action','completed','findings','decisions','final_evidence','attempts','retry_budgets','architecture','architecture_check','beads')}
 
 
 def routes(project, settings):
@@ -113,23 +113,97 @@ def proof(project, task, gate):
     except ValueError:return dict(status='blocked',reason='proof_gate_unavailable')
 
 
-def validate_receipt(path, task, stage, project):
-    value=read(path)
-    if set(value)!={'version','task','stage','status','findings','checks','evidence'} or value['version']!=1 or value['task']!=task or value['stage']!=stage:
-        raise ValueError('invalid_stage_receipt')
-    if value['status'] not in ('pass','fail') or not isinstance(value['findings'],list) or not isinstance(value['checks'],list) or not isinstance(value['evidence'],list):raise ValueError('invalid_stage_verdict')
-    if len(value['findings'])>20:raise ValueError('too_many_findings')
-    for finding in value['findings']:
-        if set(finding)!={'id','target','problem'} or any(not isinstance(v,str) or not v or len(v)>4000 for v in finding.values()):raise ValueError('invalid_finding')
-    if value['status']=='pass':
-        if value['findings'] or not value['checks'] or not value['evidence']:raise ValueError('passing_evidence_missing')
-        for check in value['checks']:
-            if set(check)!={'command','exit_code'} or not isinstance(check['command'],str) or not check['command'].strip() or type(check['exit_code']) is not int or check['exit_code']!=0:raise ValueError('required_check_failed')
-        for item in value['evidence']:
-            if set(item)!={'path','sha256'}:raise ValueError('invalid_evidence_reference')
-            p=Path(project)/item['path']
-            if Path(item['path']).is_absolute() or '..' in Path(item['path']).parts or p.resolve()!=p.absolute() or not p.is_file() or sha(p)!=item['sha256']:raise ValueError('stale_stage_evidence')
+def receipt_object(path):
+    path=Path(path)
+    if path.resolve()!=path.absolute() or not path.is_file() or path.stat().st_size>2000000:
+        raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    def unique(pairs):
+        value={}
+        for key,item in pairs:
+            if key in value:raise ValueError('stage_receipt.json:duplicate_key')
+            value[key]=item
+        return value
+    with path.open('rb') as stream:raw=stream.read(2000001)
+    if len(raw)>2000000:raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    try:value=json.loads(raw,object_pairs_hook=unique)
+    except (json.JSONDecodeError,UnicodeError,RecursionError):raise ValueError('stage_receipt.json:invalid_json') from None
+    if not isinstance(value,dict):raise ValueError('stage_receipt.root:expected_object')
     return value
+
+
+def validate_receipt(path, task, stage, project):
+    value=receipt_object(path)
+    def require(condition,field,reason):
+        if not condition:raise ValueError('stage_receipt.'+field+':'+reason)
+    require(set(value)=={'version','task','stage','status','findings','checks','evidence'},'fields','exact_fields_required')
+    require(type(value['version']) is int,'version','expected_integer')
+    require(value['version']==1,'version','unsupported_version')
+    for field,expected in (('task',task),('stage',stage)):
+        require(isinstance(value[field],str),field,'expected_string')
+        require(value[field]==expected,field,'identity_mismatch')
+    require(isinstance(value['status'],str),'status','expected_string')
+    require(value['status'] in ('pass','fail'),'status','expected_pass_or_fail')
+    for field in ('findings','checks','evidence'):require(isinstance(value[field],list),field,'expected_array')
+    require(len(value['findings'])<=20,'findings','too_many_findings')
+    for index,finding in enumerate(value['findings']):
+        field='findings['+str(index)+']'
+        require(isinstance(finding,dict),field,'expected_object')
+        require(set(finding)=={'id','target','problem'},field,'exact_fields_required')
+        for key,item in finding.items():require(isinstance(item,str) and bool(item.strip()) and len(item)<=4000,field+'.'+key,'expected_nonempty_bounded_string')
+    for index,check in enumerate(value['checks']):
+        field='checks['+str(index)+']'
+        require(isinstance(check,dict),field,'expected_object')
+        require(set(check)=={'command','exit_code'},field,'exact_fields_required')
+        require(isinstance(check['command'],str) and bool(check['command'].strip()),field+'.command','expected_nonempty_string')
+        require(type(check['exit_code']) is int,field+'.exit_code','expected_integer')
+        if value['status']=='pass':require(check['exit_code']==0,field+'.exit_code','required_check_failed')
+    for index,item in enumerate(value['evidence']):
+        field='evidence['+str(index)+']'
+        require(isinstance(item,dict),field,'expected_object')
+        require(set(item)=={'path','sha256'},field,'exact_fields_required')
+        require(isinstance(item['path'],str) and bool(item['path']) and '\0' not in item['path'],field+'.path','expected_nonempty_string')
+        require(isinstance(item['sha256'],str) and bool(re.fullmatch(r'[0-9a-f]{64}',item['sha256'])),field+'.sha256','expected_sha256')
+        p=Path(project)/item['path']
+        require(not Path(item['path']).is_absolute() and '..' not in Path(item['path']).parts and p.resolve()==p.absolute(),field+'.path','unsafe_path')
+        if value['status']=='pass':require(p.is_file() and sha(p)==item['sha256'],field,'stale_stage_evidence')
+    if value['status']=='pass' and (value['findings'] or not value['checks'] or not value['evidence']):raise ValueError('passing_evidence_missing')
+    return value
+
+
+def retain_diagnostic(receipt, task, stage, project, reason):
+    """Retain bounded untrusted observations; these never become repair findings."""
+    receipt=Path(receipt);target=receipt.with_suffix('.diagnostic.json')
+    if target.exists():
+        if target.resolve()!=target.absolute():return None
+        try:record=read(target)
+        except RecursionError:raise ValueError('invalid_diagnostic_record') from None
+        rows=record.get('reported_findings')
+        if record.get('label')!='UNVALIDATED_WORKER_DIAGNOSTIC' or not isinstance(rows,list) or len(rows)>3 or any(not isinstance(row,dict) or not set(row)<= {'id','target','problem'} or any(not isinstance(item,str) or len(item)>1024 for item in row.values()) for row in rows) or (record.get('validation_error') is not None and (not isinstance(record['validation_error'],str) or len(record['validation_error'])>512)):
+            raise ValueError('invalid_diagnostic_record')
+    else:
+        worker=Path(project)/'docs'/task/('.nightshift-'+receipt.name)
+        source=worker if worker.exists() else receipt
+        record=dict(version=1,label='UNVALIDATED_WORKER_DIAGNOSTIC',reason=reason[:512],source_path=str(source),source_bytes=None,source_sha256=None,preview='',preview_truncated=False,reported_findings=[])
+        if source.resolve()!=source.absolute() or not source.is_file():record['validation_error']='stage_receipt.file:missing_or_unsafe'
+        else:
+            record['source_bytes']=source.stat().st_size
+            if record['source_bytes']>2000000:record['validation_error']='stage_receipt.file:unsafe_or_oversized';record['preview_truncated']=True
+            else:
+                with source.open('rb') as stream:raw=stream.read(2000001)
+                if len(raw)>2000000:raise ValueError('stage_receipt.file:changed_during_diagnostic')
+                record['source_bytes']=len(raw);record['source_sha256']=hashlib.sha256(raw).hexdigest()
+                record['preview']=raw[:8192].decode('utf-8',errors='replace');record['preview_truncated']=len(raw)>8192
+                try:
+                    value=receipt_object(source)
+                    findings=value.get('findings')
+                    if isinstance(findings,list):
+                        for finding in findings[:3]:
+                            if isinstance(finding,dict):record['reported_findings'].append({key:item[:1024] for key,item in finding.items() if key in ('id','target','problem') and isinstance(item,str)})
+                    validate_receipt(source,task,stage,project)
+                except (OSError,ValueError) as error:record['validation_error']=str(error)[:512]
+        fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'w') as stream:json.dump(record,stream,sort_keys=True)
+    return dict(path=str(target),sha256=sha(target),label=record['label'],validation_error=record.get('validation_error'),reported_findings=record['reported_findings'])
 
 
 class Pipeline:
@@ -203,15 +277,23 @@ class Pipeline:
         if timeout<=0:raise ValueError('ticket_budget_exhausted')
         with receipt.with_suffix('.log').open('wb') as log:
             process=subprocess.Popen(argv,cwd=self.project,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            completed=False
             try:
-                code=process.wait(timeout=timeout)
+                code=process.wait(timeout=timeout);completed=True
                 if worker_receipt.is_file() and not worker_receipt.is_symlink():
-                    recovery.atomic(receipt,read(worker_receipt))
+                    try:recovery.atomic(receipt,receipt_object(worker_receipt))
+                    except (OSError,ValueError):
+                        if not code:raise
                 return code
             except BaseException:
-                os.killpg(process.pid,signal.SIGTERM)
-                try:process.wait(timeout=5)
-                except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);process.wait()
+                if not completed:
+                    try:os.killpg(process.pid,signal.SIGTERM)
+                    except ProcessLookupError:pass
+                    try:process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        try:os.killpg(process.pid,signal.SIGKILL)
+                        except ProcessLookupError:pass
+                        process.wait()
                 raise
 
     def publish(self):
@@ -315,6 +397,8 @@ class Pipeline:
                     self.save()
                 except (OSError,ValueError,subprocess.SubprocessError) as error:
                     attempt.update(status='fail',source_sha256=source(self.project,self.task),reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith('worker_exit_') else 'schema',finished_at=time.time())
+                    try:attempt['diagnostic']=retain_diagnostic(receipt,self.task,stage,self.project,str(error))
+                    except (OSError,ValueError):attempt['diagnostic_unavailable']=True
                     self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
                     self.state['findings']=(value or {}).get('findings',[]) or [dict(id=stage+'-evidence',target=str(receipt),problem=str(error))]
                     self.state.update(status='blocked',next_action=stage,finding_stage=stage);self.save()

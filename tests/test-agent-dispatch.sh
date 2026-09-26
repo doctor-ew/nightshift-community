@@ -24,7 +24,11 @@ done
 cat > "$TMP/bin/claude" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
-if [ "${1:-}" = auth ]; then printf '%s\n' "${MOCK_AUTH:-{\"loggedIn\":true,\"authMethod\":\"claude.ai\",\"apiProvider\":\"firstParty\"}}"; exit 0; fi
+if [ "${1:-}" = auth ]; then
+  if [ -n "${MOCK_AUTH:-}" ]; then printf '%s\n' "$MOCK_AUTH"
+  else printf '%s\n' '{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}'; fi
+  exit 0
+fi
 [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ] || exit 88
 jq -n --args '$ARGS.positional' -- "$@" > "$MOCK_LOG"
 [ "${MOCK_EXIT:-0}" = 0 ] || exit "$MOCK_EXIT"
