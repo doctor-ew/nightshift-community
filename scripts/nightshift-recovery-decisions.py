@@ -96,7 +96,7 @@ def plan(value):
                 name=ref['path']
                 if name not in files:raise ValueError('recovery_decision_source_unknown')
                 if ref['role']=='requirement' and name not in (spec,scenarios):raise ValueError('recovery_decision_requirement_invalid')
-                if ref['role']=='assertion' and name not in {c['argv'][1] for c in checks}:raise ValueError('recovery_decision_assertion_invalid')
+                if ref['role']=='assertion' and name not in set(value['source_files'])|{c['argv'][1] for c in checks}:raise ValueError('recovery_decision_assertion_invalid')
                 if ref['role']=='source' and name not in value['source_files']:raise ValueError('recovery_decision_source_invalid')
             a,b=ref['start_line'],ref['end_line']
             if type(a) is not int or type(b) is not int or not 1<=a<=b or (ref['role']!='observation' and b>len(files[ref['path']])):
