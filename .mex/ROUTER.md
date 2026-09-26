@@ -150,3 +150,10 @@ checks child scenario coverage. Parent usage includes subsequent preparation
 calls. Synthetic evidence: `docs/operations/PACKAGE-HARDENING.md`. The endpoint
 remains an isolated integration workspace pending manual acceptance, not published
 parent source. Older ledgers are retained without implicit migration.
+
+Package drafting candidate: the optional plan descriptor in
+`scripts/nightshift-package-draft.py` gives shared Groom a fixed child-artifact
+inventory and pinned template policy. Candidate overlays validate before parent
+writes in execution and recovery. Independent challenge and separate composition
+authority remain required. Synthetic evidence and profile limits:
+`docs/operations/PACKAGE-DRAFTING.md`. Not installed or live-certified.
