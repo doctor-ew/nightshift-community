@@ -5,3 +5,4 @@ export PYTHONDONTWRITEBYTECODE=1
 python3 "$ROOT/tests/test-intake.py"
 python3 "$ROOT/tests/test-intake-review.py"
 python3 "$ROOT/tests/test-intake-convergence-review.py"
+python3 "$ROOT/tests/test-intake-namespace-review.py"
