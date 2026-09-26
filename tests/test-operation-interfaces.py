@@ -120,6 +120,18 @@ class Interfaces(unittest.TestCase):
                 requests=[json.loads(row) for row in calls], usage=result['view']['usage'],
                 decisions=result['supervisor']['decisions'], provider_token_usage=None, billed_cost=None, live_certification=False),indent=2)+'\n')
 
+    def test_real_launcher_review_failure_enters_bounded_repair(self):
+        control=self.root/'.synthetic-review-failure';control.write_text('synthetic')
+        self.env['SYNTHETIC_FAILURE_CONTROL']=str(control)
+        _,a=self.cli('assess','demo','groom-spec')
+        _,g=self.cli('authorize','demo','--recipe','factory','--binding',a['binding'],'--operator','synthetic','--request','review-failure','--attestation','{"bounded_repair":true}')
+        code,result=self.cli('supervise','demo','--grant',g['id'])
+        self.assertEqual(code,1,result);self.assertEqual(result['supervisor']['reason'],'repair_limit_exhausted')
+        rows=[json.loads(line) for line in (self.root/'.synthetic-calls.jsonl').read_text().splitlines()]
+        self.assertEqual(sum(row['operation']=='review' for row in rows),3)
+        self.assertEqual(sum(row['operation']=='implement' for row in rows),3)
+        self.assertTrue(all(row['category']=='substantive' for row in result['supervisor']['decisions']))
+
     def test_killed_controller_retains_unknown_call_without_redispatch(self):
         code,a=self.cli('assess','demo','groom-spec');self.assertEqual(code,0,a)
         code,g=self.cli('authorize','demo','groom-spec','--binding',a['binding'],'--operator','synthetic','--request','crash-grant');self.assertEqual(code,0,g)
