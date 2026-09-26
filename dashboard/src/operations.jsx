@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 
 export function OperationsPanel() {
+  const [packages, setPackages] = useState(null);
   const [task, setTask] = useState(''), [data, setData] = useState(null), [token, setToken] = useState('');
   const [operator, setOperator] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [authorProvider, setAuthorProvider] = useState(''), [authorModel, setAuthorModel] = useState('');
@@ -19,6 +20,27 @@ export function OperationsPanel() {
     const value = await response.json();
     if (!response.ok) throw new Error(value.error || 'Operation failed');
     return value;
+  }
+  async function inspectPackages() {
+    setBusy(true);setError('');
+    try {setPackages(await post({action:'packages-view'}));}
+    catch(e){setError(e.message);}finally{setBusy(false);}
+  }
+  async function runPackages(prepare = false, resumeGrant = null) {
+    setBusy(true);setError('');
+    try {
+      let result;
+      if (prepare) {
+        const first=data.operations.find(row=>row.operation==='groom-spec');
+        const grant=await post({action:'authorize',operations:data.recipes.groom,binding:first.binding,operator,request:crypto.randomUUID()});
+        result=await post({action:'packages-prepare',grant:grant.id});
+      } else {
+        const grant=resumeGrant || (await post({action:'packages-authorize',binding:packages.assessment.binding,operator,request:crypto.randomUUID()})).id;
+        result=await post({action:'packages-run',grant});
+      }
+      if(result.status==='blocked')setError(result.reason||result.result?.reason||'Inspect package evidence.');
+      setPackages(await post({action:'packages-view'}));await inspect(false);
+    } catch(e){setError(e.message);}finally{setBusy(false);}
   }
   async function authorizeRun() {
     setBusy(true); setError('');
@@ -47,11 +69,20 @@ export function OperationsPanel() {
   return <section className="workspace operations-panel" aria-label="Engineering operations">
     <h2>Engineering operations</h2>
     <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Existing ticket history remains below.</p>
-    <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);}} /></label>
+    <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);setPackages(null);}} /></label>
     <button disabled={busy||!task.trim()} onClick={async()=>{setBusy(true);try{await inspect();}finally{setBusy(false);}}}>Assess operations</button>
     {error && <p role="alert">{error}</p>}
     {data && <><p>Status: {data.status}</p>
       <label>Operator identity<input value={operator} onChange={e=>setOperator(e.target.value)} /></label>
+      <button disabled={busy} onClick={inspectPackages}>Inspect work packages</button>
+      {packages && <section aria-label="Work-package composition"><h3>Work packages</h3>
+        <p>Status: {packages.assessment.status}. {packages.assessment.reason}</p>
+        <p>Parent ceiling: {packages.assessment.graph?.aggregate.calls} provider calls; {packages.assessment.graph?.aggregate.seconds} execution seconds, including preparation and all children.</p>
+        <button disabled={busy||!operator.trim()} onClick={()=>runPackages(true)}>Authorize decomposition preparation and challenge</button>
+        <button disabled={busy||!operator.trim()||packages.assessment.status!=='ready'} onClick={()=>runPackages()}>Authorize bounded package composition</button>
+        {Object.values(packages.state.authorizations).map(grant=><button key={grant.id} disabled={busy} onClick={()=>runPackages(false,grant.id)}>Resume package grant {grant.id}</button>)}
+        <details><summary>Package dependencies, allocations and evidence</summary><pre>{JSON.stringify(packages,null,2)}</pre></details>
+      </section>}
       <button disabled={busy||!operator.trim()} onClick={importDraft}>Import retained draft without a worker</button>
       <div className="artifact-library">{data.operations.map(row=><div className="artifact-row" key={row.operation}>
         <strong>{row.operation}</strong><span>{row.status}. Next: {row.next_action}</span>

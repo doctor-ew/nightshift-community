@@ -175,10 +175,28 @@ class Operations:
     def modes(self):
         return {k:stat.S_IMODE(safe(self.project,k).stat().st_mode) for k,v in self.corpus().items() if v is not None}
 
+    def package_inputs(self, p):
+        """Resolve declared package evidence without granting draft validity."""
+        path = safe(self.project, p['inputs']['spec'])
+        if not path.exists(): return set()
+        try: graph = read(path)
+        except (ValueError, UnicodeError): return set()
+        if not isinstance(graph, dict) or set(graph) != {'version','parent','requirements','children','aggregate'}: return set()
+        names = set()
+        for child in graph['children']:
+            names.add(child['plan'])
+            names.update(child['reads'])
+            names.update(child['writes'])
+        for name in names: safe(self.project, name)
+        return names
+
     def context(self):
         p = plan(self.project, self.task)
         files = self.corpus()
         artifacts = {k: sha(safe(self.project, n)) if safe(self.project, n).exists() else None for k, n in p['inputs'].items()}
+        package_inputs = self.package_inputs(p)
+        if package_inputs:
+            artifacts['package_contracts'] = digest({name:sha(safe(self.project,name)) if safe(self.project,name).exists() else None for name in sorted(package_inputs)})
         excluded = set(p['inputs'].values()) | {str(plan_path(self.project, self.task).relative_to(self.project))}
         if p['reviewer_policy']['semantic_plan']: excluded.add(p['reviewer_policy']['semantic_plan'])
         source = {k:dict(sha256=v,mode=stat.S_IMODE(safe(self.project,k).stat().st_mode)) if v is not None else None for k,v in files.items() if k not in excluded}
@@ -449,6 +467,7 @@ class Operations:
 
     def packet(self, operation, assessed, p):
         names = set(p['inputs'].values())
+        names.update(self.package_inputs(p))
         if operation in ('implement', 'review'):
             names.update(p['scope']); names.update(c['argv'][1] for c in p['checks'])
         data = {name: safe(self.project, name).read_text() for name in sorted(names) if safe(self.project, name).exists()}
@@ -788,6 +807,9 @@ def factory(project, task):
 def api(project, body):
     if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation'}:
         raise ValueError('invalid_operation_request')
+    if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
+        package_body=dict(body,action=body['action'][len('packages-'):])
+        return load('package-controller').api(project,package_body)
     controller=Operations(project,body['task'])
     action=body['action']
     if action=='factory': return factory(project,body['task'])

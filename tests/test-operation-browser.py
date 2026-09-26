@@ -13,7 +13,12 @@ spec.loader.exec_module(f)
 
 with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as directory:
     root = Path(directory)
-    env = f.isolated(root)
+    packages = os.environ.get('NIGHTSHIFT_PACKAGE_BROWSER') == '1'
+    if packages:
+        package_spec = importlib.util.spec_from_file_location('package_browser_fixture', ROOT/'tests/test-package-controller.py')
+        fixture = importlib.util.module_from_spec(package_spec);package_spec.loader.exec_module(fixture)
+        fixture.fixture(root)
+    env = f.isolated(root, initialize=not packages)
     env["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", str(Path.home() / ("Library/Caches/ms-playwright" if __import__("sys").platform == "darwin" else ".cache/ms-playwright")))
     with tempfile.TemporaryFile(mode='w+') as errors:
         server = subprocess.Popen(['python3', str(ROOT / 'dashboard/server.py'), '--project', str(root), '--port', '0'], env=env, stdout=subprocess.PIPE, stderr=errors, text=True)
@@ -22,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
             if not url.startswith('http://127.0.0.1:'):
                 raise RuntimeError('Synthetic dashboard did not start')
             env.update(NIGHTSHIFT_BROWSER_URL=url, NIGHTSHIFT_BROWSER_PROJECT=str(root))
-            subprocess.run(['node', str(ROOT / 'dashboard/test-browser.mjs')], env=env, check=True, timeout=180)
+            subprocess.run(['node', str(ROOT / ('dashboard/test-packages-browser.mjs' if packages else 'dashboard/test-browser.mjs'))], env=env, check=True, timeout=180)
         finally:
             server.terminate()
             server.communicate(timeout=10)
