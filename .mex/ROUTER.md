@@ -134,3 +134,10 @@ uses `Operations.execute` to reserve existing retry accounting only after author
 validation. Exhausted/unknown retained requests stop before workers; success and
 crash replay finalize once. Evidence: `docs/operations/RETRY-ADMISSION.md` and
 `tests/test-operation-supervisor-admission-review.py`. Synthetic only; not activated.
+
+Work-package contract candidate: `scripts/nightshift-packages.py` reuses existing
+decomposition and operation-plan validation with versioned templates, explicit
+file/interface ownership, preparation bindings and bounded parent allocations.
+`docs/operations/PACKAGES.md` and `tests/test-packages.py` describe the supported
+contract-only slice. Graph execution and semantic acceptance are not implemented
+by structural validity; #67 remains open.

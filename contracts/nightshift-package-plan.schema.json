@@ -1,0 +1,234 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "decomposition": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "parent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "requirements": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "integration": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "ref",
+              "depends_on",
+              "requirements",
+              "integration"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 2,
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "version",
+        "parent",
+        "requirements",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+          },
+          "version": {
+            "const": 1
+          },
+          "operations": {
+            "enum": [
+              [
+                "groom-spec",
+                "groom-rules",
+                "groom-adversarial",
+                "groom",
+                "implement",
+                "verify",
+                "review"
+              ],
+              [
+                "groom-rules",
+                "adopt",
+                "verify",
+                "review"
+              ]
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "operations"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+          },
+          "task": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+          },
+          "template": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+          },
+          "reads": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "writes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "provides": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "task",
+          "template",
+          "reads",
+          "writes",
+          "requires",
+          "provides"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 2,
+      "uniqueItems": true
+    },
+    "aggregate": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        },
+        "wall_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "calls",
+        "seconds",
+        "wall_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "preparation_task": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$"
+    }
+  },
+  "required": [
+    "version",
+    "decomposition",
+    "templates",
+    "packages",
+    "aggregate",
+    "preparation_task"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Structural work-package shape. The controller additionally validates files, bindings, graph dependencies, ownership and allowances. This schema does not authorize work."
+}
