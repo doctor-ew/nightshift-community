@@ -606,7 +606,13 @@ class Operations:
             env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file), NIGHTSHIFT_PROJECT_DIR=str(target), NIGHTSHIFT_PROVIDER_POLICY=route['policy'], NIGHTSHIFT_TELEMETRY_DIR='off')
             code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'))
             if code:
-                raise ValueError('provider_exit:' + str(code))
+                value=read(output) if output.exists() else {}
+                # The launcher exits one after publishing a validated FAIL contract.
+                # Transport failure envelopes have no operation input binding.
+                completed_failure=(code==1 and value.get('status')=='FAIL' and isinstance(value.get('results'),dict)
+                    and value['results'].get('binding')==packet['binding'] and isinstance(value.get('artifacts'),dict)
+                    and all(value['artifacts'].get(key)==route[key] for key in ('provider','model')))
+                if not completed_failure:raise ValueError('provider_exit:' + str(code))
         return read(output)
 
     def validate_worker(self, value, assessed, route):
