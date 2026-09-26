@@ -15,9 +15,31 @@ async function click(name,action){
  const response=page.waitForResponse(r=>r.url().endsWith('/api/intake')&&r.request().postDataJSON()?.action===action);
  await panel.getByRole('button',{name,exact:true}).click();const r=await response;const value=await r.json();assert.equal(r.status(),200,JSON.stringify(value));return value;
 }
+async function holdAction(path, action) {
+ let resume, entered;
+ const gate=new Promise(resolve=>{resume=resolve;});
+ const arrived=new Promise(resolve=>{entered=resolve;});
+ const pattern='**'+path;
+ const handler=async route=>{
+  const request=route.request();
+  if(request.method()==='POST'&&request.postDataJSON()?.action===action){entered();await gate;}
+  await route.continue();
+ };
+ await page.route(pattern,handler);
+ return {arrived,release:async()=>{resume();}};
+}
 try {
- await page.goto(url);await panel.getByLabel('Source reference').fill(reference);
- let value=await click('Resolve source','resolve');const task=value.task;
+ await page.goto(url);
+ await operations.getByLabel('Task key',{exact:true}).fill('demo');
+ await operations.getByRole('button',{name:'Assess operations',exact:true}).click();
+ await operations.getByRole('button',{name:'Select factory recipe',exact:true}).waitFor();
+ await panel.getByLabel('Source reference').fill(reference);
+ const intakeHold=await holdAction('/api/intake','resolve');
+ const resolving=click('Resolve source','resolve');await intakeHold.arrived;
+ assert(await operations.getByLabel('Task key',{exact:true}).isDisabled(),'Intake must lock operation task switching');
+ assert(await operations.getByRole('button',{name:'Select factory recipe',exact:true}).isDisabled(),'Intake must lock old-task operation actions');
+ await intakeHold.release();
+ let value=await resolving;const task=value.task;
  await panel.getByLabel('Files to change (one path per line)').fill('app.py');
  await panel.getByLabel('Project rules file').fill('rules.md');await panel.getByLabel('Architecture guidance file').fill('architecture.md');
  await panel.getByLabel('Verification script').fill('test_app.py');await panel.getByLabel('Required acceptance behavior').fill('Return two.');
@@ -29,7 +51,12 @@ try {
  await operations.getByLabel('Operator identity').fill('synthetic-intake-browser');
  await operations.getByRole('button',{name:'Select factory recipe',exact:true}).click();
  const resultResponse=page.waitForResponse(r=>r.url().endsWith('/api/operations')&&r.request().postDataJSON()?.action==='chain',{timeout:120000});
+ const operationHold=await holdAction('/api/operations','chain');
  await operations.getByRole('button',{name:'Authorize and run selected operations',exact:true}).click();
+ await operationHold.arrived;
+ assert(await panel.getByLabel('Source reference').isDisabled(),'Operations must lock intake source switching');
+ assert(await panel.getByRole('button',{name:'Resolve source',exact:true}).isDisabled(),'Operations must lock intake mutations');
+ await operationHold.release();
  const result=await(await resultResponse).json();assert.equal(result.view.status,'pending_manual_acceptance',JSON.stringify(result));
  const before=readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8');assert.equal(before.trim().split('\n').length,4);
  await operations.getByText('Retained authorizations and recovery',{exact:true}).click();

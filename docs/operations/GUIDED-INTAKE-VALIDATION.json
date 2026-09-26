@@ -1,0 +1,105 @@
+{
+  "runtime_revision": "129ea795ce0543d158110c170a2c2168c60cb4be",
+  "source_sha256": {
+    "scripts/nightshift-intake.py": "5a59f47b52b6b7732eaecb5471e64f585132b9a27526a7bd5e17d8eb419fac1a",
+    "dashboard/server.py": "95457b2cda5643b2bb2beefc9212c6a8931ffb752aa47a63a87ddd6de31d19b0",
+    "dashboard/src/intake.jsx": "12daf433805c451e25aee2458748ca328de729d259df7448db26a83f261c3287",
+    "dashboard/src/operations.jsx": "36ed48a5be970e08cfeb14c1c7cbc4e4b94c4a1ea6ec2481401f48af2e91db44",
+    "dashboard/dist/assets/app.js": "de017824edf2e010983971a571959a6e4a17d754a255ab9861b063c4c42ea797",
+    "scripts/nightshift-factory.sh": "52e08fe2f59e7fc7dc49f77b394f76380e70a80e656c4947ffcef4782414b5c4"
+  },
+  "profiles": [
+    {
+      "synthetic": true,
+      "reference": "spec:request.md",
+      "browser": "153.0.8010.12",
+      "provider_calls": 4,
+      "replay_calls": 0,
+      "replayed_operation_receipts": 7,
+      "requests": [
+        {
+          "operation": "groom-spec",
+          "request_bytes": 3287,
+          "packet_bytes": 864
+        },
+        {
+          "operation": "groom-adversarial",
+          "request_bytes": 6454,
+          "packet_bytes": 990
+        },
+        {
+          "operation": "implement",
+          "request_bytes": 3569,
+          "packet_bytes": 1146
+        },
+        {
+          "operation": "review",
+          "request_bytes": 6939,
+          "packet_bytes": 1475
+        }
+      ],
+      "usage": {
+        "9dde5fb3-12b5-4fa5-9e48-a6ac1a0e9d65": {
+          "calls": 4,
+          "measured_seconds": 1.4790247919991089,
+          "reserved_unknown_seconds": 0,
+          "seconds": 1.4790247919991089,
+          "unknown": 0,
+          "request_bytes": 4475,
+          "wall_seconds": 6.330212831497192
+        }
+      },
+      "tokens": null,
+      "provider_kv_cache_reuse": null,
+      "billed_cost": null,
+      "live_certification": false
+    },
+    {
+      "synthetic": true,
+      "reference": "gh:synthetic/project#123",
+      "browser": "153.0.8010.12",
+      "provider_calls": 4,
+      "replay_calls": 0,
+      "replayed_operation_receipts": 7,
+      "requests": [
+        {
+          "operation": "groom-spec",
+          "request_bytes": 3283,
+          "packet_bytes": 860
+        },
+        {
+          "operation": "groom-adversarial",
+          "request_bytes": 6450,
+          "packet_bytes": 986
+        },
+        {
+          "operation": "implement",
+          "request_bytes": 3565,
+          "packet_bytes": 1142
+        },
+        {
+          "operation": "review",
+          "request_bytes": 6935,
+          "packet_bytes": 1471
+        }
+      ],
+      "usage": {
+        "3bd552ab-dfa9-440a-87bf-b5160aa9adc5": {
+          "calls": 4,
+          "measured_seconds": 1.42214187600257,
+          "reserved_unknown_seconds": 0,
+          "seconds": 1.42214187600257,
+          "unknown": 0,
+          "request_bytes": 4459,
+          "wall_seconds": 6.134932994842529
+        }
+      },
+      "tokens": null,
+      "provider_kv_cache_reuse": null,
+      "billed_cost": null,
+      "live_certification": false
+    }
+  ],
+  "independent_review": "backend and HTTP/CLI/UI approved",
+  "live_certification": false
+}
