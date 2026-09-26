@@ -149,3 +149,5 @@ Groom authority writes only the parent specification artifact. Independent chall
 receives schema-bound child evidence. `scripts/nightshift-package-controller.py`
 retains preparation wall phases and evidence coverage before allocating parent wall
 time. Evidence and boundaries: `docs/operations/PACKAGE-AUTHORING.md`.
+
+Optional stage-bound semantic handoffs use complete mapped preparation/review evidence and the existing durable decision engine. Jev remains optional and has no authorization or scheduling authority. Sources: `scripts/nightshift-operation-decisions.py`, `scripts/nightshift-decision-engine.py`, `tests/test-semantic-handoffs.py`, `docs/operations/SEMANTIC-HANDOFFS.md`. Synthetic control-flow evidence does not establish live accuracy or savings.

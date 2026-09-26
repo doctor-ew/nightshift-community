@@ -36,20 +36,34 @@ def hash_valid(value):
     return isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value)
 
 
+
+def required_roles(packet):
+    if packet['version']==1:
+        if packet['kind'] not in ('requirement_supported','finding_resolved','scope_matches','oracle_valid'):
+            raise ValueError('decision_kind_invalid')
+        return ROLES
+    profiles={
+        'groom-adversarial': {'preparation_supported','requirement_package','oracle_valid'},
+        'review': {'requirement_supported','finding_resolved','scope_matches','oracle_valid','integration_supported'},
+    }
+    if packet.get('stage') not in profiles or packet['kind'] not in profiles[packet['stage']]:
+        raise ValueError('decision_handoff_kind_invalid')
+    return ROLES-{'observation'} if packet['stage']=='groom-adversarial' else ROLES
+
+
 def validate(packet):
     if len(encoded(packet)) > MAX_BYTES:
         raise ValueError('decision_packet_too_large')
-    if set(packet) != {'version','id','kind','question','requirements','findings','evidence','checks','high_risk'} or packet['version'] != 1:
+    if type(packet.get('version')) is not int or packet['version'] not in (1,2) or set(packet) != {'version','id','kind','question','requirements','findings','evidence','checks','high_risk'} | ({'stage'} if packet['version']==2 else set()):
         raise ValueError('decision_packet_schema')
-    if packet['kind'] not in ('requirement_supported','finding_resolved','scope_matches','oracle_valid'):
-        raise ValueError('decision_kind_invalid')
+    roles=required_roles(packet)
     if any(not isinstance(packet[k],str) or not packet[k].strip() for k in ('id','question')) or type(packet['high_risk']) is not bool:
         raise ValueError('decision_packet_schema')
     refs = {}
     for ref in packet['evidence']:
         if set(ref) != {'id','role','path','file_sha256','sha256','start_line','end_line','text'}:
             raise ValueError('decision_reference_schema')
-        if not isinstance(ref['id'],str) or not ref['id'] or ref['id'] in refs or ref['role'] not in ROLES:
+        if not isinstance(ref['id'],str) or not ref['id'] or ref['id'] in refs or ref['role'] not in roles:
             raise ValueError('decision_reference_schema')
         if not isinstance(ref['path'],str) or not ref['path'] or Path(ref['path']).is_absolute() or '..' in Path(ref['path']).parts:
             raise ValueError('decision_reference_path')
@@ -65,12 +79,13 @@ def validate(packet):
     for group in ('requirements','findings'):
         ids = set()
         for row in packet[group]:
-            if set(row) != {'id','evidence'} or not isinstance(row['id'],str) or not row['id'] or row['id'] in ids:
+            if set(row) != {'id','evidence'} | ({'text'} if group=='findings' and packet['version']==2 else set()) or not isinstance(row['id'],str) or not row['id'] or row['id'] in ids:
                 raise ValueError('decision_mapping_schema')
             ids.add(row['id'])
+            if group=='findings' and packet['version']==2 and (not isinstance(row['text'],str) or not row['text'].strip() or text_hash(row['text'])!=row['id']):raise ValueError('decision_finding_hash')
             if not isinstance(row['evidence'],list) or not row['evidence'] or len(set(row['evidence'])) != len(row['evidence']) or any(r not in refs for r in row['evidence']):
                 raise ValueError('decision_mapping_missing')
-            if {refs[r]['role'] for r in row['evidence']} != ROLES:
+            if {refs[r]['role'] for r in row['evidence']} != roles:
                 raise ValueError('decision_mapping_incomplete')
     observed = set(); check_ids = set()
     for check in packet['checks']:
@@ -80,7 +95,7 @@ def validate(packet):
         if not check['evidence'] or any(r not in refs or refs[r]['role'] != 'observation' or refs[r]['file_sha256'] != check['output_sha256'] for r in check['evidence']):
             raise ValueError('decision_check_reference')
         observed.update(check['evidence'])
-    if not observed or observed != {r for r in refs if refs[r]['role']=='observation'}:
+    if ('observation' in roles and not observed) or observed != {r for r in refs if refs[r]['role']=='observation'}:
         raise ValueError('decision_observation_unverified')
     return packet
 
@@ -147,7 +162,7 @@ def validate_receipt(record, packet, settings, authority, directory):
             if primary in ('yes','no') and review['decision']!=primary:raise ValueError('decision_reviewer_contradiction')
             references=review.get('evidence',[])
             if not references or any(r not in {v['id'] for v in packet['evidence']} for r in references):raise ValueError('decision_cache_review_changed')
-            if review['decision']=='yes' and {v['role'] for v in packet['evidence'] if v['id'] in references}!=ROLES:raise ValueError('decision_escalation_evidence_incomplete')
+            if review['decision']=='yes' and {v['role'] for v in packet['evidence'] if v['id'] in references}!=required_roles(packet):raise ValueError('decision_escalation_evidence_incomplete')
             final=review['decision']
         if final!=record['decision'] or final not in ('yes','no'):raise ValueError('decision_cache_verdict_changed')
     elif record['status']!='blocked' or record['decision']!='abstain':raise ValueError('decision_cache_verdict_changed')
@@ -242,7 +257,7 @@ class Engine:
                     record['artifacts']['review']=digest(review)
                     if set(review)!={'decision','packet_sha256','reviewer_id','evidence'} or review['packet_sha256']!=digest(packet) or review['decision'] not in ('yes','no','abstain') or not isinstance(review['reviewer_id'],str) or not review['reviewer_id'].strip() or not review['evidence'] or any(r not in {e['id'] for e in packet['evidence']} for r in review['evidence']):
                         raise ValueError('decision_escalation_invalid')
-                    if review['decision']=='yes' and {r['role'] for r in packet['evidence'] if r['id'] in review['evidence']}!=ROLES:
+                    if review['decision']=='yes' and {r['role'] for r in packet['evidence'] if r['id'] in review['evidence']}!=required_roles(packet):
                         raise ValueError('decision_escalation_evidence_incomplete')
                     record['escalation']=review
                     if primary in ('yes','no') and review['decision']!=primary:
