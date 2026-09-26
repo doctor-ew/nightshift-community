@@ -20,11 +20,13 @@ def names(value, label, empty=False):
     return value
 
 
-def validate(project, value):
+def validate(project, value, graph_path=None):
     project = Path(project).resolve()
     ops.exact(value, 'version parent requirements children aggregate')
     if type(value['version']) is not int or value['version'] != VERSION:
         raise ValueError('unsupported_package_version')
+    if not isinstance(value['parent'], str) or not value['parent'].startswith('spec:') or str(Path(value['parent'][5:])) != value['parent'][5:]:
+        raise ValueError('noncanonical_parent_reference')
     aggregate = ops.limits(value['aggregate'])
     core = {k: value[k] for k in ('version', 'parent', 'requirements')}
     if not isinstance(value['children'], list):
@@ -47,6 +49,8 @@ def validate(project, value):
         reads = names(child['reads'], 'package_reads')
         writes = names(child['writes'], 'package_writes')
         for name in reads + writes:
+            if str(Path(name)) != name or '.git' in Path(name).parts:
+                raise ValueError('noncanonical_package_path')
             ops.safe(project, name)
         if set(writes) != set(plan['scope']):
             raise ValueError('package_scope_mismatch')
@@ -56,7 +60,7 @@ def validate(project, value):
         if plan['publication'] is not None:
             raise ValueError('package_cannot_publish')
         for name in writes:
-            if name in owners:
+            if any(name == prior or name.startswith(prior + '/') or prior.startswith(name + '/') for prior in owners):
                 raise ValueError('conflicting_package_writes:' + name)
             owners[name] = child['id']
         if not isinstance(child['interfaces'], list) or not child['interfaces']:
@@ -68,6 +72,13 @@ def validate(project, value):
                 raise ValueError('invalid_package_interface')
             interface_ids.add(interface['id'])
         packages[child['id']] = dict(child, plan_sha256=ops.sha(project/child['plan']))
+    protected = {value['parent'][5:], 'routing.json', '.gitignore'} | {c['plan'] for c in value['children']}
+    for child in value['children']:
+        protected.update(ops.plan(project, child['id'])['inputs'].values())
+    if graph_path:
+        protected.add(str(graph_path))
+    if protected.intersection(owners):
+        raise ValueError('package_write_overlaps_contract')
     for key in ('calls', 'seconds'):
         if sum(c['allowance'][key] for c in packages.values()) > aggregate[key]:
             raise ValueError('parent_allowance_insufficient:' + key)
@@ -83,13 +94,17 @@ def validate(project, value):
             owner = owners.get(name)
             if owner and owner != child['id'] and owner not in ancestors[child['id']]:
                 raise ValueError('undeclared_package_dependency:' + name)
+            if owner and owner != child['id'] and name not in {i['path'] for i in packages[owner]['interfaces']}:
+                raise ValueError('undeclared_package_interface:' + name)
             path = ops.safe(project, name)
             if not path.exists() and not owner:
                 raise ValueError('package_input_missing:' + name)
+        child['input_sha256'] = {name: ops.sha(project/name) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
+    resolved = [packages[c['id']] for c in ordered['children']]
     return dict(version=VERSION, status='valid', parent=ordered['parent'], parent_sha256=ordered['parent_sha256'],
                 requirements=value['requirements'], aggregate=aggregate,
-                children=[packages[c['id']] for c in ordered['children']],
-                binding=ops.digest(value), semantic_approval=False)
+                children=resolved,
+                binding=ops.digest(dict(graph=value, parent_sha256=ordered['parent_sha256'], children=resolved)), semantic_approval=False)
 
 
 def template(value):
@@ -107,7 +122,7 @@ def main():
     try:
         project = Path(args.project).resolve()
         value = ops.read(ops.safe(project, args.graph))
-        result = validate(project, value)
+        result = validate(project, value, args.graph)
         if args.action == 'template':
             result = dict(version=VERSION, template=template(value), authority=None, approval=None)
         print(json.dumps(result))
