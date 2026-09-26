@@ -198,7 +198,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
+        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/tickets/recovery-accept', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -207,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin approval required'); return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (16384 if self.path in ('/api/operations', '/api/tickets/chat', '/api/tickets/decision') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (16384 if self.path in ('/api/operations', '/api/tickets/chat', '/api/tickets/decision', '/api/tickets/recovery-accept') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
@@ -215,11 +215,11 @@ class Handler(BaseHTTPRequestHandler):
                 result = operation_module().api(self.server.project, body)
                 self.reply(200, json.dumps(result).encode(), 'application/json')
                 return
-            allowed = {'task', 'sha256', 'assessment_sha256', 'operator'} if self.path in ('/api/tickets/recovery-authorize','/api/tickets/recovery-resume') else {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
-            if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
+            allowed = {'task', 'sha256', 'assessment_sha256', 'operator', 'attestation'} if self.path == '/api/tickets/recovery-accept' else {'task', 'sha256', 'assessment_sha256', 'operator'} if self.path in ('/api/tickets/recovery-authorize','/api/tickets/recovery-resume') else {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, dict) if k=='attestation' and self.path=='/api/tickets/recovery-accept' else isinstance(v, str) for k,v in body.items()):
                 raise ValueError('Invalid approval')
             if self.path.startswith('/api/tickets/recovery-'):
-                result = action_module().recovery_action(self.server.project,body['task'],body['sha256'],self.path.rsplit('/',1)[1],body.get('assessment_sha256',''),body.get('operator',''))
+                result = action_module().recovery_action(self.server.project,body['task'],body['sha256'],self.path.rsplit('/',1)[1],body.get('assessment_sha256',''),body.get('operator',''),**({'attestation':body.get('attestation')} if self.path.endswith('/recovery-accept') else {}))
             elif self.path == '/api/workshop/approve':
                 result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
             elif self.path == '/api/tickets/decision':

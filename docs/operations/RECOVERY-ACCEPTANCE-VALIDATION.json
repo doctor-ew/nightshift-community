@@ -1,0 +1,29 @@
+{
+  "base_revision": "3c45f8eddb7bd178d1fedb7577697020b2cea027",
+  "source_sha256": {
+    "scripts/nightshift-controller-recovery.py": "b6440cbddddd30ade18ef31d4f7ddab262d9da774ae2d8c0efc549ebc88e4fc8",
+    "scripts/nightshift-recovery-acceptance.py": "7d0313b06c818b430ec6160a9ead8618992c22b96221ed0a956fcedda733c382",
+    "scripts/nightshift-manual-acceptance.py": "fbd74995ec9243b3637c8a6434a4ed1526670b297f8f070e50e6b57eb6871f29",
+    "scripts/nightshift-operations.py": "24e44644a150398d4aa38809457f772ef4763c5f04c7e0b6c969f70dc25dfecf",
+    "scripts/nightshift-console-actions.py": "4dd7c996e6108404bcc2b74cf189ff298c641965077f8a730b5d73b8db953c1f",
+    "dashboard/server.py": "c6c73a5169b15db8d4dcd751c6c5f3da2ea2462f88de53a437bec7f853b2b760",
+    "tests/test-recovery-acceptance-review.py": "c3f8e424347943eade5095ffbb4bb3d65c0e7e93c75ec665cfcf20b89c585ced",
+    "tests/test-recovery-reviewer-environment.py": "aed66cbd27bba528f9a31f5ae9febc896a72542479125c47cf0bd486e79b7efb"
+  },
+  "tests": {
+    "acceptance": 15,
+    "independent_recovery": 27,
+    "reviewer_environment": 4,
+    "legacy_controller": 15,
+    "console": 4,
+    "operations_acceptance": 1,
+    "dashboard_server": 11,
+    "http_transport": 1
+  },
+  "acceptance_additional_provider_calls": 0,
+  "acceptance_additional_allowance": 0,
+  "original_attempts_and_budgets": "preserved in synthetic fixtures",
+  "provider_usage": "unknown; synthetic provider setup only, no real provider invocation",
+  "independent_review": "approved",
+  "hosted_ci": "pending on published revision"
+}

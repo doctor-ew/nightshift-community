@@ -167,14 +167,16 @@ def state(project, task):
     return dict(retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
 
 
-def recovery_action(project, task, expected, operation, assessment_sha256='', operator=''):
+def recovery_action(project, task, expected, operation, assessment_sha256='', operator='', attestation=None):
     """Same controller operation as the CLI; browser authorization is never implicit."""
     if state(project,task)['sha256']!=expected:
         raise ValueError('Run settings changed; refresh recovery evidence')
     controller=_recovery.load('controller-recovery')
     if operation=='recovery-assess':return controller.operate(project,task,'assess')
-    if operation not in ('recovery-authorize','recovery-resume'):
+    if operation not in ('recovery-authorize','recovery-resume','recovery-accept'):
         raise ValueError('Invalid recovery operation')
+    if operation=='recovery-accept':
+        return controller.operate(project,task,'accept',assessment_sha256,operator,attestation=attestation)
     return controller.operate(project,task,operation.removeprefix('recovery-'),assessment_sha256,operator)
 
 
