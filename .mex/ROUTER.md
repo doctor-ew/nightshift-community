@@ -142,3 +142,11 @@ uses `Operations.execute` to reserve existing retry accounting only after author
 validation. Exhausted/unknown retained requests stop before workers; success and
 crash replay finalize once. Evidence: `docs/operations/RETRY-ADMISSION.md` and
 `tests/test-operation-supervisor-admission-review.py`. Synthetic only; not activated.
+
+Package isolation follow-up: `scripts/nightshift-package-controller.py` rejects
+redirected Git metadata and unexpected materialization inputs, preserves input
+modes and bounds durable ledger writes. `scripts/nightshift-work-packages.py`
+checks child scenario coverage. Parent usage includes subsequent preparation
+calls. Synthetic evidence: `docs/operations/PACKAGE-HARDENING.md`. The endpoint
+remains an isolated integration workspace pending manual acceptance, not published
+parent source. Older ledgers are retained without implicit migration.
