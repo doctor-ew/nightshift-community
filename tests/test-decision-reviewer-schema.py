@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Packet-bound schema and real dispatcher checks with synthetic CLI only."""
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path
+import unittest
+from unittest.mock import patch
+ROOT=Path(__file__).resolve().parents[1]
+def load(name,path):
+    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
+render=load('renderer',ROOT/'scripts/nightshift-decision-render.py')
+f=load('independent_fixture',Path(__file__).with_name('test-recovery-independent-review.py'))
+m=f.m
+e=load('engine_fixture',Path(__file__).with_name('test-decision-engine.py'))
+
+class Rendering(unittest.TestCase):
+    def envelope(self):
+        packet=e.packet()
+        return dict(packet=packet,packet_sha256=e.e.digest(packet),reviewer_id='decision-review-'+'a'*32,mode='independent')
+    def test_exact_enums_and_actual_argument_byte_count(self):
+        envelope=self.envelope();raw=e.e.encoded(envelope)
+        result=render.render(ROOT,raw,'claude','configured-synthetic-model')
+        schema=json.loads(result['schema']);props=schema['properties']['results']['properties']
+        self.assertEqual(props['evidence']['items']['enum'],[r['id'] for r in envelope['packet']['evidence']])
+        self.assertNotIn('uniqueItems',props['evidence'])
+        self.assertNotIn('maxItems',props['evidence'])
+        self.assertEqual(props['evidence']['minItems'],1)
+        self.assertNotIn('minimum',schema['properties']['attempts'])
+        canonical=json.loads((ROOT/'contracts/nightshift-decision-reviewer.schema.json').read_text())
+        self.assertEqual(canonical['properties']['attempts']['minimum'],1)
+        self.assertEqual(props['packet_sha256']['enum'],[envelope['packet_sha256']])
+        self.assertEqual(props['reviewer_id']['enum'],[envelope['reviewer_id']])
+        self.assertNotIn('allOf',schema);self.assertNotIn('$schema',schema)
+        self.assertEqual(result['argument_content_bytes'],sum(len(result[k].encode()) for k in ('prompt','role','schema')))
+        self.assertEqual(result['input_envelope_bytes'],len(raw))
+        self.assertNotIn(props['evidence']['items']['enum'][0]+': explanation',props['evidence']['items']['enum'])
+    def test_malformed_references_and_stale_packet_are_rejected(self):
+        original=self.envelope()
+        for kind in ('duplicate','empty','stale','wrongtype'):
+            value=copy.deepcopy(original)
+            if kind=='duplicate':value['packet']['evidence'].append(value['packet']['evidence'][0])
+            if kind=='empty':value['packet']['evidence'][0]['id']=''
+            if kind=='stale':value['packet_sha256']='0'*64
+            if kind=='wrongtype':value['packet']['evidence']={}
+            with self.subTest(kind=kind),self.assertRaises(ValueError):render.render(ROOT,e.e.encoded(value),'claude','model')
+    def test_envelope_below_limit_can_fail_full_framing_without_truncation(self):
+        value=self.envelope();value['packet']['question']='Synthetic bound '+('x'*21000)
+        value['packet_sha256']=e.e.digest(value['packet']);raw=e.e.encoded(value)
+        self.assertLess(len(raw),render.MAX_BYTES)
+        with self.assertRaisesRegex(ValueError,'framing_too_large'):render.render(ROOT,raw,'claude','model')
+
+class Dispatcher(f.IndependentRecovery):
+    def run_synthetic(self,mode):
+        self.setup_independent();binary=self.project.parent/'bin';binary.mkdir();calls=self.project.parent/'calls.jsonl'
+        route=self.assess()['evidence']['reviewer_route'];stub=binary/'claude'
+        stub.write_text('#!/usr/bin/env python3\nimport sys,json,os\n'+
+          'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
+          'assert sys.argv[sys.argv.index("--tools")+1]==""\n'+
+          'schema=json.loads(sys.argv[sys.argv.index("--json-schema")+1]);data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\n'+
+          'props=schema["properties"]["results"]["properties"];ids=[r["id"] for r in data["packet"]["evidence"]]\n'+
+          'assert props["evidence"]["items"]["enum"]==ids\nassert props["packet_sha256"]["enum"]==[data["packet_sha256"]]\nassert props["reviewer_id"]["enum"]==[data["reviewer_id"]]\n'+
+          'size=sum(len(s.encode()) for s in (sys.argv[-1],sys.argv[sys.argv.index("--system-prompt")+1],sys.argv[sys.argv.index("--json-schema")+1]));assert size<=24576\n'+
+          'mode=os.environ["SYNTHETIC_REVIEW_MODE"];refs=[r+": explanation" for r in ids] if mode=="annotated" else ids[:1] if mode=="missing_roles" else ids+ids[:1] if mode=="duplicate" else ids\n'+
+          'result=dict(decision=mode if mode in ("no","abstain") else "yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],evidence=refs)\n'+
+          'with open('+repr(str(calls))+',"a") as out:out.write(json.dumps(dict(size=size,input=data))+"\\n")\n'+
+          'print(json.dumps(dict(structured_output=dict(status="SUCCESS",reason="Synthetic explanation belongs here",attempts=1,artifacts=dict(branch="",diff="",**'+repr(route)+'),rules_fired=[],results=result))))\n')
+        stub.chmod(0o755)
+        with patch.dict(os.environ,{'PATH':str(binary)+os.pathsep+os.environ['PATH'],'SYNTHETIC_REVIEW_MODE':mode}):
+            result=self.recover(review=m.compact_review)
+        self.assertEqual(self.ledger.read_bytes(),self.budget_before)
+        return result,[json.loads(line) for line in calls.read_text().splitlines()]
+    def test_exact_ids_pass_actual_packet_bound_dispatch(self):
+        result,calls=self.run_synthetic('yes');self.assertEqual(result['status'],'pending_manual_acceptance',result);self.assertEqual(len(calls),4)
+        for call in calls:
+            value=self.assess()['evidence'];expected=render.render(ROOT,e.e.encoded(call['input']),value['reviewer_route']['provider'],value['reviewer_route']['model'])
+            self.assertEqual(call['size'],expected['argument_content_bytes'])
+    def test_annotated_ids_remain_rejected(self):
+        result,calls=self.run_synthetic('annotated');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
+    def test_duplicate_ids_remain_locally_rejected(self):
+        result,calls=self.run_synthetic('duplicate');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
+    def test_no_remains_blocked(self):
+        result,calls=self.run_synthetic('no');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
+    def test_abstain_remains_blocked(self):
+        result,calls=self.run_synthetic('abstain');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
+    def test_missing_roles_remain_blocked(self):
+        result,calls=self.run_synthetic('missing_roles');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_incomplete',result['reason']);self.assertEqual(len(calls),1)
+
+class AssistedDispatcher(f.f.Decisions):
+    def test_actual_assisted_input_bytes_match_reserved_envelope(self):
+        super().test_real_dispatcher_with_synthetic_tool_free_reviewer()
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        folder=self.directory/('recovery-'+session['binding'])
+        inputs={json.loads(p.read_text())['packet_sha256']:p.read_bytes() for p in folder.glob('*.input.json')}
+        reviewed=0
+        for key,call in session['decision_calls'].items():
+            if call['kind'] not in ('exception','shadow'):continue
+            receipt=json.loads((folder/'decisions'/(key.rsplit(':',1)[0]+'.json')).read_text())
+            self.assertEqual(call['request_bytes'],len(inputs[receipt['packet_sha256']]))
+            reviewed+=1
+        self.assertGreater(reviewed,0)
+
+for name in dir(f.f.Decisions):
+    if name.startswith('test_') and name not in AssistedDispatcher.__dict__:setattr(AssistedDispatcher,name,None)
+
+for name in dir(f.IndependentRecovery):
+    if name.startswith('test_') and name not in Dispatcher.__dict__:setattr(Dispatcher,name,None)
+if __name__=='__main__':unittest.main()

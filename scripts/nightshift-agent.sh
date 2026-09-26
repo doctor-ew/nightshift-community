@@ -443,8 +443,8 @@ PROMPT="$(cat "$TMP/prompt")"
 PROMPT+=$'\n'"$EXECUTION_CONTEXT"
 if [ "$ROLE" = nightshift-decision-reviewer ]; then
   [ "$PROVIDER" = claude ] || fail 'decision reviewer requires the verified tool-free transport'
-  DECISION_BYTES=$( { printf '%s' "$PROMPT"; cat "$TMP/role" "$SCHEMA"; } | wc -c | tr -d ' ')
-  [ "$DECISION_BYTES" -le 24576 ] || fail 'decision review prompt and schema exceed 24 KiB'
+  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" || fail 'invalid or oversized decision reviewer framing'
+  PROMPT="$(cat "$TMP/prompt")"
 fi
 if [ "$ROLE" = nightshift-operation-worker ]; then
   OPERATION_BYTES=$( { printf '%s' "$PROMPT"; cat "$TMP/role" "$SCHEMA"; } | wc -c | tr -d ' ')
@@ -455,7 +455,9 @@ case "$PROVIDER" in
     AGENTS="$(jq -n --arg role "$ROLE" --rawfile body "$TMP/role" --arg contract "$CONTRACT" --arg execution "$EXECUTION_CONTEXT" '{($role):{description:"Selected Nightshift role",prompt:($body+"\n"+$contract+"\n"+$execution)}}')"
     # Claude's CLI schema compiler rejects the 2020-12 dialect declaration.
     # Project transport metadata only; keep full authoritative local validation.
-    jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
+    if [ "$ROLE" != nightshift-decision-reviewer ]; then
+      jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
+    fi
     if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")

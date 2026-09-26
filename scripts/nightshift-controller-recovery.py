@@ -159,7 +159,7 @@ def evidence(project, task):
               'scripts/nightshift-provider-policy.py', 'scripts/nightshift-project-context.py',
               'scripts/nightshift-routing-path.py', 'scripts/nightshift-architecture.py']
     assets += ['scripts/nightshift-manual-acceptance.py','scripts/nightshift-recovery-acceptance.py']
-    assets += ['scripts/nightshift-decision-engine.py','scripts/nightshift-recovery-decisions.py',
+    assets += ['scripts/nightshift-decision-engine.py','scripts/nightshift-recovery-decisions.py','scripts/nightshift-decision-render.py',
                'agents/nightshift-decision-reviewer.md','contracts/nightshift-decision-reviewer.schema.json',
                'scripts/nightshift-efficiency.py']
     assets += ['commands/nightshift-'+stage+'.md' for stage in p.STAGES]
@@ -196,8 +196,11 @@ def assessment(project, task, verify=False):
         current_binding(project,task,binding)
         if result['verification']['status']=='pass' and value['decision_readiness']['status']=='ready':
             adapter=load('recovery-decisions')
+            result['review_framing']=[]
             for gate in GATES:
                 for packet in adapter.packets(value,result['verification'],gate):
+                    framing=adapter.review_framing(value,packet)
+                    result['review_framing'].append(dict(stage=gate,packet_id=packet['id'],**{k:v for k,v in framing.items() if k not in ('role','prompt','schema')}))
                     if value['decision_readiness'].get('semantic_mode','jev')=='independent':
                         adapter.engine.independent_envelope(packet,'decision-review-'+'0'*32)
                     else:
@@ -314,13 +317,16 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     def remaining():
         return min(budget['deadline_at']-time.time(),budget['active_seconds']-budget['active_used']-(time.time()-step['started_at']))
     def reserve(kind,request_id,request_bytes):
+        if kind in ('exception','shadow'):
+            envelope=dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id='decision-review-'+'0'*32,mode=kind)
+            request_bytes=len(json.dumps(envelope,sort_keys=True).encode())
         if remaining()<=0 or budget['calls_used']>=budget['provider_calls']:raise ValueError('recovery_allowance_exhausted')
         if request_bytes>decision.MAX_BYTES:raise ValueError('decision_request_too_large')
         calls=session.setdefault('decision_calls',{})
         if request_id in calls:raise ValueError('decision_duplicate_reservation')
         budget['calls_used']+=1
         calls[request_id]=dict(kind=kind,request_bytes=request_bytes,status='pending',started_at=time.time())
-        if kind=='independent':calls[request_id]['request_bytes_scope']='exact serialized reviewer input envelope; CLI role/schema framing not measured'
+        if kind in ('independent','exception','shadow'):calls[request_id]['request_bytes_scope']='exact serialized reviewer input envelope; excludes CLI role/schema framing'
         save();return request_id
     def finish(request_id,outcome):
         session['decision_calls'][request_id].update(status=outcome,finished_at=time.time())
@@ -344,6 +350,7 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     receipts=[]
     for packet in packets:
         current_binding(value['worktree'],value['task'],session['binding'])
+        adapter.review_framing(value,packet)
         receipt=evaluator.decide(packet);receipts.append(receipt)
         if receipt['status']!='complete' or receipt['decision']!='yes':
             # The detailed negative/abstention receipt stays durable in decisions/.
