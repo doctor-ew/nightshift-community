@@ -20,11 +20,13 @@ exactly `id`, `requirement` and Boolean `manual`. Required manual cases remain
 pending until a current operator attestation. An existing legacy scenario document
 must be adapted explicitly; migration never upgrades an old approval automatically.
 
-Test commands are two-element arrays: `python3` or `bash`, followed by a relative
-repository test script. Verification executes them in a disposable source copy and
-retains raw output. A failing, empty or all-skipped test run cannot pass. The current
-adapter recognizes unittest and pytest summaries. Independent review must inspect
-actual assertions, coverage and test oracles; a process exit alone is insufficient.
+Test commands are two-element arrays: `python3`, `node` or `bash`, followed by a
+relative repository test script. Verification executes them in a disposable source
+copy and retains raw output. Python unittest and Node framework observations provide
+typed evidence; printed summaries never certify success. Legacy Bash wrappers retain
+logs but cannot certify typed Verify. A failing, empty or all-skipped run cannot pass.
+Independent review must inspect assertions, coverage and test oracles. See
+[TYPED-VERIFICATION-INTEGRATION.md](TYPED-VERIFICATION-INTEGRATION.md) for adapter limits.
 
 ## CLI
 
@@ -47,8 +49,10 @@ Individual operations are `groom-spec`, `groom-rules`, `groom-adversarial`, `gro
 runs its three independent suboperations and assembles the contract. The `factory`
 recipe stops after Review, leaving human acceptance pending. The `external` recipe
 adopts explicitly attributed source and runs Verify and Review without Implement.
-A selected recipe stops on its first blocker or failure; targeted author repair is
-separately callable under its recorded allowance. It never buys an unchanged review.
+An ordinary recipe stops on its first blocker or failure. A recipe explicitly
+authorized with `bounded_repair` uses the shared supervisor for eligible repairs
+within retained limits; exhaustion stops with evidence. Targeted author repair
+remains independently callable. See [bounded repair](BOUNDED-REPAIR.md).
 
 `nightshift ops migrate TASK --operator OPERATOR --request REQUEST` imports a
 retained draft as draft evidence only. It records hashes of legacy pipeline and
@@ -119,3 +123,7 @@ installing to preserve other cached test-browser versions.
 Cancellation and retained-evidence recovery: [operation cancellation and reconciliation](CANCELLATION-RECONCILIATION.md).
 
 Supported typed Verify profiles and legacy compatibility: [typed verification integration](TYPED-VERIFICATION-INTEGRATION.md).
+
+Reviewed commit, branch, PR and integration CI: [reviewed delivery](REVIEWED-DELIVERY.md).
+
+Separate live and activation proposals: [endpoint certification](ENDPOINT-CERTIFICATION-PROPOSAL.md).

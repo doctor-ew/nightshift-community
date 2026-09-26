@@ -27,6 +27,7 @@ SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 case "${1:-}" in
   packages) shift; exec python3 "$SCRIPT_DIR/nightshift-work-packages.py" "$@" ;;
   intake) shift; exec python3 "$SCRIPT_DIR/nightshift-intake.py" "$@" ;;
+  delivery) shift; exec python3 "$SCRIPT_DIR/nightshift-delivery.py" "$@" ;;
   ops) shift; exec python3 "$SCRIPT_DIR/nightshift-operations.py" "$@" ;;
   exec|evaluate) exec python3 "$SCRIPT_DIR/nightshift-efficiency.py" "$@" ;;
 esac

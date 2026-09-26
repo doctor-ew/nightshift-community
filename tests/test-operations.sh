@@ -29,3 +29,8 @@ python3 "$ROOT/tests/test-verification-controller-review.py"
 python3 "$ROOT/tests/test-operation-context-review.py"
 
 python3 "$ROOT/tests/test-semantic-transport-review.py"
+python3 "$ROOT/tests/test-delivery-review.py"
+python3 "$ROOT/tests/test-delivery-composition-review.py"
+python3 "$ROOT/tests/test-delivery-handoff-review.py"
+python3 "$ROOT/tests/test-delivery-handoff-adversarial-review.py"
+python3 "$ROOT/tests/test-delivery-repair-review.py"

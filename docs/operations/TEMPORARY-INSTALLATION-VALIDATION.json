@@ -1,0 +1,93 @@
+{
+  "synthetic": true,
+  "revision": "c46f8fc592987621f1753538a45fc5f8207b2011",
+  "endpoint": "review_pending_manual_acceptance",
+  "installed_mode": "temporary_symlink",
+  "provider_calls": 4,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3872,
+      "packet_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8915,
+      "packet_bytes": 734
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4139,
+      "packet_bytes": 917
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11028,
+      "packet_bytes": 2847
+    }
+  ],
+  "cache_reused_operations": 7,
+  "usage": {
+    "installed": {
+      "calls": 4,
+      "measured_seconds": 1.4567604589974508,
+      "reserved_unknown_seconds": 0,
+      "seconds": 1.4567604589974508,
+      "unknown": 0,
+      "request_bytes": 5148,
+      "wall_seconds": 12.070190191268921
+    }
+  },
+  "live_certification": false,
+  "activated": false,
+  "test": "tests/test-operation-installation.py",
+  "test_seconds": 25.993,
+  "scope": "Temporary symlink installation through Review and dashboard HTTP parity; browser interaction is a separate receipt.",
+  "replay_provider_calls": 0,
+  "provider_tokens": null,
+  "provider_cache_tokens": null,
+  "provider_billing": null,
+  "request_size_measurement": {
+    "request_bytes": "Sum of UTF-8 bytes of synthetic provider CLI arguments; excludes executable and argument separators.",
+    "packet_bytes": "UTF-8 serialized operation packet bytes.",
+    "usage.request_bytes": "Sum of serialized operation packet bytes.",
+    "network_payload_bytes": null
+  },
+  "evidence_role": "Historical installation acceptance of the exact published pre-delivery candidate; not final delivery-candidate certification.",
+  "environment": {
+    "os": "Darwin",
+    "os_release": "27.0.0",
+    "architecture": "arm64",
+    "python": "3.14.7",
+    "node_available": "v26.1.0",
+    "node_executed_by_this_fixture": false,
+    "identity_recording": "Recorded on the same unchanged host immediately after the run."
+  },
+  "installer": {
+    "runtime": "all",
+    "mode": "symlink (default)",
+    "auth_argument": null,
+    "new_config_auth_default": "subscription",
+    "provider_auth_validation": "Synthetic executables only; no live authentication certified.",
+    "arguments": [
+      "--runtime",
+      "all",
+      "--target",
+      "<isolated>/claude",
+      "--codex-target",
+      "<isolated>/codex",
+      "--nightshift-target",
+      "<isolated>/runtime",
+      "--bin-target",
+      "<isolated>/bin"
+    ],
+    "audit": "Same arguments with --check"
+  },
+  "retained_evidence": {
+    "worktree": "roadmap-semantic-transport-integrated-68",
+    "log": "test-output/roadmap-certification/temporary-installation.log",
+    "receipt": "test-output/roadmap-certification/temporary-installation.json"
+  },
+  "total_cli_argument_bytes": 27954,
+  "total_operation_packet_bytes": 5148
+}
