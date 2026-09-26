@@ -22,6 +22,13 @@ class Packages:
         self.directory=ops.location(self.project,task).parent.parent/'packages'/task
         self.path=self.directory/'state.json';self.reload()
 
+    load_digest=staticmethod(ops.digest)
+    recovery_read=staticmethod(ops.read)
+    recovery_write=staticmethod(ops.recovery.atomic)
+    file_hash=staticmethod(ops.sha)
+
+    def cancellation_check(self,grant):ops.load('operation-reconciliation').check(self,grant)
+
     def reload(self):
         self.state=ops.read(self.path) if self.path.exists() else dict(version=1,project=str(self.project),task=self.task,authorizations={},children={})
         if self.state['version']!=1 or self.state['project']!=str(self.project) or self.state['task']!=self.task:
@@ -184,6 +191,7 @@ class Packages:
             grant=dict(version=1,id=request,request_digest=ops.digest(payload),binding=binding,operator=operator,graph=graph,
                        deadline=deadline,preparation_wall=wall,preparation_calls=prep,
                        allocations={c['id']:dict(limit=c['allowance'],status='reserved') for c in graph['children']},status='authorized')
+            grant['cancellation_binding']=ops.load('operation-reconciliation').identity(self,grant)
             self.state['authorizations'][request]=grant;self.save();return grant
 
     def child(self,key):
@@ -344,6 +352,7 @@ class Packages:
         with self.lease(), self.preparation.lease():
             g=self.state['authorizations'].get(grant)
             if not g:raise ValueError('package_authorization_required')
+            self.cancellation_check(grant)
             assessed=self.assess()
             if assessed['status']!='ready' or assessed['binding']!=g['binding']:raise ValueError('package_authorized_inputs_changed')
             try:
@@ -354,6 +363,7 @@ class Packages:
                 key=child['id'];allocation=g['allocations'][key]
                 if self.clock()>=g['deadline']:return self.block(g,'parent_deadline_exhausted')
                 try:
+                    self.cancellation_check(grant)
                     c=self.materialize(child,grant)
                     p,context=c.context()
                     adopted=c.valid('adopt',p,context)
@@ -369,6 +379,9 @@ class Packages:
                         # a crash after child authorization but before this checkpoint.
                         with c.lease():
                             cg=c.state['authorizations'][request]
+                            restriction=dict(path=str(ops.load('operation-reconciliation').location(self,grant)),binding=ops.load('operation-reconciliation').identity(self,g))
+                            restrictions=cg.setdefault('parent_cancellations',[])
+                            if restriction not in restrictions:restrictions.append(restriction)
                             cg['deadline']=min(cg['deadline'],g['deadline'])
                             prior=[x for x in c.state['calls'].values() if x['grant']!=request]
                             remaining_calls=allocation['limit']['calls']-len(prior)
@@ -403,7 +416,8 @@ class Packages:
                 self.enforce_usage(g)
             except ValueError as error:return self.block(g,str(error))
             integration=next(c for c in g['graph']['children'] if c['integration'])
-            g.update(status='pending_manual_acceptance',integration=integration['id']);self.save()
+            with ops.load('operation-reconciliation').integration_guard(self,grant):
+                g.update(status='pending_manual_acceptance',integration=integration['id']);self.save()
             return dict(status=g['status'],grant=g,usage=self.usage(grant))
 
     def block(self,g,reason,result=None):
@@ -415,11 +429,12 @@ def api(project,body):
     if not isinstance(body,dict) or set(body)-{'task','action','binding','operator','request','grant'}:
         raise ValueError('invalid_package_request')
     c=Packages(project,body['task']);action=body['action']
+    if action=='cancel':return ops.load('operation-reconciliation').cancel(c,body['grant'],body['binding'],body['operator'],body['request'])
     if action=='assess':return c.assess()
     if action=='view':
         try:assessment=c.assess()
         except (OSError,ValueError,KeyError,TypeError) as error:assessment=dict(status='blocked',reason=str(error))
-        return dict(assessment=assessment,state=c.state,usage={key:c.usage(key) for key in c.state['authorizations']})
+        return dict(assessment=assessment,state=c.state,cancellations={key:dict(binding=ops.load('operation-reconciliation').identity(c,g),intent=ops.load('operation-reconciliation').intent(c,key)) for key,g in c.state['authorizations'].items()},usage={key:c.usage(key) for key in c.state['authorizations']})
     if action=='prepare':return c.prepare(body['grant'])
     if action=='authorize':return c.authorize(body['binding'],body['operator'],body['request'])
     if action=='run':return c.run(body['grant'])

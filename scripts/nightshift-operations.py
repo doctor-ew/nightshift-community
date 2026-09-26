@@ -264,6 +264,12 @@ class Operations:
         return dict(provider=route['provider'], model=route['model'], role=role, routing=str(routing), policy=policy.mode(self.project))
 
     load_digest = staticmethod(digest)
+    recovery_read = staticmethod(read)
+    recovery_write = staticmethod(recovery.atomic)
+    file_hash = staticmethod(sha)
+
+    def cancellation_check(self,grant):
+        if not getattr(self,'reconciling',False):load('operation-reconciliation').check(self,grant)
 
     def retry_account(self, attempt, category):
         return load('retry-budget').account(self.directory / (attempt['operation'] + '.retry.json'), attempt['request'], category, exclusive=True)
@@ -466,6 +472,7 @@ class Operations:
             except (OSError, ValueError, KeyError) as error:
                 rows.append(dict(operation=operation, status='blocked', blockers=[str(error)], next_action='repair_inputs'))
         return dict(version=VERSION, task=self.task, operations=rows, authorizations=self.state['authorizations'], attempts=self.state['attempts'],
+                    cancellations={key:dict(binding=load('operation-reconciliation').identity(self,g),intent=load('operation-reconciliation').intent(self,key)) for key,g in self.state['authorizations'].items()},reconciliation=[load('operation-reconciliation').assessment(self,a) for a in self.state['attempts'] if a['status'] in ('pending','checkpoint','cancelled_unknown')],
                     calls=self.state['calls'], supervisors=self.state.get('supervisors', {}), usage={key:dict(self.usage(key),wall_seconds=max(0,self.clock()-g['created'])) for key,g in self.state['authorizations'].items()}, recipes=RECIPES, next_actions=[r['operation'] for r in rows if r['status']=='ready'],
                     status='accepted' if any(r['operation']=='accept' and r['status']=='current' for r in rows) else 'pending_manual_acceptance' if any(r['operation']=='review' and r['status']=='current' for r in rows) else 'incomplete')
 
@@ -475,7 +482,7 @@ class Operations:
                     semantic_settings=load('operation-decisions').configuration(self) if p['reviewer_policy']['semantic_plan'] else None,
                     executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'),retry_sha256=sha(HERE/'nightshift-retry-budget.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
-                    schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'))
+                    schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'),reconciliation_sha256=sha(HERE/'nightshift-operation-reconciliation.py'),execution_sha256=sha(HERE/'nightshift-controller-recovery.py'),supervisor_execution_sha256=sha(HERE/'nightshift-recovery-exec.py'))
 
     def authorize(self, operations, expected, operator, request, attestation=None):
         if not bounded_text(operator) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', request):
@@ -512,6 +519,7 @@ class Operations:
                          attestation=attestation, created=self.clock(), deadline=self.clock()+p['aggregate']['wall_seconds'],
                          plan_sha256=sha(plan_path(self.project, self.task)), baseline=self.corpus(),baseline_modes=self.modes(),
                          limits={o:p['limits'][o] for o in operations}, aggregate=p['aggregate'], statuses={}, bindings={operations[0]:expected})
+            grant['cancellation_binding']=load('operation-reconciliation').identity(self,grant)
             self.state['authorizations'][request] = grant
             self.save()
             return grant
@@ -524,6 +532,7 @@ class Operations:
     def reserve(self, grant, operation, key, request_bytes, seconds=None):
         with self.mutex:
             g = self.state['authorizations'][grant]
+            self.cancellation_check(grant)
             if key in self.state['calls']:
                 raise ValueError('invocation_already_reserved')
             remaining = []
@@ -604,9 +613,15 @@ class Operations:
             input_file = target / '.operation-input.json'; recovery.atomic(input_file, packet)
             env = {k:v for k,v in os.environ.items() if not k.startswith(('NIGHTSHIFT_', 'AUTONOMOUS'))}
             env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file), NIGHTSHIFT_PROJECT_DIR=str(target), NIGHTSHIFT_PROVIDER_POLICY=route['policy'], NIGHTSHIFT_TELEMETRY_DIR='off')
-            code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'))
+            code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'),cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
             if code:
-                raise ValueError('provider_exit:' + str(code))
+                value=read(output) if output.exists() else {}
+                # The launcher exits one after publishing a validated FAIL contract.
+                # Transport failure envelopes have no operation input binding.
+                completed_failure=(code==1 and value.get('status')=='FAIL' and isinstance(value.get('results'),dict)
+                    and value['results'].get('binding')==packet['binding'] and isinstance(value.get('artifacts'),dict)
+                    and all(value['artifacts'].get(key)==route[key] for key in ('provider','model')))
+                if not completed_failure:raise ValueError('provider_exit:' + str(code))
         return read(output)
 
     def validate_worker(self, value, assessed, route):
@@ -648,8 +663,12 @@ class Operations:
             for check in p['checks']:
                 remaining = seconds-(time.monotonic()-start)
                 if remaining <= 0: raise ValueError('verification_deadline')
-                output = target / ('.observation-' + digest(check) + '.log')
-                code = runner.bounded(check['argv'], target, env, remaining, output)
+                self.cancellation_check(self.active_grant)
+                output = self.directory / (self.active_request+'.observation-'+digest(check)+'.log')
+                try:
+                    code = runner.bounded(check['argv'], target, env, remaining, output,cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
+                finally:
+                    if output.exists():recovery.atomic(output.with_suffix('.partial.json'),dict(output=output.name,sha256=sha(output),request=self.active_request,check=check))
                 text = output.read_text(errors='replace')
                 counts = re.findall(r'Ran (\d+) tests?\b|\b(\d+) passed\b', text)
                 count = sum(int(a or b) for a,b in counts)
@@ -701,6 +720,7 @@ class Operations:
         with self.lease():
             g=self.state['authorizations'].get(grant_id)
             if not g or operation not in g['operations']: raise ValueError('operation_not_authorized')
+            self.cancellation_check(grant_id)
             if supervised and not (g.get('attestation') or {}).get('bounded_repair'):
                 raise ValueError('bounded_repair_authorization_required')
             previous=next((a for a in self.state['attempts'] if a['request']==request),None)
@@ -739,6 +759,8 @@ class Operations:
                 self.retry_account(dict(operation=operation,request=request),'pending')
             attempt=dict(version=VERSION, request=request, operation=operation, grant=grant_id, binding=assessed['binding'], signature=assessed['signature'], status='pending', started=self.clock(), findings=[], prepared=dict(assessment=assessed,baseline=g['baseline'],baseline_modes=g['baseline_modes'],plan_sha256=g['plan_sha256'],route=route))
             self.state['attempts'].append(attempt); self.save()
+            self.active_grant=grant_id
+            self.active_request=request
             output=self.directory/(request+'.worker.json')
             checkpoint=self.directory/(request+'.checkpoint.json')
             result=dict(evidence={}, outputs={}, provenance={'provider':'controller','model':'none','identity':g['operator']}, source=context['source'])
@@ -754,7 +776,8 @@ class Operations:
                         recovery.atomic(output.with_suffix('.execution.json'),dict(call=call['id'],seconds=time.monotonic()-started,sha256=sha(output),finished=self.clock()))
                     finally:
                         completion=output.with_suffix('.execution.json')
-                        self.finish(call['id'],read(completion)['seconds'] if completion.exists() else time.monotonic()-started)
+                        if completion.exists():self.finish(call['id'],read(completion)['seconds'])
+                        elif output.with_suffix('.ownership.json').exists() and read(output.with_suffix('.ownership.json')).get('status')=='not_started':self.finish(call['id'],0)
                     if self.state['calls'][call['id']]['seconds'] > call['reserved_seconds']: raise ValueError('provider_execution_exceeded_allowance')
                     checked=self.validate_worker(value,assessed,route)
                     if operation in REVIEW and not {c['id'] for c in self.scenarios(p)}.issubset(checked['coverage']): raise ValueError('case_review_incomplete')
@@ -781,6 +804,7 @@ class Operations:
                     result['operator']=g['operator']
                 elif operation=='publish':
                     result['publication']=self.publish(p)
+                self.cancellation_check(grant_id)
                 # A read/review/test must not move its own evidence baseline.
                 if self.corpus()!=g['baseline'] or self.modes()!=g['baseline_modes']: raise ValueError('inputs_changed_during_operation')
                 if self.clock() > min(g['deadline'], attempt['started'] + g['limits'][operation]['wall_seconds']): raise ValueError('operation_deadline_exceeded')
@@ -789,7 +813,7 @@ class Operations:
                 return self.finalize(attempt)
             except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:
                 if attempt['status']=='checkpoint': raise
-                attempt.update(status='failed',reason=str(error),finished=self.clock(), evidence=result['evidence'])
+                attempt.update(status='pending' if load('operation-reconciliation').effective_intent(self,grant_id) else 'failed',reason=str(error),finished=self.clock(), evidence=result['evidence'])
                 if output.exists():
                     attempt['evidence'][output.name] = sha(output)
                     try: attempt['findings']=read(output).get('results',{}).get('findings',[])
@@ -821,6 +845,7 @@ class Operations:
             allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
             changes=self.patch(value['artifacts']['diff'],allowed)
         elif value['artifacts']['diff']:raise ValueError('review_cannot_change_source')
+        if getattr(self,'reconciling',False) and load('operation-decisions').selected(self,p,operation):raise ValueError('semantic_reconciliation_requires_retained_complete_checkpoint')
         if operation in ('groom-adversarial','review'):result['semantic']=load('operation-decisions').run(self,p,attempt['grant'],operation,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],route)
         checkpoint=self.directory/(attempt['request']+'.checkpoint.json')
         recovery.atomic(checkpoint,dict(result=result,changes=changes,assessment=assessed,baseline=prepared['baseline'],baseline_modes=prepared['baseline_modes'],plan_sha256=prepared['plan_sha256']))
@@ -828,6 +853,7 @@ class Operations:
         return self.finalize(attempt)
 
     def finalize(self, attempt):
+        self.cancellation_check(attempt['grant'])
         checkpoint=self.directory/attempt['checkpoint']
         if sha(checkpoint)!=attempt['checkpoint_sha256']: raise ValueError('checkpoint_tampered')
         data=read(checkpoint); result=data['result']; operation=attempt['operation']
@@ -845,7 +871,8 @@ class Operations:
         p,ctx=self.context()
         if self.policy_binding(p)!=self.state['authorizations'][attempt['grant']]['policy_binding']:raise ValueError('checkpoint_policy_changed')
         if self.dependencies(operation,p,ctx)!=data['assessment']['dependencies']: raise ValueError('checkpoint_dependencies_changed')
-        self.integrate(data['changes'])
+        with load('operation-reconciliation').integration_guard(self,attempt['grant']):
+            self.integrate(data['changes'])
         p,context=self.context()
         if operation=='groom-spec':
             for key in ('spec','scenarios'):
@@ -914,7 +941,7 @@ def factory(project, task):
 
 
 def api(project, body):
-    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer'}:
+    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer','resolution'}:
         raise ValueError('invalid_operation_request')
     if isinstance(body.get('action'),str) and body['action'].startswith('intake-'):return load('intake').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
@@ -922,6 +949,8 @@ def api(project, body):
         return load('package-controller').api(project,package_body)
     controller=Operations(project,body['task'])
     action=body['action']
+    if action=='cancel':return load('operation-reconciliation').cancel(controller,body['grant'],body['binding'],body['operator'],body['request'])
+    if action=='reconcile':return load('operation-reconciliation').reconcile(controller,body['request'],body['binding'],body['operator'],body['resolution'])
     if action=='question':
         with controller.lease():return controller.question(body['operation'],body['binding'],body['question'])
     if action=='answer':return controller.answer(body['operation'],body['binding'],body['question'],body.get('choice',''),body.get('answer',''))
@@ -939,10 +968,11 @@ def api(project, body):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map','question','answer'))
+    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map','question','answer','cancel','reconcile'))
     parser.add_argument('task');parser.add_argument('operation',nargs='?',choices=OPS)
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--binding');parser.add_argument('--operator');parser.add_argument('--request');parser.add_argument('--grant')
     parser.add_argument('--recipe',choices=RECIPES);parser.add_argument('--attestation',type=json.loads)
+    parser.add_argument('--resolution',choices=('finalize','preserve'))
     parser.add_argument('--question',type=json.loads);parser.add_argument('--choice');parser.add_argument('--answer')
     args=parser.parse_args()
     body={k:v for k,v in vars(args).items() if v is not None and k not in ('project','recipe')}
