@@ -158,3 +158,35 @@ test('server-derived retry exhaustion survives stale and inspection view labels'
     assert.match(continuationControl(ticket).reason,/cannot add retries/);
   }
 });
+
+test('recovery overlay reports recorded progress without inventing liveness or dropping failures', async()=>{
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const ticket={task:'r',running:false,pipeline:{status:'blocked',recovery_status:{status:'running',next_action:'adoption',allowance:{calls_used:1},steps:{verify:{status:'pass'},adoption:{status:'pending'}}}}};
+  const before=JSON.stringify(ticket), rows=[{ticket:'r',source:'gate',state:'failed',reason:'Original retained failure'}];
+  assert.equal(ticketProgress(rows,ticket).status,'Recovery recorded · Adoption');
+  assert.equal(ticketProgress(rows,ticket).failures.length,1);
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.match(recoveryProgress(ticket).explanation,/does not verify worker liveness/);
+  assert.equal(recoveryProgress(ticket).steps[0].status,'pass');
+  assert.equal(recoveryProgress(ticket).calls,1);
+  assert.equal(JSON.stringify(ticket),before);
+  // A crash with unchanged durable state has exactly the same honest presentation.
+  assert.equal(ticketProgress(rows,structuredClone(ticket)).status,'Recovery recorded · Adoption');
+});
+
+test('recovery blocked, pending acceptance, complete and stale observations remain distinct',async()=>{
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const ticket={task:'r',running:false,pipeline:{status:'blocked',recovery_status:{status:'blocked',reason:'Unknown evidence reference'}}};
+  assert.equal(ticketProgress([],ticket).status,'Recovery blocked');
+  assert.equal(recoveryProgress(ticket).reason,'Unknown evidence reference');
+  ticket.pipeline.recovery_status.status='pending_manual_acceptance';
+  assert.equal(ticketProgress([],ticket).status,'Manual acceptance pending');
+  assert.equal(ticketProgress([],ticket).complete,false);
+  ticket.pipeline.recovery_status.status='complete';
+  assert.equal(ticketProgress([],ticket).status,'Recovery completion unconfirmed');
+  ticket.pipeline.status='complete';assert.equal(ticketProgress([],ticket).complete,true);
+  ticket.pipeline.status='stale';ticket.running=true;
+  assert.match(ticketProgress([],ticket).status,/Changed evidence/);
+  assert.equal(ticketProgress([],ticket).complete,false);
+  assert.ok(recoveryProgress(ticket).steps.every(step=>step.status==='stale'));
+});
