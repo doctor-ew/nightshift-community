@@ -2,6 +2,7 @@
 """Launch actual dashboard/browser against disposable synthetic provider fixtures."""
 import importlib.util
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -20,6 +21,9 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
         fixture.fixture(root)
     env = f.isolated(root, initialize=not packages)
     env['SYNTHETIC_FAILURE_CONTROL']=str(root/'.synthetic-review-failure')
+    if os.environ.get('NIGHTSHIFT_TYPED_BROWSER')=='1':
+        path=root/'docs/demo/operations.json';plan=json.loads(path.read_text());plan['checks'][0]['adapter']='unittest-v1';path.write_text(json.dumps(plan))
+        path=root/'test_app.py';path.write_text(path.read_text().replace('unittest.main()',"if __name__=='__main__':unittest.main()"))
     env["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", str(Path.home() / ("Library/Caches/ms-playwright" if __import__("sys").platform == "darwin" else ".cache/ms-playwright")))
     with tempfile.TemporaryFile(mode='w+') as errors:
         server = subprocess.Popen(['python3', str(ROOT / 'dashboard/server.py'), '--project', str(root), '--port', '0'], env=env, stdout=subprocess.PIPE, stderr=errors, text=True)
@@ -28,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
             if not url.startswith('http://127.0.0.1:'):
                 raise RuntimeError('Synthetic dashboard did not start')
             env.update(NIGHTSHIFT_BROWSER_URL=url, NIGHTSHIFT_BROWSER_PROJECT=str(root))
-            subprocess.run(['node', str(ROOT / ('dashboard/test-packages-browser.mjs' if packages else 'dashboard/test-browser.mjs'))], env=env, check=True, timeout=180)
+            subprocess.run(['node', str(ROOT / ('dashboard/test-packages-browser.mjs' if packages else 'dashboard/test-browser.mjs'))], env=env, check=True, timeout=360 if os.environ.get('NIGHTSHIFT_TYPED_BROWSER')=='1' else 180)
         finally:
             server.terminate()
             server.communicate(timeout=10)
