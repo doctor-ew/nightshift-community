@@ -145,7 +145,7 @@ def packets(value, verification, gate):
         definitions=dict(cases=[c for c in value['cases'] if c['id'] in row['case_ids']],
                          findings=[f for f in value['findings'] if f['id'] in row['finding_ids']])
         question={'requirement_supported':'Do source, test assertions and observed results establish these requirements and deterministic scenario classifications?',
-                  'finding_resolved':'Do current source, assertions and observations resolve every listed retained finding?',
+                  'finding_resolved':'Do current source, assertions and observations resolve every listed retained finding? Substantive findings require actual resolution in current work. Only when controller-bound failure_category demonstrates schema or transport failure, evaluate whether current external implementation evidence supports adoption while preserving the original failed receipt; do not claim the old receipt passed or was repaired. Unknown or ambiguous provenance requires abstention if resolution cannot be established.',
                   'scope_matches':'Does the supplied implementation conform to the supplied requirements without unexplained scope drift?',
                   'oracle_valid':'Do the assertions and observed results provide valid, nonvacuous evidence for these requirements?'}[row['kind']]
         packet=dict(version=1,id=row['id'],kind=row['kind'],question=question+' Obligations: '+json.dumps(definitions,sort_keys=True),

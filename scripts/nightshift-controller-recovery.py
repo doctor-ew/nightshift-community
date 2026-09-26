@@ -60,6 +60,18 @@ def target_state(project, task):
     return target, state, owner
 
 
+def finding_category(finding, attempts):
+    """Expose only an unambiguous retained controller classification; never infer one."""
+    if not isinstance(finding,dict) or not isinstance(finding.get('target'),str) or not isinstance(finding.get('problem'),str):
+        return 'unknown'
+    matches=[attempt for attempt in attempts if isinstance(attempt,dict)
+             and attempt.get('status')=='fail' and attempt.get('receipt')==finding['target']
+             and attempt.get('reason')==finding['problem']]
+    if len(matches)!=1 or matches[0].get('category') not in ('schema','transport','substantive'):
+        return 'unknown'
+    return matches[0]['category']
+
+
 def evidence(project, task):
     target, state, owner = target_state(project, task)
     # Exact bytes, including attestations and externally edited tests, are bound.
@@ -101,8 +113,10 @@ def evidence(project, task):
         raise ValueError('recovery_duplicate_test')
     # Preserve every controller and classification finding with a stable identity.
     findings = []
-    for row in state.get('recovery_origin', state).get('findings', []):
-        findings.append(dict(id=digest(row), finding=row, source='controller'))
+    origin=state.get('recovery_origin',state)
+    for row in origin.get('findings', []):
+        findings.append(dict(id=digest(row), finding=row, source='controller',
+                             failure_category=finding_category(row,origin.get('attempts',[]))))
     receipts = {}
     for path in sorted(docs.glob('classification-review*.out.json')):
         record = p.read(path); receipts[str(path.relative_to(target))] = p.sha(path)
