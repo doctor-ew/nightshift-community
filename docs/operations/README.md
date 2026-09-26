@@ -115,3 +115,5 @@ retained by CI as the `nightshift-operation-browser` artifact for 30 days.
 provider is used. The CI workflow runs this test before the offline evaluation
 harness. For a shared browser cache, set `PLAYWRIGHT_SKIP_BROWSER_GC=1` before
 installing to preserve other cached test-browser versions.
+
+Cancellation and retained-evidence recovery: [operation cancellation and reconciliation](CANCELLATION-RECONCILIATION.md).
