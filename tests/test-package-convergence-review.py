@@ -48,6 +48,14 @@ class PreparationContracts(unittest.TestCase):
             self.validate()
         self.assertEqual(self.worker.calls, [])
 
+    def test_aliased_preparation_input_cannot_evade_protection(self):
+        self.validate()
+        self.change_preparation(lambda p: p['inputs'].update(scenarios='./parent-cases.json'))
+        self.own('parent-cases.json')
+        with self.assertRaises(ValueError):
+            self.validate()
+        self.assertEqual(self.worker.calls, [])
+
     def test_preparation_and_child_identity_must_differ(self):
         self.validate()
         child = self.graph['children'][0]
