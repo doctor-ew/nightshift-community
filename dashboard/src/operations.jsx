@@ -11,6 +11,17 @@ export function OperationsPanel() {
   const [selected, setSelected] = useState(null), [author, setAuthor] = useState(''), [accepted, setAccepted] = useState(false);
   const [caseNotes,setCaseNotes]=useState({});
   const [answers,setAnswers]=useState({});
+  const [liveGrant,setLiveGrant]=useState(null),[cancelPending,setCancelPending]=useState(false),[notice,setNotice]=useState('');
+  async function cancelGrant(grant,binding){
+    setCancelPending(true);
+    try{await post({action:grant.package?'packages-cancel':'cancel',grant:grant.id,binding,operator:grant.operator,request:crypto.randomUUID()});setNotice('Cancellation requested. Owned local execution must stop before reconciliation; remote effects and unknown usage remain explicit.');}
+    catch(e){setError(e.message);}finally{setCancelPending(false);}
+  }
+  async function reconcile(row,resolution){
+    setBusy(true);setError('');
+    try{await post({action:'reconcile',request:row.request,binding:row.binding,operator,resolution});await inspect(false);}
+    catch(e){setError(e.message);}finally{setBusy(false);}
+  }
   async function answerQuestion(row,question){
     setBusy(true);setError('');
     try{await post({action:'answer',operation:row.operation,binding:row.binding,question:question.sha256,answer:answers[question.sha256]||''});await inspect(false);}
@@ -43,14 +54,16 @@ export function OperationsPanel() {
       if (prepare) {
         const first=data.operations.find(row=>row.operation==='groom-spec');
         const grant=await post({action:'authorize',operations:data.recipes.groom,binding:first.binding,operator,request:crypto.randomUUID()});
+        setLiveGrant(grant);
         result=await post({action:'packages-prepare',grant:grant.id});
       } else {
-        const grant=resumeGrant || (await post({action:'packages-authorize',binding:packages.assessment.binding,operator,request:crypto.randomUUID()})).id;
-        result=await post({action:'packages-run',grant});
+        const grant=resumeGrant ? packages.state.authorizations[resumeGrant] : await post({action:'packages-authorize',binding:packages.assessment.binding,operator,request:crypto.randomUUID()});
+        setLiveGrant({...grant,package:true});
+        result=await post({action:'packages-run',grant:grant.id});
       }
       if(result.status==='blocked')setError(result.reason||result.result?.reason||'Inspect package evidence.');
       setPackages(await post({action:'packages-view'}));await inspect(false);
-    } catch(e){setError(e.message);}finally{setBusy(false);}
+    } catch(e){setError(e.message);}finally{setLiveGrant(null);setBusy(false);}
   }
   async function authorizeRun() {
     setBusy(true); setError('');
@@ -59,12 +72,13 @@ export function OperationsPanel() {
       const first=data.operations.find(row=>row.operation===operations[0]);
       const attestation=first.operation==='adopt' ? {binding:first.binding,identity:author,provider:authorProvider,model:authorModel||'unknown'} : first.operation==='accept' ? (first.manual_cases?.length ? {binding:first.binding,cases:first.manual_cases.map(c=>({id:c.id,case_sha256:c.case_sha256,passed:caseNotes[c.id]?.passed===true,observation:caseNotes[c.id]?.observation||'',evidence:caseNotes[c.id]?.evidence||''}))} : {binding:first.binding,accepted}) : first.operation==='publish' ? {binding:first.binding,publication:first.dependencies.publication} : selected.boundedRepair ? {bounded_repair:true} : undefined;
       const grant=await post({action:'authorize',operations,binding:first.binding,operator,request:crypto.randomUUID(),...(attestation ? {attestation} : {})});
+      setLiveGrant(grant);
       const result=await post({action:selected.boundedRepair ? 'supervise' : 'chain',grant:grant.id});
       const failed=result.results?.find(row=>!['passed','reused'].includes(row.status));
       if (result.status==='blocked') setError(result.reason || result.supervisor?.reason || 'Inspect retained repair evidence.');
       if (failed) setError(failed.reason || failed.next_action || failed.status);
       setSelected(null); await inspect(false);
-    } catch(e) {setError(e.message);} finally {setBusy(false);}
+    } catch(e) {setError(e.message);} finally {setLiveGrant(null);setBusy(false);}
   }
   async function importDraft() {
     setBusy(true); setError('');
@@ -82,6 +96,8 @@ export function OperationsPanel() {
     <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);setPackages(null);}} /></label>
     <button disabled={busy||!task.trim()} onClick={async()=>{setBusy(true);try{await inspect();}finally{setBusy(false);}}}>Assess operations</button>
     {error && <p role="alert">{error}</p>}
+    {notice&&<p role="status">{notice}</p>}
+    {liveGrant&&<button disabled={cancelPending} onClick={()=>cancelGrant(liveGrant,liveGrant.cancellation_binding)}>Request cancellation of active operations</button>}
     {data && <><p>Status: {data.status}</p>
       <label>Operator identity<input value={operator} onChange={e=>setOperator(e.target.value)} /></label>
       <button disabled={busy} onClick={inspectPackages}>Inspect work packages</button>
@@ -90,7 +106,7 @@ export function OperationsPanel() {
         <p>Parent ceiling: {packages.assessment.graph?.aggregate.calls} provider calls; {packages.assessment.graph?.aggregate.seconds} execution seconds, including preparation and all children.</p>
         <button disabled={busy||!operator.trim()} onClick={()=>runPackages(true)}>Authorize decomposition preparation and challenge</button>
         <button disabled={busy||!operator.trim()||packages.assessment.status!=='ready'} onClick={()=>runPackages()}>Authorize bounded package composition</button>
-        {Object.values(packages.state.authorizations).map(grant=><button key={grant.id} disabled={busy} onClick={()=>runPackages(false,grant.id)}>Resume package grant {grant.id}</button>)}
+        {Object.values(packages.state.authorizations).map(grant=><div key={grant.id}><button disabled={busy||!!packages.cancellations?.[grant.id]?.intent} onClick={()=>runPackages(false,grant.id)}>Resume package grant {grant.id}</button><button disabled={cancelPending||!!packages.cancellations?.[grant.id]?.intent} onClick={()=>cancelGrant({...grant,package:true},packages.cancellations[grant.id].binding)}>Cancel package grant {grant.id}</button></div>)}
         <details><summary>Package dependencies, allocations and evidence</summary><pre>{JSON.stringify(packages,null,2)}</pre></details>
       </section>}
       <button disabled={busy||!operator.trim()} onClick={importDraft}>Import retained draft without a worker</button>
@@ -110,7 +126,7 @@ export function OperationsPanel() {
         {selected.operations[0]==='publish' && <p>Publish target: {JSON.stringify({target:data.operations.find(r=>r.operation==='publish')?.dependencies?.publication,remote:data.operations.find(r=>r.operation==='publish')?.dependencies?.publication_target})}</p>}
         <button disabled={busy||!operator.trim()||(selected.operations[0]==='adopt'&&(!author.trim()||!authorProvider))||(selected.operations[0]==='accept'&&(!accepted||(data.operations.find(r=>r.operation==='accept')?.manual_cases||[]).some(c=>!caseNotes[c.id]?.passed||!caseNotes[c.id]?.observation?.trim()||!caseNotes[c.id]?.evidence?.trim())))} onClick={authorizeRun}>Authorize and run selected operations</button>
       </div>}
-      <details><summary>Retained authorizations and recovery</summary>{Object.values(data.authorizations).map(g=><div key={g.id}><p>{g.id}: {g.operations.join(' → ')}</p><button disabled={busy} onClick={()=>resume(g.id)}>Resume {g.id}</button></div>)}<pre>{JSON.stringify({supervisors:data.supervisors,usage:data.usage,attempts:data.attempts,calls:data.calls},null,2)}</pre></details>
+      <details><summary>Retained authorizations and recovery</summary>{Object.values(data.authorizations).map(g=><div key={g.id}><p>{g.id}: {g.operations.join(' → ')}</p><button disabled={busy||!!data.cancellations?.[g.id]?.intent} onClick={()=>resume(g.id)}>Resume {g.id}</button><button disabled={cancelPending||!!data.cancellations?.[g.id]?.intent} onClick={()=>cancelGrant(g,data.cancellations[g.id].binding)}>Cancel remaining operations {g.id}</button></div>)}{(data.reconciliation||[]).map(row=><div key={row.request}><p>{row.request}: {row.status}. Remote execution: {row.remote_execution}. Reconciliation never dispatches a provider.</p>{row.actions.includes('finalize')&&<button disabled={busy||!operator.trim()} onClick={()=>reconcile(row,'finalize')}>Finalize retained completion {row.request}</button>}{row.actions.includes('preserve')&&<button disabled={busy||!operator.trim()} onClick={()=>reconcile(row,'preserve')}>Preserve cancelled unknown execution {row.request}</button>}</div>)}<pre>{JSON.stringify({cancellations:data.cancellations,supervisors:data.supervisors,usage:data.usage,attempts:data.attempts,calls:data.calls},null,2)}</pre></details>
     </>}
   </section></>;
 }
