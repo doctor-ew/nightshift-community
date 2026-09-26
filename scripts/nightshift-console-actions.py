@@ -164,7 +164,7 @@ def state(project, task):
     if pipeline:
         finished=pipeline['status']=='complete'
         if not running:live.update(next=pipeline['next_action'],action_required=pipeline['next_action'])
-    return dict(pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
+    return dict(retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
 
 
 def recovery_action(project, task, expected, operation, assessment_sha256='', operator=''):
@@ -307,6 +307,27 @@ def continuation_runtime_lock(project, operation):
         yield lock
 
 
+def exhausted_stage(project, task, pipeline):
+    module = _recovery.load('pipeline')
+    canonical = module.snapshot(project, task) or pipeline or {}
+    stage = canonical.get('next_action')
+    aliases = {'inspect_exhausted_or_interrupted_' + name: name for name in module.STAGES}
+    stage = aliases.get(stage, stage)
+    if stage in ('repair_configuration', 'revalidate_changed_evidence', 'answer_recorded_question'):
+        stage = canonical.get('finding_stage')
+    if stage not in module.STAGES:
+        return ''
+    recorded = (canonical.get('retry_budgets') or {}).get(stage) or {}
+    path = module.root(project, task) / (stage + '-budget.json')
+    ledger = module.read(path) if path.exists() else {}
+    return stage if recorded.get('next_action') == 'stop' or ledger.get('next_action') == 'stop' else ''
+
+
+def reject_exhausted_stage(project, task, current):
+    if exhausted_stage(project, task, current.get('pipeline')):
+        raise ValueError('Stage retry limit reached. More time cannot add retries; retain evidence and prepare explicit recovery.')
+
+
 def action(project, task, expected, operation, provider="auto", budget_revision=""):
     if operation not in ('cleanup', 'resume', 'repair', 'stop', 'continue'):
         raise ValueError('Invalid operation')
@@ -339,6 +360,8 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
             raise ValueError('This ticket is finished; use the terminal for an intentional new run.')
         if not current.get('pipeline') and operation in ('resume', 'repair') and (current.get('recovery') or {}).get('next_action') == 'operator_verify_manual_acceptance' and current['recovery']['inputs'] == _recovery.workspace(current['recovery']['worktree']):
             return dict(status='pending_manual_acceptance', launched=False, message='Automated recovery passed; recorded manual acceptance remains pending.')
+        if operation in ('resume', 'continue'):
+            reject_exhausted_stage(project, task, current)
         settings = resume_settings(project, task, current['settings'])
         if operation == 'resume' and not current.get('pipeline') and current.get('recovery') and current['recovery']['next_action'] in ('proposal', 'review', 'apply', 'verification', 'resume_pipeline', 'inspect_required_checks'):
             operation = 'repair'
@@ -397,6 +420,8 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
                     '--task', task, '--provider', provider, '--evidence', evidence]
         fd, log_path = tempfile.mkstemp(prefix=task+'-', suffix='.log', dir=path)
         with os.fdopen(fd, 'wb') as log:
+            if operation in ('resume', 'continue'):
+                reject_exhausted_stage(project, task, current)
             if operation == 'continue':
                 _recovery.load('ticket-budget').update(project, task, 'continue',
                     continuation_seconds=600, expected_revision=budget_revision)

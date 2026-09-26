@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, continuationControl } from './model.mjs';
+import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, continuationControl, workerDiagnostic, stageRetriesExhausted } from './model.mjs';
 import './app.css';
 import {OperationsPanel} from './operations.jsx';
 import {LiveProgress, TicketChat, TicketDecision} from './ticket-live.jsx';
@@ -153,6 +153,8 @@ function TicketActions({ rows, reports = [] }) {
     <div className="ticket-list">{data.tickets.map(ticket => {
       const progress = ticketProgress(rows, ticket);
       const continuation = continuationControl(ticket);
+      const diagnostic = workerDiagnostic(ticket);
+      const stageExhausted = stageRetriesExhausted(ticket);
       const needsDecision = !!ticket.decisions?.pending?.length;
       if (needsDecision) {progress.status='Needs your decision';progress.tone='attention';}
       const sourceLink = ticketSourceLink(rows, ticket);
@@ -199,13 +201,20 @@ function TicketActions({ rows, reports = [] }) {
       <TicketUsage reports={ticketUsage(reports, ticket)} compact running={ticket.running} />
       {progress.complete && <p className="outcome-summary">Completion is recorded. Open the pull request and files below to review the result.</p>}
       {blocked && <div className="failure-summary" role="status"><h4>Latest recorded gate failure</h4><p>This receipt may be from an earlier attempt. It does not establish why the latest run ended.</p><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
+      {diagnostic && <section className="failure-summary" aria-label="Unvalidated worker diagnostic">
+        <h4>Worker diagnostic · not validated</h4>
+        <p>The worker reported the following explanation. Its receipt was not accepted as stage evidence.</p>
+        {diagnostic.validationError && <p>Receipt error: {diagnostic.validationError}</p>}
+        {diagnostic.findings.map((finding, index) => <p key={index}>{finding.target && <strong>{finding.target}: </strong>}{finding.problem}</p>)}
+        <details><summary>Retained diagnostic identity</summary><p className="path">{diagnostic.path}</p><p className="path">{diagnostic.sha256}</p></details>
+      </section>}
       <details><summary>Run settings</summary><p>{ticket.settings.provider} · {ticket.settings.policy} · {ticket.settings.auth}</p></details>
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
       <div className="artifact-actions"><EvidenceLink link={sourceLink} />{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
       {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
       {ticket.repair && <div className="repair-status" role="status"><strong>Repair: {ticket.repair.phase}</strong><p>{ticket.repair.message || ''}</p>{ticket.repair.changed_files?.map(path => <div key={path}>{path}</div>)}{ticket.launch?.log && <EvidenceLink link={{href: 'file://' + ticket.launch.log, label: 'Repair log'}} />}{ticket.launch?.evidence && <EvidenceLink link={{href: 'file://' + ticket.launch.evidence + '/status.json', label: 'Repair evidence'}} />}</div>}
       <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={!!busy || ticket.running || ticket.finished || needsDecision || ticket.repair_remaining === 0} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.repair_remaining === 0 && <p role="status">Repair attempts exhausted. Review the diagnosis above; another repair click cannot proceed.</p>}{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={!!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
-      <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished || needsDecision} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
+      <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished || needsDecision || stageExhausted} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
       <details className="recovery-actions"><summary>Recover externally completed work</summary>
         <button className="secondary" disabled={!!busy || ticket.running} onClick={() => act(ticket, 'recovery-assess')}>Review recovery evidence</button>
         {assessments[ticket.task] && <div>

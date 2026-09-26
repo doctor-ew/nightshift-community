@@ -32,6 +32,7 @@ jobs:
         run: |
           PLAYWRIGHT_SKIP_BROWSER_GC=1 npx playwright install --with-deps chromium
           npm run test:browser
+          node test-diagnostics-browser.mjs
           NIGHTSHIFT_PACKAGE_BROWSER=1 npm run test:browser
           python3 ../tests/test-package-authoring-browser.py
           python3 ../tests/test-intake-browser.py
@@ -43,6 +44,8 @@ jobs:
         with:
           name: nightshift-operation-browser
           path: |
+            test-output/stage-diagnostics-browser/*.png
+            test-output/stage-diagnostics-browser/report.json
             test-output/browser/*.png
             test-output/browser/report.json
             test-output/browser/journey.json

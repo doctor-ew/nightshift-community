@@ -50,6 +50,47 @@ class ContinuationTests(unittest.TestCase):
         return actions.action(self.project, '42', current['sha256'], 'continue',
                               budget_revision=current['budget']['revision'])
 
+    def test_exhausted_stage_cannot_grant_time_or_resume(self):
+        module = actions._recovery.load('pipeline')
+        path = module.root(self.project, '42') / 'product-budget.json'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(dict(next_action='stop', infrastructure_failures=3)))
+        current = actions.state(self.project, '42')
+        current['pipeline'] = dict(next_action='product', retry_budgets={})
+        before = self.ledger.read_bytes()
+        retained = path.read_bytes()
+        with patch.object(actions, 'state', return_value=current), patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
+            for next_action in ('product', 'inspect_exhausted_or_interrupted_product', 'answer_recorded_question', 'revalidate_changed_evidence'):
+                current['pipeline']['next_action'] = next_action
+                if next_action == 'answer_recorded_question':
+                    (path.parent / 'state.json').write_text(json.dumps(dict(next_action=next_action, finding_stage='product')))
+                if next_action == 'revalidate_changed_evidence':
+                    (path.parent / 'state.json').write_text(json.dumps(dict(next_action='product', finding_stage='product')))
+                for operation in ('continue', 'resume', 'continue'):
+                    with self.assertRaisesRegex(ValueError, 'More time cannot add retries'):
+                        actions.action(self.project, '42', current['sha256'], operation,
+                                       budget_revision=current['budget']['revision'])
+            self.assertTrue(all(call.args[0][0] == 'git' for call in process.call_args_list))
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertEqual(path.read_bytes(), retained)
+        self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
+
+    def test_exhaustion_during_preflight_grants_nothing(self):
+        module = actions._recovery.load('pipeline')
+        path = module.root(self.project, '42') / 'product-budget.json'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        (path.parent / 'state.json').write_text(json.dumps(dict(next_action='product')))
+        current = actions.state(self.project, '42')
+        before = self.ledger.read_bytes()
+        def exhaust(*args):
+            path.write_text(json.dumps(dict(next_action='stop', infrastructure_failures=3)))
+        with patch.object(actions, 'state', return_value=current), patch.object(actions, 'continuation_preflight', side_effect=exhaust), patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
+            with self.assertRaisesRegex(ValueError, 'More time cannot add retries'):
+                self.click(current)
+            self.assertTrue(all(call.args[0][0] == 'git' for call in process.call_args_list))
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
+
     def test_missing_worktree_manifest_grants_nothing_and_starts_no_worker(self):
         before = self.ledger.read_bytes()
         with patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
