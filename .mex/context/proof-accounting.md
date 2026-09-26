@@ -48,3 +48,5 @@ The validated proof policy allows 1–64 calls per gate, 0–64 repairs and 0–
 ## Registered repair recurrence
 
 The source dispatcher stores canonical registered-artifact signatures per attempt and refuses a signature previously finalized as substantive. Restart, formatting, finding-ID and output-name changes cannot reset admission. Pending and infrastructure outcomes retain their separate handling. This is source-review accounting, separate from proof-call accounting. Sources: `scripts/nightshift-retry-budget.py` (`repair_admission`, `run_dispatch`), `tests/test-repair-dispatch.py`.
+
+Semantic cache identity follow-up: evaluator/mapper/configuration-adapter/transport source hashes bind semantic authority and are revalidated with the current task, policy and route. Changed code requires fresh calls within retained budgets; old receipts cannot be relabeled. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-cache-review.py`, `docs/operations/SEMANTIC-CACHE-IDENTITY.md`. Other typed mapping acceptance remains open.
