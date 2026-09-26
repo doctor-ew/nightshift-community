@@ -69,3 +69,20 @@ credential source, labeled public fixture digest, call/time ceilings and indepen
 review route. It must compare outcomes against independent fixture labels and
 report per-kind false approvals/rejections, abstentions, escalation, latency and
 measured usage separately. No live execution is authorized by this document.
+
+## Synthetic integration receipt
+
+Runtime revision `eb1540ed57ede7827e5f3424d6e194db287d4b75` passes ten
+handoff cases (15.352 seconds), eleven independently authored regressions (4.993
+seconds) and twenty existing decision-engine cases (0.058 seconds). The integrated
+operation wrapper is still running; this receipt does not claim its completion.
+
+The positive preparation fixture uses eight calls: two ordinary independent
+operations, three evaluator calls and three independent escalations. It reuses
+three decision receipts and adds zero calls on replay. Exact request bodies total
+24,597 bytes, with zero unknown reservations; measured synthetic execution is
+0.004264709998096805 seconds. Per-request bytes and source hashes are retained in
+`SEMANTIC-HANDOFFS-VALIDATION.json`. This latency is a local stub measurement,
+not provider latency. Tokens, provider cache, billing and live quality remain
+unknown. An earlier undercount of escalation envelopes was reproduced by an
+independent failing regression and corrected before this revision.
