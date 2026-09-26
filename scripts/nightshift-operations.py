@@ -52,6 +52,13 @@ def bounded_text(value):
     return isinstance(value, str) and bool(value.strip()) and len(value) <= 4000
 
 
+def verification_finding(row, evidence):
+    summary=dict(id=row['id'][:200],exit_code=row['exit_code'],tests=row['tests'],output_sha256=row['output_sha256'],evidence=evidence,output_excerpt=row['output'][:1200]+row['output'][-1200:] if len(row['output'])>2400 else row['output'])
+    while len(json.dumps(summary,sort_keys=True))>4000:
+        summary['output_excerpt']=summary['output_excerpt'][:len(summary['output_excerpt'])//2]
+    return json.dumps(summary,sort_keys=True)
+
+
 def read(path):
     path = Path(path)
     if path.resolve() != path.absolute() or path.stat().st_size > 2_000_000:
@@ -200,8 +207,8 @@ class Operations:
         return dict(provider=route['provider'], model=route['model'], role=role, routing=str(routing), policy=policy.mode(self.project))
 
     def repair_findings(self, operation):
-        gate = 'groom-adversarial' if operation == 'groom-spec' else 'review'
-        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] == gate and a['status']=='failed'), None)
+        gates = ('groom-adversarial',) if operation == 'groom-spec' else ('verify', 'review')
+        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status']=='failed'), None)
         if latest:
             return latest.get('findings', [])
         return []
@@ -226,6 +233,9 @@ class Operations:
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
             base['repair_findings'] = self.repair_findings(operation)
+            gates=('groom-adversarial',) if operation=='groom-spec' else ('verify','review')
+            failed=next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status']=='failed'),None)
+            base['repair_evidence']=dict(signature=failed['signature'],evidence=failed.get('evidence',{})) if failed else None
         base['upstream'] = {k: self.state['results'].get(k, {}).get('digest') for k in DEPS[operation]}
         if operation in ('implement', 'adopt'):
             base['scope'] = p['scope']
@@ -304,14 +314,20 @@ class Operations:
         if operation == 'publish' and p['publication'] is None:
             blockers.append('publication_target_required')
         # Canonical substantive signature deliberately excludes request IDs and finding wording.
-        signature_deps = {k:v for k,v in deps.items() if k not in ('upstream','implementation','route','reviewer_policy','semantic_settings','executor_sha256','assets')} if operation in REVIEW else deps
+        signature_deps = {k:v for k,v in deps.items() if k not in ('upstream','implementation','route','reviewer_policy','semantic_settings','executor_sha256','assets')} if operation in REVIEW or operation=='verify' else deps
         signature = digest(dict(dependencies=signature_deps, source=context['source'] if operation == 'implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')} if operation=='groom-spec' else None))
         prior = [a for a in self.state['attempts'] if a['operation'] == operation]
         if any(a['status'] in ('pending', 'checkpoint') for a in self.state['attempts']):
             blockers.append('unfinished_operation:resume_existing_request')
         if any(a['status'] == 'failed' and a['signature'] == signature for a in prior):
             blockers.append('unchanged_failure_requires_repair')
-        if sum(a['status'] == 'failed' for a in prior) >= 3:
+        # Explicit external adoption permits validation of a different source,
+        # never another automatic repair or a reset of historical usage.
+        counted=prior
+        external=self.state['results'].get('implement',{})
+        if operation in ('verify','review') and external.get('external') and self.valid('implement',p,context):
+            counted=[a for a in prior if a.get('prepared',{}).get('assessment',{}).get('dependencies',{}).get('source')==context['source']]
+        if sum(a['status'] == 'failed' for a in counted) >= 3:
             blockers.append('repair_limit_exhausted')
         current = self.valid(operation, p, context)
         result = dict(version=VERSION, operation=operation, status='current' if current else 'blocked' if blockers else 'ready', blockers=blockers,
@@ -636,6 +652,9 @@ class Operations:
                     try: attempt['findings']=read(output).get('results',{}).get('findings',[])
                     except (ValueError,OSError): pass
                 if not attempt['findings']: attempt['findings']=[str(error)]
+                if operation=='verify' and result.get('observations'):
+                    attempt['evidence']=result['evidence']
+                    attempt['findings'] += [verification_finding(row,raw.name) for row in result['observations'] if row['exit_code']!=0 or row['tests']<=0]
                 self.save()
                 return attempt
 
@@ -717,13 +736,62 @@ class Operations:
         return dict(head=head,remote=target['remote'],branch=target['branch'])
 
     def chain(self, grant):
-        self.reload()
-        if grant not in self.state['authorizations']: raise ValueError('authorization_required')
+        """Durable composition; repairs use the original authority and executor."""
         results=[]
-        for operation in self.state['authorizations'][grant]['operations']:
-            result=self.execute(grant,operation,grant+'.'+operation)
+        while True:
+            with self.lease():
+                g=self.state['authorizations'].get(grant)
+                if not g: raise ValueError('authorization_required')
+                workflow=g.setdefault('workflow',dict(cursor=0,steps=[dict(operation=o,request='chain-'+digest([grant,i,o])[:40]) for i,o in enumerate(g['operations'])],repairs=[]))
+                if workflow['cursor']>=len(workflow['steps']):
+                    results=[]
+                    for operation in g['operations']:
+                        assessed=self.assess(operation)
+                        row=self.state['results'].get(operation,{})
+                        receipt=next((a for a in self.state['attempts'] if a['request']==row.get('request')),dict(operation=operation,status='reused',result=row))
+                        results.append(dict(receipt,status=receipt['status'] if assessed['status']=='current' else 'stale'))
+                    break
+                step=workflow['steps'][workflow['cursor']]
+                self.save()
+            try:
+                result=self.execute(grant,step['operation'],step['request'])
+            except (ValueError,OSError,KeyError,subprocess.SubprocessError) as error:
+                result=dict(status='blocked',operation=step['operation'],reason=str(error))
             results.append(result)
-            if result['status'] not in ('passed','reused'): break
+            with self.lease():
+                g=self.state['authorizations'][grant];workflow=g['workflow']
+                # Another caller may have completed this exact durable step.
+                if workflow['cursor']>=len(workflow['steps']) or workflow['steps'][workflow['cursor']]!=step:
+                    continue
+                if result['status'] in ('passed','reused'):
+                    workflow['cursor']+=1
+                    self.save()
+                    continue
+                repair={'groom-adversarial':'groom-spec','verify':'implement','review':'implement'}.get(step['operation'])
+                eligible=result.get('reason') in ('substantive_failure','review_obligations_unresolved','case_review_incomplete','failed_or_vacuous_tests','architecture_constraints_failed')
+                failures=sum(a['operation']==step['operation'] and a['status']=='failed' for a in self.state['attempts'])
+                if result['status']!='failed' or not eligible or repair not in g['operations'] or failures>=3:
+                    workflow['stop']=dict(operation=step['operation'],reason=result.get('reason',result['status']),next_action='inspect_evidence_or_adopt_external_work')
+                    self.save()
+                    break
+                # Never repair repeatedly after an unchanged author output.
+                if any(r['gate']==step['operation'] and r['signature']==result['signature'] for r in workflow['repairs']):
+                    workflow['stop']=dict(operation=step['operation'],reason='unchanged_failure_requires_repair',next_action='inspect_evidence_or_adopt_external_work')
+                    self.save()
+                    break
+                assessed=self.assess(repair)
+                if assessed['status']=='blocked':
+                    workflow['stop']=dict(operation=repair,reason=';'.join(assessed['blockers']),next_action='inspect_evidence_or_adopt_external_work')
+                    self.save()
+                    break
+                # Bind only the controller-selected repair; source/policy baselines
+                # and all original deadlines and ceilings still apply in execute.
+                if repair in g['bindings']:g['bindings'][repair]=assessed['binding']
+                workflow['repairs'].append(dict(gate=step['operation'],signature=result['signature'],request=step['request'],repair=repair))
+                tail=g['operations'][g['operations'].index(repair):]
+                workflow['cursor']+=1
+                workflow['steps']=workflow['steps'][:workflow['cursor']]+[dict(operation=o,request='chain-'+digest([grant,len(workflow['repairs']),i,o])[:40]) for i,o in enumerate(tail)]
+                self.save()
         return dict(results=results,view=self.view())
 
     def migrate(self, operator, request):
