@@ -20,7 +20,7 @@ export function IntakePanel({onPrepared}) {
       else setPreview({...preview,status:'cancelled'});
     }catch(e){setError(e.message);}finally{setBusy(false);}
   }
-  return <section className="workspace" aria-label="Guided intake"><h2>Start a request</h2>
+  return <section className="workspace intake-panel" aria-label="Guided intake"><h2>Start a request</h2>
     <p>Resolve a GitHub issue or project Markdown request, inspect its plan, then authorize operations separately.</p>
     {identity&&<><p>Serving candidate: <code>{identity.serving_revision}</code>. Installed runtime revision: {identity.installed_revision}. Delivery: {identity.endpoint}. Provider authentication: unverified; this preview makes no provider call.</p><p>Available tools: {Object.entries(identity.tools||{}).filter(([,present])=>present).map(([name])=>name).join(', ')||'none'}. Missing tools: {Object.entries(identity.tools||{}).filter(([,present])=>!present).map(([name])=>name).join(', ')||'none'}.</p></>}
     <label>Source reference<input disabled={busy} value={source} onChange={e=>{setSource(e.target.value);setPreview(null);}} placeholder="gh:owner/repository#123 or spec:request.md" /></label>

@@ -33,7 +33,8 @@ try{
   const after=readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').length;assert.equal(after-before,4);
   cases.push({source,task:applied.task,binding:preview.binding,provider_calls:after-before,usage:finished.view.usage});
  }
- await page.setViewportSize({width:390,height:844});await page.screenshot({path:resolve(artifacts,'mobile.png'),fullPage:true});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'desktop horizontal overflow');
+ await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile horizontal overflow');await page.screenshot({path:resolve(artifacts,'mobile.png'),fullPage:true});
  assert.equal(errors.length,0,errors.join('\n'));
  const requests=readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
  const report={synthetic:true,browser:browser.version(),cases,provider_calls:requests.length,preview_provider_calls:0,requests,live_certification:false};writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
