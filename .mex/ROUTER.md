@@ -166,3 +166,8 @@ Operation decision retention: missing referenced question evidence blocks instea
 Operation cancellation and reconciliation use durable intents, owned-process cleanup, inherited parent restrictions and evidence-bound recovery without redispatch. Unknown usage remains reserved. Sources: `scripts/nightshift-operation-reconciliation.py`, `tests/test-operation-reconciliation-review.py`, `tests/test-package-cancellation-review.py`, `docs/operations/CANCELLATION-RECONCILIATION.md`. Synthetic integration only; no live activation.
 
 Typed Verify integrates Python unittest and Node framework receipts through existing operation authority and cancellation, with raw evidence retention and stale adapter/runtime invalidation. Legacy wrappers retain logs but cannot certify typed success. Sources: `scripts/nightshift-verification-adapters.py`, `tests/test-verification-adapters-review.py`, `tests/test-verification-controller-review.py`, `docs/operations/TYPED-VERIFICATION-INTEGRATION.md`. Synthetic only.
+Spawned semantic transport follow-up: dynamic controller imports now launch bounded
+HTTP evaluation through a trusted source-path entry point, avoiding unimportable
+multiprocessing targets. Actual synthetic CLI/browser evidence and boundaries:
+`scripts/nightshift-efficiency.py`, `tests/test-semantic-transport-review.py`,
+`docs/operations/SEMANTIC-LAUNCHER.md`. No live endpoint certification is claimed.

@@ -1,0 +1,152 @@
+{
+  "synthetic": true,
+  "revision": "7ad8ced7ef7e63f2150bc83dab85c484537bc37c",
+  "worker_calls": 5,
+  "evaluator_calls": 3,
+  "independent_escalations": 3,
+  "replay_calls": 0,
+  "reused_operations": 4,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3872,
+      "packet_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 15751,
+      "packet_bytes": 7570
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11267,
+      "packet_bytes": 3086
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11236,
+      "packet_bytes": 3055
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11268,
+      "packet_bytes": 3087
+    }
+  ],
+  "evaluator_request_bytes": [
+    2750,
+    2706,
+    2756
+  ],
+  "usage": {
+    "2d83c4b9-37ea-4606-94c8-f80f621eb005": {
+      "calls": 8,
+      "measured_seconds": 2.0073925830074586,
+      "reserved_unknown_seconds": 0,
+      "seconds": 2.0073925830074586,
+      "unknown": 0,
+      "request_bytes": 25660,
+      "wall_seconds": 10.656218767166138
+    }
+  },
+  "browser": {
+    "browser": "153.0.8010.12",
+    "grant": "2d83c4b9-37ea-4606-94c8-f80f621eb005",
+    "replay_worker_calls": 0,
+    "checks": [
+      "actual Groom browser recipe with HTTP semantic evaluator",
+      "three independent escalations",
+      "browser replay without provider dispatch",
+      "reload-retained semantic receipts",
+      "desktop/mobile view without script errors"
+    ]
+  },
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "transport_tests": 5,
+  "transport_tests_passed": true,
+  "transport_suite_seconds": 17.263,
+  "existing_efficiency_tests": 23,
+  "existing_efficiency_tests_passed": true,
+  "helper_sha256": "05d95a6f325f4e4b16582b1e6ac7877edfeb92255eda57f2e2f909b9698c870c",
+  "negative_control": {
+    "tests": 5,
+    "failures": 1,
+    "errors": 4,
+    "passed": false
+  },
+  "integrated_followup": {
+    "synthetic": true,
+    "revision": "683c2f65bf2af1d932b6ab106fd50af7f7cb1af9",
+    "worker_calls": 5,
+    "evaluator_calls": 3,
+    "independent_escalations": 3,
+    "replay_calls": 0,
+    "reused_operations": 4,
+    "requests": [
+      {
+        "operation": "groom-spec",
+        "request_bytes": 3872,
+        "packet_bytes": 650
+      },
+      {
+        "operation": "groom-adversarial",
+        "request_bytes": 15751,
+        "packet_bytes": 7570
+      },
+      {
+        "operation": "review",
+        "request_bytes": 11267,
+        "packet_bytes": 3086
+      },
+      {
+        "operation": "review",
+        "request_bytes": 11236,
+        "packet_bytes": 3055
+      },
+      {
+        "operation": "review",
+        "request_bytes": 11268,
+        "packet_bytes": 3087
+      }
+    ],
+    "evaluator_request_bytes": [
+      2750,
+      2706,
+      2756
+    ],
+    "usage": {
+      "05647725-c7c9-4ef3-b727-c20b4450c6c2": {
+        "calls": 8,
+        "measured_seconds": 1.7674491249999846,
+        "reserved_unknown_seconds": 0,
+        "seconds": 1.7674491249999846,
+        "unknown": 0,
+        "request_bytes": 25660,
+        "wall_seconds": 16.556829929351807
+      }
+    },
+    "browser": {
+      "browser": "153.0.8010.12",
+      "grant": "05647725-c7c9-4ef3-b727-c20b4450c6c2",
+      "replay_worker_calls": 0,
+      "checks": [
+        "actual Groom browser recipe with HTTP semantic evaluator",
+        "three independent escalations",
+        "browser replay without provider dispatch",
+        "reload-retained semantic receipts",
+        "desktop/mobile view without script errors"
+      ]
+    },
+    "provider_tokens": null,
+    "provider_cache_usage": null,
+    "billed_cost": null,
+    "live_certification": false,
+    "transport_tests": 7,
+    "efficiency_tests": 23,
+    "cache_identity_tests": 6,
+    "independent_review": "Post-spawn interruption/error and cleanup-failure pipe closure reproduced, repaired and independently tested."
+  }
+}
