@@ -75,7 +75,9 @@ measured usage separately. No live execution is authorized by this document.
 Runtime revision `eb1540ed57ede7827e5f3424d6e194db287d4b75` passes ten
 handoff cases (15.352 seconds), eleven independently authored regressions (4.993
 seconds) and twenty existing decision-engine cases (0.058 seconds). The integrated
-operation wrapper is still running; this receipt does not claim its completion.
+operation wrapper subsequently passed all88tests across12suites, including
+launcher, isolated installation, restart, repair and byte-preservation regressions.
+The runtime remained `eb1540e`; `db2eb0b` added documentation-only evidence.
 
 The positive preparation fixture uses eight calls: two ordinary independent
 operations, three evaluator calls and three independent escalations. It reuses
