@@ -70,7 +70,7 @@ def run(controller, grant):
                     c.save()
                 step = dict(record['steps'][-1])
             try:
-                result = c.execute(grant, step['operation'], step['request'])
+                result = c.execute(grant, step['operation'], step['request'], True)
             except (OSError, ValueError) as error:
                 with c.lease():
                     record = c.state['supervisors'][grant]
@@ -88,6 +88,14 @@ def run(controller, grant):
                     return dict(status='blocked', reason='reconcile_existing_request', supervisor=record, view=c.view())
                 record['steps'][-1].update(completed=True, status=result['status'])
                 if result['status'] in ('passed', 'reused'):
+                    # Current-result reuse has no new invocation to charge.
+                    if result['status']=='passed':
+                        try:
+                            c.retry_account(result,'success')
+                        except (OSError,ValueError) as error:
+                            record.update(status='blocked',reason='retry_accounting_blocked:'+str(error))
+                            c.save()
+                            continue
                     record['queue'].pop(0)
                     c.save()
                     continue

@@ -128,3 +128,9 @@ Failed test evidence remains hash-bound, replay preserves request identity and
 usage, and changed external adoption can Verify/Review after exhaustion without
 Implement. Synthetic evidence and limitations: `docs/operations/BOUNDED-REPAIR.md`.
 Not activated or live-provider certified.
+
+Supervisor retry admission follow-up: `scripts/nightshift-operation-supervisor.py`
+uses `Operations.execute` to reserve existing retry accounting only after authority
+validation. Exhausted/unknown retained requests stop before workers; success and
+crash replay finalize once. Evidence: `docs/operations/RETRY-ADMISSION.md` and
+`tests/test-operation-supervisor-admission-review.py`. Synthetic only; not activated.

@@ -32,8 +32,8 @@ class SupervisorReview(unittest.TestCase):
 
     def test_source_change_after_final_operation_never_reports_passed(self):
         execute = self.c.execute
-        def change_after_review(grant, operation, request):
-            result = execute(grant, operation, request)
+        def change_after_review(grant, operation, request, supervised=False):
+            result = execute(grant, operation, request, supervised)
             if operation == 'review' and result['status'] == 'passed':
                 (self.root/'app.py').write_text('def answer(): return 999 # concurrent external change\n')
             return result
@@ -74,12 +74,12 @@ class SupervisorReview(unittest.TestCase):
         self.assertEqual(result['status'], 'blocked')
         self.assertIn('budget exhausted', json.dumps(result))
         self.assertEqual(path.read_bytes(), before)
-        self.assertEqual(len(self.worker.calls), 1)
+        self.assertEqual(len(self.worker.calls), 0)
         resumed = f.m.Operations(self.root, 'demo', self.worker)
         self.assertEqual(resumed.state['supervisors'][grant]['status'], 'blocked')
-        self.assertTrue(resumed.state['supervisors'][grant]['decisions'])
+        self.assertIn('budget exhausted', resumed.state['supervisors'][grant]['reason'])
         self.assertEqual(s.run(resumed, grant)['status'], 'blocked')
-        self.assertEqual(len(self.worker.calls), 1)
+        self.assertEqual(len(self.worker.calls), 0)
         self.assertEqual(path.read_bytes(), before)
 
     def test_symlink_state_directory_rejected_before_lock_creation(self):
@@ -119,8 +119,8 @@ class SupervisorReview(unittest.TestCase):
     def test_tampered_failure_evidence_blocks_repair_dispatch(self):
         (self.root/'app.py').write_text('def answer():\n    return 1\n')
         execute = self.c.execute
-        def tamper_after_verification(grant, operation, request):
-            result = execute(grant, operation, request)
+        def tamper_after_verification(grant, operation, request, supervised=False):
+            result = execute(grant, operation, request, supervised)
             if operation == 'verify' and result['status'] == 'failed':
                 (self.c.directory/(request + '.tests.json')).write_text('{"observations": []}\n')
             return result
