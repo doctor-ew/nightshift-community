@@ -3,7 +3,7 @@ name: "proof-accounting"
 description: "Proof admission, pinned policy, and accounting invariants."
 triggers: ["proof", "budget", "pending attempt"]
 edges: [{"target": "context/architecture.md", "condition": "when placing the change in the pipeline"}, {"target": "context/conventions.md", "condition": "when implementing or verifying changes"}, {"target": "patterns/debug-proof-budget.md", "condition": "when proof admission fails"}]
-last_updated: "2026-09-23"
+last_updated: "2026-09-26"
 mex:
   id: mx_01M21Z3AMXY4C5AAH2N44827A3
   type: architecture
@@ -51,3 +51,5 @@ The source dispatcher stores canonical registered-artifact signatures per attemp
 
 Package composition wall follow-up: later authorizations, including a different operator or graph binding, cannot exceed the earliest retained composition deadline. Idle before the first composition authorization retains the active preparation policy. Sources: `scripts/nightshift-package-controller.py` (`Packages.authorize`), `tests/test-package-composition-window-review.py`, `docs/operations/COMPOSITION-WINDOW.md`. Synthetic evidence only; no live activation.
 Semantic cache identity follow-up: evaluator/mapper/configuration-adapter/transport source hashes bind semantic authority and are revalidated with the current task, policy and route. Changed code requires fresh calls within retained budgets; old receipts cannot be relabeled. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-cache-review.py`, `docs/operations/SEMANTIC-CACHE-IDENTITY.md`. Other typed mapping acceptance remains open.
+
+Semantic provenance follow-up: operation-owned paths constrain evidence roles, each obligation requires complete context/case coverage, and independent escalation must return explicit evidence/requirement/finding identifiers. Raw malformed/partial outputs remain retained with charged calls. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-provenance-review.py`, `docs/operations/SEMANTIC-PROVENANCE.md`. Synthetic only; no live accuracy or savings claim.
