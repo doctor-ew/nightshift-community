@@ -12,7 +12,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -65,3 +68,126 @@ jobs:
           additional_files: "install.sh tests/test-state-dir.sh evals/run-tests.sh"
       # The offline harness already discovers every behavioral shell suite
       # and the eval suites. Do not dispatch the same fixtures a second time.
+
+  nightshift-integration-evidence:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Record immutable integration identity without executing repository code
+        shell: bash
+        run: |
+          python3 -I - <<'PY'
+          # NIGHTSHIFT_INTEGRATION_PRODUCER_BEGIN
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+
+          def require(condition, reason):
+              if not condition:
+                  raise ValueError(reason)
+
+          def unique(pairs):
+              value = {}
+              for key, item in pairs:
+                  require(key not in value, 'duplicate_event_key')
+                  value[key] = item
+              return value
+
+          def number(value):
+              require(type(value) is int and 0 < value < 2**63, 'invalid_numeric_identity')
+              return value
+
+          def env_number(name):
+              value = os.environ[name]
+              require(re.fullmatch(r'[1-9][0-9]{0,18}', value), 'invalid_numeric_environment')
+              return number(int(value))
+
+          def sha(value):
+              require(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{40}', value), 'invalid_commit_identity')
+              return value
+
+          def ref_name(value):
+              require(isinstance(value, str) and 0 < len(value) <= 1024 and not any(c in value for c in '\r\n\0'), 'invalid_ref_name')
+              return value
+
+          require(os.environ['GITHUB_EVENT_NAME'] == 'pull_request', 'pull_request_event_required')
+          event_path = Path(os.environ['GITHUB_EVENT_PATH'])
+          require(event_path.is_file() and event_path.stat().st_size <= 2_000_000, 'bounded_event_required')
+          event = json.loads(event_path.read_bytes(), object_pairs_hook=unique)
+          repository = os.environ['GITHUB_REPOSITORY']
+          require(re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository) and len(repository) <= 200, 'invalid_repository')
+          require(event['repository']['full_name'] == repository, 'repository_identity_mismatch')
+          repository_id = env_number('GITHUB_REPOSITORY_ID')
+          require(number(event['repository']['id']) == repository_id, 'repository_id_mismatch')
+          pr = event['pull_request']
+          pull_request = number(event['number'])
+          require(number(pr['number']) == pull_request, 'pull_request_number_mismatch')
+          require(number(pr['base']['repo']['id']) == repository_id and pr['base']['repo']['full_name'] == repository, 'base_repository_mismatch')
+          head_repository_id = number(pr['head']['repo']['id'])
+          head = sha(pr['head']['sha'])
+          base = sha(pr['base']['sha'])
+          merge = sha(pr['merge_commit_sha'])
+          require(head != base and merge not in (head, base), 'two_parent_merge_required')
+          require(sha(os.environ['GITHUB_SHA']) == merge, 'event_merge_mismatch')
+          ref = 'refs/pull/' + str(pull_request) + '/merge'
+          require(os.environ['GITHUB_REF'] == ref, 'pull_request_merge_ref_required')
+          head_ref = ref_name(pr['head']['ref'])
+          base_ref = ref_name(pr['base']['ref'])
+          require(os.environ['GITHUB_HEAD_REF'] == head_ref and os.environ['GITHUB_BASE_REF'] == base_ref, 'event_ref_mismatch')
+          workflow_path = '.github/workflows/shellcheck.yml'
+          workflow_sha = sha(os.environ['GITHUB_WORKFLOW_SHA'])
+          require(workflow_sha == merge, 'workflow_revision_mismatch')
+          require(os.environ['GITHUB_WORKFLOW_REF'] == repository + '/' + workflow_path + '@' + ref, 'workflow_ref_mismatch')
+          producer_job = 'nightshift-integration-evidence'
+          require(os.environ['GITHUB_JOB'] == producer_job, 'producer_job_mismatch')
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          require(Path.cwd().resolve() == workspace, 'checkout_directory_mismatch')
+
+          def git(*args):
+              return subprocess.check_output(['git', '--no-optional-locks', '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', *args], cwd=workspace, timeout=15)
+
+          checkout = sha(git('rev-parse', 'HEAD').decode().strip())
+          require(checkout == merge, 'checkout_revision_mismatch')
+          lineage = git('rev-list', '--parents', '-n', '1', 'HEAD').decode().split()
+          require(lineage == [checkout, base, head], 'checkout_parent_mismatch')
+          parents = lineage[1:]
+          workflow = workspace / workflow_path
+          require(workflow.resolve() == workflow.absolute() and workflow.is_file() and workflow.stat().st_size <= 1_000_000, 'bounded_regular_workflow_required')
+          workflow_bytes = workflow.read_bytes()
+          require(workflow_bytes == git('show', checkout + ':' + workflow_path), 'checkout_workflow_modified')
+          receipt = dict(version=1, repository=repository, repository_id=repository_id,
+                         head_repository_id=head_repository_id, run_id=env_number('GITHUB_RUN_ID'),
+                         run_attempt=env_number('GITHUB_RUN_ATTEMPT'), event='pull_request',
+                         pull_request=pull_request, head=head, base=base, merge=merge,
+                         checkout=checkout, parents=parents, workflow_path=workflow_path,
+                         workflow_sha=workflow_sha, workflow_sha256=hashlib.sha256(workflow_bytes).hexdigest(),
+                         producer_job=producer_job, ref=ref, head_ref=head_ref, base_ref=base_ref)
+          encoded = (json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n').encode()
+          require(len(encoded) <= 8192, 'receipt_too_large')
+          output = Path(os.environ['RUNNER_TEMP']) / 'nightshift-integration'
+          output.mkdir(mode=0o700)
+          with (output / 'nightshift-integration.json').open('xb') as stream:
+              stream.write(encoded)
+          # NIGHTSHIFT_INTEGRATION_PRODUCER_END
+          PY
+      - name: Retain immutable integration identity for this attempt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nightshift-integration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/nightshift-integration/nightshift-integration.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false

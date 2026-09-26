@@ -34,3 +34,7 @@ python3 "$ROOT/tests/test-delivery-composition-review.py"
 python3 "$ROOT/tests/test-delivery-handoff-review.py"
 python3 "$ROOT/tests/test-delivery-handoff-adversarial-review.py"
 python3 "$ROOT/tests/test-delivery-repair-review.py"
+
+python3 "$ROOT/tests/test-actions-ci-producer.py"
+python3 "$ROOT/tests/test-delivery-actions-review.py"
+python3 "$ROOT/tests/test-delivery-actions-integration.py"
