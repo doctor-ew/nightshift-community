@@ -1,0 +1,125 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "revision": "9543c332c0e3805e4542e54ec360540c567d35eb",
+  "provider_calls": 13,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 4272,
+      "packet_bytes": 1050
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8938,
+      "packet_bytes": 757
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4135,
+      "packet_bytes": 913
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9413,
+      "packet_bytes": 1232
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3869,
+      "packet_bytes": 647
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8949,
+      "packet_bytes": 768
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4135,
+      "packet_bytes": 913
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9425,
+      "packet_bytes": 1244
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4217,
+      "packet_bytes": 995
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9471,
+      "packet_bytes": 1290
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4237,
+      "packet_bytes": 1015
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9491,
+      "packet_bytes": 1310
+    },
+    {
+      "operation": "review",
+      "request_bytes": 4494,
+      "packet_bytes": 1272
+    }
+  ],
+  "usage": {
+    "07527a51-0adb-4aca-b54c-66f3191b4000": {
+      "calls": 1,
+      "measured_seconds": 0.3438291249985923,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0.3438291249985923,
+      "unknown": 0,
+      "request_bytes": 1272,
+      "wall_seconds": 5.30876088142395
+    },
+    "a72a75c7-921e-4a9c-9bd1-23802067f87a": {
+      "calls": 8,
+      "measured_seconds": 2.7472886649993598,
+      "reserved_unknown_seconds": 0,
+      "seconds": 2.7472886649993598,
+      "unknown": 0,
+      "request_bytes": 8182,
+      "wall_seconds": 17.237740755081177
+    }
+  },
+  "provider_tokens": null,
+  "billed_cost": null,
+  "provider_cache_usage": null,
+  "checks": [
+    "evidence-bound clarification with no dispatch",
+    "reload-retained answer",
+    "per-case observation and evidence",
+    "UI/CLI admission parity",
+    "factory recipe",
+    "explicit bounded supervisor without redispatch",
+    "manual acceptance required",
+    "duplicate resume without dispatch",
+    "explicit acceptance",
+    "source drift",
+    "external adoption without implementation",
+    "failed verification remains failed",
+    "blocked review",
+    "reload persistence",
+    "three failed reviews exhaust bounded repair",
+    "external adoption after exhaustion without Implement",
+    "desktop/mobile rendering without script errors"
+  ],
+  "live_certification": false,
+  "source_sha256": {
+    "scripts/nightshift-operations.py": "0684b571f6bdde3b9e75708bb7313f01b5de8b9d3f35e4f4fe1d3dbe1ad965cd",
+    "dashboard/src/operations.jsx": "7a3412b4bf971321178f915ee9041d3553e6cb553e37e03758c464efc538e344",
+    "agents/nightshift-operation-worker.md": "b793dcef9ae714bd234e666cd2a1a9aad77e8a8992fd0ada65d241cfdf949c4b",
+    "contracts/nightshift-operation-worker.schema.json": "1e06e0bd8656efc209cc3f8a0278df8b779293cfce95c4768d9bdfaebb22d55b"
+  },
+  "usage_scope": "The two grants shown belong to the exhaustion/adoption ticket; requests and provider_calls cover both browser tickets.",
+  "operation_suite_tests": 118,
+  "post_dispatch_fix_interface_tests": 6
+}

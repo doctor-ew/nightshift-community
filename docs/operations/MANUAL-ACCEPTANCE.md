@@ -60,3 +60,26 @@ All fixtures use disposable repositories and synthetic providers. Live provider
 accuracy, authentication, token usage, cache billing and endpoint certification
 remain unverified. The installed runtime is not changed. Issues remain open until
 integration and their complete acceptance criteria are satisfied.
+
+## Candidate receipt
+
+Runtime `9543c332c0e3805e4542e54ec360540c567d35eb` passes the actual Chromium
+153.0.8010.12 journey. It includes persisted clarification, per-case acceptance,
+duplicate replay, source drift, failed verification, bounded review exhaustion and
+external adoption without another implementation. Thirteen synthetic worker calls
+were made across two disposable tickets. The exhaustion ticket used eight calls
+(three implementation, three review and two preparation calls); external adoption
+then used one review call. Its two grants report zero unknown invocations and
+9,454 packet bytes. All individual argv and packet sizes are recorded in
+`MANUAL-ACCEPTANCE-VALIDATION.json`; the usage block is explicitly scoped to the
+exhaustion ticket. Tokens, billing and provider cache usage remain unknown.
+
+The operation suite passed 118 tests before the final dispatcher correction. Six
+CLI/API tests pass after that correction, including actual-launcher review failure
+and bounded exhaustion. Independent review supplied 11 manual-acceptance and 13
+question regressions. A valid bound worker FAIL contract now remains a substantive
+operation failure even when the launcher exits one; an unbound transport failure
+remains ineligible for automatic semantic repair.
+
+Default-branch integration and live certification remain pending. Safe cancellation
+and explicit unknown-effect reconciliation are still being implemented under #71.
