@@ -134,3 +134,11 @@ uses `Operations.execute` to reserve existing retry accounting only after author
 validation. Exhausted/unknown retained requests stop before workers; success and
 crash replay finalize once. Evidence: `docs/operations/RETRY-ADMISSION.md` and
 `tests/test-operation-supervisor-admission-review.py`. Synthetic only; not activated.
+Work-package composition: `scripts/nightshift-work-packages.py` validates versioned
+graphs and templates; `scripts/nightshift-package-controller.py` composes shared
+operations with isolated child repositories, retained allocations, inherited
+accepted architecture, and explicit parent integration. CLI and browser use the
+same controller. `tests/test-work-packages.sh` covers deterministic and independent
+controller regressions; `dashboard/test-packages-browser.mjs` exercises synthetic
+browser composition. Status and remaining acceptance gaps:
+`docs/operations/WORK-PACKAGES.md`. No live certification or activation is implied.
