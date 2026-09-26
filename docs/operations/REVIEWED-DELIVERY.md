@@ -131,7 +131,10 @@ Timestamps select diagnostic text; they do not prove integration. Missing, malfo
 or oversized diagnostics preserve failure but block automatic repair. Raw log hashes
 and byte counts remain evidence; raw logs are not included in public reports.
 Repair recovery also binds the adapter source digest, preventing changed admission
-code from silently reusing earlier authorization.
+code from silently reusing earlier authorization. The producer derives execution
+identity from `GITHUB_SHA` and actual Git parents; webhook `merge_commit_sha` can
+be null or stale and is not admission evidence. Scoped synthetic and hosted receipt
+results are recorded in `ACTIONS-INTEGRATION-VALIDATION.json`.
 
 ## Repair and reconciliation
 

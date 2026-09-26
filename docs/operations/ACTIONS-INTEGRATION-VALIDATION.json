@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "implementation_revision": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+  "synthetic_browser": {
+    "revision": "a8cf6308e40f679f1f5ab2e71336c6b2d3a828af",
+    "installed_mode": "temporary_symlink",
+    "endpoint": "ci_passed",
+    "provider_calls": 6,
+    "replay_provider_calls": 0,
+    "requests": [
+      {
+        "operation": "groom-spec",
+        "request_bytes": 3872,
+        "packet_bytes": 650
+      },
+      {
+        "operation": "groom-adversarial",
+        "request_bytes": 8930,
+        "packet_bytes": 749
+      },
+      {
+        "operation": "implement",
+        "request_bytes": 4169,
+        "packet_bytes": 947
+      },
+      {
+        "operation": "review",
+        "request_bytes": 11103,
+        "packet_bytes": 2922
+      },
+      {
+        "operation": "implement",
+        "request_bytes": 5373,
+        "packet_bytes": 2151
+      },
+      {
+        "operation": "review",
+        "request_bytes": 11212,
+        "packet_bytes": 3031
+      }
+    ],
+    "pr_creates": 1,
+    "merges": 0,
+    "unknown": 0,
+    "browser": {
+      "browser": "153.0.8010.12",
+      "initial_head": "b2b8c0d6bd94566aaa34bdb4672b30fc4fd5a815",
+      "final_head": "daaab768589bc51fb131ec557205059bae635989",
+      "repair_worker_calls": 2,
+      "replay_provider_calls": 0,
+      "reused_delivery_steps": 4,
+      "endpoint": "ci_passed",
+      "checks": [
+        "rendered bound acceptance",
+        "rendered endpoint composition",
+        "real local Git publication",
+        "synthetic PR and integration CI transport",
+        "explicit existing repair grant bound in UI",
+        "CI failure repair followed by Verify and independent Review",
+        "needs acceptance without automatic commit or push",
+        "fresh rendered acceptance and newly authorized delivery",
+        "retained composition replay",
+        "reload and blocked merge",
+        "desktop/mobile no script errors"
+      ]
+    },
+    "provider_tokens": null,
+    "provider_cache_usage": null,
+    "billed_cost": null,
+    "live_certification": false,
+    "repair_mode": true,
+    "actions_mode": true,
+    "runtime_matches_commit": true,
+    "runtime_match_scope": "Runtime scripts, roles, contracts, routing, dashboard server, source and built assets; excludes compiled caches and dependency symlinks.",
+    "runtime_mismatches": [],
+    "revision_dirty": true,
+    "delivery_outcomes": [
+      "needs_acceptance",
+      "ci_passed"
+    ],
+    "actions_evidence": [
+      {
+        "reported_head": "daaab768589bc51fb131ec557205059bae635989",
+        "verified_merge": "dbefa5703d2fc84d0ec231aeafe1c2e01408c5fe",
+        "conclusion": "success",
+        "artifact_digest": "sha256:1e1b29f97318ab4e04c52808e33e1a140a5e9dafadd7ed2d983a1a7979560253",
+        "artifact_id": 3668622210,
+        "check_suite_id": 3668622170,
+        "job_id": 3668622190,
+        "producer_job_id": 3668622200,
+        "run_attempt": 2,
+        "run_id": 3668622160,
+        "run_number": 1,
+        "workflow_id": 303,
+        "workflow_sha256": "554acdae24ba12d96f2ce5e72c0c823bf91271047b4a41dfe88fa7a881483b03"
+      },
+      {
+        "reported_head": "b2b8c0d6bd94566aaa34bdb4672b30fc4fd5a815",
+        "verified_merge": "2d833809e20991307b58cc273221473f13debea5",
+        "conclusion": "failure",
+        "artifact_digest": "sha256:3734e2491df616946cb62cd42dfa38ab6aefcbbad09ab53a9a4e4bea2fd8b2da",
+        "artifact_id": 2998453488,
+        "check_suite_id": 2998453448,
+        "job_id": 2998453468,
+        "producer_job_id": 2998453478,
+        "run_attempt": 2,
+        "run_id": 2998453438,
+        "run_number": 1,
+        "workflow_id": 303,
+        "workflow_sha256": "554acdae24ba12d96f2ce5e72c0c823bf91271047b4a41dfe88fa7a881483b03"
+      }
+    ],
+    "actions_contract": {
+      "workflow_path": ".github/workflows/shellcheck.yml",
+      "workflow_sha256": "554acdae24ba12d96f2ce5e72c0c823bf91271047b4a41dfe88fa7a881483b03",
+      "job": "shellcheck",
+      "producer_job": "nightshift-integration-evidence",
+      "artifact_prefix": "nightshift-integration"
+    },
+    "metric_scope": {
+      "requests.request_bytes": "Sum UTF-8 bytes of synthetic provider CLI arguments; excludes executable and separators; not network payload or tokens.",
+      "requests.packet_bytes": "Serialized operation packet bytes; same scope as controller usage.request_bytes.",
+      "github_cli_requests": "Synthetic gh CLI argument bytes only; excludes executable, separators, and Git transport commands; not network payload.",
+      "git_transport": "Real disposable local Git transport exercised; invocation count and byte usage not measured."
+    },
+    "provider_argv_bytes": 44659,
+    "controller_packet_bytes": 10450,
+    "github_cli_calls": 48,
+    "github_cli_argv_bytes": 4717,
+    "factory_usage": {
+      "calls": 6,
+      "measured_seconds": 2.079791917007242,
+      "reserved_unknown_seconds": 0,
+      "seconds": 2.079791917007242,
+      "unknown": 0,
+      "request_bytes": 10450,
+      "wall_seconds": 106.55002975463867
+    },
+    "wall_interval_note": "Parent and child intervals overlap and must not be summed."
+  },
+  "producer_tests": {
+    "revision": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+    "passed": 17,
+    "seconds": 3.442
+  },
+  "adapter_tests": {
+    "revision": "969e0ca62d0cbbfdfefad7448921cf4a307737b8",
+    "passed": 42
+  },
+  "controller_tests": {
+    "revision": "969e0ca62d0cbbfdfefad7448921cf4a307737b8",
+    "passed": 12,
+    "note": "11-test run plus separately executed mixed required-check regression"
+  },
+  "independent_review": "No remaining blocker after hosted-event corrections",
+  "browser_runtime_changes_since_test": [],
+  "workflow_sha256": "d29ab129f118f73e1272e1419f2ce0173287310919831a1679f442b9c8a9edc3",
+  "parent_regression": {
+    "revision": "13a9abace1286f5274ed1abfc1db5dcd320ee460",
+    "runtime_revision": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e",
+    "suites_passed": 50,
+    "suites_failed": 0,
+    "delivery_tests_passed": 77
+  },
+  "hosted_integration": "Producer and read-only immutable artifact audit passed at the recorded revision; full hosted regression pending.",
+  "certification": "Live endpoint certification and activation proposals unexecuted",
+  "unmeasured": [
+    "aggregate unit/eval provider calls",
+    "orchestration model usage",
+    "Git transport calls/bytes",
+    "provider tokens/cache/billing"
+  ],
+  "hosted_receipt_audit": {
+    "runtime_revision": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+    "repository": "doctor-ew/nightshift-community",
+    "pull_request": 106,
+    "run_id": 36261949499,
+    "run_attempt": 1,
+    "producer": {
+      "id": 108459346279,
+      "name": "nightshift-integration-evidence",
+      "head_sha": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+      "run_id": 36261949499,
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "check_run_url": "https://api.github.com/repos/doctor-ew/nightshift-community/check-runs/108459346279"
+    },
+    "test_jobs": [
+      {
+        "id": 108459346447,
+        "name": "shellcheck",
+        "head_sha": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+        "run_id": 36261949499,
+        "run_attempt": 1,
+        "status": "in_progress",
+        "conclusion": null,
+        "check_run_url": "https://api.github.com/repos/doctor-ew/nightshift-community/check-runs/108459346447"
+      }
+    ],
+    "artifact_matches": 1,
+    "provider_calls": 0,
+    "live_factory_authorization": false,
+    "mutations": 0,
+    "full_ci_accepted": false,
+    "receipt_validation": "PASS",
+    "proof": {
+      "base": "13a9abace1286f5274ed1abfc1db5dcd320ee460",
+      "base_ref": "nightshift/roadmap-delivery-reviewed-73",
+      "checkout": "66302f985fee714457e7d7667ad738e4731de9b3",
+      "event": "pull_request",
+      "head": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+      "head_ref": "nightshift/roadmap-actions-ci-attestation-73",
+      "head_repository_id": 1360467625,
+      "merge": "66302f985fee714457e7d7667ad738e4731de9b3",
+      "parents": [
+        "13a9abace1286f5274ed1abfc1db5dcd320ee460",
+        "e71e07c0991f3c997eefc2aba22a10e380922f35"
+      ],
+      "producer_job": "nightshift-integration-evidence",
+      "pull_request": 106,
+      "ref": "refs/pull/106/merge",
+      "repository": "doctor-ew/nightshift-community",
+      "repository_id": 1360467625,
+      "run_attempt": 1,
+      "run_id": 36261949499,
+      "version": 1,
+      "workflow_path": ".github/workflows/shellcheck.yml",
+      "workflow_sha": "66302f985fee714457e7d7667ad738e4731de9b3",
+      "workflow_sha256": "d29ab129f118f73e1272e1419f2ce0173287310919831a1679f442b9c8a9edc3"
+    },
+    "artifact": {
+      "id": 10913120791,
+      "name": "nightshift-integration-36261949499-1",
+      "size_in_bytes": 596,
+      "digest": "sha256:da5f2345fba1a3084ea9d5712ea34ead0c65892257a2544faec2c73400d55e31",
+      "expired": false,
+      "workflow_run": {
+        "id": 36261949499,
+        "repository_id": 1360467625,
+        "head_repository_id": 1360467625,
+        "head_branch": "nightshift/roadmap-actions-ci-attestation-73",
+        "head_sha": "e71e07c0991f3c997eefc2aba22a10e380922f35"
+      }
+    },
+    "check_identity": {
+      "id": 108459346279,
+      "name": "nightshift-integration-evidence",
+      "head_sha": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "workflow_digest_matches_reviewed_candidate": true,
+    "current_pr_reobserved": true,
+    "request_count": 10,
+    "argument_bytes": 759,
+    "response_bytes": 82439,
+    "observed_metadata_seconds": 3.910680542991031,
+    "preceding_unmetered_metadata_calls": 1,
+    "measurement_scope": "This audit GH CLI invocations only. Argument bytes exclude executable/separators; response bytes are stdout, not network transport. Earlier one reconnaissance request was not metered. Provider tokens/cache/billing and network wire bytes unknown.",
+    "provider_tokens": null,
+    "provider_cache_usage": null,
+    "billing": null,
+    "test_check_identity": {
+      "id": 108459346447,
+      "name": "shellcheck",
+      "head_sha": "e71e07c0991f3c997eefc2aba22a10e380922f35",
+      "status": "in_progress",
+      "conclusion": null,
+      "app_id": 15368,
+      "check_suite_id": 98197238676
+    }
+  }
+}
