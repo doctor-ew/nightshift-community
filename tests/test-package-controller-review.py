@@ -75,6 +75,27 @@ class PackageControllerReview(unittest.TestCase):
         self.assertEqual(result['usage'][grant], before)
         self.assertEqual(self.worker.calls, calls)
 
+    def test_preparation_cannot_expand_initial_graph_allowance(self):
+        import difflib
+        original = json.dumps(dict(self.graph, aggregate=dict(self.graph['aggregate'], calls=1))) + '\n'
+        authored = json.dumps(self.graph) + '\n'
+        (self.root/'graph.json').write_text(original)
+        self.worker.patch = ''.join(difflib.unified_diff(original.splitlines(True), authored.splitlines(True),
+            fromfile='a/graph.json', tofile='b/graph.json'))
+        assessed = self.c.preparation.assess('groom-spec')
+        grant = self.c.preparation.authorize(m.ops.RECIPES['groom'], assessed['binding'],
+            'synthetic-reviewer', 'one-call-preparation')
+        result = self.c.prepare(grant['id'])
+        self.assertEqual(result['status'], 'blocked', result)
+        self.assertEqual(len(self.worker.calls), 1)
+        self.assertEqual(self.c.preparation.state['authorizations'][grant['id']]['aggregate']['calls'], 1)
+        self.assertEqual(json.loads((self.root/'graph.json').read_text())['aggregate']['calls'], 32)
+        resumed = m.Packages(self.root, 'demo', self.worker)
+        self.assertEqual(resumed.prepare(grant['id'])['status'], 'blocked')
+        self.assertEqual(len(self.worker.calls), 1)
+        self.assertEqual(resumed.preparation.state['authorizations'][grant['id']]['aggregate']['calls'], 1)
+        self.assertFalse(resumed.state['authorizations'])
+
     def test_preparation_is_inside_parent_call_ceiling(self):
         self.graph['aggregate']['calls'] = sum(child['allowance']['calls'] for child in self.graph['children'])
         (self.root/'graph.json').write_text(json.dumps(self.graph))
@@ -119,6 +140,33 @@ class PackageControllerReview(unittest.TestCase):
         self.assertEqual(usage['calls'], len(calls))
         self.assertEqual(usage['orchestration_provider_calls'], 0)
         self.assertEqual(usage['reserved_seconds'], 0)
+
+    def test_interrupted_input_refresh_resumes_durable_intent(self):
+        grant = self.authorize()
+        definition = self.c.state['authorizations'][grant]['graph']['children'][0]
+        with self.c.lease():
+            child = self.c.materialize(definition, grant)
+        names = ['left_test.py', definition['plan']]
+        for name in names:
+            path = self.root/name
+            path.write_bytes(path.read_bytes() + b'\n')
+        replace = m.os.replace
+        def interrupted_replace(source, destination):
+            replace(source, destination)
+            if Path(source).name.startswith('.package-'):
+                raise KeyboardInterrupt('synthetic death after first imported input replacement')
+        with patch.object(m.os, 'replace', side_effect=interrupted_replace):
+            with self.assertRaises(KeyboardInterrupt):
+                with self.c.lease():
+                    self.c.materialize(definition, grant)
+        resumed = m.Packages(self.root, 'demo', self.worker)
+        self.assertIn('update', resumed.state['children']['left'])
+        with resumed.lease():
+            child = resumed.materialize(definition, grant)
+        self.assertNotIn('update', resumed.state['children']['left'])
+        for name in names:
+            self.assertEqual((child.project/name).read_bytes(), (self.root/name).read_bytes())
+        self.assertEqual(len(self.worker.calls), 2)
 
     def test_changed_import_preserves_operator_child_edits(self):
         grant = self.authorize()
