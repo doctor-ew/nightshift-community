@@ -145,6 +145,29 @@ def scenarios(project,p):
     return value['cases']
 
 
+def manual_acceptance(project,p,binding,attestation):
+    if not isinstance(attestation,dict) or attestation.get('binding')!=binding:
+        raise ValueError('bound_human_attestation_required')
+    required=[case for case in scenarios(project,p) if case['manual']]
+    if not required:
+        exact(attestation,'binding accepted')
+        if attestation['accepted'] is not True:raise ValueError('manual_acceptance_pending')
+        return dict(binding=binding,accepted=True,cases=[])
+    exact(attestation,'binding cases')
+    if len(json.dumps(attestation,ensure_ascii=False).encode())>12000:raise ValueError('manual_acceptance_too_large')
+    rows=attestation['cases']
+    if not isinstance(rows,list) or len(rows)!=len(required):raise ValueError('manual_cases_incomplete')
+    expected={case['id']:digest(case) for case in required};seen=set();normalized=[]
+    for row in rows:
+        exact(row,'id case_sha256 passed observation evidence')
+        if not isinstance(row['id'],str) or row['id'] not in expected or row['id'] in seen or row['case_sha256']!=expected[row['id']]:raise ValueError('manual_case_identity_changed')
+        if row['passed'] is not True:raise ValueError('manual_acceptance_pending')
+        for key in ('observation','evidence'):
+            if not isinstance(row[key],str) or not row[key].strip() or '\0' in row[key] or len(row[key].encode())>2048:raise ValueError('manual_case_observation_required')
+        seen.add(row['id']);normalized.append(dict(row))
+    return dict(binding=binding,accepted=True,cases=sorted(normalized,key=lambda row:row['id']))
+
+
 class Operations:
     def __init__(self, project, task, worker=None, clock=time.time):
         self.project = Path(project).resolve()
@@ -259,6 +282,47 @@ class Operations:
         row = self.state['results'].get(key, {})
         return row.get('provenance', {'provider': 'unknown', 'model': 'unknown', 'identity': 'unknown'})
 
+    def question_basis(self,dependencies,operation):
+        basis={k:v for k,v in dependencies.items() if k not in ('decisions','repair_findings','repair_evidence')}
+        if operation in ('implement','groom-spec'):
+            _,context=self.context()
+            basis['question_source']=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')}
+        return digest(basis)
+
+    def decision_rows(self,operation,dependencies):
+        if not any(r['operation']==operation for r in self.state.get('questions',[])):return []
+        basis=self.question_basis(dependencies,operation);rows=[]
+        decisions=load('console-decisions')
+        for record in self.state.get('questions',[]):
+            if record['operation']!=operation:continue
+            history=decisions.read(decisions.location(self.project,record['task']))['requests']
+            item=next((r for r in history if r['sha256']==record['sha256']),None)
+            if item:rows.append(dict(record,current=record['basis']==basis,question=item))
+        return rows
+
+    def question(self,operation,binding,value):
+        assessed=self.assess(operation)
+        if assessed.get('binding')!=binding:raise ValueError('stale_question_evidence')
+        exact(value,'question reason options')
+        if len(json.dumps(value).encode())>6000:raise ValueError('question_context_too_large')
+        basis=self.question_basis(assessed['dependencies'],operation)
+        task='op-question-'+digest(dict(project=str(self.project),task=self.task,operation=operation,basis=basis,question=value))[:32]
+        rows=self.state.setdefault('questions',[])
+        if len(rows)>=100 and not any(row['task']==task for row in rows):raise ValueError('question_history_full:retain_evidence')
+        item=load('console-decisions').request(self.project,task,dict(value,continuation='none',decision_key='operation-clarification'))
+        if not any(row['sha256']==item['sha256'] for row in rows):
+            if len(rows)>=100:raise ValueError('question_history_full:retain_evidence')
+            rows.append(dict(operation=operation,basis=basis,binding=binding,task=task,sha256=item['sha256']));self.save()
+        return item
+
+    def answer(self,operation,binding,question,choice,answer):
+        with self.lease():
+            assessed=self.assess(operation)
+            rows=self.decision_rows(operation,assessed['dependencies'])
+            row=next((r for r in rows if r['sha256']==question and r['current']),None)
+            if not row or (assessed.get('binding')!=binding and not row['question'].get('response')):raise ValueError('stale_question_evidence')
+            return load('console-decisions').respond(self.project,row['task'],question,choice,answer)
+
     def dependencies(self, operation, p, context):
         a = context['artifacts']
         base = dict(version=VERSION, task=self.task, worktree=str(self.project), repository=self.state['repository'])
@@ -299,6 +363,8 @@ class Operations:
             if p['publication']:
                 base['publication_target'] = subprocess.check_output(['git','-C',str(self.project),'remote','get-url','--push',p['publication']['remote']],text=True).strip()
                 base['publication_head'] = subprocess.check_output(['git','-C',str(self.project),'rev-parse','HEAD'],text=True).strip()
+        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base) if r['current'] and r['question'].get('response')]
+        if answers:base['decisions']=answers
         return base
 
     def valid(self, operation, p, context, visiting=None):
@@ -308,7 +374,9 @@ class Operations:
         try:
             if row['digest'] != digest({k: v for k, v in row.items() if k != 'digest'}):
                 return False
-            if row['dependencies'] != self.dependencies(operation, p, context):
+            dependencies=self.dependencies(operation,p,context)
+            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies)):return False
+            if row['dependencies'] != dependencies:
                 return False
             if operation=='verify' and not (self.valid('groom',p,context) or self.valid('adopt',p,context)):return False
             required = ('adopt',) if operation=='implement' and row.get('external') else DEPS[operation]
@@ -332,6 +400,7 @@ class Operations:
         p, context = self.context()
         deps = self.dependencies(operation, p, context)
         blockers = []
+        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps)):blockers.append('operator_decision_required')
         required = list(deps['artifacts'])
         if any(context['artifacts'][k] is None for k in required):
             blockers.append('missing_input_artifacts')
@@ -385,6 +454,8 @@ class Operations:
                 if operation in ('groom-adversarial','review'):load('operation-decisions').readiness(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             except (ValueError, OSError) as error:
                 result.update(status='blocked', next_action='repair_inputs', blockers=[str(error)])
+        result['questions']=self.decision_rows(operation,deps)
+        if operation=='accept':result['manual_cases']=[dict(case,case_sha256=digest(case)) for case in self.scenarios(p) if case['manual']]
         return result
 
     def view(self):
@@ -415,6 +486,8 @@ class Operations:
             if isinstance(attestation, dict) and 'bounded_repair' in attestation:
                 if attestation['bounded_repair'] is not True or operations not in (RECIPES['factory'], RECIPES['groom']):
                     raise ValueError('invalid_bounded_repair_authority')
+            if operations==['accept'] and isinstance(attestation,dict) and isinstance(attestation.get('cases'),list):
+                attestation=dict(attestation,cases=sorted(attestation['cases'],key=lambda row:str(row.get('id','')) if isinstance(row,dict) else ''))
             old = self.state['authorizations'].get(request)
             payload = dict(operations=operations, expected=expected, operator=operator, attestation=attestation)
             if old:
@@ -429,6 +502,10 @@ class Operations:
             if assessed['status'] == 'blocked':
                 raise ValueError(';'.join(assessed['blockers']))
             p, context = self.context()
+            if 'accept' in operations:
+                if operations!=['accept']:raise ValueError('acceptance_requires_separate_authority')
+                normalized=manual_acceptance(self.project,p,expected,attestation)
+                if assessed['status']=='current' and normalized!=assessed['result'].get('attestation'):raise ValueError('acceptance_already_current')
             # Exact input baseline; only controller-integrated outputs may advance it.
             policy_binding=self.policy_binding(p)
             grant = dict(version=VERSION,policy_binding=policy_binding, id=request, operations=operations, operator=operator, request_digest=digest(payload),
@@ -491,6 +568,7 @@ class Operations:
             accepted_architecture=assessed['dependencies']['accepted_architecture'],
             scope=p['scope'], cases=self.scenarios(p) if operation!='groom-spec' else [], provenance=self.provenance(operation), findings=sorted(set(assessed['findings'] + self.repair_findings(operation))), checks=p['checks'],
             verification=self.state['results'].get('verify', {}).get('observations') if operation=='review' else None)
+        if assessed['dependencies'].get('decisions'):value['operator_decisions']=assessed['dependencies']['decisions']
         package_schema=self.package_schema(p)
         if package_schema:
             value['package_authoring']=dict(schema=package_schema,instruction='Author complete child plans, specs and checks as inline artifact text. Preserve existing project inputs. Do not grant authority. Independent challenge must evaluate semantic requirement coverage, interfaces, test oracles and parent integration, not only IDs.')
@@ -528,7 +606,13 @@ class Operations:
             env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file), NIGHTSHIFT_PROJECT_DIR=str(target), NIGHTSHIFT_PROVIDER_POLICY=route['policy'], NIGHTSHIFT_TELEMETRY_DIR='off')
             code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'))
             if code:
-                raise ValueError('provider_exit:' + str(code))
+                value=read(output) if output.exists() else {}
+                # The launcher exits one after publishing a validated FAIL contract.
+                # Transport failure envelopes have no operation input binding.
+                completed_failure=(code==1 and value.get('status')=='FAIL' and isinstance(value.get('results'),dict)
+                    and value['results'].get('binding')==packet['binding'] and isinstance(value.get('artifacts'),dict)
+                    and all(value['artifacts'].get(key)==route[key] for key in ('provider','model')))
+                if not completed_failure:raise ValueError('provider_exit:' + str(code))
         return read(output)
 
     def validate_worker(self, value, assessed, route):
@@ -537,12 +621,16 @@ class Operations:
         if any(value['artifacts'][k] != route[k] for k in ('provider','model')):
             raise ValueError('worker_identity_mismatch')
         r = value['results']
-        exact(r, 'binding decision findings resolved coverage')
+        exact(r, 'binding decision findings resolved coverage'+(' question' if 'question' in r else ''))
         if r['binding'] != assessed['binding'] or r['decision'] not in ('approve','repair','abstain'):
             raise ValueError('invalid_worker_binding')
         for key in ('findings','resolved','coverage'):
             if not isinstance(r[key], list) or any(not bounded_text(s) for s in r[key]):
                 raise ValueError('invalid_worker_findings')
+        if r.get('question') is not None:
+            if r['decision']!='abstain' or value['artifacts']['diff']:raise ValueError('invalid_question_effect')
+            self.question(assessed['operation'],assessed['binding'],r['question'])
+            raise ValueError('operator_decision_required')
         if value['status'] != 'SUCCESS' or r['decision'] != 'approve' or r['findings']:
             raise ValueError('substantive_failure')
         if assessed['operation'] in REVIEW:
@@ -651,7 +739,7 @@ class Operations:
                 att=g['attestation']
                 if not isinstance(att,dict) or att.get('binding')!=assessed['binding']: raise ValueError('bound_human_attestation_required')
                 if operation=='adopt' and (not bounded_text(att.get('identity')) or att['identity']=='unknown' or att.get('provider') not in ('human','claude','codex','local')): raise ValueError('external_author_provenance_required')
-                if operation=='accept' and att.get('accepted') is not True: raise ValueError('manual_acceptance_pending')
+                if operation=='accept':manual_acceptance(self.project,p,assessed['binding'],att)
                 if operation=='publish' and att.get('publication')!=p['publication']: raise ValueError('explicit_publication_authority_required')
             if supervised:
                 self.retry_account(dict(operation=operation,request=request),'pending')
@@ -660,6 +748,7 @@ class Operations:
             output=self.directory/(request+'.worker.json')
             checkpoint=self.directory/(request+'.checkpoint.json')
             result=dict(evidence={}, outputs={}, provenance={'provider':'controller','model':'none','identity':g['operator']}, source=context['source'])
+            if assessed['dependencies'].get('decisions'):result['operator_decisions']=assessed['dependencies']['decisions']
             changes={}
             try:
                 if operation in AI:
@@ -693,6 +782,9 @@ class Operations:
                     if any(r['exit_code']!=0 or r['tests']<=0 for r in result['observations']): raise ValueError('failed_or_vacuous_tests')
                 elif operation=='adopt':
                     result['provenance']={k:g['attestation'].get(k,'unknown') for k in ('provider','model','identity')}
+                elif operation=='accept':
+                    result['attestation']=manual_acceptance(self.project,p,assessed['binding'],g['attestation'])
+                    result['operator']=g['operator']
                 elif operation=='publish':
                     result['publication']=self.publish(p)
                 # A read/review/test must not move its own evidence baseline.
@@ -729,6 +821,7 @@ class Operations:
         if operation in REVIEW and not {c['id'] for c in self.scenarios(p)}.issubset(checked['coverage']):raise ValueError('case_review_incomplete')
         result=dict(evidence={output.name:sha(output)},outputs={},source=context['source'],review=checked,
                     provenance=dict(provider=route['provider'],model=route['model'],identity=call['id']))
+        if assessed['dependencies'].get('decisions'):result['operator_decisions']=assessed['dependencies']['decisions']
         changes={}
         if operation in ('groom-spec','implement'):
             allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
@@ -827,7 +920,7 @@ def factory(project, task):
 
 
 def api(project, body):
-    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices'}:
+    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer'}:
         raise ValueError('invalid_operation_request')
     if isinstance(body.get('action'),str) and body['action'].startswith('intake-'):return load('intake').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
@@ -835,6 +928,9 @@ def api(project, body):
         return load('package-controller').api(project,package_body)
     controller=Operations(project,body['task'])
     action=body['action']
+    if action=='question':
+        with controller.lease():return controller.question(body['operation'],body['binding'],body['question'])
+    if action=='answer':return controller.answer(body['operation'],body['binding'],body['question'],body.get('choice',''),body.get('answer',''))
     if action=='factory': return factory(project,body['task'])
     if action=='view': return controller.view()
     if action=='semantic-map':return load('operation-decisions').generate(controller,plan(controller.project,controller.task),body['operation'])
@@ -849,10 +945,11 @@ def api(project, body):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map'))
+    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map','question','answer'))
     parser.add_argument('task');parser.add_argument('operation',nargs='?',choices=OPS)
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--binding');parser.add_argument('--operator');parser.add_argument('--request');parser.add_argument('--grant')
     parser.add_argument('--recipe',choices=RECIPES);parser.add_argument('--attestation',type=json.loads)
+    parser.add_argument('--question',type=json.loads);parser.add_argument('--choice');parser.add_argument('--answer')
     args=parser.parse_args()
     body={k:v for k,v in vars(args).items() if v is not None and k not in ('project','recipe')}
     if args.action=='authorize':body['operations']=RECIPES[args.recipe] if args.recipe else [args.operation]
