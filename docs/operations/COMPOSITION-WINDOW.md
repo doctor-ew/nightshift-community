@@ -21,3 +21,5 @@ Source: `tests/test-package-composition-window-review.py`, `tests/test-package-w
 ## Status
 
 Implementation: independently reviewed synthetic regression fix. Integration: focused follow-up to PR #86; no merge performed. Certification: live endpoints, conflict-safe concurrency and nested composition remain unclaimed. No real provider, ticket restart, live allowance, installed runtime modification or deployment occurred. Provider token usage, KV-cache reuse and billing are unknown.
+
+Actual Chromium 153.0.8010.12 and launcher acceptance passed on runtime revision `8431ed2bb1acc7291949bb6c076633cf28973d8a`: 14 synthetic calls, zero replay calls, 30,599 recorded packet bytes, 4.953324001995497 worker seconds and 4.814988851547241 active preparation seconds. Unknown calls, unknown preparation phases and remaining execution reservations were zero. Exact individual argv sizes are retained separately in `COMPOSITION-WINDOW-VALIDATION.json`; no provider token/cache/billing measurements are available. The fixture authored inline child artifacts without creating child files in the caller checkout.
