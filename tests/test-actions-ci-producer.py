@@ -65,14 +65,26 @@ class Producer(unittest.TestCase):
         self.assertEqual(receipt['merge'], self.merge)
         self.assertEqual(receipt['parents'], [self.base_sha, self.head])
 
-    def test_nonnull_invalid_or_mismatched_event_merge_is_rejected(self):
-        for value in (self.head, '', False, 7, []):
-            with self.subTest(value=value):
-                self.event['pull_request']['merge_commit_sha'] = value
-                self.rejected()
+    def test_stale_event_merge_does_not_replace_execution_identity(self):
+        self.event['pull_request']['merge_commit_sha'] = self.head
+        result = self.produce()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads((self.temp / 'nightshift-integration/nightshift-integration.json').read_text())
+        self.assertEqual(receipt['merge'], self.merge)
 
-    def test_absent_event_merge_field_is_rejected(self):
+    def test_absent_event_merge_is_not_an_execution_identity(self):
         del self.event['pull_request']['merge_commit_sha']
+        result = self.produce()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_stale_event_merge_cannot_hide_wrong_parents(self):
+        self.event['pull_request']['merge_commit_sha'] = self.head
+        self.event['pull_request']['head']['sha'] = self.base_sha
+        self.rejected()
+
+    def test_null_event_merge_cannot_hide_wrong_checkout(self):
+        self.event['pull_request']['merge_commit_sha'] = None
+        self.git('checkout', '--detach', self.head)
         self.rejected()
 
     def test_event_and_environment_identity_mismatches_produce_no_receipt(self):
