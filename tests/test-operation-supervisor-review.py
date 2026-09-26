@@ -62,6 +62,38 @@ class SupervisorReview(unittest.TestCase):
         self.assertEqual(resumed.usage(grant)['calls'], 4)
         self.assertEqual(resumed.state['supervisors'][grant]['steps'][0]['request'], step['request'])
 
+    def test_stopped_retry_ledger_produces_durable_blocker(self):
+        grant = self.grant()
+        path = self.c.directory/'groom-spec.retry.json'
+        retry = f.m.load('retry-budget')
+        for index in range(3):
+            retry.account(path, 'retained-transport-' + str(index), 'transport')
+        before = path.read_bytes()
+        self.worker.fail = True
+        result = s.run(self.c, grant)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertIn('budget exhausted', json.dumps(result))
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(len(self.worker.calls), 1)
+        resumed = f.m.Operations(self.root, 'demo', self.worker)
+        self.assertEqual(resumed.state['supervisors'][grant]['status'], 'blocked')
+        self.assertTrue(resumed.state['supervisors'][grant]['decisions'])
+        self.assertEqual(s.run(resumed, grant)['status'], 'blocked')
+        self.assertEqual(len(self.worker.calls), 1)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_symlink_state_directory_rejected_before_lock_creation(self):
+        grant = self.grant()
+        original = self.c.directory
+        retained = original.with_name(original.name + '-retained')
+        original.rename(retained)
+        original.symlink_to(retained, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'unsafe_state_directory'):
+            s.run(self.c, grant)
+        self.assertFalse((retained/'supervisor.lock').exists(),
+            'Supervisor must reject a symlink state directory before creating its lock in the target')
+        self.assertEqual(self.worker.calls, [])
+
     def test_stale_grant_never_dispatches(self):
         grant = self.grant()
         (self.root/'rules.md').write_text('Changed rules after authorization.\n')
