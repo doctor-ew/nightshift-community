@@ -57,6 +57,24 @@ class Producer(unittest.TestCase):
         self.assertEqual(receipt['workflow_sha256'], hashlib.sha256((self.root / WORKFLOW).read_bytes()).hexdigest())
         self.assertLess(output.stat().st_size, 8192)
 
+    def test_null_event_merge_uses_exact_execution_checkout_and_parents(self):
+        self.event['pull_request']['merge_commit_sha'] = None
+        result = self.produce()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads((self.temp / 'nightshift-integration/nightshift-integration.json').read_text())
+        self.assertEqual(receipt['merge'], self.merge)
+        self.assertEqual(receipt['parents'], [self.base_sha, self.head])
+
+    def test_nonnull_invalid_or_mismatched_event_merge_is_rejected(self):
+        for value in (self.head, '', False, 7, []):
+            with self.subTest(value=value):
+                self.event['pull_request']['merge_commit_sha'] = value
+                self.rejected()
+
+    def test_absent_event_merge_field_is_rejected(self):
+        del self.event['pull_request']['merge_commit_sha']
+        self.rejected()
+
     def test_event_and_environment_identity_mismatches_produce_no_receipt(self):
         changes = dict(GITHUB_EVENT_NAME='pull_request_target', GITHUB_REPOSITORY_ID='11', GITHUB_REPOSITORY='wrong/repository', GITHUB_SHA=self.head, GITHUB_REF='refs/heads/topic', GITHUB_HEAD_REF='other', GITHUB_BASE_REF='other', GITHUB_WORKFLOW_SHA=self.head, GITHUB_WORKFLOW_REF='synthetic/repository/'+WORKFLOW+'@refs/heads/main', GITHUB_JOB='shellcheck', GITHUB_RUN_ID='0', GITHUB_RUN_ATTEMPT='01')
         for key, value in changes.items():

@@ -139,9 +139,11 @@ jobs:
           head_repository_id = number(pr['head']['repo']['id'])
           head = sha(pr['head']['sha'])
           base = sha(pr['base']['sha'])
-          merge = sha(pr['merge_commit_sha'])
+          merge = sha(os.environ['GITHUB_SHA'])
+          event_merge = pr['merge_commit_sha']
+          if event_merge is not None:
+              require(sha(event_merge) == merge, 'event_merge_mismatch')
           require(head != base and merge not in (head, base), 'two_parent_merge_required')
-          require(sha(os.environ['GITHUB_SHA']) == merge, 'event_merge_mismatch')
           ref = 'refs/pull/' + str(pull_request) + '/merge'
           require(os.environ['GITHUB_REF'] == ref, 'pull_request_merge_ref_required')
           head_ref = ref_name(pr['head']['ref'])
