@@ -16,6 +16,31 @@ m=f.m
 e=load('engine_fixture',Path(__file__).with_name('test-decision-engine.py'))
 
 class Rendering(unittest.TestCase):
+    def test_citation_normalization_preserves_identity_verdict_and_input(self):
+        packet=e.packet();reviewer='decision-review-'+'b'*32
+        for verdict in ('yes','no','abstain'):
+            review=dict(decision=verdict,packet_sha256=e.e.digest(packet),reviewer_id=reviewer,
+                        evidence=['  '+r['id']+': explanation  ' for r in packet['evidence']])
+            original=copy.deepcopy(review)
+            result=e.e.normalize_review_citations(review,packet)
+            self.assertEqual(e.e.validate_independent_result(result,packet,reviewer),result)
+            self.assertEqual(result['decision'],verdict);self.assertEqual(review,original)
+            self.assertEqual(e.e.normalize_review_citations(result,packet),result)
+    def test_normalization_cannot_invent_ids_deduplicate_or_rebind(self):
+        packet=e.packet();reviewer='decision-review-'+'b'*32
+        valid=dict(decision='yes',packet_sha256=e.e.digest(packet),reviewer_id=reviewer,evidence=[r['id'] for r in packet['evidence']])
+        variants=[]
+        for bad in ('unknown: explanation','source-extra: explanation','SOURCE: explanation',{'id':'source'}):
+            value=copy.deepcopy(valid);value['evidence'][0]=bad;variants.append(value)
+        value=copy.deepcopy(valid);value['evidence'].append(value['evidence'][0]+': duplicate');variants.append(value)
+        value=copy.deepcopy(valid);value['packet_sha256']='0'*64;variants.append(value)
+        for value in variants:
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                e.e.validate_independent_result(e.e.normalize_review_citations(value,packet),packet,reviewer)
+        ambiguous=dict(evidence=[dict(id='ref'),dict(id='ref:part')])
+        value=dict(evidence=['ref:part: explanation'])
+        self.assertEqual(e.e.normalize_review_citations(value,ambiguous),value)
+
     def envelope(self):
         packet=e.packet()
         return dict(packet=packet,packet_sha256=e.e.digest(packet),reviewer_id='decision-review-'+'a'*32,mode='independent')
@@ -76,8 +101,14 @@ class Dispatcher(f.IndependentRecovery):
         for call in calls:
             value=self.assess()['evidence'];expected=render.render(ROOT,e.e.encoded(call['input']),value['reviewer_route']['provider'],value['reviewer_route']['model'])
             self.assertEqual(call['size'],expected['argument_content_bytes'])
-    def test_annotated_ids_remain_rejected(self):
-        result,calls=self.run_synthetic('annotated');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
+    def test_annotated_ids_pass_without_extra_calls_and_preserve_raw_response(self):
+        result,calls=self.run_synthetic('annotated');self.assertEqual(result['status'],'pending_manual_acceptance',result);self.assertEqual(len(calls),4)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        folder=self.directory/('recovery-'+session['binding'])
+        raw=list(folder.glob('decision-*.review.json'))
+        self.assertTrue(raw)
+        for path in raw:
+            self.assertTrue(all(': explanation' in r for r in json.loads(path.read_text())['results']['evidence']))
     def test_duplicate_ids_remain_locally_rejected(self):
         result,calls=self.run_synthetic('duplicate');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
     def test_no_remains_blocked(self):

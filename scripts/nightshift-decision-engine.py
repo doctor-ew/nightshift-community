@@ -284,6 +284,24 @@ def independent_envelope(packet, reviewer_id):
     return value
 
 
+def normalize_review_citations(review, packet):
+    """Resolve exact IDs with optional colon annotations; never infer evidence."""
+    if not isinstance(review, dict) or not isinstance(review.get('evidence'), list):
+        return review
+    ids = {row['id'] for row in packet['evidence']}
+    references = []
+    for reference in review['evidence']:
+        if not isinstance(reference, str) or reference in ids:
+            references.append(reference)
+            continue
+        citation = reference.strip()
+        matches = [identity for identity in ids
+                   if citation == identity or citation.startswith(identity + ':')]
+        # Multiple possible identities are ambiguous, even if one is longer.
+        references.append(matches[0] if len(matches) == 1 else reference)
+    return dict(review, evidence=references)
+
+
 def validate_independent_result(review, packet, reviewer_id):
     if not isinstance(review, dict) or set(review) != {'decision','packet_sha256','reviewer_id','evidence'} or review['packet_sha256'] != digest(packet) or review['reviewer_id'] != reviewer_id or review['decision'] not in ('yes','no','abstain'):
         raise ValueError('decision_independent_result_invalid')

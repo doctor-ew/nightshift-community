@@ -307,7 +307,8 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
         raise ValueError('decision_reviewer_identity_mismatch')
     result=report['results']
     if result.get('reviewer_id')!=reviewer_id:raise ValueError('decision_reviewer_identity_mismatch')
-    return result
+    # The original dispatcher report remains on disk; only its citation view changes.
+    return decision.normalize_review_citations(result,packet)
 
 
 def compact_verdict(value,stage,checks,session,directory,save,step,transport=None,escalator=None):
