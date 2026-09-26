@@ -271,7 +271,7 @@ class Operations:
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
         if operation=='verify':base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
-        if operation=='review' and p['reviewer_policy']['semantic_plan']:
+        if load('operation-decisions').selected(self,p,operation):
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
             base['repair_findings'] = self.repair_findings(operation)
@@ -283,7 +283,7 @@ class Operations:
             base['source']=context['source']
         if operation in ('verify','review','accept','publish'):
             base.update(tests=context['tests'],checks=p['checks'],environment=context['environment'])
-        if operation in ('review', 'accept', 'publish'):
+        if operation in ('review', 'accept', 'publish') or load('operation-decisions').selected(self,p,operation):
             base['reviewer_policy'] = p['reviewer_policy']
             semantic = p['reviewer_policy']['semantic_plan']
             base['semantic_plan'] = sha(safe(self.project, semantic)) if semantic else None
@@ -318,7 +318,7 @@ class Operations:
                 if sha(self.directory / path) != expected:
                     return False
             if row.get('semantic'):
-                load('operation-decisions').validate(self,p,row['semantic'],self.state['results']['verify']['observations'])
+                load('operation-decisions').validate(self,p,row['semantic'],self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             for name, expected in row.get('outputs', {}).items():
                 if sha(safe(self.project, name)) != expected:
                     return False
@@ -382,7 +382,7 @@ class Operations:
             try:
                 self.packet(operation, result, p)
                 if self.worker==self.dispatch and shutil.which('claude' if deps['route']['provider']=='claude' else 'codex') is None:raise ValueError('worker_runtime_unavailable')
-                if operation=='review':load('operation-decisions').readiness(self,p,self.state['results']['verify']['observations'])
+                if operation in ('groom-adversarial','review'):load('operation-decisions').readiness(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             except (ValueError, OSError) as error:
                 result.update(status='blocked', next_action='repair_inputs', blockers=[str(error)])
         return result
@@ -494,6 +494,9 @@ class Operations:
         package_schema=self.package_schema(p)
         if package_schema:
             value['package_authoring']=dict(schema=package_schema,instruction='Author complete child plans, specs and checks as inline artifact text. Preserve existing project inputs. Do not grant authority. Independent challenge must evaluate semantic requirement coverage, interfaces, test oracles and parent integration, not only IDs.')
+        if operation in REVIEW:
+            obligations=load('operation-decisions').packets(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
+            if obligations:value['semantic_obligations']=obligations
         repair = self.repair_evidence(operation)
         if repair:
             for name, expected in repair.get('evidence', {}).items():
@@ -675,7 +678,7 @@ class Operations:
                     result['provenance']=dict(provider=route['provider'],model=route['model'],identity=call['id'])
                     result['evidence'][output.name]=sha(output)
                     result['review']=checked
-                    if operation=='review':result['semantic']=load('operation-decisions').run(self,p,grant_id,operation,self.state['results']['verify']['observations'],route)
+                    if operation in ('groom-adversarial','review'):result['semantic']=load('operation-decisions').run(self,p,grant_id,operation,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],route)
                     if operation in ('groom-spec','implement'):
                         allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
                         changes=self.patch(value['artifacts']['diff'],allowed)
@@ -731,7 +734,7 @@ class Operations:
             allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
             changes=self.patch(value['artifacts']['diff'],allowed)
         elif value['artifacts']['diff']:raise ValueError('review_cannot_change_source')
-        if operation=='review':result['semantic']=load('operation-decisions').run(self,p,attempt['grant'],operation,self.state['results']['verify']['observations'],route)
+        if operation in ('groom-adversarial','review'):result['semantic']=load('operation-decisions').run(self,p,attempt['grant'],operation,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],route)
         checkpoint=self.directory/(attempt['request']+'.checkpoint.json')
         recovery.atomic(checkpoint,dict(result=result,changes=changes,assessment=assessed,baseline=prepared['baseline'],baseline_modes=prepared['baseline_modes'],plan_sha256=prepared['plan_sha256']))
         attempt.update(status='checkpoint',checkpoint=checkpoint.name,checkpoint_sha256=sha(checkpoint));self.save()
@@ -833,6 +836,7 @@ def api(project, body):
     action=body['action']
     if action=='factory': return factory(project,body['task'])
     if action=='view': return controller.view()
+    if action=='semantic-map':return load('operation-decisions').generate(controller,plan(controller.project,controller.task),body['operation'])
     if action=='assess': return controller.assess(body['operation'])
     if action=='authorize': return controller.authorize(body['operations'],body['binding'],body['operator'],body['request'],body.get('attestation'))
     if action=='run': return controller.execute(body['grant'],body['operation'],body['request'])
@@ -844,7 +848,7 @@ def api(project, body):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory'))
+    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map'))
     parser.add_argument('task');parser.add_argument('operation',nargs='?',choices=OPS)
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--binding');parser.add_argument('--operator');parser.add_argument('--request');parser.add_argument('--grant')
     parser.add_argument('--recipe',choices=RECIPES);parser.add_argument('--attestation',type=json.loads)
