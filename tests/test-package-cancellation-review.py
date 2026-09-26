@@ -48,6 +48,21 @@ class ParentCancellation(unittest.TestCase):
         self.assertIsNotNone(r.effective_intent(child,grant))
         with self.assertRaisesRegex(ValueError,'cancel'):child.execute(grant,'groom-spec','fresh-child-request')
         self.assertNotEqual(self.c.state['authorizations'][self.g['id']]['status'],'pending_manual_acceptance')
+    def test_crash_after_child_authorization_cannot_escape_parent_cancellation(self):
+        authorize=m.ops.Operations.authorize;created=[]
+        def crash_after_authorize(controller,*args,**kwargs):
+            grant=authorize(controller,*args,**kwargs)
+            if controller.task!='demo':
+                created.append((controller.task,grant['id']))
+                raise KeyboardInterrupt('synthetic crash after durable child authorization')
+            return grant
+        with patch.object(m.ops.Operations,'authorize',new=crash_after_authorize):
+            with self.assertRaises(KeyboardInterrupt):self.c.run(self.g['id'])
+        self.assertEqual(len(created),1);self.cancel();calls=list(self.worker.calls)
+        child=self.c.child(created[0][0])
+        with self.assertRaisesRegex(ValueError,'cancel'):
+            child.execute(created[0][1],'groom-spec','direct-child-after-crash')
+        self.assertEqual(self.worker.calls,calls)
     def test_existing_cancelled_parent_restriction_survives_child_grant_reuse(self):
         prior=self.root/'.git'/'prior-parent-cancel.json';binding='b'*64
         prior.write_text(json.dumps(dict(version=1,payload=dict(grant='prior-parent',binding=binding,operator='synthetic'))))

@@ -374,7 +374,7 @@ class Packages:
                         if request not in c.state['authorizations']:
                             recipe=['verify','review'] if adopted else ops.RECIPES['factory']
                             a=c.assess(recipe[0])
-                            request=c.authorize(recipe,a['binding'],g['operator'],request,None if adopted else {'bounded_repair':True})['id']
+                            request=c.authorize(recipe,a['binding'],g['operator'],request,None if adopted else {'bounded_repair':True},delegation=dict(parent_cancellation=dict(path=str(ops.load('operation-reconciliation').location(self,grant)),binding=ops.load('operation-reconciliation').identity(self,g)),deadline=g['deadline']))['id']
                         # Always reconcile this restriction before dispatch, including
                         # a crash after child authorization but before this checkpoint.
                         with c.lease():

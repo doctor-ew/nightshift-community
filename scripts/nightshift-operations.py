@@ -484,7 +484,18 @@ class Operations:
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
                     schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'),reconciliation_sha256=sha(HERE/'nightshift-operation-reconciliation.py'),execution_sha256=sha(HERE/'nightshift-controller-recovery.py'),supervisor_execution_sha256=sha(HERE/'nightshift-recovery-exec.py'))
 
-    def authorize(self, operations, expected, operator, request, attestation=None):
+    def delegate(self,grant,delegation):
+        if delegation is None:return
+        exact(delegation,'parent_cancellation deadline')
+        parent=delegation['parent_cancellation'];exact(parent,'path binding')
+        if not isinstance(parent['path'],str) or not Path(parent['path']).is_absolute() or Path(parent['path']).resolve()!=Path(parent['path']):raise ValueError('invalid_parent_cancellation_path')
+        if not isinstance(parent['binding'],str) or not re.fullmatch(r'[a-f0-9]{64}',parent['binding']):raise ValueError('invalid_parent_cancellation_binding')
+        if type(delegation['deadline']) not in (int,float) or not math.isfinite(delegation['deadline']):raise ValueError('invalid_parent_deadline')
+        restrictions=grant.setdefault('parent_cancellations',[])
+        if parent not in restrictions:restrictions.append(dict(parent))
+        grant['deadline']=min(grant['deadline'],delegation['deadline'])
+
+    def authorize(self, operations, expected, operator, request, attestation=None, delegation=None):
         if not bounded_text(operator) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', request):
             raise ValueError('operator_and_request_required')
         if not isinstance(operations, list) or not operations or len(set(operations)) != len(operations) or any(o not in OPS for o in operations):
@@ -500,9 +511,12 @@ class Operations:
             if old:
                 if old['request_digest'] != digest(payload):
                     raise ValueError('request_id_conflict')
+                if delegation is not None:self.delegate(old,delegation);self.save()
                 return old
             for existing in self.state['authorizations'].values():
-                if existing['request_digest'] == digest(payload): return existing
+                if existing['request_digest'] == digest(payload):
+                    if delegation is not None:self.delegate(existing,delegation);self.save()
+                    return existing
             assessed = self.assess(operations[0])
             if assessed['binding'] != expected:
                 raise ValueError('stale_assessment')
@@ -519,6 +533,7 @@ class Operations:
                          attestation=attestation, created=self.clock(), deadline=self.clock()+p['aggregate']['wall_seconds'],
                          plan_sha256=sha(plan_path(self.project, self.task)), baseline=self.corpus(),baseline_modes=self.modes(),
                          limits={o:p['limits'][o] for o in operations}, aggregate=p['aggregate'], statuses={}, bindings={operations[0]:expected})
+            self.delegate(grant,delegation)
             grant['cancellation_binding']=load('operation-reconciliation').identity(self,grant)
             self.state['authorizations'][request] = grant
             self.save()

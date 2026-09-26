@@ -83,9 +83,11 @@ def cancel(c,grant,binding,operator,request):
 
 def assessment(c,attempt):
     outputs={}
-    for suffix in ('.worker.json','.worker.execution.json','.checkpoint.json'):
+    for suffix in ('.worker.json','.worker.execution.json','.worker.ownership.json','.checkpoint.json'):
         path=c.directory/(attempt['request']+suffix)
         if path.exists():outputs[path.name]=c.file_hash(path)
+    for path in c.directory.glob(attempt['request']+'.observation-*'):
+        if path.is_file():outputs[path.name]=c.file_hash(path)
     binding=c.load_digest(dict(task=c.task,project=str(c.project),attempt=attempt,outputs=outputs))
     return dict(request=attempt['request'],grant=attempt['grant'],status=attempt['status'],binding=binding,outputs=outputs,
                 actions=['finalize','preserve'] if attempt['status'] in ('pending','checkpoint') else ['inspect'],
