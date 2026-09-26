@@ -54,7 +54,9 @@ try {
   await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');
   await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
   let result=await execute();assert.equal(result.view.status,'pending_manual_acceptance');assert.equal(calls(),4);
-  const originalResults=structuredClone(result.results);
+  const originalResults=structuredClone(result.results),initialUsage=structuredClone(result.view.usage);
+  const typed=process.env.NIGHTSHIFT_TYPED_BROWSER==='1';
+  if(typed){const observation=result.view.operations.find(r=>r.operation==='verify').result.observations[0];assert.equal(observation.adapter,'unittest-v1');assert.equal(observation.typed.status,'passed');assert.equal(observation.typed.counts.passed,1);assert.equal(observation.typed.receipt.complete,true);}
   sameView(await assess(),cli('view','demo'));
   await panel.screenshot({path:resolve(artifacts,'operations-pending-acceptance.png')});
   await panel.getByText('Retained authorizations and recovery',{exact:true}).click();
@@ -117,7 +119,7 @@ try {
   await panel.screenshot({path:resolve(artifacts,'operations-mobile.png')});
   assert(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'Operation panel overflows mobile viewport');
   assert.deepEqual(errors,[]);
-  const report={synthetic:true,browser:browser.version(),revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),provider_calls:calls(),requests:readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse),usage:view.usage,provider_tokens:null,billed_cost:null,provider_cache_usage:null,checks:['normalized settled clarification reuses answer despite rationale changes','evidence-bound clarification with no dispatch','reload-retained answer','per-case observation and evidence','UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','three failed reviews exhaust bounded repair','external adoption after exhaustion without Implement','desktop/mobile rendering without script errors'],live_certification:false};
+  const report={synthetic:true,typed,replay_provider_calls:0,initial_ticket_usage:initialUsage,usage_scope:'exhaustion ticket only',browser:browser.version(),revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),provider_calls:calls(),requests:readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse),usage:view.usage,provider_tokens:null,billed_cost:null,provider_cache_usage:null,checks:['normalized settled clarification reuses answer despite rationale changes','evidence-bound clarification with no dispatch','reload-retained answer','per-case observation and evidence','UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','three failed reviews exhaust bounded repair','external adoption after exhaustion without Implement','desktop/mobile rendering without script errors'],live_certification:false};
   writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report));
 } catch(error) {
