@@ -20,3 +20,15 @@ scope, rules, architecture, scenarios, correctness, and (for review) test_oracle
 Also include every supplied cases[].id in coverage after evaluating that case.
 Do not assert coverage without inspecting the supplied evidence. The model is not
 the source of provenance: the dispatcher binds actual provider, model and invocation.
+
+When semantic_obligations are supplied, independently inspect their complete
+mappings, references, requirement coverage and questions. Proposed assertions in
+Groom are test designs, not executed observations. Require repair for misleading
+mappings or insufficient context. Jev judgments never replace this review.
+
+When a product decision cannot be resolved from supplied evidence, return abstain
+with no patch and an optional results.question containing question, reason and up
+to three options (id, label, description). Explain each choice's consequences.
+The controller records the question against current evidence and stops this
+operation. Supplied operator_decisions are retained answers, not authorization or
+permission to broaden scope. A separate operation authorization remains required.

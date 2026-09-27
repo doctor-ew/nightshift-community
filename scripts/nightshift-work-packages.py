@@ -23,6 +23,12 @@ def names(value, label, empty=False):
 def validate(project, value, graph_path=None, preparation_task=None):
     project = Path(project).resolve()
     version=value.get('version') if isinstance(value,dict) else None
+    if version==3:
+        with ops.load('package-bundle').projection(project,value,graph_path,preparation_task) as (view,normalized):
+            result=validate(view,normalized,graph_path,preparation_task)
+        result.update(version=3,bundle=value['artifacts'],manifest_sha256=ops.digest(value))
+        result['binding']=ops.digest(dict(resolved=result,manifest=value))
+        return result
     ops.exact(value, 'version parent requirements children aggregate'+(' templates' if version==2 else ''))
     if type(version) is not int or version not in (1,2):
         raise ValueError('unsupported_package_version')
@@ -57,7 +63,7 @@ def validate(project, value, graph_path=None, preparation_task=None):
         if child['plan'] != expected:
             raise ValueError('package_plan_identity_mismatch')
         plan = ops.plan(project, child['id'])
-        if not set(child['requirements']) <= {case['id'] for case in ops.Operations(project,child['id']).scenarios(plan)}:
+        if not set(child['requirements']) <= {case['id'] for case in ops.scenarios(project,plan)}:
             raise ValueError('package_requirement_cases_missing')
         allowance = ops.limits(child['allowance'])
         if any(plan['aggregate'][key] > allowance[key] for key in allowance):
@@ -87,7 +93,7 @@ def validate(project, value, graph_path=None, preparation_task=None):
             if not all(ops.bounded_text(interface[k]) for k in ('id', 'version', 'contract')) or interface['id'] in interface_ids or interface['path'] not in writes:
                 raise ValueError('invalid_package_interface')
             interface_ids.add(interface['id'])
-        packages[child['id']] = dict(child, plan_sha256=ops.sha(project/child['plan']))
+        packages[child['id']] = dict(child, plan_sha256=ops.sha(project/child['plan']),operation_plan=plan)
     protected = {value['parent'][5:], 'routing.json', '.gitignore'} | {c['plan'] for c in value['children']}
     for child in value['children']:
         protected.update(ops.plan(project, child['id'])['inputs'].values())
@@ -126,8 +132,8 @@ def validate(project, value, graph_path=None, preparation_task=None):
             path = ops.safe(project, name)
             if not path.exists() and not owner:
                 raise ValueError('package_input_missing:' + name)
-        child['input_modes'] = {name: ops.stat.S_IMODE((project/name).stat().st_mode) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
-        child['input_sha256'] = {name: ops.sha(project/name) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']))}
+        child['input_modes'] = {name: ops.stat.S_IMODE((project/name).stat().st_mode) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']+[child['plan']]))}
+        child['input_sha256'] = {name: ops.sha(project/name) if (project/name).is_file() else None for name in sorted(set(child['reads'] + child['writes']+[child['plan']]))}
     resolved = [packages[c['id']] for c in ordered['children']]
     return dict(version=version, status='valid', parent=ordered['parent'], parent_sha256=ordered['parent_sha256'],
                 requirements=value['requirements'], aggregate=aggregate,
@@ -137,7 +143,7 @@ def validate(project, value, graph_path=None, preparation_task=None):
 
 def template(value):
     """Export data only; approval, authority and historical usage never travel."""
-    ops.exact(value, 'version parent requirements children aggregate'+(' templates' if value.get('version')==2 else ''))
+    ops.exact(value, 'version parent requirements children aggregate'+(' templates' if value.get('version') in (2,3) else '')+(' artifacts' if value.get('version')==3 else ''))
     return json.loads(json.dumps(value))
 
 

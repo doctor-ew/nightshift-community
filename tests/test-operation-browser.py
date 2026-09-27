@@ -19,6 +19,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
         fixture = importlib.util.module_from_spec(package_spec);package_spec.loader.exec_module(fixture)
         fixture.fixture(root)
     env = f.isolated(root, initialize=not packages)
+    env['SYNTHETIC_FAILURE_CONTROL']=str(root/'.synthetic-review-failure')
     env["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", str(Path.home() / ("Library/Caches/ms-playwright" if __import__("sys").platform == "darwin" else ".cache/ms-playwright")))
     with tempfile.TemporaryFile(mode='w+') as errors:
         server = subprocess.Popen(['python3', str(ROOT / 'dashboard/server.py'), '--project', str(root), '--port', '0'], env=env, stdout=subprocess.PIPE, stderr=errors, text=True)

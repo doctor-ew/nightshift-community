@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync, mkdirSync, renameSync} from 'node:fs';
 import {resolve, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
@@ -34,10 +34,20 @@ async function execute(action='chain'){
 }
 function sameView(a,b){delete a.usage;delete b.usage;assert.deepEqual(a,b);}
 try {
+  const scenarios=JSON.parse(readFileSync(resolve(root,'scenarios.json'),'utf8'));scenarios.cases[0].manual=true;writeFileSync(resolve(root,'scenarios.json'),JSON.stringify(scenarios));
+  const initial=cli('assess','demo','groom-spec');
+  const question=cli('question','demo','groom-spec','--binding',initial.binding,'--question',JSON.stringify({question:'Which return behavior is intended?',reason:'Clarify the current synthetic request before implementation.',options:[{id:'two',label:'Return two',description:'Keep the declared behavior.'}]}));
   await page.goto(url);
   await panel.getByLabel('Task key').fill('demo');
   let view=await assess();sameView(view,cli('view','demo'));
   assert(await panel.getByRole('button',{name:'Select implement',exact:true}).isDisabled());
+  await panel.getByLabel('Answer for groom-spec').fill('Return two as specified.');
+  const answered=page.waitForResponse(r=>r.url().endsWith('/api/operations')&&r.request().postDataJSON()?.action==='answer');
+  await panel.getByRole('button',{name:'Save answer without running',exact:true}).click();assert((await answered).ok());
+  await page.waitForFunction(()=>!document.querySelector('[aria-label="Engineering operations"] input').disabled);
+  assert(!existsSync(resolve(root,'.synthetic-calls.jsonl')));
+  await page.reload();await panel.getByLabel('Task key').fill('demo');await assess();
+  assert(await panel.getByText('Saved answer: Return two as specified.',{exact:true}).isVisible());
   await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');
   await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
   let result=await execute();assert.equal(result.view.status,'pending_manual_acceptance');assert.equal(calls(),4);
@@ -56,7 +66,10 @@ try {
   sameView(await assess(),cli('view','demo'));
   await panel.getByRole('button',{name:'Select accept',exact:true}).click();
   assert(await panel.getByRole('button',{name:'Authorize and run selected operations',exact:true}).isDisabled());
-  await panel.getByRole('checkbox').check();result=await execute();assert.equal(result.results[0].status,'passed');assert.equal(calls(),4);
+  await panel.getByLabel('Observed result for two').fill('Observed return value two in the synthetic interface.');
+  await panel.getByLabel('Evidence note for two').fill('Synthetic browser observation at this assessed revision.');
+  await panel.getByLabel('Manual case two passed',{exact:true}).check();
+  await panel.getByLabel('I accept this exact reviewed evidence and the recorded case observations.',{exact:true}).check();result=await execute();assert.equal(result.results[0].status,'passed');assert.equal(calls(),4);
   // Source drift must remove approval; explicit external adoption cannot repeat Implement.
   writeFileSync(resolve(root,'app.py'),'def answer():\n    return 3\n');
   view=await assess();assert.notEqual(view.operations.find(r=>r.operation==='accept').status,'current');
@@ -75,12 +88,33 @@ try {
   assert.equal(view.operations.find(r=>r.operation==='verify').status,'blocked');
   assert(view.attempts.some(r=>r.operation==='verify' && r.status==='failed'));
   assert(view.operations.find(r=>r.operation==='verify').findings.length>0);
+  // Exhaust a separate ticket through bounded repair, then adopt external work.
+  mkdirSync(resolve(root,'docs/exhausted'),{recursive:true});
+  writeFileSync(resolve(root,'docs/exhausted/operations.json'),readFileSync(resolve(root,'docs/demo/operations.json')));
+  writeFileSync(resolve(root,'app.py'),'def answer():\n    return 2\n');
+  writeFileSync(resolve(root,'test_app.py'),'import unittest\nfrom app import answer\nclass Test(unittest.TestCase):\n    def test_answer(self): self.assertEqual(answer(),2)\nunittest.main()\n');
+  writeFileSync(resolve(root,'.synthetic-review-failure'),'synthetic bounded review rejection');
+  await panel.getByLabel('Task key').fill('exhausted');await assess();
+  await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');
+  await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
+  await panel.getByLabel('Repair eligible failures within this allowance').check();
+  const beforeExhaustion=calls();result=await execute('supervise');
+  assert.equal(result.status,'blocked');assert.equal(result.supervisor.reason,'repair_limit_exhausted');assert.equal(calls()-beforeExhaustion,8);
+  assert(await panel.getByText(/Automatic repair is exhausted/).first().isVisible());
+  const implementationCount=()=>readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse).filter(r=>r.operation==='implement').length;
+  const implemented=implementationCount();
+  renameSync(resolve(root,'.synthetic-review-failure'),resolve(root,'.synthetic-review-failure-retained'));
+  writeFileSync(resolve(root,'app.py'),'def answer():\n    return 2 # externally implemented after exhaustion\n');
+  await assess();await panel.getByRole('button',{name:'Select external recipe',exact:true}).click();
+  await panel.getByLabel('External author identity').fill('synthetic-external-author');await panel.getByLabel('Actual author provider').selectOption('human');
+  result=await execute();assert.equal(result.view.status,'pending_manual_acceptance');assert.equal(implementationCount(),implemented);assert.equal(calls()-beforeExhaustion,9);
+  view=await assess();
   await page.setViewportSize({width:390,height:844});
   await panel.getByRole('button',{name:'Select verify',exact:true}).scrollIntoViewIfNeeded();
   await panel.screenshot({path:resolve(artifacts,'operations-mobile.png')});
   assert(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'Operation panel overflows mobile viewport');
   assert.deepEqual(errors,[]);
-  const report={synthetic:true,browser:browser.version(),provider_calls:calls(),checks:['UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','desktop/mobile rendering without script errors'],live_certification:false};
+  const report={synthetic:true,browser:browser.version(),revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),provider_calls:calls(),requests:readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse),usage:view.usage,provider_tokens:null,billed_cost:null,provider_cache_usage:null,checks:['evidence-bound clarification with no dispatch','reload-retained answer','per-case observation and evidence','UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','three failed reviews exhaust bounded repair','external adoption after exhaustion without Implement','desktop/mobile rendering without script errors'],live_certification:false};
   writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report));
 } catch(error) {

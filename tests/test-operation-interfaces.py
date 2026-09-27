@@ -27,8 +27,20 @@ model=args[args.index('--model')+1] if '--model' in args else args[args.index('-
 with open(os.environ['SYNTHETIC_CALLS'],'a') as out:out.write(json.dumps(dict(operation=packet['operation'],request_bytes=sum(len(a.encode()) for a in args),packet_bytes=len(json.dumps(packet,sort_keys=True).encode())))+'\\n')
 if os.environ.get('SYNTHETIC_PAUSE'):__import__('time').sleep(float(os.environ['SYNTHETIC_PAUSE']))
 value=dict(status='SUCCESS',reason='',attempts=1,artifacts=dict(branch='',diff='',provider=provider,model=model),rules_fired=[],results=dict(binding=packet['binding'],decision='approve',findings=[],resolved=packet['findings'],coverage=['scope','rules','architecture','scenarios','correctness','test_oracles',*[c['id'] for c in packet.get('cases',[])]]))
+if os.environ.get('SYNTHETIC_PACKAGE_BUNDLE') and packet['operation']=='groom-spec' and 'graph.json' in packet['artifacts']:
+ import difflib
+ before=packet['artifacts']['graph.json'];after=Path(os.environ['SYNTHETIC_PACKAGE_BUNDLE']).read_text()
+ value['artifacts']['diff']=''.join(difflib.unified_diff(before.splitlines(keepends=True),after.splitlines(keepends=True),fromfile='a/graph.json',tofile='b/graph.json'))
 if os.environ.get('SYNTHETIC_REPAIR') and packet['operation']=='implement' and packet['findings']:
  value['artifacts']['diff']='--- a/app.py\\n+++ b/app.py\\n@@ -1,2 +1,2 @@\\n def answer():\\n-    return 1\\n+    return 2\\n'
+control=os.environ.get('SYNTHETIC_FAILURE_CONTROL')
+if control and Path(control).exists():
+ if packet['operation']=='review':
+  value.update(status='FAIL',reason='Synthetic review finding');value['results'].update(decision='repair',findings=['Synthetic review finding'])
+ if packet['operation']=='implement' and packet['findings']:
+  import difflib
+  before=packet['artifacts']['app.py'];after=before+'# synthetic repair\\n'
+  value['artifacts']['diff']=''.join(difflib.unified_diff(before.splitlines(keepends=True),after.splitlines(keepends=True),fromfile='a/app.py',tofile='b/app.py'))
 if provider=='claude':print(json.dumps(dict(structured_output=value)))
 else:
  key='--output-last-message' if '--output-last-message' in args else '-o'
@@ -107,6 +119,18 @@ class Interfaces(unittest.TestCase):
             Path(os.environ['NIGHTSHIFT_SUPERVISOR_METRICS']).write_text(json.dumps(dict(synthetic=True, provider_calls=5, replay_provider_calls=0,
                 requests=[json.loads(row) for row in calls], usage=result['view']['usage'],
                 decisions=result['supervisor']['decisions'], provider_token_usage=None, billed_cost=None, live_certification=False),indent=2)+'\n')
+
+    def test_real_launcher_review_failure_enters_bounded_repair(self):
+        control=self.root/'.synthetic-review-failure';control.write_text('synthetic')
+        self.env['SYNTHETIC_FAILURE_CONTROL']=str(control)
+        _,a=self.cli('assess','demo','groom-spec')
+        _,g=self.cli('authorize','demo','--recipe','factory','--binding',a['binding'],'--operator','synthetic','--request','review-failure','--attestation','{"bounded_repair":true}')
+        code,result=self.cli('supervise','demo','--grant',g['id'])
+        self.assertEqual(code,1,result);self.assertEqual(result['supervisor']['reason'],'repair_limit_exhausted')
+        rows=[json.loads(line) for line in (self.root/'.synthetic-calls.jsonl').read_text().splitlines()]
+        self.assertEqual(sum(row['operation']=='review' for row in rows),3)
+        self.assertEqual(sum(row['operation']=='implement' for row in rows),3)
+        self.assertTrue(all(row['category']=='substantive' for row in result['supervisor']['decisions']))
 
     def test_killed_controller_retains_unknown_call_without_redispatch(self):
         code,a=self.cli('assess','demo','groom-spec');self.assertEqual(code,0,a)
