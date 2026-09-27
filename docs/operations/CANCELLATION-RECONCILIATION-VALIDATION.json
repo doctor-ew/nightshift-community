@@ -1,0 +1,94 @@
+{
+  "synthetic": true,
+  "revision": "5e6747f9b8877601bc83a4d38cf20e4cb0c829c3",
+  "browser": "153.0.8010.12",
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3872,
+      "packet_bytes": 650
+    }
+  ],
+  "provider_calls": 1,
+  "replay_calls": 0,
+  "usage": {
+    "58842f76-11e2-4ef4-acf6-ef38892ee7e6": {
+      "calls": 1,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 30,
+      "seconds": 30,
+      "unknown": 1,
+      "request_bytes": 650,
+      "wall_seconds": 2.4189929962158203
+    }
+  },
+  "cancellation": "cancellation_requested",
+  "reconciliation": "cancelled_unknown",
+  "provider_tokens": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "integration": {
+    "revision": "bda1654739d981c3cb65cc7659f9fee503ddccd1",
+    "operation_tests": 149,
+    "intake_tests": 41,
+    "all_passed": true,
+    "log_sha256": "230669ed74f5c06289d45b8927f12d5c5731c2ba58743642d049b09bf386e318"
+  },
+  "targeted_after_decision_retention": {
+    "revision": "5e6747f9b8877601bc83a4d38cf20e4cb0c829c3",
+    "decision_retention": 9,
+    "reconciliation": 11,
+    "questions": 13,
+    "all_passed": true
+  },
+  "cache_reuse": {
+    "duplicate_provider_dispatches": 0,
+    "provider_cache": null
+  },
+  "independent_review": "Independent design/code review and owned-process/parent crash fixtures; defects repaired before final evidence.",
+  "integrated_pr_heads": {
+    "93": "2d150eac69642e725a2f076c4ac2990b05d3c8df",
+    "94": "2283413819c348793af1fb4450493daddc8439e7",
+    "95": "6fef11f8c37f8a4b2b19b3ece41d0fa5d0c1d894",
+    "97": "c228fa3679e4f6f6a3ff4397ae3318ac5e82a009"
+  },
+  "convergence": {
+    "revision": "6a306702dc4f4f25f1cd2caaaac542e9a95b5796",
+    "base": "6fef11f8c37f8a4b2b19b3ece41d0fa5d0c1d894",
+    "startup_tests": 9,
+    "reconciliation_tests": 11,
+    "parent_tests": 6,
+    "all_passed": true,
+    "browser": {
+      "synthetic": true,
+      "revision": "6a306702dc4f4f25f1cd2caaaac542e9a95b5796",
+      "browser": "153.0.8010.12",
+      "requests": [
+        {
+          "operation": "groom-spec",
+          "request_bytes": 3872,
+          "packet_bytes": 650
+        }
+      ],
+      "provider_calls": 1,
+      "replay_calls": 0,
+      "usage": {
+        "fcc2d2cb-6f4d-413d-b6d3-9d22d98d4bf2": {
+          "calls": 1,
+          "measured_seconds": 0,
+          "reserved_unknown_seconds": 30,
+          "seconds": 30,
+          "unknown": 1,
+          "request_bytes": 650,
+          "wall_seconds": 2.419802188873291
+        }
+      },
+      "cancellation": "cancellation_requested",
+      "reconciliation": "cancelled_unknown",
+      "provider_tokens": null,
+      "billed_cost": null,
+      "live_certification": false
+    },
+    "integrated_startup_fix": "4507b601e12c5aa7e05194418fb4e907b869668d"
+  }
+}

@@ -4,7 +4,7 @@ description: "Runtime-neutral pipeline structure and boundaries."
 triggers: ["architecture", "pipeline", "integration"]
 edges: [{"target": "context/stack.md", "condition": "when selecting tooling"}, {"target": "context/decisions.md", "condition": "when evaluating architectural alternatives"}, {"target": "context/proof-accounting.md", "condition": "when a proof gate cannot admit work"}, {"target": "context/updates.md", "condition": "when updating an installed checkout"}]
 grounds_to: []
-last_updated: "2026-09-20"
+last_updated: "2026-09-26"
 mex:
   id: mx_01M21Z3ACK0HJ2DDGW0YPPAWKR
   type: architecture
@@ -83,3 +83,6 @@ Architecture/UX artifacts feed product/spec verification; they do not advance ga
 Sources: `commands/nightshift-help.md`, `commands/nightshift-architecture.md`,
 `commands/nightshift-ux.md`, `commands/nightshift-bmad.md`,
 `commands/nightshift-product.md`, `commands/nightshift-spec.md`.
+
+Intake namespace follow-up: bare GitHub references must match independently derived project-origin identity; qualified references retain explicit repository selection. Existing input/context and journal safeguards remain. Sources: `scripts/nightshift-intake.py`, `tests/test-intake-namespace-review.py`, `docs/operations/INTAKE-NAMESPACE.md`. Synthetic evidence only; no runtime activation.
+Operation decision retention: missing referenced question evidence blocks instead of silently disappearing. Current normalized question text reuses settled answers across rationale/options changes and earlier task identities; changed dependency bases remain distinct. Sources: `scripts/nightshift-operations.py`, `tests/test-operation-hitl-additional-review.py`, `docs/operations/DECISION-RETENTION.md`. Synthetic candidate only; no activation.

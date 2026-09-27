@@ -112,9 +112,10 @@ def plan(project, task):
         raise ValueError('declared_checks_required')
     ids = set()
     for check in value['checks']:
-        exact(check, 'id argv')
-        if not bounded_text(check['id']) or check['id'] in ids or not isinstance(check['argv'], list) or len(check['argv']) != 2 or check['argv'][0] not in ('python3', 'bash'):
+        exact(check, 'id argv'+(' adapter' if 'adapter' in check else ''))
+        if not bounded_text(check['id']) or check['id'] in ids or not isinstance(check['argv'], list) or len(check['argv']) != 2 or check['argv'][0] not in ('python3', 'bash', 'node'):
             raise ValueError('invalid_test_command')
+        load('verification-adapters').profile(check)
         safe(project, check['argv'][1]); ids.add(check['id'])
     if not isinstance(value['environment'], dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]*', k) or k.startswith(('NIGHTSHIFT_', 'PYTHON', 'LD_', 'DYLD_')) or k in ('PATH', 'HOME', 'TMPDIR', 'BASH_ENV', 'ENV') or not isinstance(v, str) for k, v in value['environment'].items()):
         raise ValueError('invalid_test_environment')
@@ -247,7 +248,10 @@ class Operations:
         if p['reviewer_policy']['semantic_plan']: excluded.add(p['reviewer_policy']['semantic_plan'])
         source = {k:dict(sha256=v,mode=stat.S_IMODE(safe(self.project,k).stat().st_mode)) if v is not None else None for k,v in files.items() if k not in excluded}
         tests = {c['argv'][1]: sha(safe(self.project, c['argv'][1])) if safe(self.project, c['argv'][1]).exists() else None for c in p['checks']}
-        env = dict(declared=p['environment'], python=sys.version, executables={n: sha(shutil.which(n)) for n in ('python3', 'bash') if shutil.which(n)})
+        env = dict(declared=p['environment'], python=sys.version, executables={n: sha(shutil.which(n)) for n in ('python3', 'bash', 'node') if shutil.which(n)})
+        effective=load('controller-recovery').clean_environment();effective.update(p['environment']);effective['NIGHTSHIFT_ROLE_CHILD']='1'
+        env['effective']=effective
+        if any(load('verification-adapters').profile(c)=='python-unittest-v1' for c in p['checks']):env['typed_runtime']=load('verification-adapters').identity(effective)
         return p, dict(artifacts=artifacts, source=source, tests=tests, environment=env, accepted_architecture=load('architecture').resolve(self.project))
 
     def route(self, operation, p):
@@ -264,6 +268,12 @@ class Operations:
         return dict(provider=route['provider'], model=route['model'], role=role, routing=str(routing), policy=policy.mode(self.project))
 
     load_digest = staticmethod(digest)
+    recovery_read = staticmethod(read)
+    recovery_write = staticmethod(recovery.atomic)
+    file_hash = staticmethod(sha)
+
+    def cancellation_check(self,grant):
+        if not getattr(self,'reconciling',False):load('operation-reconciliation').check(self,grant)
 
     def retry_account(self, attempt, category):
         return load('retry-budget').account(self.directory / (attempt['operation'] + '.retry.json'), attempt['request'], category, exclusive=True)
@@ -282,22 +292,23 @@ class Operations:
         row = self.state['results'].get(key, {})
         return row.get('provenance', {'provider': 'unknown', 'model': 'unknown', 'identity': 'unknown'})
 
-    def question_basis(self,dependencies,operation):
+    def question_basis(self,dependencies,operation,context=None):
         basis={k:v for k,v in dependencies.items() if k not in ('decisions','repair_findings','repair_evidence')}
         if operation in ('implement','groom-spec'):
-            _,context=self.context()
+            if context is None:_,context=self.context()
             basis['question_source']=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')}
         return digest(basis)
 
-    def decision_rows(self,operation,dependencies):
+    def decision_rows(self,operation,dependencies,context=None):
         if not any(r['operation']==operation for r in self.state.get('questions',[])):return []
-        basis=self.question_basis(dependencies,operation);rows=[]
+        basis=self.question_basis(dependencies,operation,context);rows=[]
         decisions=load('console-decisions')
         for record in self.state.get('questions',[]):
             if record['operation']!=operation:continue
             history=decisions.read(decisions.location(self.project,record['task']))['requests']
             item=next((r for r in history if r['sha256']==record['sha256']),None)
-            if item:rows.append(dict(record,current=record['basis']==basis,question=item))
+            if item is None:raise ValueError('operation_question_evidence_missing:restore_retained_record')
+            rows.append(dict(record,current=record['basis']==basis,question=item))
         return rows
 
     def question(self,operation,binding,value):
@@ -305,8 +316,12 @@ class Operations:
         if assessed.get('binding')!=binding:raise ValueError('stale_question_evidence')
         exact(value,'question reason options')
         if len(json.dumps(value).encode())>6000:raise ValueError('question_context_too_large')
+        if not bounded_text(value['question']):raise ValueError('invalid_operation_question')
+        normalized=' '.join(value['question'].casefold().split())
         basis=self.question_basis(assessed['dependencies'],operation)
-        task='op-question-'+digest(dict(project=str(self.project),task=self.task,operation=operation,basis=basis,question=value))[:32]
+        for retained in self.decision_rows(operation,assessed['dependencies']):
+            if retained['current'] and ' '.join(retained['question']['question'].casefold().split())==normalized:return retained['question']
+        task='op-question-'+digest(dict(project=str(self.project),task=self.task,operation=operation,basis=basis,question=normalized))[:32]
         rows=self.state.setdefault('questions',[])
         if len(rows)>=100 and not any(row['task']==task for row in rows):raise ValueError('question_history_full:retain_evidence')
         item=load('console-decisions').request(self.project,task,dict(value,continuation='none',decision_key='operation-clarification'))
@@ -334,7 +349,10 @@ class Operations:
         base['assets'] = {}
         if operation in AI:
             base['assets'] = {name:sha(HERE.parent/name) for name in ('scripts/nightshift-agent.sh','agents/nightshift-operation-worker.md','contracts/nightshift-operation-worker.schema.json')}
-        if operation=='verify':base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+        if operation=='verify':
+            base['assets']['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+            for check in p['checks']:base['assets'].update(load('verification-adapters').assets(check))
+            base['assets'].update({name:sha(HERE/name) for name in ('nightshift-controller-recovery.py','nightshift-recovery-exec.py')})
         if load('operation-decisions').selected(self,p,operation):
             base['assets'].update({name:sha(HERE/name) for name in ('nightshift-decision-engine.py','nightshift-operation-decisions.py')})
         if operation in ('groom-spec', 'implement'):
@@ -363,7 +381,7 @@ class Operations:
             if p['publication']:
                 base['publication_target'] = subprocess.check_output(['git','-C',str(self.project),'remote','get-url','--push',p['publication']['remote']],text=True).strip()
                 base['publication_head'] = subprocess.check_output(['git','-C',str(self.project),'rev-parse','HEAD'],text=True).strip()
-        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base) if r['current'] and r['question'].get('response')]
+        answers=[dict(sha256=r['sha256'],question=r['question']['question'],reason=r['question']['reason'],response=r['question']['response']) for r in self.decision_rows(operation,base,context) if r['current'] and r['question'].get('response')]
         if answers:base['decisions']=answers
         return base
 
@@ -375,7 +393,7 @@ class Operations:
             if row['digest'] != digest({k: v for k, v in row.items() if k != 'digest'}):
                 return False
             dependencies=self.dependencies(operation,p,context)
-            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies)):return False
+            if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,dependencies,context)):return False
             if row['dependencies'] != dependencies:
                 return False
             if operation=='verify' and not (self.valid('groom',p,context) or self.valid('adopt',p,context)):return False
@@ -400,7 +418,7 @@ class Operations:
         p, context = self.context()
         deps = self.dependencies(operation, p, context)
         blockers = []
-        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps)):blockers.append('operator_decision_required')
+        if any(r['current'] and not r['question'].get('response') for r in self.decision_rows(operation,deps,context)):blockers.append('operator_decision_required')
         required = list(deps['artifacts'])
         if any(context['artifacts'][k] is None for k in required):
             blockers.append('missing_input_artifacts')
@@ -454,7 +472,7 @@ class Operations:
                 if operation in ('groom-adversarial','review'):load('operation-decisions').readiness(self,p,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],operation)
             except (ValueError, OSError) as error:
                 result.update(status='blocked', next_action='repair_inputs', blockers=[str(error)])
-        result['questions']=self.decision_rows(operation,deps)
+        result['questions']=self.decision_rows(operation,deps,context)
         if operation=='accept':result['manual_cases']=[dict(case,case_sha256=digest(case)) for case in self.scenarios(p) if case['manual']]
         return result
 
@@ -466,6 +484,7 @@ class Operations:
             except (OSError, ValueError, KeyError) as error:
                 rows.append(dict(operation=operation, status='blocked', blockers=[str(error)], next_action='repair_inputs'))
         return dict(version=VERSION, task=self.task, operations=rows, authorizations=self.state['authorizations'], attempts=self.state['attempts'],
+                    cancellations={key:dict(binding=load('operation-reconciliation').identity(self,g),intent=load('operation-reconciliation').intent(self,key)) for key,g in self.state['authorizations'].items()},reconciliation=[load('operation-reconciliation').assessment(self,a) for a in self.state['attempts'] if a['status'] in ('pending','checkpoint','cancelled_unknown')],
                     calls=self.state['calls'], supervisors=self.state.get('supervisors', {}), usage={key:dict(self.usage(key),wall_seconds=max(0,self.clock()-g['created'])) for key,g in self.state['authorizations'].items()}, recipes=RECIPES, next_actions=[r['operation'] for r in rows if r['status']=='ready'],
                     status='accepted' if any(r['operation']=='accept' and r['status']=='current' for r in rows) else 'pending_manual_acceptance' if any(r['operation']=='review' and r['status']=='current' for r in rows) else 'incomplete')
 
@@ -475,9 +494,20 @@ class Operations:
                     semantic_settings=load('operation-decisions').configuration(self) if p['reviewer_policy']['semantic_plan'] else None,
                     executor_sha256=sha(Path(__file__)), supervisor_sha256=sha(HERE/'nightshift-operation-supervisor.py'),retry_sha256=sha(HERE/'nightshift-retry-budget.py'), worker_sha256=sha(HERE/'nightshift-agent.sh'),
                     role_sha256=sha(HERE.parent/'agents/nightshift-operation-worker.md'),
-                    schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'))
+                    schema_sha256=sha(HERE.parent/'contracts/nightshift-operation-worker.schema.json'),reconciliation_sha256=sha(HERE/'nightshift-operation-reconciliation.py'),execution_sha256=sha(HERE/'nightshift-controller-recovery.py'),supervisor_execution_sha256=sha(HERE/'nightshift-recovery-exec.py'))
 
-    def authorize(self, operations, expected, operator, request, attestation=None):
+    def delegate(self,grant,delegation):
+        if delegation is None:return
+        exact(delegation,'parent_cancellation deadline')
+        parent=delegation['parent_cancellation'];exact(parent,'path binding')
+        if not isinstance(parent['path'],str) or not Path(parent['path']).is_absolute() or Path(parent['path']).resolve()!=Path(parent['path']):raise ValueError('invalid_parent_cancellation_path')
+        if not isinstance(parent['binding'],str) or not re.fullmatch(r'[a-f0-9]{64}',parent['binding']):raise ValueError('invalid_parent_cancellation_binding')
+        if type(delegation['deadline']) not in (int,float) or not math.isfinite(delegation['deadline']):raise ValueError('invalid_parent_deadline')
+        restrictions=grant.setdefault('parent_cancellations',[])
+        if parent not in restrictions:restrictions.append(dict(parent))
+        grant['deadline']=min(grant['deadline'],delegation['deadline'])
+
+    def authorize(self, operations, expected, operator, request, attestation=None, delegation=None):
         if not bounded_text(operator) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}', request):
             raise ValueError('operator_and_request_required')
         if not isinstance(operations, list) or not operations or len(set(operations)) != len(operations) or any(o not in OPS for o in operations):
@@ -493,9 +523,12 @@ class Operations:
             if old:
                 if old['request_digest'] != digest(payload):
                     raise ValueError('request_id_conflict')
+                if delegation is not None:self.delegate(old,delegation);self.save()
                 return old
             for existing in self.state['authorizations'].values():
-                if existing['request_digest'] == digest(payload): return existing
+                if existing['request_digest'] == digest(payload):
+                    if delegation is not None:self.delegate(existing,delegation);self.save()
+                    return existing
             assessed = self.assess(operations[0])
             if assessed['binding'] != expected:
                 raise ValueError('stale_assessment')
@@ -512,6 +545,8 @@ class Operations:
                          attestation=attestation, created=self.clock(), deadline=self.clock()+p['aggregate']['wall_seconds'],
                          plan_sha256=sha(plan_path(self.project, self.task)), baseline=self.corpus(),baseline_modes=self.modes(),
                          limits={o:p['limits'][o] for o in operations}, aggregate=p['aggregate'], statuses={}, bindings={operations[0]:expected})
+            self.delegate(grant,delegation)
+            grant['cancellation_binding']=load('operation-reconciliation').identity(self,grant)
             self.state['authorizations'][request] = grant
             self.save()
             return grant
@@ -524,6 +559,7 @@ class Operations:
     def reserve(self, grant, operation, key, request_bytes, seconds=None):
         with self.mutex:
             g = self.state['authorizations'][grant]
+            self.cancellation_check(grant)
             if key in self.state['calls']:
                 raise ValueError('invocation_already_reserved')
             remaining = []
@@ -604,7 +640,7 @@ class Operations:
             input_file = target / '.operation-input.json'; recovery.atomic(input_file, packet)
             env = {k:v for k,v in os.environ.items() if not k.startswith(('NIGHTSHIFT_', 'AUTONOMOUS'))}
             env.update(NIGHTSHIFT_ROUTING_FILE=str(route_file), NIGHTSHIFT_PROJECT_DIR=str(target), NIGHTSHIFT_PROVIDER_POLICY=route['policy'], NIGHTSHIFT_TELEMETRY_DIR='off')
-            code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'))
+            code = runner.bounded(['bash', str(HERE/'nightshift-agent.sh'), 'nightshift-operation-worker', '--in', str(input_file), '--out', str(output)], target, env, seconds, output.with_suffix('.log'),cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
             if code:
                 value=read(output) if output.exists() else {}
                 # The launcher exits one after publishing a validated FAIL contract.
@@ -651,18 +687,38 @@ class Operations:
                 if src.exists():
                     dest = target/name; dest.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, dest)
             env = runner.clean_environment(); env.update(p['environment']); env['NIGHTSHIFT_ROLE_CHILD']='1'
-            for check in p['checks']:
+            adapter=load('verification-adapters')
+            for check_index,check in enumerate(p['checks']):
                 remaining = seconds-(time.monotonic()-start)
-                if remaining <= 0: raise ValueError('verification_deadline')
-                output = target / ('.observation-' + digest(check) + '.log')
-                code = runner.bounded(check['argv'], target, env, remaining, output)
-                text = output.read_text(errors='replace')
-                counts = re.findall(r'Ran (\d+) tests?\b|\b(\d+) passed\b', text)
-                count = sum(int(a or b) for a,b in counts)
-                count -= sum(int(n) for n in re.findall(r'(?:skipped|expected failures)=(\d+)',text))
-                count = max(0,count)
-                row = dict(id=check['id'], argv=check['argv'], exit_code=code, tests=count, output=text, output_sha256=hashlib.sha256(output.read_bytes()).hexdigest())
+                self.cancellation_check(self.active_grant)
+                output = self.directory / (self.active_request+'.observation-'+digest(check)+'.log')
+                events=output.with_suffix('.events.json')
+                binding=digest(dict(request=self.active_request,grant=self.active_grant,check=check,assets=adapter.assets(check),inputs=self.dependencies('verify',p,self.context()[1])))
+                code=-1;reason=None;interrupted=None
+                try:
+                    if remaining<=0:raise ValueError('verification_deadline')
+                    argv,execution_env=adapter.command(check,target,events,binding,env)
+                    code = runner.bounded(argv, target, execution_env, remaining, output,cancellation=load('operation-reconciliation').paths(self,self.active_grant),ownership=output.with_suffix('.ownership.json'))
+                except (OSError,ValueError,subprocess.SubprocessError) as error:
+                    reason=str(error)
+                    if 'operation_cancelled' in reason:interrupted=error
+                except BaseException as error:
+                    reason=type(error).__name__;interrupted=error
+                finally:
+                    retained={path.name:sha(path) for path in (output,events) if path.is_file() and not path.is_symlink()}
+                    recovery.atomic(output.with_suffix('.partial.json'),dict(evidence=retained,request=self.active_request,check=check,termination=reason))
+                row=adapter.observe(check,events,binding,code,output,reason)
+                row['raw_evidence']=retained
+                row['raw_output_sha256']=row['output_sha256']
+                row['output']='Controller-validated typed observation:\n'+json.dumps({key:row[key] for key in ('version','adapter','binding','complete','status','reason','counts','events_sha256')},sort_keys=True)+'\nRaw process output:\n'+row['output']
+                row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
+                if len(json.dumps(observations+[row],sort_keys=True).encode())>MAX_REQUEST:
+                    row.update(tests=0,status='blocked',reason='verification_evidence_too_large',output='Verification evidence exceeds the bounded observation envelope; inspect retained raw evidence.',unexecuted=[item['id'] for item in p['checks'][check_index+1:]])
+                    row['output_sha256']=hashlib.sha256(row['output'].encode()).hexdigest()
                 observations.append(row)
+                recovery.atomic(output.with_suffix('.typed.json'),row)
+                if interrupted:raise interrupted
+                if row['reason']=='verification_evidence_too_large':break
         return observations
 
     def patch(self, patch, allowed):
@@ -707,6 +763,7 @@ class Operations:
         with self.lease():
             g=self.state['authorizations'].get(grant_id)
             if not g or operation not in g['operations']: raise ValueError('operation_not_authorized')
+            self.cancellation_check(grant_id)
             if supervised and not (g.get('attestation') or {}).get('bounded_repair'):
                 raise ValueError('bounded_repair_authorization_required')
             previous=next((a for a in self.state['attempts'] if a['request']==request),None)
@@ -745,6 +802,8 @@ class Operations:
                 self.retry_account(dict(operation=operation,request=request),'pending')
             attempt=dict(version=VERSION, request=request, operation=operation, grant=grant_id, binding=assessed['binding'], signature=assessed['signature'], status='pending', started=self.clock(), findings=[], prepared=dict(assessment=assessed,baseline=g['baseline'],baseline_modes=g['baseline_modes'],plan_sha256=g['plan_sha256'],route=route))
             self.state['attempts'].append(attempt); self.save()
+            self.active_grant=grant_id
+            self.active_request=request
             output=self.directory/(request+'.worker.json')
             checkpoint=self.directory/(request+'.checkpoint.json')
             result=dict(evidence={}, outputs={}, provenance={'provider':'controller','model':'none','identity':g['operator']}, source=context['source'])
@@ -760,7 +819,8 @@ class Operations:
                         recovery.atomic(output.with_suffix('.execution.json'),dict(call=call['id'],seconds=time.monotonic()-started,sha256=sha(output),finished=self.clock()))
                     finally:
                         completion=output.with_suffix('.execution.json')
-                        self.finish(call['id'],read(completion)['seconds'] if completion.exists() else time.monotonic()-started)
+                        if completion.exists():self.finish(call['id'],read(completion)['seconds'])
+                        elif output.with_suffix('.ownership.json').exists() and read(output.with_suffix('.ownership.json')).get('status')=='not_started':self.finish(call['id'],0)
                     if self.state['calls'][call['id']]['seconds'] > call['reserved_seconds']: raise ValueError('provider_execution_exceeded_allowance')
                     checked=self.validate_worker(value,assessed,route)
                     if operation in REVIEW and not {c['id'] for c in self.scenarios(p)}.issubset(checked['coverage']): raise ValueError('case_review_incomplete')
@@ -779,6 +839,7 @@ class Operations:
                     if result['architecture']['status']!='pass': raise ValueError('architecture_constraints_failed')
                     result['observations']=self.test(p,min(g['deadline']-self.clock(),g['limits'][operation]['wall_seconds']))
                     raw=self.directory/(request+'.tests.json'); recovery.atomic(raw,{'observations':result['observations']}); result['evidence'][raw.name]=sha(raw)
+                    for observation in result['observations']:result['evidence'].update(observation.get('raw_evidence',{}))
                     if any(r['exit_code']!=0 or r['tests']<=0 for r in result['observations']): raise ValueError('failed_or_vacuous_tests')
                 elif operation=='adopt':
                     result['provenance']={k:g['attestation'].get(k,'unknown') for k in ('provider','model','identity')}
@@ -787,6 +848,7 @@ class Operations:
                     result['operator']=g['operator']
                 elif operation=='publish':
                     result['publication']=self.publish(p)
+                self.cancellation_check(grant_id)
                 # A read/review/test must not move its own evidence baseline.
                 if self.corpus()!=g['baseline'] or self.modes()!=g['baseline_modes']: raise ValueError('inputs_changed_during_operation')
                 if self.clock() > min(g['deadline'], attempt['started'] + g['limits'][operation]['wall_seconds']): raise ValueError('operation_deadline_exceeded')
@@ -795,7 +857,7 @@ class Operations:
                 return self.finalize(attempt)
             except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:
                 if attempt['status']=='checkpoint': raise
-                attempt.update(status='failed',reason=str(error),finished=self.clock(), evidence=result['evidence'])
+                attempt.update(status='pending' if load('operation-reconciliation').effective_intent(self,grant_id) else 'failed',reason=str(error),finished=self.clock(), evidence=result['evidence'])
                 if output.exists():
                     attempt['evidence'][output.name] = sha(output)
                     try: attempt['findings']=read(output).get('results',{}).get('findings',[])
@@ -827,6 +889,7 @@ class Operations:
             allowed=[p['inputs']['spec'],p['inputs']['scenarios']] if operation=='groom-spec' else p['scope']
             changes=self.patch(value['artifacts']['diff'],allowed)
         elif value['artifacts']['diff']:raise ValueError('review_cannot_change_source')
+        if getattr(self,'reconciling',False) and load('operation-decisions').selected(self,p,operation):raise ValueError('semantic_reconciliation_requires_retained_complete_checkpoint')
         if operation in ('groom-adversarial','review'):result['semantic']=load('operation-decisions').run(self,p,attempt['grant'],operation,self.state['results'].get('verify',{}).get('observations',[]) if operation=='review' else [],route)
         checkpoint=self.directory/(attempt['request']+'.checkpoint.json')
         recovery.atomic(checkpoint,dict(result=result,changes=changes,assessment=assessed,baseline=prepared['baseline'],baseline_modes=prepared['baseline_modes'],plan_sha256=prepared['plan_sha256']))
@@ -834,6 +897,7 @@ class Operations:
         return self.finalize(attempt)
 
     def finalize(self, attempt):
+        self.cancellation_check(attempt['grant'])
         checkpoint=self.directory/attempt['checkpoint']
         if sha(checkpoint)!=attempt['checkpoint_sha256']: raise ValueError('checkpoint_tampered')
         data=read(checkpoint); result=data['result']; operation=attempt['operation']
@@ -851,7 +915,8 @@ class Operations:
         p,ctx=self.context()
         if self.policy_binding(p)!=self.state['authorizations'][attempt['grant']]['policy_binding']:raise ValueError('checkpoint_policy_changed')
         if self.dependencies(operation,p,ctx)!=data['assessment']['dependencies']: raise ValueError('checkpoint_dependencies_changed')
-        self.integrate(data['changes'])
+        with load('operation-reconciliation').integration_guard(self,attempt['grant']):
+            self.integrate(data['changes'])
         p,context=self.context()
         if operation=='groom-spec':
             for key in ('spec','scenarios'):
@@ -920,7 +985,7 @@ def factory(project, task):
 
 
 def api(project, body):
-    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer'}:
+    if not isinstance(body,dict) or set(body)-{'task','action','operation','operations','binding','operator','request','grant','attestation','source','choices','question','choice','answer','resolution'}:
         raise ValueError('invalid_operation_request')
     if isinstance(body.get('action'),str) and body['action'].startswith('intake-'):return load('intake').api(project,body)
     if isinstance(body.get('action'),str) and body['action'].startswith('packages-'):
@@ -928,6 +993,8 @@ def api(project, body):
         return load('package-controller').api(project,package_body)
     controller=Operations(project,body['task'])
     action=body['action']
+    if action=='cancel':return load('operation-reconciliation').cancel(controller,body['grant'],body['binding'],body['operator'],body['request'])
+    if action=='reconcile':return load('operation-reconciliation').reconcile(controller,body['request'],body['binding'],body['operator'],body['resolution'])
     if action=='question':
         with controller.lease():return controller.question(body['operation'],body['binding'],body['question'])
     if action=='answer':return controller.answer(body['operation'],body['binding'],body['question'],body.get('choice',''),body.get('answer',''))
@@ -945,10 +1012,11 @@ def api(project, body):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map','question','answer'))
+    parser.add_argument('action',choices=('view','assess','authorize','run','chain','supervise','migrate','factory','semantic-map','question','answer','cancel','reconcile'))
     parser.add_argument('task');parser.add_argument('operation',nargs='?',choices=OPS)
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--binding');parser.add_argument('--operator');parser.add_argument('--request');parser.add_argument('--grant')
     parser.add_argument('--recipe',choices=RECIPES);parser.add_argument('--attestation',type=json.loads)
+    parser.add_argument('--resolution',choices=('finalize','preserve'))
     parser.add_argument('--question',type=json.loads);parser.add_argument('--choice');parser.add_argument('--answer')
     args=parser.parse_args()
     body={k:v for k,v in vars(args).items() if v is not None and k not in ('project','recipe')}

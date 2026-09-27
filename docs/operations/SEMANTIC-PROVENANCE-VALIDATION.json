@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "stage": "groom-adversarial",
+  "evaluator_request_bytes": [
+    2750,
+    2706,
+    2756
+  ],
+  "worker_requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 7533
+    },
+    {
+      "operation": "review",
+      "request_bytes": 3086
+    },
+    {
+      "operation": "review",
+      "request_bytes": 3055
+    },
+    {
+      "operation": "review",
+      "request_bytes": 3087
+    }
+  ],
+  "evaluator_calls": 3,
+  "independent_escalations": 3,
+  "cache_hits": 3,
+  "replay_calls": 0,
+  "usage": {
+    "calls": 8,
+    "measured_seconds": 0.003887875998771051,
+    "reserved_unknown_seconds": 0,
+    "seconds": 0.003887875998771051,
+    "unknown": 0,
+    "request_bytes": 25623
+  },
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "code_revision": "c8a9429cee389a661cb26e1abbca97a61f96007e",
+  "integration_base": "f870a83677e166b35ff2a00766293f238e000ea4",
+  "bridge_sha256": "0ac0cc27ac9c8b56e39d8aa1ca926ba9a6882669e1412c134291d8ae88c6acd7",
+  "independent_tests": 13,
+  "existing_handoff_tests": 10,
+  "legacy_tests": 3,
+  "existing_review_tests": 11,
+  "cache_tests": 6,
+  "final_positive_seconds": 4.318
+}

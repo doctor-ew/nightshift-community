@@ -1,0 +1,154 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "revision": "93939e10352bd81abff756683bdb271ced52139e",
+  "provider_calls": 13,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 4272,
+      "packet_bytes": 1050
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8938,
+      "packet_bytes": 757
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4135,
+      "packet_bytes": 913
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11105,
+      "packet_bytes": 2924
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3869,
+      "packet_bytes": 647
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8949,
+      "packet_bytes": 768
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4161,
+      "packet_bytes": 939
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11173,
+      "packet_bytes": 2992
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4243,
+      "packet_bytes": 1021
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11219,
+      "packet_bytes": 3038
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4263,
+      "packet_bytes": 1041
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11239,
+      "packet_bytes": 3058
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6212,
+      "packet_bytes": 2990
+    }
+  ],
+  "usage": {
+    "0b10fb28-3ef0-41d3-ac5f-6304d9094806": {
+      "calls": 1,
+      "measured_seconds": 0.2969381250004517,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0.2969381250004517,
+      "unknown": 0,
+      "request_bytes": 2990,
+      "wall_seconds": 9.774972200393677
+    },
+    "33b77080-37ca-42ce-9805-b6b2a6749f9b": {
+      "calls": 8,
+      "measured_seconds": 2.7841445410085726,
+      "reserved_unknown_seconds": 0,
+      "seconds": 2.7841445410085726,
+      "unknown": 0,
+      "request_bytes": 13504,
+      "wall_seconds": 31.40074396133423
+    }
+  },
+  "provider_tokens": null,
+  "billed_cost": null,
+  "provider_cache_usage": null,
+  "checks": [
+    "typed Python observation through shared browser/CLI API",
+    "normalized settled clarification reuses answer despite rationale changes",
+    "evidence-bound clarification with no dispatch",
+    "reload-retained answer",
+    "per-case observation and evidence",
+    "UI/CLI admission parity",
+    "factory recipe",
+    "explicit bounded supervisor without redispatch",
+    "manual acceptance required",
+    "duplicate resume without dispatch",
+    "explicit acceptance",
+    "source drift",
+    "external adoption without implementation",
+    "failed verification remains failed",
+    "blocked review",
+    "reload persistence",
+    "three failed reviews exhaust bounded repair",
+    "external adoption after exhaustion without Implement",
+    "desktop/mobile rendering without script errors"
+  ],
+  "live_certification": false,
+  "usage_scope": "The usage map covers only the second exhaustion/external-adoption ticket; requests/provider_calls cover both synthetic tickets.",
+  "request_bytes_total": 93778,
+  "packet_bytes_total": 22138,
+  "replay_calls": 0,
+  "full_integration": {
+    "revision": "fffa50bf73d05578ef6ca3cb902d011f382235f7",
+    "suites": 21,
+    "tests": 183,
+    "all_passed": true,
+    "log_sha256": "cf975e5552cdd9296c64f381286140fa19ec0754ff2b21c82fad2fff93933997",
+    "intake_tests": 41
+  },
+  "converged_targeted": {
+    "runtime_revision": "93939e10352bd81abff756683bdb271ced52139e",
+    "core": 24,
+    "independent_adapters": 19,
+    "independent_controller": 6,
+    "independent_context": 4,
+    "all_passed": true,
+    "view_seconds": 2.748767709,
+    "identity_subprocesses": 10,
+    "identity_seconds": 0.344434209
+  },
+  "prior_browser_failure": {
+    "revision": "fffa50bf73d05578ef6ca3cb902d011f382235f7",
+    "reason": "180-second outer timeout during repeated interpreter identity probes",
+    "evidence_retained": true,
+    "repair": "Reuse #99 assessment-local context; fresh outer boundaries remain required."
+  },
+  "reuse": {
+    "unittest_pr": 96,
+    "unittest_head": "c634e61f0429c9574204bad9c095f73d00b27ee4",
+    "context_pr": 99,
+    "context_code": "30633959fbb30f46df4c3d0f41a43a781a243c15",
+    "cancellation_pr": 101
+  }
+}

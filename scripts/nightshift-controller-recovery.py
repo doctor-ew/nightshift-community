@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import copy
 import fcntl
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -192,25 +193,36 @@ def clean_environment():
     return {key:os.environ[key] for key in keep if key in os.environ}
 
 
-def bounded(argv, cwd, env, timeout, output):
+def bounded(argv, cwd, env, timeout, output, cancellation=None, ownership=None):
+    cancellation_paths=[] if cancellation is None else cancellation if isinstance(cancellation,list) else [cancellation]
+    if any(path.exists() for path in cancellation_paths):
+        if ownership is not None:p.recovery.atomic(ownership,dict(status='not_started',reason='cancelled_before_spawn'))
+        raise ValueError('operation_cancelled:before_spawn')
     with output.open('wb') as log:
         supervised=[sys.executable,str(HERE/'nightshift-recovery-exec.py'),str(os.getpid()),str(timeout),str(output),*argv]
         child = subprocess.Popen(supervised, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                                  stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         started = time.monotonic()
+        cancelled=False
         try:
+            if ownership is not None:p.recovery.atomic(ownership,dict(status='running',pid=child.pid,controller=os.getpid(),started=time.time(),argv_sha256=hashlib.sha256(json.dumps(argv).encode()).hexdigest()))
             while child.poll() is None:
+                if any(path.exists() for path in cancellation_paths):
+                    cancelled=True
+                    raise ValueError('operation_cancelled:owned_execution_stopping')
                 if time.monotonic() - started >= timeout or output.stat().st_size > 2_000_000:
                     raise ValueError('recovery_execution_bound_exceeded')
                 time.sleep(.05)
             return child.returncode
         finally:
-            # Kill descendants even if the immediate command has already exited.
-            try: os.killpg(child.pid, signal.SIGTERM)
-            except ProcessLookupError: pass
-            try: child.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                os.killpg(child.pid, signal.SIGKILL); child.wait()
+            # The supervisor owns descendant cleanup; signal only our live child.
+            if child.poll() is None:
+                try: os.killpg(child.pid, signal.SIGTERM)
+                except ProcessLookupError: pass
+                try: child.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    os.killpg(child.pid, signal.SIGKILL); child.wait()
+            if ownership is not None:p.recovery.atomic(ownership,dict(status='stopped',pid=child.pid,controller=os.getpid(),cancelled=cancelled,exit_code=child.returncode,local_seconds=time.monotonic()-started))
 
 
 def verify_checks(value, timeout):

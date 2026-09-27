@@ -1,0 +1,123 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "revision": "a38a05cc3f870ae3b6880104b4b1ffa000531ceb",
+  "provider_calls": 13,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 4272,
+      "packet_bytes": 1050
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8938,
+      "packet_bytes": 757
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4135,
+      "packet_bytes": 913
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9413,
+      "packet_bytes": 1232
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3869,
+      "packet_bytes": 647
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8949,
+      "packet_bytes": 768
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4135,
+      "packet_bytes": 913
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9425,
+      "packet_bytes": 1244
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4217,
+      "packet_bytes": 995
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9471,
+      "packet_bytes": 1290
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4237,
+      "packet_bytes": 1015
+    },
+    {
+      "operation": "review",
+      "request_bytes": 9491,
+      "packet_bytes": 1310
+    },
+    {
+      "operation": "review",
+      "request_bytes": 4494,
+      "packet_bytes": 1272
+    }
+  ],
+  "usage": {
+    "5084db80-2367-44db-8a83-401915b48138": {
+      "calls": 8,
+      "measured_seconds": 3.245462997991126,
+      "reserved_unknown_seconds": 0,
+      "seconds": 3.245462997991126,
+      "unknown": 0,
+      "request_bytes": 8182,
+      "wall_seconds": 18.68931293487549
+    },
+    "c9991283-df90-4c56-b7b8-12264cdd3dbf": {
+      "calls": 1,
+      "measured_seconds": 0.3570838339983311,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0.3570838339983311,
+      "unknown": 0,
+      "request_bytes": 1272,
+      "wall_seconds": 5.4358532428741455
+    }
+  },
+  "provider_tokens": null,
+  "billed_cost": null,
+  "provider_cache_usage": null,
+  "checks": [
+    "normalized settled clarification reuses answer despite rationale changes",
+    "evidence-bound clarification with no dispatch",
+    "reload-retained answer",
+    "per-case observation and evidence",
+    "UI/CLI admission parity",
+    "factory recipe",
+    "explicit bounded supervisor without redispatch",
+    "manual acceptance required",
+    "duplicate resume without dispatch",
+    "explicit acceptance",
+    "source drift",
+    "external adoption without implementation",
+    "failed verification remains failed",
+    "blocked review",
+    "reload persistence",
+    "three failed reviews exhaust bounded repair",
+    "external adoption after exhaustion without Implement",
+    "desktop/mobile rendering without script errors"
+  ],
+  "live_certification": false,
+  "usage_scope": "exhaustion ticket only: eight repair/preparation calls and one external-adoption review; all thirteen calls appear in requests",
+  "independent_tests": 9,
+  "question_tests": 13,
+  "manual_acceptance_tests": 11,
+  "controller_sha256": "d6d06c8948363c0c40804bb40471c90e05f5b2e989d2075c8090177c6e45e3df",
+  "replay_provider_calls": 0
+}

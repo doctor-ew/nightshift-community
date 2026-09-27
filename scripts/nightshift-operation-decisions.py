@@ -42,6 +42,16 @@ def required_files(controller,plan,operation):
     return required
 
 
+def reference_roles(controller,plan,operation):
+    """Derive permitted evidence roles from the inspected operation contract."""
+    roles={name:{'source'} for name in required_files(controller,plan,operation)}
+    for name in (plan['inputs']['request'],plan['inputs']['spec'],plan['inputs']['scenarios']):
+        roles.setdefault(name,set()).add('requirement')
+    for check in plan['checks']:
+        roles[check['argv'][1]]={'assertion'}
+    return roles
+
+
 def bounded_text_file(controller,name):
     operations=load('operations');path=operations.safe(controller.project,name)
     if path.stat().st_size>engine.MAX_BYTES:raise ValueError('semantic_context_too_large:no_truncation')
@@ -92,14 +102,16 @@ def packets(controller, plan, observations, operation='review'):
         raise ValueError('invalid_semantic_obligations')
     if data['version']==1 and operation!='review':return []
     observed={c['id']:c for c in observations}
-    corpus=controller.corpus(); result=[]; covered={}; resolved=set(); ids=set(); requirement_ids=set()
+    corpus=controller.corpus(); result=[]; resolved=set(); ids=set()
+    roles=reference_roles(controller,plan,operation)
+    cases={c['id'] for c in controller.scenarios(plan)}
     for row in data['obligations']:
         operations.exact(row,'id kind question requirements findings references high_risk'+(' stage' if data['version']==2 else ''))
         if data['version']==2:
             if row['stage'] not in ('groom-adversarial','review'):raise ValueError('unsupported_semantic_handoff')
             if row['stage']!=operation:continue
         if row['id'] in ids:raise ValueError('duplicate_semantic_obligation')
-        ids.add(row['id']);refs=[];checks={};reference_bytes=0
+        ids.add(row['id']);refs=[];checks={};reference_bytes=0;covered={}
         if not isinstance(row['references'],list) or len(row['references'])>64:raise ValueError('semantic_references_too_large')
         for ref in row['references']:
             operations.exact(ref,'id role path start_line end_line')
@@ -111,6 +123,7 @@ def packets(controller, plan, observations, operation='review'):
                 if check['exit_code']!=0 or engine.text_hash(text)!=file_hash:raise ValueError('invalid_observation')
                 checks.setdefault(name,dict(id=name,exit_code=0,output_sha256=file_hash,evidence=[]))['evidence'].append(ref['id'])
             else:
+                if ref['role'] not in roles.get(name,set()):raise ValueError('semantic_reference_role_mismatch:'+name)
                 path=operations.safe(controller.project,name);text=bounded_text_file(controller,name);file_hash=operations.sha(path)
                 if corpus.get(name)!=file_hash:raise ValueError('semantic_evidence_changed')
             lines=text.splitlines(keepends=True)
@@ -126,15 +139,12 @@ def packets(controller, plan, observations, operation='review'):
             retained={engine.text_hash(f):f for a in controller.state['attempts'] if a['status']=='failed' for f in a.get('findings',[])}
             if any(retained.get(f['id'])!=f['text'] for f in packet['findings']):raise ValueError('semantic_finding_not_retained')
         if packet['kind']=='finding_resolved':resolved.update(f['id'] for f in packet['findings'])
-        requirement_ids.update(r['id'] for r in packet['requirements'])
+        if {r['id'] for r in packet['requirements']}!=cases:raise ValueError('semantic_case_mapping_incomplete')
+        for name in required_files(controller,plan,operation):
+            lines=bounded_text_file(controller,name).splitlines()
+            if covered.get(name,set())!=set(range(1,len(lines)+1)):raise ValueError('semantic_context_incomplete:'+name)
         result.append(packet)
     if not result:return []
-    required=required_files(controller,plan,operation)
-    for name in required:
-        lines=bounded_text_file(controller,name).splitlines()
-        if covered.get(name,set())!=set(range(1,len(lines)+1)):raise ValueError('semantic_context_incomplete:'+name)
-    scenarios=operations.read(operations.safe(controller.project,plan['inputs']['scenarios']))
-    if not {c['id'] for c in scenarios['cases']}.issubset(requirement_ids):raise ValueError('semantic_case_mapping_incomplete')
     findings={engine.text_hash(f) for a in controller.state['attempts'] if a['status']=='failed' for f in a.get('findings',[])}
     if operation=='review' and not findings.issubset(resolved):raise ValueError('semantic_findings_unresolved')
     mandatory={'requirement_supported','scope_matches','oracle_valid'} if operation=='review' else {'preparation_supported','oracle_valid'}
@@ -173,7 +183,7 @@ def run(controller,plan,grant,operation,observations,route):
     assets=evaluator_assets()
     authority=evaluator_authority(controller,plan,operation,route,assets)
     def escalation_request(packet):
-        return dict(version=1,operation='review',binding=engine.digest(packet),artifacts={'semantic-obligation':json.dumps(packet)},scope=[],findings=[],checks=packet['checks'],verification=None)
+        return dict(version=1,operation='review',binding=engine.digest(packet),artifacts={'semantic-obligation':json.dumps(packet)},scope=[],findings=[],checks=packet['checks'],verification=None,semantic_coverage=[*('evidence:'+r['id'] for r in packet['evidence']),*('requirement:'+r['id'] for r in packet['requirements']),*('finding:'+r['id'] for r in packet['findings'])],semantic_instruction='Return each independently assessed semantic_coverage identifier in results.coverage. Missing assessment must abstain; ordinary review category labels do not attest semantic evidence.')
     def reserve(kind,key,size):
         if kind!='jev':size=len(json.dumps(escalation_request(packet),sort_keys=True).encode())
         row=controller.reserve(grant,operation,'decision:'+key,size)
@@ -194,12 +204,18 @@ def run(controller,plan,grant,operation,observations,route):
         value=controller.worker('review',request,route,output,remaining)
         engine.atomic(output,value)
         assessed=dict(operation='review',binding=binding,findings=[])
+        results=value.get('results') if isinstance(value,dict) else None
+        results=results if isinstance(results,dict) else {}
+        coverage=results.get('coverage')
+        coverage=coverage if isinstance(coverage,list) and all(isinstance(item,str) for item in coverage) else []
         try:
-            controller.validate_worker(value,assessed,route);decision='yes'
-        except ValueError:
-            if value.get('results',{}).get('decision')=='repair':decision='no'
+            checked=controller.validate_worker(value,assessed,route)
+            if not set(request['semantic_coverage']).issubset(checked['coverage']):raise ValueError('semantic_escalation_mapping_incomplete')
+            decision='yes'
+        except (ValueError,KeyError,TypeError):
+            if results.get('decision')=='repair':decision='no'
             else:decision='abstain'
-        return dict(decision=decision,packet_sha256=binding,reviewer_id=route['provider']+':'+route['model'],evidence=[r['id'] for r in packet['evidence']])
+        return dict(decision=decision,packet_sha256=binding,reviewer_id=route['provider']+':'+route['model'],evidence=[r['id'] for r in packet['evidence'] if 'evidence:'+r['id'] in coverage])
     evaluator=engine.Engine(controller.directory/'decisions',authority,prepared['settings'],reserve,finish,transport=transport,escalate=escalate)
     receipts=[]
     for packet in prepared['packets']:

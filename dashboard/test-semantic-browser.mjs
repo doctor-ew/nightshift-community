@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {chromium} from 'playwright';
+const root=process.env.NIGHTSHIFT_BROWSER_PROJECT,url=process.env.NIGHTSHIFT_BROWSER_URL;
+assert(root&&url,'Run through the disposable semantic transport fixture');
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const panel=page.getByRole('region',{name:'Engineering operations'});
+const count=()=>readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').length;
+try {
+  await page.goto(url);await panel.getByLabel('Task key').fill('demo');
+  const view=page.waitForResponse(r=>r.url().includes('/api/operations?task='));
+  await panel.getByRole('button',{name:'Assess operations',exact:true}).click();await view;
+  await panel.getByLabel('Operator identity').fill('synthetic-semantic-browser');
+  await panel.getByRole('button',{name:'Select groom recipe',exact:true}).click();
+  const response=page.waitForResponse(r=>r.url().endsWith('/api/operations')&&r.request().postDataJSON()?.action==='chain',{timeout:90000});
+  await panel.getByRole('button',{name:'Authorize and run selected operations',exact:true}).click();
+  const result=await (await response).json();assert(result.results.every(r=>r.status==='passed'),JSON.stringify(result));assert.equal(count(),5);
+  const row=result.view.operations.find(r=>r.operation==='groom-adversarial');assert.equal(row.status,'current');assert.equal(row.result.semantic.receipts.length,3);
+  await page.waitForFunction(()=>!document.querySelector('[aria-label="Engineering operations"] input').disabled);
+  await panel.getByText('Retained authorizations and recovery',{exact:true}).click();
+  const repeated=page.waitForResponse(r=>r.url().endsWith('/api/operations')&&r.request().postDataJSON()?.action==='chain');
+  await panel.getByRole('button',{name:/^Resume /}).first().click();
+  const replay=await (await repeated).json();assert(replay.results.every(r=>['passed','reused'].includes(r.status)));assert.equal(count(),5);
+  await page.reload();await panel.getByLabel('Task key').fill('demo');
+  const refreshed=page.waitForResponse(r=>r.url().includes('/api/operations?task='));await panel.getByRole('button',{name:'Assess operations',exact:true}).click();
+  const retained=await (await refreshed).json();assert.equal(retained.view.operations.find(r=>r.operation==='groom-adversarial').status,'current');
+  await page.setViewportSize({width:390,height:844});assert(await panel.isVisible());assert.deepEqual(errors,[]);
+  writeFileSync(resolve(root,'.nightshift-fixture-bin/browser-report.json'),JSON.stringify({browser:browser.version(),grant:result.results[0].grant,replay_worker_calls:0,checks:['actual Groom browser recipe with HTTP semantic evaluator','three independent escalations','browser replay without provider dispatch','reload-retained semantic receipts','desktop/mobile view without script errors']}));
+} finally {await browser.close();}

@@ -9,6 +9,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import re
+import runpy
 import selectors
 import signal
 import stat
@@ -352,21 +353,45 @@ def bounded_request(settings, key, body):
     # A subprocess bounds DNS, TLS, headers, slow-drip bodies and redirects together.
     context = multiprocessing.get_context('spawn')
     reader, writer = context.Pipe(duplex=False)
-    worker = context.Process(target=request_worker, args=(writer, settings, key, body))
-    worker.start()
-    writer.close()
+    # Dynamic controller imports have no importable module name under spawn.
+    # Resolve this trusted source path in the child through an importable stdlib
+    # entry point; transport arguments remain private IPC, never process argv.
+    worker = None
+    started = False
     try:
+        try:
+            worker = context.Process(target=runpy.run_path, args=(str(Path(__file__).resolve()),),
+                                     kwargs=dict(run_name='__nightshift_transport__',
+                                                 init_globals={'_transport_arguments': (writer, settings, key, body)}))
+            worker.start()
+            started = True
+        except Exception:
+            raise Invalid('REQUEST_FAILED') from None
+        writer.close()
         if not reader.poll(settings['timeout_seconds']):
             raise Invalid('TIMEOUT')
-        status, content = reader.recv()
+        try:
+            status, content = reader.recv()
+        except EOFError:
+            raise Invalid('REQUEST_FAILED') from None
         if status != 'ok':
             raise Invalid(content)
         return content
     finally:
-        if worker.is_alive():
-            worker.kill()
-        worker.join()
-        reader.close()
+        try:
+            writer.close()
+            if worker is not None:
+                try:
+                    # start() can be interrupted after ownership is established.
+                    if started or worker.pid is not None:
+                        if worker.is_alive():
+                            worker.kill()
+                        worker.join()
+                finally:
+                    worker.close()
+        finally:
+            reader.close()
+
 
 
 def evaluate(args, cfg, receipt):
@@ -479,5 +504,7 @@ def main():
         return 64
 
 
-if __name__ == '__main__':
+if __name__ == '__nightshift_transport__':
+    request_worker(*_transport_arguments)
+elif __name__ == '__main__':
     sys.exit(main())
