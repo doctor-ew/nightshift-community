@@ -124,10 +124,10 @@ class Dispatcher(f.IndependentRecovery):
         result,calls=self.run_synthetic('duplicate');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
     def test_no_remains_blocked(self):
         result,calls=self.run_synthetic('no');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
-    def test_abstain_remains_blocked(self):
-        result,calls=self.run_synthetic('abstain');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
-    def test_missing_roles_remain_blocked_after_one_reask(self):
-        result,calls=self.run_synthetic('missing_roles');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_incomplete',result['reason']);self.assertEqual(len(calls),2)
+    def test_abstain_waits_for_the_operator(self):
+        result,calls=self.run_synthetic('abstain');self.assertEqual(result['status'],'awaiting_operator');self.assertEqual(result['awaiting']['reason'],'decision_abstained');self.assertEqual(len(calls),1)
+    def test_missing_roles_wait_for_the_operator_after_one_reask(self):
+        result,calls=self.run_synthetic('missing_roles');self.assertEqual(result['status'],'awaiting_operator');self.assertIn('evidence_incomplete',result['reason']);self.assertEqual(len(calls),2)
         self.assertNotIn('missing_roles',calls[0]['input']);self.assertEqual(calls[1]['input']['missing_roles'],sorted(set(r['role'] for r in calls[1]['input']['packet']['evidence'])-{'requirement'}))
     def test_selective_role_complete_answer_passes(self):
         result,calls=self.run_synthetic('selective');self.assertEqual(result['status'],'pending_manual_acceptance',result);self.assertEqual(len(calls),4)

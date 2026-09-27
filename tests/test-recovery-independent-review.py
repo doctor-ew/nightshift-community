@@ -183,12 +183,12 @@ class IndependentRecovery(f.Decisions):
         again=self.recover();self.assertEqual(again['allowance'],result['allowance'])
         self.assertEqual(len(self.review_calls),1)
 
-    def test_missing_role_coverage_blocks(self):
+    def test_missing_role_coverage_waits_for_the_operator(self):
         self.setup_independent()
         def missing(*args,**kwargs):
             result=self.independent_review(*args,**kwargs);result['evidence']=['observed'];return result
         result=self.recover(review=missing)
-        self.assertEqual(result['status'],'blocked')
+        self.assertEqual(result['status'],'awaiting_operator')
         self.assertIn('evidence_incomplete',result['reason'])
         self.assertNotIn('implement',m.p.snapshot(self.project,'T-1')['completed'])
 

@@ -36,6 +36,9 @@ LIMITS = dict(wall_seconds=600, active_seconds=600, provider_calls=4)
 # Recovery sessions per ticket. Every failed session stays retained; this only
 # bounds how many operator-authorized attempts a ticket may accumulate.
 MAX_RECOVERY_SESSIONS = 5
+# Operator decision on #65: when the independent reviewer abstains or disagrees,
+# the question goes to the operator instead of ending the session.
+OPERATOR_REASONS = ('decision_abstained', 'decision_reviewer_contradiction', 'decision_independent_evidence_incomplete')
 # Files that shape what an independent decision reviewer sees and returns.
 # An earlier session's answer is reusable only when all are byte-identical.
 REVIEWER_ASSETS = ('agents/nightshift-decision-reviewer.md', 'contracts/nightshift-decision-reviewer.schema.json',
@@ -373,6 +376,40 @@ def reusable_sessions(value,session,root):
                     and other['evidence']['assets'].get(name)==value['assets'].get(name) for name in REVIEWER_ASSETS)]
 
 
+def operator_record(directory, packet_sha256):
+    # Keyed by packet, not gate: an identical question asked by two gates (e.g.
+    # adoption and review) shares one decision, like the decision cache itself.
+    return directory/'operator'/(packet_sha256+'.json')
+
+
+def valid_operator_decision(record, binding, packet, receipt):
+    """An operator answer is bound to this session, this exact packet and the blocked receipt."""
+    return (isinstance(record,dict) and set(record)=={'binding','packet_id','packet_sha256','receipt_sha256','decision','reason','operator','decided_at'}
+            and record['binding']==binding and record['packet_id']==packet['id'] and record['packet_sha256']==load('decision-engine').digest(packet)
+            and record['receipt_sha256']==receipt.get('receipt_sha256') and record['decision'] in ('yes','no')
+            and isinstance(record['reason'],str) and record['reason'].strip() and isinstance(record['operator'],str) and record['operator'].strip())
+
+
+def operator_decide(project, task, expected, operator, packet_sha256, decision_value, reason):
+    if not re.fullmatch(r'[0-9a-f]{64}', expected or ''): raise ValueError('recovery_assessment_required')
+    if not operator.strip() or len(operator)>200: raise ValueError('recovery_operator_identity_required')
+    if decision_value not in ('yes','no') or not reason.strip() or len(reason)>2000: raise ValueError('recovery_operator_decision_invalid')
+    with action_lock(project, task), controller_lock(project, task) as directory:
+        target, state, _ = target_state(project, task)
+        session = state.get('recovery_sessions',{}).get(expected)
+        if not session or session.get('status')!='awaiting_operator': raise ValueError('recovery_operator_not_awaited')
+        waiting = session.get('awaiting') or {}
+        if waiting.get('packet_sha256')!=packet_sha256: raise ValueError('recovery_operator_packet_mismatch')
+        record = dict(binding=expected, packet_id=waiting['packet_id'], packet_sha256=packet_sha256, receipt_sha256=waiting['receipt_sha256'],
+                      decision=decision_value, reason=reason.strip(), operator=operator.strip(), decided_at=time.time())
+        path = operator_record(directory/('recovery-'+expected), packet_sha256)
+        if path.exists(): raise ValueError('recovery_operator_already_decided')
+        path.parent.mkdir(mode=0o700, exist_ok=True); p.recovery.atomic(path, record)
+        session.setdefault('operator_decisions',[]).append(dict(packet_id=record['packet_id'],packet_sha256=packet_sha256,decision=decision_value,sha256=p.sha(path)))
+        session['next_action']='resume'; p.recovery.atomic(directory / 'state.json', state)
+        return summary(session)
+
+
 def compact_verdict(value,stage,checks,session,directory,save,step,transport=None,escalator=None):
     adapter=load('recovery-decisions');decision=adapter.engine
     packets=adapter.packets(value,checks,stage)
@@ -417,8 +454,21 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     for packet in packets:
         current_binding(value['worktree'],value['task'],session['binding'])
         adapter.review_framing(value,packet)
-        receipt=evaluator.decide(packet);receipts.append(receipt)
-        if receipt['status']!='complete' or receipt['decision']!='yes':
+        receipt=evaluator.decide(packet)
+        if receipt['status']!='complete' and receipt['reason'] in OPERATOR_REASONS:
+            path=operator_record(directory,decision.digest(packet))
+            if not path.exists():
+                session['awaiting']=dict(stage=stage,packet_id=packet['id'],packet_sha256=decision.digest(packet),
+                                         receipt_sha256=receipt.get('receipt_sha256'),reason=receipt['reason'])
+                save()
+                raise ValueError('recovery_decision_operator_required:'+packet['id']+':'+receipt['reason'])
+            record=p.read(path)
+            if not valid_operator_decision(record,session['binding'],packet,receipt):raise ValueError('recovery_operator_decision_invalid')
+            session.pop('awaiting',None)
+            if record['decision']!='yes':raise ValueError('recovery_decision_blocked:'+packet['id']+':operator_rejected')
+            receipt=dict(receipt,operator=dict(sha256=p.sha(path)))
+        receipts.append(receipt)
+        if receipt.get('operator') is None and (receipt['status']!='complete' or receipt['decision']!='yes'):
             # The detailed negative/abstention receipt stays durable in decisions/.
             raise ValueError('recovery_decision_blocked:'+packet['id']+':'+receipt['reason'])
     return dict(mode='compact',semantic_mode=semantic_mode,binding=digest(value),stage=stage,decisions=receipts,
@@ -432,9 +482,19 @@ def validate_compact(report,value,stage,checks):
     if report.get('semantic_mode','jev')!=semantic_mode:raise ValueError('recovery_semantic_mode_changed')
     packets=adapter.packets(value,checks,stage)
     if len(report.get('decisions',[]))!=len(packets):raise ValueError('recovery_incomplete_decisions')
+    session_dir=p.root(value['worktree'],value['task'])/('recovery-'+digest(value))
     for packet,receipt in zip(packets,report['decisions']):
         validator=decision.validate_independent_receipt if semantic_mode=='independent' else decision.validate_receipt
-        validator(receipt,packet,value['decision_readiness']['settings'],digest(value),p.root(value['worktree'],value['task'])/('recovery-'+digest(value))/'decisions')
+        operator=receipt.get('operator')
+        stored={k:v for k,v in receipt.items() if k!='operator'}
+        validator(stored,packet,value['decision_readiness']['settings'],digest(value),session_dir/'decisions')
+        if operator is not None:
+            path=operator_record(session_dir,decision.digest(packet))
+            if stored['status']=='complete' or stored['reason'] not in OPERATOR_REASONS or not isinstance(operator,dict) or set(operator)!={'sha256'} or not path.is_file() or p.sha(path)!=operator['sha256']:
+                raise ValueError('recovery_unapproved_decision')
+            record=p.read(path)
+            if not valid_operator_decision(record,digest(value),packet,stored) or record['decision']!='yes':raise ValueError('recovery_unapproved_decision')
+            continue
         if receipt.get('packet_sha256')!=decision.digest(packet) or receipt.get('status')!='complete' or receipt.get('decision')!='yes':
             raise ValueError('recovery_unapproved_decision')
         if semantic_mode=='jev' and receipt.get('reported_model')!=value['decision_readiness']['settings']['model']:
@@ -541,7 +601,7 @@ def controller_revision(state):
 def summary(session):
     return dict(status=session['status'], sha256=session['binding'], next_action=session['next_action'],
                 allowance=session['allowance'], steps=session['steps'], decision_calls=session.get('decision_calls',{}),
-                reason=session.get('reason',''), message='Recovery ' + session['status'] + '; original budgets and failed evidence retained.' + (' '+session['reason'] if session.get('reason') else ''))
+                reason=session.get('reason',''), awaiting=session.get('awaiting') if session['status']=='awaiting_operator' else None, message='Recovery ' + session['status'] + '; original budgets and failed evidence retained.' + (' '+session['reason'] if session.get('reason') else ''))
 
 
 def self_module():
@@ -582,7 +642,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             state.setdefault('recovery_origin', copy.deepcopy({k:v for k,v in state.items() if k not in ('recovery_sessions','recovery_origin')}))
             session['controller_revision']=controller_revision(state)
             p.recovery.atomic(directory / 'state.json', state)
-        elif session['status'] in ('blocked','pending_manual_acceptance'):
+        elif session['status'] in ('blocked','pending_manual_acceptance') or (session['status']=='awaiting_operator' and operation!='resume'):
             return summary(session)
         if compact and session.get('semantic_mode','jev')!=value['decision_readiness'].get('semantic_mode','jev'):
             raise ValueError('recovery_semantic_mode_changed')
@@ -594,8 +654,16 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             session['controller_revision']=controller_revision(state)
             p.recovery.atomic(directory / 'state.json', state)
         try:
+            if session.get('paused_at'):
+                # Time waiting for the operator is not run time; the extension is recorded.
+                pause=time.time()-session.pop('paused_at')
+                session['allowance']['deadline_at']+=pause
+                session['allowance'].setdefault('operator_pauses',[]).append(round(pause,3))
+                session['status']='running'; save()
             for stage in ('verify',) + GATES:
                 old = session['steps'].get(stage)
+                if old and old['status']=='awaiting_operator':
+                    session.setdefault('operator_waits',[]).append(dict(stage=stage,step=old)); session['steps'].pop(stage); old=None
                 if old:
                     if old['status'] != 'pass': raise ValueError('recovery_unfinished_step:' + stage)
                     if old['finished_at']>session['allowance']['deadline_at'] or session['allowance']['active_used']>session['allowance']['active_seconds']:
@@ -632,7 +700,8 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                     current_binding(project,task,expected)
                     step.update(status='pass',sha256=p.sha(output),finished_at=time.time())
                 except (ValueError,OSError,KeyError,TypeError,subprocess.SubprocessError) as error:
-                    step.update(status='fail',reason=str(error),finished_at=time.time())
+                    waiting=str(error).startswith('recovery_decision_operator_required:')
+                    step.update(status='awaiting_operator' if waiting else 'fail',reason=str(error),finished_at=time.time())
                     if output.exists(): step['sha256']=p.sha(output)
                     raise
                 finally:
@@ -649,8 +718,12 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                          final_evidence=dict(outcome='pending',reason='manual_acceptance_pending',recovery_binding=expected))
             save()
         except (ValueError,OSError,KeyError,TypeError,subprocess.SubprocessError) as error:
-            session.update(status='blocked',next_action='inspect_recovery_evidence',reason=str(error))
-            state.update(status='blocked',next_action='inspect_recovery_evidence')
+            if str(error).startswith('recovery_decision_operator_required:'):
+                session.update(status='awaiting_operator',next_action='operator_decision',reason=str(error),paused_at=time.time())
+                state.update(status='blocked',next_action='operator_decision')
+            else:
+                session.update(status='blocked',next_action='inspect_recovery_evidence',reason=str(error))
+                state.update(status='blocked',next_action='inspect_recovery_evidence')
             save()
         return summary(session)
 
@@ -711,7 +784,9 @@ def resolve_retained_ref(project, ref):
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('operation',choices=['assess','authorize','resume','accept']);parser.add_argument('ref')
+    parser.add_argument('operation',choices=['assess','authorize','resume','accept','operator-decide']);parser.add_argument('ref')
+    parser.add_argument('--packet',help='operator-decide: the exact awaited packet sha256');parser.add_argument('--decision',choices=['yes','no'])
+    parser.add_argument('--reason',default='')
     parser.add_argument('--project',default=os.getcwd());parser.add_argument('--expected',default='')
     parser.add_argument('--operator',default='');parser.add_argument('--verify',action='store_true')
     parser.add_argument('--output')
@@ -726,7 +801,10 @@ def main():
             with open(args.attestation,'rb') as stream:raw=stream.read(12001)
             if len(raw)>12000:raise ValueError('manual_acceptance_too_large')
             attestation=json.loads(raw)
-        result=assessment(args.project,task,True) if args.verify else operate(args.project,task,args.operation,args.expected,args.operator,attestation=attestation)
+        if args.operation=='operator-decide':
+            result=operator_decide(args.project,task,args.expected,args.operator,args.packet or '',args.decision or '',args.reason)
+        else:
+            result=assessment(args.project,task,True) if args.verify else operate(args.project,task,args.operation,args.expected,args.operator,attestation=attestation)
         content=json.dumps(result,indent=2)
         if args.output:
             with open(args.output,'x') as stream:stream.write(content+'\n')
