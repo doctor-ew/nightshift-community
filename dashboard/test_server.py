@@ -139,6 +139,15 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(payload))[0],200)
         self.assertEqual(len(decisions.snapshot(self.repo,'task-a')['answered']),1)
         self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(dict(payload,answer='Different')))[0],409)
+        # The resubmission above queues a fresh detached watcher that writes into
+        # .git/nightshift/console; teardown must not delete that folder mid-write.
+        deadline=time.monotonic()+15
+        while time.monotonic()<deadline:
+            cont=decisions.snapshot(self.repo,'task-a')['answered'][0]['continuation']
+            state=subprocess.run(['ps','-o','stat=','-p',str(cont.get('pid'))],capture_output=True,text=True).stdout.strip()
+            if cont['status'] not in ('queued','waiting','launching') and (not state or state.startswith('Z')):break
+            time.sleep(.05)
+        else:self.fail('continuation watcher did not settle: '+repr(cont))
 
     def test_chat_query_is_scoped_and_requires_known_ticket(self):
         for path in ('/api/tickets/chat', '/api/tickets/chat?task=../escape', '/api/tickets/chat?task=missing', '/api/tickets/chat?task=a&task=b'):
