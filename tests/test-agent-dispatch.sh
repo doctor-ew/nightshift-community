@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# nightshift-ci-weight: 8
 # Offline contract tests for dp-4t3; no provider binary escapes this fixture PATH.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

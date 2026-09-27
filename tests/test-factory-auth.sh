@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# nightshift-ci-weight: 4
 set -euo pipefail
 # These fixtures inspect raw provider/admission output.
 export NIGHTSHIFT_OUTPUT=verbose
