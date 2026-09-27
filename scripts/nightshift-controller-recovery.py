@@ -101,6 +101,7 @@ def evidence(project, task):
     decision_plan = docs / 'recovery-plan.json'
     report_path = safe_file(target, 'docs/' + task + '/direct-verification/results.json') if not decision_plan.exists() else safe_file(target, 'docs/' + task + '/recovery-plan.json')
     report = json.loads(report_path.read_text())
+    plan_document = report if decision_plan.exists() else None
     if decision_plan.exists(): report = report.get('checks', [])
     if not isinstance(report, list) or not 1 <= len(report) <= 20:
         raise ValueError('recovery_test_plan_missing')
@@ -118,6 +119,7 @@ def evidence(project, task):
         checks.append(dict(id=name, argv=['bash', rel], sha256=p.sha(path)))
     if len({c['id'] for c in checks}) != len(checks):
         raise ValueError('recovery_duplicate_test')
+    generated = generated_artifacts(target, plan_document)
     # Preserve every controller and classification finding with a stable identity.
     findings = []
     origin=state.get('recovery_origin',state)
@@ -183,6 +185,9 @@ def evidence(project, task):
                  retained_spec_author=scenarios['author'], current_file_authorship=authorship, reviewer_route=route,
                  assets={name:p.sha(HERE.parent / name) for name in assets},
                  verification_environment=verification_environment, limits=LIMITS)
+    if generated is not None:
+        if any(value['workspace']['files'].get(g['path']) is None for g in generated):raise ValueError('recovery_generated_unbound')
+        value['generated']=generated
     value['decision_readiness']=load('recovery-decisions').readiness(value)
     if value['decision_readiness']['status']=='ready': value['limits']=value['decision_readiness']['limits']
     return value, {}
@@ -253,6 +258,29 @@ def bounded(argv, cwd, env, timeout, output, cancellation=None, ownership=None):
             if ownership is not None:p.recovery.atomic(ownership,dict(status='stopped',pid=child.pid,controller=os.getpid(),cancelled=cancelled,exit_code=child.returncode,local_seconds=time.monotonic()-started))
 
 
+def generated_artifacts(target, plan_document):
+    """Version 2 plans declare files that a generator reproduces from committed source.
+
+    Nightshift proves each one itself during verification: the file is removed
+    from an isolated copy, the generator must recreate it byte for byte, and no
+    tracked file may change. Proven artifacts are never sent to a reviewer.
+    """
+    if not isinstance(plan_document, dict) or plan_document.get('version') != 2:
+        return None
+    rows = plan_document.get('generated', [])
+    if not isinstance(rows, list) or len(rows) > 20:
+        raise ValueError('recovery_generated_invalid')
+    out = []
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {'path', 'argv'} or not isinstance(row['argv'], list) or len(row['argv']) != 2 or row['argv'][0] not in ('bash', 'python3'):
+            raise ValueError('recovery_generated_invalid')
+        if row['path'] == row['argv'][1] or row['path'] in {r['path'] for r in out}:
+            raise ValueError('recovery_generated_invalid')
+        safe_file(target, row['path']); script = safe_file(target, row['argv'][1])
+        out.append(dict(path=row['path'], argv=row['argv'], sha256=p.sha(script)))
+    return out
+
+
 def verify_checks(value, timeout):
     started = time.monotonic()
     target = Path(value['worktree'])
@@ -270,7 +298,21 @@ def verify_checks(value, timeout):
                      ['git', 'config', 'user.email', 'recovery@localhost'], ['git', 'add', '.'],
                      ['git', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Bound recovery snapshot']):
             subprocess.run(argv, cwd=copied, env=env, check=True, capture_output=True, timeout=30)
+        proofs = []
+        for artifact in value.get('generated', []):
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0: raise ValueError('recovery_allowance_exhausted')
+            produced = copied / artifact['path']; produced.unlink()
+            output = base / 'generate.log'
+            code = bounded(artifact['argv'], copied, env, min(120, remaining), output)
+            tracked = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=copied, env=env, capture_output=True, text=True, timeout=30)
+            reproduced = (code == 0 and produced.is_file() and not produced.is_symlink()
+                          and p.sha(produced) == value['workspace']['files'][artifact['path']] and tracked.returncode == 0 and tracked.stdout == '')
+            proofs.append(dict(path=artifact['path'], argv=artifact['argv'], exit_code=code, reproduced=reproduced,
+                               output=output.read_text(errors='replace'), output_sha256=p.sha(output)))
+            if not reproduced: break
         for check in value['checks']:
+            if any(not proof['reproduced'] for proof in proofs): break
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0: raise ValueError('recovery_allowance_exhausted')
             output = base / 'check.log'
@@ -279,7 +321,10 @@ def verify_checks(value, timeout):
                                 output=output.read_text(errors='replace'), output_sha256=p.sha(output)))
             if sum(len(r['output'].encode()) for r in results)>500_000: raise ValueError('recovery_test_output_limit')
             if code: break
-    return dict(binding=digest(value), status='pass' if len(results)==len(value['checks']) and all(r['exit_code']==0 for r in results) else 'fail', checks=results)
+    passed = len(results)==len(value['checks']) and all(r['exit_code']==0 for r in results) and len(proofs)==len(value.get('generated', [])) and all(r['reproduced'] for r in proofs)
+    report = dict(binding=digest(value), status='pass' if passed else 'fail', checks=results)
+    if 'generated' in value: report['generated'] = proofs
+    return report
 
 
 def compact_review(value,packet,mode,output,timeout,reviewer_id=None,missing_roles=None):

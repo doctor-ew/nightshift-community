@@ -90,8 +90,17 @@ def plan(value):
     if not (target/name).exists() and not (target/name).is_symlink():raise ValueError('recovery_decision_plan_missing:'+name)
     path=safe(target,name)
     data=json.loads(path.read_text())
-    if set(data)-{'version','checks','decisions','limits','environment','semantic_mode'} or not {'version','checks','decisions','limits'}<=set(data) or data['version']!=1 or not data['decisions'] or len(data['decisions'])>64:
+    allowed={'version','checks','decisions','limits','environment','semantic_mode'}|({'generated'} if data.get('version')==2 else set())
+    if set(data)-allowed or not {'version','checks','decisions','limits'}<=set(data) or data['version'] not in (1,2) or not data['decisions'] or len(data['decisions'])>64:
         raise ValueError('recovery_decision_plan_invalid')
+    # Version 2: generated artifacts are proven by verification, not reviewed, and
+    # every case must be traceable to an assertion span that names it.
+    generated=set()
+    if data['version']==2:
+        declared=[(g.get('path'),g.get('argv')) for g in data.get('generated',[]) if isinstance(g,dict)]
+        if declared!=[(g['path'],g['argv']) for g in value.get('generated',[])]:raise ValueError('recovery_decision_generated_changed')
+        generated={g['path'] for g in value.get('generated',[])}
+        if not generated<=set(value['source_files']):raise ValueError('recovery_decision_generated_not_a_changed_file')
     if data.get('semantic_mode','jev') not in ('jev','independent'):raise ValueError('recovery_semantic_mode_invalid')
     environment=data.get('environment',{})
     if not isinstance(environment,dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]{0,80}',k) or k in ('PATH','HOME','TMPDIR','SYSTEMROOT') or k.startswith(('GIT_','LD_','DYLD_','NIGHTSHIFT_')) or not isinstance(v,str) or len(v)>4096 for k,v in environment.items()):
@@ -118,7 +127,7 @@ def plan(value):
         if case['applicability']['kind']=='deterministic':acs.update(case_acs)
     if classified!=declared:raise ValueError('recovery_decision_ac_unclassified')
     spec='docs/'+value['task']+'/SPEC.md';scenarios='docs/'+value['task']+'/behavior-scenarios.json'
-    required=set(value['source_files'])|{spec,scenarios}|{c['argv'][1] for c in checks}
+    required=(set(value['source_files'])-generated)|{spec,scenarios}|{c['argv'][1] for c in checks}
     files={name:safe(target,name).read_text().splitlines(keepends=True) for name in required}
     coverage={g:{} for g in KINDS};obligations={g:dict(cases=set(),acs=set(),findings=set()) for g in KINDS}
     for row in data['decisions']:
@@ -136,6 +145,7 @@ def plan(value):
                 if ref['path'] not in {c['id'] for c in checks}:raise ValueError('recovery_decision_observation_unknown')
             else:
                 name=ref['path']
+                if name in generated:raise ValueError('recovery_decision_generated_not_evidence')
                 if name not in files:raise ValueError('recovery_decision_source_unknown')
                 if ref['role']=='requirement' and name not in (spec,scenarios):raise ValueError('recovery_decision_requirement_invalid')
                 if ref['role']=='assertion' and name not in set(value['source_files'])|{c['argv'][1] for c in checks}:raise ValueError('recovery_decision_assertion_invalid')
@@ -146,6 +156,11 @@ def plan(value):
             for gate,kinds in KINDS.items():
                 if row['kind'] in kinds and ref['role']!='observation':coverage[gate].setdefault(ref['path'],set()).update(range(a,b+1))
         if roles!=engine.ROLES:raise ValueError('recovery_decision_roles_missing')
+        if data['version']==2:
+            for case in row['case_ids']:
+                token=re.compile(r'(?<![A-Za-z0-9_-])'+re.escape(case)+r'(?![A-Za-z0-9_-])')
+                if not any(ref['role']=='assertion' and token.search(''.join(files[ref['path']][ref['start_line']-1:ref['end_line']])) for ref in row['references']):
+                    raise ValueError('recovery_decision_case_untraced:'+row['id']+':'+case)
         for gate,kinds in KINDS.items():
             if row['kind'] in kinds:
                 obligations[gate]['cases'].update(row['case_ids']);obligations[gate]['acs'].update(row['ac_ids']);obligations[gate]['findings'].update(row['finding_ids'])
