@@ -36,3 +36,13 @@ match its recorded hash, the binding, the packet and the receipt.
 
 Validation: `tests/test-operator-escalation.py` (6 synthetic tests, run by
 `tests/test-recovery-independent.sh`).
+
+## Dashboard
+
+Slice 5. A session waiting for the operator shows **Waiting for your decision**
+with the stage, the question ID and the reason, and the exact `operator-decide`
+command (binding and packet hash filled in; the operator supplies decision,
+reason and identity). The command is shown only when both hashes are well-formed.
+The call count is broken down by kind (for example `jev`, `independent`, `reask`,
+`exception`, `shadow`), and a waiting stage reads "waiting for your decision". The
+dashboard does not record decisions itself; that stays a deliberate CLI action.

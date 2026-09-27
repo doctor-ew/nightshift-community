@@ -65,7 +65,7 @@ def view(project, task):
     sessions=state.get('recovery_sessions',{})
     if sessions:
         latest=max(sessions.values(),key=lambda row:row['authorized_at'])
-        state['recovery_status']={key:latest.get(key) for key in ('binding','status','next_action','reason','allowance','decision_calls')}
+        state['recovery_status']={key:latest.get(key) for key in ('binding','status','next_action','reason','allowance','decision_calls','awaiting')}
         steps=latest.get('steps',{})
         if not isinstance(steps,dict):steps={}
         state['recovery_status']['steps']={stage:{key:row.get(key) for key in ('status','started_at','finished_at')} for stage in ('verify','adoption','review','drift','qa') if isinstance((row:=steps.get(stage)),dict)}

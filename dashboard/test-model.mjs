@@ -190,3 +190,22 @@ test('recovery blocked, pending acceptance, complete and stale observations rema
   assert.equal(ticketProgress([],ticket).complete,false);
   assert.ok(recoveryProgress(ticket).steps.every(step=>step.status==='stale'));
 });
+
+test('recovery waiting for the operator names the question and the exact command', async () => {
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const sha='a'.repeat(64), binding='b'.repeat(64);
+  const ticket={task:'1',settings:{ref:'gh:1'},pipeline:{status:'blocked',recovery_status:{status:'awaiting_operator',binding,next_action:'operator_decision',
+    awaiting:{stage:'qa',packet_id:'oracle_valid-9',packet_sha256:sha,reason:'decision_abstained'},
+    allowance:{calls_used:3},decision_calls:{x:{kind:'jev'},y:{kind:'jev'},z:{kind:'exception'}},steps:{qa:{status:'awaiting_operator'}}}}};
+  const view=recoveryProgress(ticket);
+  assert.equal(view.status,'Waiting for your decision');assert.equal(view.awaiting.stage,'QA');assert.equal(view.awaiting.question,'oracle_valid-9');
+  assert.match(view.awaiting.command,new RegExp(`operator-decide gh:1 --expected ${binding} --packet ${sha}`));
+  assert.deepEqual(view.callKinds,[['exception',1],['jev',2]]);
+  assert.equal(view.steps.find(step=>step.key==='qa').status,'waiting for your decision');
+  const forged=structuredClone(ticket);forged.pipeline.recovery_status.awaiting.packet_sha256='not-a-hash';
+  assert.equal(recoveryProgress(forged).awaiting,null);
+  const badBinding=structuredClone(ticket);badBinding.pipeline.recovery_status.binding='x';
+  assert.equal(recoveryProgress(badBinding).awaiting,null);
+  const hostile=structuredClone(ticket);hostile.settings.ref="spec:a'; rm -rf ~ #.md";
+  assert.match(recoveryProgress(hostile).awaiting.command,/operator-decide 'spec:a'\\''; rm -rf ~ #\.md' --expected/);
+});
