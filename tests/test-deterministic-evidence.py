@@ -144,6 +144,23 @@ class JevClaims(DeterministicEvidence):
         self.assertEqual(later['observed_call_seconds']['jev']['samples'],4)
         self.assertIsInstance(later['proposed_limits']['wall_seconds'],int)
 
+    def test_interrupted_escalation_resumes_in_jev_mode(self):
+        self.score=lambda key:.5 if key=='claim_2' else .97
+        self.plan_v2();binding=self.assess()['sha256']
+        original=self.escalate;state={'crashed':False}
+        def crash(*args,**kwargs):
+            if not state['crashed']:state['crashed']=True;raise KeyboardInterrupt('controller process died')
+            return original(*args,**kwargs)
+        self.escalate=crash
+        with self.assertRaises(KeyboardInterrupt):self.compact(expected=binding)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        self.assertEqual(session['status'],'running')
+        done=self.compact(operation='resume',expected=binding)
+        self.assertEqual(done['status'],'pending_manual_acceptance',done)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        kinds={v['kind']+':'+v['status'] for k,v in session['decision_calls'].items() if ':interrupted-' in k}
+        self.assertIn('jev:complete',kinds);self.assertIn('exception:interrupted',kinds)
+
     def test_uncertain_claim_escalates_only_that_packet(self):
         self.score=lambda key:.5 if key=='claim_2' else .97
         self.plan_v2();a=self.assess()

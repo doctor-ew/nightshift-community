@@ -208,15 +208,20 @@ class IndependentRecovery(f.Decisions):
         self.assertNotIn('implement',m.p.snapshot(self.project,'T-1')['completed'])
         self.assertEqual(self.ledger.read_bytes(),self.budget_before)
 
-    def test_unknown_interrupted_review_never_relaunches(self):
+    def test_unknown_interrupted_review_is_retained_counted_and_asked_again(self):
+        # Operator decision (#65, slice 7): an interrupted question is asked again on an
+        # explicit resume; the call whose outcome is unknown is never forgotten.
         self.setup_independent();a=self.assess()
         def crash(*args,**kwargs):
             self.review_calls.append('unknown');raise KeyboardInterrupt('synthetic provider interruption')
         with self.assertRaises(KeyboardInterrupt):self.recover(expected=a['sha256'],review=crash)
+        used=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))['allowance']['calls_used']
         resumed=self.recover('resume',a['sha256'])
-        self.assertEqual(resumed['status'],'blocked')
-        self.assertIn('unfinished_step',resumed['reason'])
-        self.assertEqual(self.review_calls,['unknown'])
+        self.assertEqual(resumed['status'],'pending_manual_acceptance',resumed)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        self.assertEqual([v['status'] for k,v in session['decision_calls'].items() if ':interrupted-' in k],['interrupted'])
+        self.assertGreater(session['allowance']['calls_used'],used)
+        self.assertEqual(self.review_calls[0],'unknown');self.assertGreater(len(self.review_calls),1)
         self.assertEqual(self.ledger.read_bytes(),self.budget_before)
 
     def test_restart_reuses_completed_independent_decisions(self):
