@@ -48,10 +48,11 @@ class Rendering(unittest.TestCase):
         envelope=self.envelope();raw=e.e.encoded(envelope)
         result=render.render(ROOT,raw,'claude','configured-synthetic-model')
         schema=json.loads(result['schema']);props=schema['properties']['results']['properties']
-        self.assertEqual(props['evidence']['items']['enum'],[r['id'] for r in envelope['packet']['evidence']])
-        self.assertNotIn('uniqueItems',props['evidence'])
-        self.assertNotIn('maxItems',props['evidence'])
-        self.assertEqual(props['evidence']['minItems'],1)
+        refs=envelope['packet']['evidence'];roles=[x for x in ('requirement','source','assertion','observation') if any(r['role']==x for r in refs)]
+        self.assertNotIn('evidence',props);self.assertEqual(props['grounding']['required'],roles)
+        for role in roles:
+            self.assertEqual(props['grounding']['properties'][role]['items']['enum'],[r['id'] for r in refs if r['role']==role])
+            self.assertNotIn('uniqueItems',props['grounding']['properties'][role]);self.assertNotIn('maxItems',props['grounding']['properties'][role])
         self.assertNotIn('minimum',schema['properties']['attempts'])
         canonical=json.loads((ROOT/'contracts/nightshift-decision-reviewer.schema.json').read_text())
         self.assertEqual(canonical['properties']['attempts']['minimum'],1)
@@ -60,7 +61,7 @@ class Rendering(unittest.TestCase):
         self.assertNotIn('allOf',schema);self.assertNotIn('$schema',schema)
         self.assertEqual(result['argument_content_bytes'],sum(len(result[k].encode()) for k in ('prompt','role','schema')))
         self.assertEqual(result['input_envelope_bytes'],len(raw))
-        self.assertNotIn(props['evidence']['items']['enum'][0]+': explanation',props['evidence']['items']['enum'])
+        first=props['grounding']['properties'][roles[0]]['items']['enum'];self.assertNotIn(first[0]+': explanation',first)
     def test_malformed_references_and_stale_packet_are_rejected(self):
         original=self.envelope()
         for kind in ('duplicate','empty','stale','wrongtype'):
@@ -84,11 +85,21 @@ class Dispatcher(f.IndependentRecovery):
           'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
           'assert sys.argv[sys.argv.index("--tools")+1]==""\n'+
           'schema=json.loads(sys.argv[sys.argv.index("--json-schema")+1]);data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\n'+
-          'props=schema["properties"]["results"]["properties"];ids=[r["id"] for r in data["packet"]["evidence"]]\n'+
-          'assert props["evidence"]["items"]["enum"]==ids\nassert props["packet_sha256"]["enum"]==[data["packet_sha256"]]\nassert props["reviewer_id"]["enum"]==[data["reviewer_id"]]\n'+
+          'props=schema["properties"]["results"]["properties"];refs=data["packet"]["evidence"];ids=[r["id"] for r in refs]\n'+
+          'roles=[x for x in ("requirement","source","assertion","observation") if any(r["role"]==x for r in refs)]\n'+
+          'assert "evidence" not in props and props["grounding"]["required"]==roles\n'+
+          'assert all(props["grounding"]["properties"][x]["items"]["enum"]==[r["id"] for r in refs if r["role"]==x] for x in roles)\n'+
+          'assert props["packet_sha256"]["enum"]==[data["packet_sha256"]]\nassert props["reviewer_id"]["enum"]==[data["reviewer_id"]]\n'+
+          'assert sys.argv[sys.argv.index("--system-prompt")+1] not in sys.argv[-1]\n'+
           'size=sum(len(s.encode()) for s in (sys.argv[-1],sys.argv[sys.argv.index("--system-prompt")+1],sys.argv[sys.argv.index("--json-schema")+1]));assert size<=24576\n'+
-          'mode=os.environ["SYNTHETIC_REVIEW_MODE"];refs=[r+": explanation" for r in ids] if mode=="annotated" else ids[:1] if mode=="missing_roles" else ids+ids[:1] if mode=="duplicate" else ids\n'+
-          'result=dict(decision=mode if mode in ("no","abstain") else "yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],evidence=refs)\n'+
+          'mode=os.environ["SYNTHETIC_REVIEW_MODE"]\n'+
+          'if mode=="reask_recovers":mode="yes" if "missing_roles" in data else "missing_roles"\n'+
+          'group={x:[r["id"] for r in refs if r["role"]==x] for x in roles}\n'+
+          'if mode=="annotated":group={x:[i+": explanation" for i in v] for x,v in group.items()}\n'+
+          'if mode=="selective":group={x:v[:1] for x,v in group.items()}\n'+
+          'if mode=="missing_roles":group={x:(v[:1] if x==roles[0] else []) for x,v in group.items()}\n'+
+          'if mode=="duplicate":group[roles[1]]=group[roles[1]]+group[roles[0]][:1]\n'+
+          'result=dict(decision=mode if mode in ("no","abstain") else "yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],grounding=group)\n'+
           'with open('+repr(str(calls))+',"a") as out:out.write(json.dumps(dict(size=size,input=data))+"\\n")\n'+
           'print(json.dumps(dict(structured_output=dict(status="SUCCESS",reason="Synthetic explanation belongs here",attempts=1,artifacts=dict(branch="",diff="",**'+repr(route)+'),rules_fired=[],results=result))))\n')
         stub.chmod(0o755)
@@ -108,15 +119,24 @@ class Dispatcher(f.IndependentRecovery):
         raw=list(folder.glob('decision-*.review.json'))
         self.assertTrue(raw)
         for path in raw:
-            self.assertTrue(all(': explanation' in r for r in json.loads(path.read_text())['results']['evidence']))
+            self.assertTrue(all(': explanation' in r for v in json.loads(path.read_text())['results']['grounding'].values() for r in v))
     def test_duplicate_ids_remain_locally_rejected(self):
         result,calls=self.run_synthetic('duplicate');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_invalid',result['reason']);self.assertEqual(len(calls),1)
     def test_no_remains_blocked(self):
         result,calls=self.run_synthetic('no');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
     def test_abstain_remains_blocked(self):
         result,calls=self.run_synthetic('abstain');self.assertEqual(result['status'],'blocked');self.assertEqual(len(calls),1)
-    def test_missing_roles_remain_blocked(self):
-        result,calls=self.run_synthetic('missing_roles');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_incomplete',result['reason']);self.assertEqual(len(calls),1)
+    def test_missing_roles_remain_blocked_after_one_reask(self):
+        result,calls=self.run_synthetic('missing_roles');self.assertEqual(result['status'],'blocked');self.assertIn('evidence_incomplete',result['reason']);self.assertEqual(len(calls),2)
+        self.assertNotIn('missing_roles',calls[0]['input']);self.assertEqual(calls[1]['input']['missing_roles'],sorted(set(r['role'] for r in calls[1]['input']['packet']['evidence'])-{'requirement'}))
+    def test_selective_role_complete_answer_passes(self):
+        result,calls=self.run_synthetic('selective');self.assertEqual(result['status'],'pending_manual_acceptance',result);self.assertEqual(len(calls),4)
+    def test_reask_recovers_and_retains_first_report(self):
+        result,calls=self.run_synthetic('reask_recovers');self.assertEqual(result['status'],'pending_manual_acceptance',result);self.assertEqual(len(calls),8)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        folder=self.directory/('recovery-'+session['binding'])
+        self.assertEqual(len(list(folder.glob('decision-*.reask.review.json'))),4)
+        self.assertEqual(len([x for x in folder.glob('decision-*.review.json') if '.reask.' not in x.name]),4)
 
 class AssistedDispatcher(f.f.Decisions):
     def test_actual_assisted_input_bytes_match_reserved_envelope(self):

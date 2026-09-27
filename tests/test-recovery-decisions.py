@@ -134,7 +134,8 @@ class Decisions(legacy.RecoveryTest):
           "assert '--safe-mode' in sys.argv and '--no-session-persistence' in sys.argv\nassert sys.argv[sys.argv.index('--tools')+1]==''\n"+
           "prompt=sys.argv[-1];data=json.JSONDecoder().raw_decode(prompt.split('Task input:\\n',1)[1])[0]\n".replace('\\n','\\n')+
           "assert len(prompt.encode())<24576\nassert 'corpus' not in data and 'evidence' not in data\n"+
-          "r=dict(decision='yes',packet_sha256=data['packet_sha256'],reviewer_id=data['reviewer_id'],evidence=[e['id'] for e in data['packet']['evidence']])\n"+
+          "g={}\nfor e in data['packet']['evidence']:g.setdefault(e['role'],[]).append(e['id'])\n"+
+          "r=dict(decision='yes',packet_sha256=data['packet_sha256'],reviewer_id=data['reviewer_id'],grounding=g)\n"+
           "report=dict(status='SUCCESS',reason='Synthetic focused review',attempts=1,artifacts=dict(branch='',diff='',**"+repr(route)+"),rules_fired=[],results=r)\n"+
           "with open("+repr(str(calls)) +",'a') as f:f.write(data['packet']['id']+'\\n')\n"+
           "print(json.dumps(dict(structured_output=report)))\n")

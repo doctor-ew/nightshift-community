@@ -273,12 +273,20 @@ class Engine:
         return record
 
 
-def independent_envelope(packet, reviewer_id):
-    """Exact tool-free reviewer input, bounded before allowance reservation."""
+def independent_envelope(packet, reviewer_id, missing_roles=None):
+    """Exact tool-free reviewer input, bounded before allowance reservation.
+
+    missing_roles is present only on the single re-ask after a role-incomplete yes.
+    It states the structural requirement, never the prior reviewer's answer.
+    """
     validate(packet)
     if not isinstance(reviewer_id, str) or not re.fullmatch(r'decision-review-[0-9a-f]{32}', reviewer_id):
         raise ValueError('decision_reviewer_identity_invalid')
     value = dict(packet=packet, packet_sha256=digest(packet), reviewer_id=reviewer_id, mode='independent')
+    if missing_roles is not None:
+        if not isinstance(missing_roles, list) or not missing_roles or missing_roles != sorted(set(missing_roles)) or not set(missing_roles) <= required_roles(packet):
+            raise ValueError('decision_reask_roles_invalid')
+        value['missing_roles'] = missing_roles
     if len(encoded(value)) > MAX_BYTES:
         raise ValueError('decision_review_request_too_large')
     return value
@@ -300,6 +308,36 @@ def normalize_review_citations(review, packet):
         # Multiple possible identities are ambiguous, even if one is longer.
         references.append(matches[0] if len(matches) == 1 else reference)
     return dict(review, evidence=references)
+
+
+def review_from_grounding(result, packet):
+    """Adapt a role-grouped reviewer answer to the flat evidence contract.
+
+    The packet, not the bucket the reviewer chose, is authoritative for each ID's
+    role, so a misfiled ID is a representation difference, not a new model call.
+    Unknown IDs survive flattening so validation still rejects them.
+    """
+    if not isinstance(result, dict) or 'grounding' not in result or 'evidence' in result:
+        return result
+    grounding = result['grounding']
+    if not isinstance(grounding, dict) or any(not isinstance(v, list) for v in grounding.values()):
+        return result
+    ordered = [role for role in ('requirement','source','assertion','observation') if role in grounding] + sorted(k for k in grounding if k not in ROLES)
+    flat = [ref for role in ordered for ref in grounding[role]]
+    # Duplicates are not collapsed: like normalization, adaptation never edits the answer.
+    return normalize_review_citations(dict({k:v for k,v in result.items() if k != 'grounding'}, evidence=flat), packet)
+
+
+def incomplete_roles(review, packet, reviewer_id):
+    """Missing roles for an otherwise valid yes; None when no re-ask is warranted."""
+    try:
+        validate_independent_result(review, packet, reviewer_id)
+        return None
+    except ValueError as error:
+        if str(error) != 'decision_independent_evidence_incomplete':
+            raise
+    cited = {r['role'] for r in packet['evidence'] if r['id'] in review['evidence']}
+    return sorted(required_roles(packet) - cited)
 
 
 def validate_independent_result(review, packet, reviewer_id):
@@ -328,7 +366,7 @@ def validate_independent_receipt(record, packet, settings, authority, directory)
         raise ValueError('decision_cache_integrity')
     artifacts = {}
     for suffix, expected in record.get('artifacts', {}).items():
-        if suffix not in ('packet','request','review'):
+        if suffix not in ('packet','request','review','reask_request','reask_review'):
             raise ValueError('decision_cache_integrity')
         path = Path(directory)/(key+'.'+suffix+'.json')
         if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
@@ -337,13 +375,25 @@ def validate_independent_receipt(record, packet, settings, authority, directory)
         if digest(value) != expected:
             raise ValueError('decision_cache_artifact_changed')
         artifacts[suffix] = value
-    request = independent_envelope(packet, record.get('reviewer_id'))
+    reask = record.get('reask')
+    first_id = reask.get('first_reviewer_id') if isinstance(reask, dict) else record.get('reviewer_id')
+    request = independent_envelope(packet, first_id)
     if artifacts.get('packet') != packet or artifacts.get('request') != request or record.get('request_bytes') != len(encoded(request)):
         raise ValueError('decision_cache_artifact_changed')
+    if reask is not None:
+        # The re-ask is justified only by a retained, otherwise valid, role-incomplete yes.
+        if not isinstance(reask, dict) or set(reask) != {'first_reviewer_id','missing_roles','request_bytes'}:
+            raise ValueError('decision_cache_integrity')
+        if incomplete_roles(artifacts.get('review'), packet, first_id) != reask['missing_roles']:
+            raise ValueError('decision_cache_integrity')
+        second = independent_envelope(packet, record.get('reviewer_id'), reask['missing_roles'])
+        if artifacts.get('reask_request') != second or reask['request_bytes'] != len(encoded(second)):
+            raise ValueError('decision_cache_artifact_changed')
+    kinds = ['independent'] + (['reask'] if reask is not None else [])
     if record['status'] == 'complete':
-        if len(record.get('calls', [])) != 1 or record['calls'][0].get('kind') != 'independent' or record['calls'][0].get('status') != 'complete':
+        if [c.get('kind') for c in record.get('calls', [])] != kinds or any(c.get('status') != 'complete' for c in record['calls']):
             raise ValueError('decision_cache_unfinished')
-        review = validate_independent_result(artifacts.get('review'), packet, record['reviewer_id'])
+        review = validate_independent_result(artifacts.get('reask_review' if reask is not None else 'review'), packet, record['reviewer_id'])
         if review['decision'] not in ('yes','no') or record.get('decision') != review['decision']:
             raise ValueError('decision_cache_verdict_changed')
     elif record['status'] != 'blocked' or record.get('decision') != 'abstain':
@@ -388,23 +438,19 @@ class IndependentEngine:
         atomic(self.directory/(key+'.packet.json'), packet)
         atomic(self.directory/(key+'.request.json'), request)
         try:
-            token = self.reserve('independent', key, record['request_bytes'])
-            record['calls'].append(dict(kind='independent', reservation=token, status='pending'))
-            atomic(path, record)
-            outcome = 'error'
-            try:
-                review = self.review(packet, reviewer_id)
-                if len(encoded(review)) > MAX_BYTES:
-                    raise ValueError('decision_response_too_large')
-                atomic(self.directory/(key+'.review.json'), review)
-                record['artifacts']['review'] = digest(review)
-                validate_independent_result(review, packet, reviewer_id)
-                record['decision'] = review['decision']
-                outcome = 'complete'
-            finally:
-                self.finish(token, outcome)
-                record['calls'][-1]['status'] = outcome
+            review = self._ask(packet, key, record, path, 'independent', key, record['request_bytes'], reviewer_id, 'review', None)
+            missing = incomplete_roles(review, packet, reviewer_id)
+            if missing:
+                # At most one re-ask, by a fresh reviewer, stating only the structural gap.
+                reask_id = 'decision-review-' + __import__('uuid').uuid4().hex
+                second = independent_envelope(packet, reask_id, missing)
+                atomic(self.directory/(key+'.reask_request.json'), second)
+                record['artifacts']['reask_request'] = digest(second)
+                record.update(reviewer_id=reask_id, reask=dict(first_reviewer_id=reviewer_id, missing_roles=missing, request_bytes=len(encoded(second))))
                 atomic(path, record)
+                review = self._ask(packet, key, record, path, 'reask', key+'-reask', record['reask']['request_bytes'], reask_id, 'reask_review', missing)
+            validate_independent_result(review, packet, record['reviewer_id'])
+            record['decision'] = review['decision']
             record.update(status='complete' if record['decision'] in ('yes','no') else 'blocked',
                           reason='decision_supported' if record['decision']=='yes' else 'decision_not_supported' if record['decision']=='no' else 'decision_abstained')
         except (ValueError,OSError,KeyError,TypeError,EOFError) as error:
@@ -412,3 +458,21 @@ class IndependentEngine:
         record['receipt_sha256'] = digest({k:v for k,v in record.items() if k not in ('receipt_sha256','cache_hit')})
         atomic(path, record)
         return record
+
+    def _ask(self, packet, key, record, path, kind, reservation, request_bytes, reviewer_id, suffix, missing):
+        token = self.reserve(kind, reservation, request_bytes)
+        record['calls'].append(dict(kind=kind, reservation=token, status='pending'))
+        atomic(path, record)
+        outcome = 'error'
+        try:
+            review = self.review(packet, reviewer_id) if missing is None else self.review(packet, reviewer_id, missing)
+            if len(encoded(review)) > MAX_BYTES:
+                raise ValueError('decision_response_too_large')
+            atomic(self.directory/(key+'.'+suffix+'.json'), review)
+            record['artifacts'][suffix] = digest(review)
+            outcome = 'complete'
+            return review
+        finally:
+            self.finish(token, outcome)
+            record['calls'][-1]['status'] = outcome
+            atomic(path, record)

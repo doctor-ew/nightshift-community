@@ -63,19 +63,21 @@
         "reviewer_id": {
           "type": "string"
         },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1
+        "grounding": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "required": [
         "decision",
         "packet_sha256",
         "reviewer_id",
-        "evidence"
+        "grounding"
       ],
       "additionalProperties": false
     }

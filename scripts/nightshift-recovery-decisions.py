@@ -156,11 +156,18 @@ def packets(value, verification, gate):
 
 
 def review_framing(value,packet,mode=None):
+    """Largest framing this packet can need: first ask or the worst-case single re-ask."""
     mode=mode or value.get('decision_readiness',{}).get('semantic_mode','jev')
-    envelope=dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id='decision-review-'+'0'*32,mode='independent' if mode=='independent' else 'exception')
-    raw=engine.encoded(envelope) if mode=='independent' else json.dumps(envelope,sort_keys=True).encode()
-    route=value['reviewer_route']
-    return load('decision-render').render(HERE.parent,raw,route['provider'],route['model'])
+    render=load('decision-render');route=value['reviewer_route']
+    routing_path=value.get('plan',{}).get('routing_path')
+    limit=render.input_limit(json.loads(Path(routing_path).read_text()) if routing_path else None,route['provider'])
+    reviewer='decision-review-'+'0'*32
+    if mode=='independent':
+        raws=[engine.encoded(engine.independent_envelope(packet,reviewer)),
+              engine.encoded(engine.independent_envelope(packet,reviewer,sorted(engine.required_roles(packet))))]
+    else:
+        raws=[json.dumps(dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id=reviewer,mode='exception'),sort_keys=True).encode()]
+    return max((render.render(HERE.parent,raw,route['provider'],route['model'],limit=limit) for raw in raws),key=lambda r:r['argument_content_bytes'])
 
 
 def readiness(value):

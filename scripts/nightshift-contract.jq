@@ -36,10 +36,10 @@ def valid_contract($role):
       else true end)
   elif $role == "nightshift-decision-reviewer" then
     (.results | type == "object" and
-      (keys | sort) == (["decision","packet_sha256","reviewer_id","evidence"] | sort) and
+      (keys | sort) == (["decision","packet_sha256","reviewer_id","grounding"] | sort) and
       (.decision == "yes" or .decision == "no" or .decision == "abstain") and
       (.packet_sha256 | type == "string") and (.reviewer_id | type == "string") and
-      (.evidence | type == "array" and all(.[]; type == "string")))
+      (.grounding | type == "object" and all(.[]; type == "array" and all(.[]; type == "string"))))
   elif $role == "nightshift-recovery-reviewer" then
     (.results | keys_are(["binding","stage","reviewer_id","decision","findings","dispositions","cases","ac_ids"])
       and (.binding | type == "string") and (.reviewer_id | type == "string")
