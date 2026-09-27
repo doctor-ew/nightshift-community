@@ -135,16 +135,10 @@ class Framing(unittest.TestCase):
         for role in ('requirement','source','assertion','observation'):
             self.assertEqual(schema['grounding']['properties'][role]['items']['enum'],ids(self.packet,role))
         self.assertEqual(schema['grounding']['required'],['requirement','source','assertion','observation'])
-    def test_limit_comes_from_routing_with_documented_default_and_ceiling(self):
-        self.assertEqual(render.input_limit(None,'claude'),24576)
-        self.assertEqual(render.input_limit({'providers':{'claude':{'limits':{'max_input_bytes':65536}}}},'claude'),65536)
-        for bad in (1024,131073,'65536',True,None):
-            with self.subTest(bad=bad),self.assertRaisesRegex(ValueError,'limit_invalid'):
-                render.input_limit({'providers':{'claude':{'limits':{'max_input_bytes':bad}}}},'claude')
-    def test_configured_limit_is_enforced(self):
-        size=render.render(ROOT,self.raw,'claude','haiku')['argument_content_bytes']
-        self.assertEqual(render.render(ROOT,self.raw,'claude','haiku',limit=size)['maximum_bytes'],size)
-        with self.assertRaisesRegex(ValueError,'framing_too_large'):render.render(ROOT,self.raw,'claude','haiku',limit=size-1)
+    def test_framing_reports_tokens_against_the_operator_budget(self):
+        framed=render.render(ROOT,self.raw,'claude','haiku')
+        self.assertEqual(framed['token_budget'],32000);self.assertLessEqual(framed['estimated_tokens'],32000)
+        self.assertGreater(framed['estimated_tokens'],framed['argument_content_bytes']//4)
     def test_reask_envelope_is_bounded_and_validated(self):
         with self.assertRaisesRegex(ValueError,'reask_roles_invalid'):e.independent_envelope(self.packet,'decision-review-'+'c'*32,['assertion','assertion'])
         with self.assertRaisesRegex(ValueError,'reask_roles_invalid'):e.independent_envelope(self.packet,'decision-review-'+'c'*32,['unknown'])

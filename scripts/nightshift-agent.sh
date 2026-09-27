@@ -443,7 +443,7 @@ PROMPT="$(cat "$TMP/prompt")"
 PROMPT+=$'\n'"$EXECUTION_CONTEXT"
 if [ "$ROLE" = nightshift-decision-reviewer ]; then
   [ "$PROVIDER" = claude ] || fail 'decision reviewer requires the verified tool-free transport'
-  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" --routing "$ROUTING" || fail 'invalid or oversized decision reviewer framing'
+  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" || fail 'invalid or oversized decision reviewer framing'
   PROMPT="$(cat "$TMP/prompt")"
 fi
 if [ "$ROLE" = nightshift-operation-worker ]; then
@@ -460,7 +460,13 @@ case "$PROVIDER" in
     fi
     if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
-      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")")
+      if [ "$ROLE" = nightshift-decision-reviewer ]; then
+        # Evidence travels on stdin, so no command-line argument size limit applies.
+        STDIN_FILE="$TMP/prompt"
+      else
+        CMD+=("$PROMPT")
+      fi
     elif [ "$ROLE" = nightshift-code-fact-extractor ]; then
       # Source verification needs repository reads, not installed skills, MCP,
       # plugins or another copy of the role in the user prompt.
@@ -562,7 +568,11 @@ if [ -n "$BUDGET_TASK" ]; then
   BUDGET_RESERVED=true
 fi
 set -m
-NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+if [ -n "${STDIN_FILE:-}" ]; then
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" < "$STDIN_FILE" > "$TMP/stdout" 2> "$TMP/stderr" &
+else
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+fi
 CHILD=$!
 if [ -n "$LAUNCH_RECEIPT" ]; then
   python3 - "$LAUNCH_RECEIPT" "$PROVIDER" "$MODEL" "$CHILD" <<'PY' || fail 'cannot record provider launch'

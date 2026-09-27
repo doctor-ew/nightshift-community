@@ -339,7 +339,6 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None,missing_rol
     role_child=os.environ.get('NIGHTSHIFT_ROLE_CHILD')
     decision=load('decision-engine');reviewer_id=reviewer_id or 'decision-review-'+uuid.uuid4().hex
     envelope=(decision.independent_envelope(packet,reviewer_id,missing_roles) if mode=='independent' else dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode))
-    if len(decision.encoded(envelope))>decision.MAX_BYTES:raise ValueError('decision_review_request_too_large')
     request=output.with_suffix('.input.json')
     if mode=='independent':decision.atomic(request,envelope)
     else:p.recovery.atomic(request,envelope)
@@ -421,7 +420,6 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
             envelope=dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id='decision-review-'+'0'*32,mode=kind)
             request_bytes=len(json.dumps(envelope,sort_keys=True).encode())
         if remaining()<=0 or budget['calls_used']>=budget['provider_calls']:raise ValueError('recovery_allowance_exhausted')
-        if request_bytes>decision.MAX_BYTES:raise ValueError('decision_request_too_large')
         calls=session.setdefault('decision_calls',{})
         if request_id in calls:raise ValueError('decision_duplicate_reservation')
         budget['calls_used']+=1

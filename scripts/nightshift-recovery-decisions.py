@@ -240,15 +240,13 @@ def review_framing(value,packet,mode=None):
     """Largest framing this packet can need: first ask or the worst-case single re-ask."""
     mode=mode or value.get('decision_readiness',{}).get('semantic_mode','jev')
     render=load('decision-render');route=value['reviewer_route']
-    routing_path=value.get('plan',{}).get('routing_path')
-    limit=render.input_limit(json.loads(Path(routing_path).read_text()) if routing_path else None,route['provider'])
     reviewer='decision-review-'+'0'*32
     if mode=='independent':
         raws=[engine.encoded(engine.independent_envelope(packet,reviewer)),
               engine.encoded(engine.independent_envelope(packet,reviewer,sorted(engine.required_roles(packet))))]
     else:
         raws=[json.dumps(dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id=reviewer,mode='exception'),sort_keys=True).encode()]
-    return max((render.render(HERE.parent,raw,route['provider'],route['model'],limit=limit) for raw in raws),key=lambda r:r['argument_content_bytes'])
+    return max((render.render(HERE.parent,raw,route['provider'],route['model']) for raw in raws),key=lambda r:r['argument_content_bytes'])
 
 
 def readiness(value):
@@ -269,7 +267,6 @@ def readiness(value):
                 framing.append(review_framing(value,packet,mode)['argument_content_bytes'])
                 # Reserve 4 KiB for observed output and transport framing. No truncation.
                 body=(engine.encoded(engine.independent_envelope(packet,'decision-review-'+'0'*32)) if mode=='independent' else engine.request_body(packet,cfg))
-                if len(body)>engine.MAX_BYTES-4096:raise ValueError('decision_request_too_large_preflight')
-        return dict(status='ready',semantic_mode=mode,review_argument_content_bytes=max(framing),review_argument_scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
+        return dict(status='ready',semantic_mode=mode,review_argument_content_bytes=max(framing),review_argument_scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),request_token_budget=engine.REQUEST_TOKEN_BUDGET,state_question_token_budget=engine.STATE_QUESTION_TOKEN_BUDGET)
     except (OSError,ValueError,KeyError,TypeError) as error:
-        return dict(status='blocked',reason=str(error),max_request_bytes=engine.MAX_BYTES)
+        return dict(status='blocked',reason=str(error),request_token_budget=engine.REQUEST_TOKEN_BUDGET,state_question_token_budget=engine.STATE_QUESTION_TOKEN_BUDGET)
