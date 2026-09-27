@@ -34,9 +34,9 @@ def load(name):
 p = load('pipeline')
 digest = p.recovery.digest
 LIMITS = dict(wall_seconds=600, active_seconds=600, provider_calls=4)
-# Recovery sessions per ticket. Every failed session stays retained; this only
-# bounds how many operator-authorized attempts a ticket may accumulate.
-MAX_RECOVERY_SESSIONS = 5
+# No fixed number of recovery sessions: each one requires the operator's explicit
+# authorization of its binding and limits, and later sessions reuse identical
+# answers, so a count limit adds no protection. Every session is retained.
 # Operator decision on #65: when the independent reviewer abstains or disagrees,
 # the question goes to the operator instead of ending the session.
 OPERATOR_REASONS = ('decision_abstained', 'decision_reviewer_contradiction', 'decision_independent_evidence_incomplete')
@@ -418,6 +418,45 @@ def reusable_sessions(value,session,root):
                     and other['evidence']['assets'].get(name)==value['assets'].get(name) for name in REVIEWER_ASSETS)]
 
 
+def recover_interruption(session, session_dir):
+    """Resume a session whose controller process died mid-stage.
+
+    Called only from `resume` while this process holds the controller lock, so no
+    other controller is alive. The interrupted step and any unfinished decision
+    record are retained (never rewritten), calls whose outcome was never recorded
+    stay counted against the allowance and are marked interrupted, and the stage
+    is asked again. Completed answers are reused from the cache.
+    """
+    recovered=dict(recovered_at=time.time(),steps=[],decisions=[])
+    for stage in list(session['steps']):
+        if session['steps'][stage].get('status')=='pending':
+            recovered['steps'].append(dict(stage=stage,step=session['steps'].pop(stage)))
+    decisions=session_dir/'decisions'
+    for path in sorted(decisions.glob('*.json')) if decisions.is_dir() else []:
+        if path.name.count('.')!=1 or path.is_symlink():continue
+        try:record=json.loads(path.read_text())
+        except (OSError,ValueError):continue
+        if not isinstance(record,dict) or record.get('status')!='pending':continue
+        key=path.stem;n=1+len(list(decisions.glob(key+'.interrupted-*.json')))
+        for artifact in sorted(decisions.glob(key+'.*.json')):
+            suffix=artifact.name[len(key)+1:-len('.json')]
+            if suffix=='packet' or suffix.startswith('interrupted-'):continue
+            artifact.rename(decisions/(key+'.interrupted-'+str(n)+'.'+suffix+'.json'))
+        path.rename(decisions/(key+'.interrupted-'+str(n)+'.json'))
+        calls=session.setdefault('decision_calls',{})
+        # Every call of the retired record is re-keyed so a fresh attempt can reserve;
+        # all stay counted. Calls whose outcome was never recorded become interrupted.
+        for call_id in [c for c in calls if c==key or c.startswith(key+':') or c.startswith(key+'-')]:
+            if ':interrupted-' in call_id:continue
+            row=calls.pop(call_id)
+            if row.get('status') in ('pending','error'):row.update(status='interrupted')
+            calls[call_id+':interrupted-'+str(n)]=row
+        recovered['decisions'].append(dict(key=key,retained=key+'.interrupted-'+str(n)+'.json'))
+    if recovered['steps'] or recovered['decisions']:
+        session.setdefault('interruptions',[]).append(recovered)
+    return recovered
+
+
 def operator_record(directory, packet_sha256):
     # Keyed by packet, not gate: an identical question asked by two gates (e.g.
     # adoption and review) shares one decision, like the decision cache itself.
@@ -672,8 +711,12 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
         if session is None:
             if operation != 'authorize': raise ValueError('recovery_authorization_missing')
             if not operator.strip() or len(operator)>200: raise ValueError('recovery_operator_identity_required')
-            if len(sessions)>=MAX_RECOVERY_SESSIONS: raise ValueError('recovery_session_limit_exhausted')
-            if any(s['status']=='running' for s in sessions.values()): raise ValueError('recovery_already_running')
+            # This process holds the controller lock, so a session still recorded as
+            # running belongs to a controller that is no longer alive: close it, retained.
+            for other in sessions.values():
+                if other.get('status')=='running':
+                    other.update(status='interrupted',next_action='superseded_after_interruption',
+                                 reason='controller_process_ended',closed_at=time.time(),superseded_by=expected)
             now = time.time()
             session = dict(binding=expected, operator=operator, authorized_at=now, evidence=value,
                 allowance=dict(value['limits'], started_at=now, deadline_at=now+value['limits']['wall_seconds'], active_used=0, calls_used=0),
@@ -683,7 +726,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             state.setdefault('recovery_origin', copy.deepcopy({k:v for k,v in state.items() if k not in ('recovery_sessions','recovery_origin')}))
             session['controller_revision']=controller_revision(state)
             p.recovery.atomic(directory / 'state.json', state)
-        elif session['status'] in ('blocked','pending_manual_acceptance') or (session['status']=='awaiting_operator' and operation!='resume'):
+        elif session['status'] in ('blocked','pending_manual_acceptance','interrupted') or (session['status']=='awaiting_operator' and operation!='resume'):
             return summary(session)
         if compact and session.get('semantic_mode','jev')!=value['decision_readiness'].get('semantic_mode','jev'):
             raise ValueError('recovery_semantic_mode_changed')
@@ -695,6 +738,10 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             session['controller_revision']=controller_revision(state)
             p.recovery.atomic(directory / 'state.json', state)
         try:
+            # Decision-based sessions only; the legacy stage runner keeps never-relaunch.
+            if operation=='resume' and session['status']=='running' and session.get('decision_mode')=='compact':
+                # This process holds the controller lock, so the recorded run is not alive.
+                recover_interruption(session,session_dir);save()
             if session.get('paused_at'):
                 # Time waiting for the operator is not run time; the extension is recorded.
                 pause=time.time()-session.pop('paused_at')

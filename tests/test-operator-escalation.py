@@ -72,6 +72,60 @@ class OperatorEscalation(f.IndependentRecovery):
         with self.assertRaisesRegex(ValueError,'unapproved'):m.validate_compact(report,session['evidence'],'adoption',checks)
 
 
+class InterruptedResume(f.IndependentRecovery):
+    def crash_on(self,target):
+        def review(value,packet,mode,output,timeout,reviewer_id=None,missing_roles=None):
+            if packet['id']==target and not getattr(self,'crashed',False):
+                self.crashed=True;raise KeyboardInterrupt('controller process died')
+            return self.independent_review(value,packet,mode,output,timeout,reviewer_id,missing_roles)
+        return review
+
+    def test_resume_recovers_an_interrupted_stage_without_losing_evidence(self):
+        self.setup_independent();a=self.assess();binding=a['sha256']
+        with self.assertRaises(KeyboardInterrupt):self.recover(expected=binding,review=self.crash_on('requirement_supported'))
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        self.assertEqual(session['status'],'running');self.assertEqual(session['steps']['adoption']['status'],'pending')
+        used=session['allowance']['calls_used']
+        # authorize never recovers; only an explicit resume does.
+        self.assertEqual(self.recover(operation='authorize',expected=binding,review=self.crash_on('requirement_supported'))['status'],'running')
+        done=self.recover(operation='resume',expected=binding,review=self.crash_on('requirement_supported'))
+        self.assertEqual(done['status'],'pending_manual_acceptance',done)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        recovered=session['interruptions'][0]
+        self.assertEqual([s['stage'] for s in recovered['steps']],['adoption'])
+        self.assertEqual(len(recovered['decisions']),1)
+        decisions=m.p.root(self.project,'T-1')/('recovery-'+binding)/'decisions'
+        self.assertTrue((decisions/recovered['decisions'][0]['retained']).is_file())
+        interrupted=[k for k,v in session['decision_calls'].items() if v['status']=='interrupted']
+        self.assertEqual(len(interrupted),1);self.assertTrue(interrupted[0].endswith(':interrupted-1'))
+        self.assertGreater(session['allowance']['calls_used'],used)  # the lost call stays counted; the re-ask is new
+
+
+    def test_new_session_closes_a_dead_running_session_and_reuses_its_answers(self):
+        self.setup_independent();first=self.assess()['sha256']
+        with self.assertRaises(KeyboardInterrupt):self.recover(expected=first,review=self.crash_on('scope_matches'))
+        answered=len(self.review_calls)
+        self.plan['limits']=dict(self.plan['limits'],provider_calls=self.plan['limits']['provider_calls']+1);self.save_plan()
+        second=self.assess()['sha256'];self.assertNotEqual(first,second)
+        done=self.recover(expected=second,review=self.independent_review)
+        self.assertEqual(done['status'],'pending_manual_acceptance',done)
+        sessions=m.p.snapshot(self.project,'T-1')['recovery_sessions']
+        self.assertEqual((sessions[first]['status'],sessions[first]['superseded_by']),('interrupted',second))
+        with self.assertRaisesRegex(ValueError,'controller_changed'):self.recover(operation='resume',expected=first)  # closed sessions never rerun
+        reused=[r for r in done.get('decision_calls',{}).values()]
+        self.assertLess(len(self.review_calls)-answered,4)  # earlier completed answers were reused
+
+    def test_there_is_no_fixed_session_count(self):
+        self.setup_independent()
+        directory=m.p.root(self.project,'T-1');state=json.loads((directory/'state.json').read_text())
+        state['recovery_sessions']={('%064x'%i):dict(status='blocked',authorized_at=float(i),binding='%064x'%i) for i in range(1,8)}
+        (directory/'state.json').write_text(json.dumps(state))
+        self.assertEqual(self.recover(expected=self.assess()['sha256'])['status'],'pending_manual_acceptance')
+
+for _cls in (InterruptedResume,):
+    for _name in [n for n in dir(_cls) if n.startswith('test_') and n not in _cls.__dict__]:
+        setattr(_cls,_name,None)
+
 for _name in [n for n in dir(OperatorEscalation) if n.startswith('test_') and n not in OperatorEscalation.__dict__]:
     setattr(OperatorEscalation,_name,None)
 

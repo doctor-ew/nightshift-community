@@ -7,13 +7,13 @@ export function ticketFailures(rows, task) {
 }
 export function recoveryProgress(ticket) {
   const pipeline=ticket.pipeline, recovery=pipeline?.recovery_status;
-  if (!recovery || !['running','blocked','pending_manual_acceptance','complete','awaiting_operator'].includes(recovery.status)) return null;
+  if (!recovery || !['running','blocked','pending_manual_acceptance','complete','awaiting_operator','interrupted'].includes(recovery.status)) return null;
   const names={verify:'Verification',adoption:'Adoption',review:'Review',drift:'Drift',qa:'QA'};
   const stale=pipeline.status==='stale';
   const next=names[recovery.next_action] || 'Recorded outcome';
   const complete=pipeline.status==='complete' && recovery.status==='complete' && !stale;
   const waiting=recovery.status==='awaiting_operator' && !stale;
-  const status=stale ? 'Changed evidence · revalidation required' : complete ? 'Complete' : waiting ? 'Waiting for your decision' : recovery.status==='running' ? `Recovery recorded · ${next}` : recovery.status==='blocked' ? 'Recovery blocked' : recovery.status==='pending_manual_acceptance' ? 'Manual acceptance pending' : 'Recovery completion unconfirmed';
+  const status=stale ? 'Changed evidence · revalidation required' : complete ? 'Complete' : waiting ? 'Waiting for your decision' : recovery.status==='running' ? `Recovery recorded · ${next}` : recovery.status==='blocked' ? 'Recovery blocked' : recovery.status==='interrupted' ? 'Recovery interrupted · superseded' : recovery.status==='pending_manual_acceptance' ? 'Manual acceptance pending' : 'Recovery completion unconfirmed';
   const calls=recovery.allowance?.calls_used;
   const text=(value,limit=200)=>typeof value==='string' ? value.slice(0,limit) : '';
   const hex=value=>typeof value==='string' && /^[0-9a-f]{64}$/.test(value) ? value : '';
