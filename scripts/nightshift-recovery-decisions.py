@@ -41,6 +41,34 @@ def configuration(target):
     return cfg
 
 
+# Timing is not evidence. Test runners print durations that differ on every run,
+# which changed every packet and discarded every earlier answer. This view
+# replaces only duration tokens, line for line, so evidence spans stay exact.
+OBSERVATION_VIEW='timing-normalized-v1'
+# Only spec-reporter result lines (TAP reports time in duration_ms fields), and
+# only the final parenthetical: runners
+# append the measured time after the title, so a title ending in (5s) keeps it.
+_DURATION_SUFFIX=re.compile(r'^(\s*(?:✔|✖|✓|✗)\s.*) \((?:\d+(?:\.\d+)?) ?(?:ns|us|µs|ms|s)\)$')
+_UNITTEST_RAN=re.compile(r'^(Ran \d+ tests? in )\d+(?:\.\d+)?s$')
+_PYTEST_SUMMARY=re.compile(r'( in )\d+(?:\.\d+)?s( \(\d+:\d\d:\d\d\))?( =+)$')
+_DURATION_FIELD=re.compile(r'^(\s*(?:ℹ |# )?duration_ms:? )\d+(?:\.\d+)?$')
+# A unit suffix is required; a bare "duration" may be a configured threshold.
+_JSON_TIMING=re.compile(r'("(?:elapsed|duration)_(?:ms|s|seconds)"\s*:\s*)\d+(?:\.\d+)?')
+
+
+def observation_view(text):
+    lines=text.split('\n')
+    out=[]
+    for line in lines:
+        line=_DURATION_SUFFIX.sub(r'\1 (<duration>)',line)
+        line=_UNITTEST_RAN.sub(r'\1<duration>',line)
+        line=_PYTEST_SUMMARY.sub(r'\1<duration>\3',line)
+        line=_DURATION_FIELD.sub(r'\1<duration>',line)
+        line=_JSON_TIMING.sub(r'\1"<duration>"',line)
+        out.append(line)
+    return '\n'.join(out)
+
+
 # Upper bounds on what a plan may request. The per-run allowance itself is the
 # plan's limits, which the operator approves through the assessment binding.
 # Reviewer calls run sequentially (~30 s each measured with Claude Haiku), so
@@ -143,8 +171,10 @@ def packets(value, verification, gate):
         for ref in row['references']:
             name=ref['path']
             if ref['role']=='observation':
-                check=outputs[name];text=check['output'];sha=engine.text_hash(text)
-                if sha!=check['output_sha256'] or check['exit_code']!=0:raise ValueError('recovery_decision_output_unverified')
+                check=outputs[name]
+                if engine.text_hash(check['output'])!=check['output_sha256'] or check['exit_code']!=0:raise ValueError('recovery_decision_output_unverified')
+                # Reviewers see a timing-normalized view; raw output and hash stay in verify.json.
+                text=observation_view(check['output']);sha=engine.text_hash(text)
                 checks.setdefault(name,dict(id=name,exit_code=0,output_sha256=sha,evidence=[]))['evidence'].append(ref['id'])
             else:
                 path=safe(target,name);text=path.read_text();sha=hashlib.sha256(path.read_bytes()).hexdigest()
