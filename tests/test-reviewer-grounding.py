@@ -16,6 +16,7 @@ def load(name,path):
     spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
 e=load('grounding_engine',ROOT/'scripts/nightshift-decision-engine.py')
 render=load('grounding_render',ROOT/'scripts/nightshift-decision-render.py')
+adapter=load('grounding_adapter',ROOT/'scripts/nightshift-recovery-decisions.py')
 
 LAYOUT=[('requirement','SPEC.md'),('requirement','scenarios.json'),('source','build.py'),
         ('assertion','test-unit.js'),('assertion','test-unit.js'),('assertion','run-unit.sh'),('assertion','run-browser.sh'),
@@ -149,5 +150,14 @@ class Framing(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'reask_roles_invalid'):e.independent_envelope(self.packet,'decision-review-'+'c'*32,['unknown'])
         raw=e.encoded(e.independent_envelope(self.packet,'decision-review-'+'c'*32,['assertion','observation']))
         self.assertIn('missing_roles',render.render(ROOT,raw,'claude','haiku')['prompt'])
+
+class Allowance(unittest.TestCase):
+    def test_plan_limits_bounded_but_fit_a_sequential_run(self):
+        ok=dict(wall_seconds=1800,active_seconds=1800,provider_calls=40)
+        self.assertEqual(adapter.validate_limits(ok),ok)
+        self.assertEqual(adapter.validate_limits(dict(wall_seconds=3600,active_seconds=3600,provider_calls=64))['provider_calls'],64)
+        for bad in (dict(ok,wall_seconds=3601),dict(ok,active_seconds=3601),dict(ok,provider_calls=65),dict(ok,wall_seconds=0),
+                    dict(ok,provider_calls=True),dict(ok,wall_seconds=1800.0),{k:v for k,v in ok.items() if k!='wall_seconds'},dict(ok,extra=1),None):
+            with self.subTest(bad=bad),self.assertRaisesRegex(ValueError,'limits_invalid'):adapter.validate_limits(bad)
 
 if __name__=='__main__':unittest.main()

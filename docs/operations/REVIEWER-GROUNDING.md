@@ -32,6 +32,13 @@ reasonable selective `yes` that omitted the assertion role and stopped the run.
   the prompt is passed as a single argument. Readiness checks every packet
   against the worst case, including a re-ask naming every role.
 
+- **Allowance upper bound.** A recovery plan's `limits` (the per-run allowance the
+  operator approves through the assessment binding) were also capped at 600 s by a
+  hardcoded check. Reviewer calls run sequentially and measured ~30 s each with
+  Claude Haiku, so a 31-question plan (~17 min) could not finish in one session,
+  and sessions are limited to three per ticket. The bound is now 3600 s
+  (`MAX_ALLOWANCE_SECONDS`); the 64-call bound is unchanged.
+
 The role-coverage gate itself is unchanged. Packet and envelope bounds in the
 decision engine remain constants; moving them, and letting an orchestrator
 propose packet shape and call counts for operator approval, is follow-up work.
