@@ -109,6 +109,6 @@ class Controller(unittest.TestCase):
                                           C:dict(evidence=dict(assets=dict(assets)))})
             (root/'state.json').write_text(json.dumps(state))
             self.assertEqual(c.reusable_sessions(dict(assets=assets),dict(binding=C),root),[A])
-        self.assertEqual(c.MAX_RECOVERY_SESSIONS,4)
+        self.assertEqual(c.MAX_RECOVERY_SESSIONS,5)
 
 if __name__=='__main__':unittest.main()

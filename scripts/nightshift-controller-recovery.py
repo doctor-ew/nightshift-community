@@ -35,7 +35,7 @@ digest = p.recovery.digest
 LIMITS = dict(wall_seconds=600, active_seconds=600, provider_calls=4)
 # Recovery sessions per ticket. Every failed session stays retained; this only
 # bounds how many operator-authorized attempts a ticket may accumulate.
-MAX_RECOVERY_SESSIONS = 4
+MAX_RECOVERY_SESSIONS = 5
 # Files that shape what an independent decision reviewer sees and returns.
 # An earlier session's answer is reusable only when all are byte-identical.
 REVIEWER_ASSETS = ('agents/nightshift-decision-reviewer.md', 'contracts/nightshift-decision-reviewer.schema.json',

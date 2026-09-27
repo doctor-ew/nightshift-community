@@ -44,8 +44,9 @@ requires the operator's authorization of its binding.
 
 ## Session bound
 
-A ticket may accumulate up to four recovery sessions (`MAX_RECOVERY_SESSIONS`),
-previously three. Failed sessions are always retained; nothing is reset.
+A ticket may accumulate up to five recovery sessions (`MAX_RECOVERY_SESSIONS`),
+previously three. With reuse, a later session pays only for questions whose
+evidence changed, so additional sessions no longer repeat earlier cost. Failed sessions are always retained; nothing is reset.
 
 Validation: synthetic tests in `tests/test-reviewer-reuse.py`, run by
 `tests/test-recovery-independent.sh`.
