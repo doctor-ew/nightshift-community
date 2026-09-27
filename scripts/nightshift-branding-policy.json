@@ -64,7 +64,7 @@
     {
       "rule": "provider-executor",
       "path": "scripts/nightshift-agent.sh",
-      "context": "      CMD=(claude -p --safe-mode --tools \"\" --no-session-persistence --output-format json --model \"$MODEL\" --system-prompt \"$(cat \"$TMP/role\")\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\" \"$PROMPT\")",
+      "context": "      CMD=(claude -p --safe-mode --tools \"\" --no-session-persistence --output-format json --model \"$MODEL\" --system-prompt \"$(cat \"$TMP/role\")\" --json-schema \"$(cat \"$TMP/provider.schema.json\")\")",
       "reason": "The routed reviewer adapter consumes complete public input with tools and customizations disabled; provider flags remain at the adapter boundary."
     },
     {
