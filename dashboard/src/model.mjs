@@ -7,18 +7,29 @@ export function ticketFailures(rows, task) {
 }
 export function recoveryProgress(ticket) {
   const pipeline=ticket.pipeline, recovery=pipeline?.recovery_status;
-  if (!recovery || !['running','blocked','pending_manual_acceptance','complete'].includes(recovery.status)) return null;
+  if (!recovery || !['running','blocked','pending_manual_acceptance','complete','awaiting_operator'].includes(recovery.status)) return null;
   const names={verify:'Verification',adoption:'Adoption',review:'Review',drift:'Drift',qa:'QA'};
   const stale=pipeline.status==='stale';
   const next=names[recovery.next_action] || 'Recorded outcome';
   const complete=pipeline.status==='complete' && recovery.status==='complete' && !stale;
-  const status=stale ? 'Changed evidence · revalidation required' : complete ? 'Complete' : recovery.status==='running' ? `Recovery recorded · ${next}` : recovery.status==='blocked' ? 'Recovery blocked' : recovery.status==='pending_manual_acceptance' ? 'Manual acceptance pending' : 'Recovery completion unconfirmed';
+  const waiting=recovery.status==='awaiting_operator' && !stale;
+  const status=stale ? 'Changed evidence · revalidation required' : complete ? 'Complete' : waiting ? 'Waiting for your decision' : recovery.status==='running' ? `Recovery recorded · ${next}` : recovery.status==='blocked' ? 'Recovery blocked' : recovery.status==='pending_manual_acceptance' ? 'Manual acceptance pending' : 'Recovery completion unconfirmed';
   const calls=recovery.allowance?.calls_used;
-  return {status, complete, stale, recordedRunning:recovery.status==='running',
+  const text=(value,limit=200)=>typeof value==='string' ? value.slice(0,limit) : '';
+  const hex=value=>typeof value==='string' && /^[0-9a-f]{64}$/.test(value) ? value : '';
+  // Shell-quote anything copied into a command; refs can come from file names.
+  const quote=value=>/^[A-Za-z0-9_.:\/#@+-]+$/.test(value) ? value : `'${value.replace(/'/g,`'\\''`)}'`;
+  const a=recovery.awaiting;
+  const awaiting=waiting && a && typeof a==='object' && hex(a.packet_sha256) && hex(recovery.binding) ? {
+    stage:names[a.stage] || text(a.stage,40), question:text(a.packet_id), reason:text(a.reason,120), packet:a.packet_sha256,
+    command:`python3 scripts/nightshift-controller-recovery.py operator-decide ${quote(text(ticket.settings?.ref || ticket.task,120))} --expected ${recovery.binding} --packet ${a.packet_sha256} --decision yes|no --reason "<why>" --operator "<you>"`} : null;
+  const kinds={};
+  for (const call of Object.values(recovery.decision_calls || {})) if (call && typeof call.kind==='string') kinds[call.kind]=(kinds[call.kind] || 0)+1;
+  return {status, complete, stale, waiting, awaiting, callKinds:Object.entries(kinds).sort(([x],[y])=>x.localeCompare(y)), recordedRunning:recovery.status==='running',
     reason:typeof recovery.reason==='string' ? recovery.reason.slice(0,2048) : '',
     calls:Number.isSafeInteger(calls) && calls>=0 ? calls : null,
-    steps:Object.entries(names).map(([key,label])=>({key,label,status:stale ? 'stale' : ['pass','fail','pending'].includes(recovery.steps?.[key]?.status) ? recovery.steps[key].status : 'not recorded'})),
-    explanation:stale ? 'Recorded recovery evidence changed. Revalidation is required.' : recovery.status==='running' ? 'The controller recorded recovery in progress. This record does not verify worker liveness; an interrupted process can leave it unchanged.' : 'Recorded recovery outcome. Original failed attempts remain retained.'};
+    steps:Object.entries(names).map(([key,label])=>({key,label,status:stale ? 'stale' : ['pass','fail','pending','awaiting_operator'].includes(recovery.steps?.[key]?.status) ? recovery.steps[key].status.replace('awaiting_operator','waiting for your decision') : 'not recorded'})),
+    explanation:stale ? 'Recorded recovery evidence changed. Revalidation is required.' : waiting ? 'The independent reviewer could not settle one question. Nothing else is re-asked; decide it, then resume recovery. Waiting time does not use the run allowance.' : recovery.status==='running' ? 'The controller recorded recovery in progress. This record does not verify worker liveness; an interrupted process can leave it unchanged.' : 'Recorded recovery outcome. Original failed attempts remain retained.'};
 }
 
 export function ticketProgress(rows, ticket) {
