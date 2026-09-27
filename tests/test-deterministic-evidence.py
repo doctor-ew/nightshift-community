@@ -130,6 +130,20 @@ class JevClaims(DeterministicEvidence):
         self.assertTrue(any('The source file reads fixed.' in t for t in texts))
         self.assertTrue(any('does not do the following: Report a pass when the source is broken.' in t for t in texts))
 
+    def test_run_estimate_is_measured_and_proposes_limits(self):
+        self.plan_v2()
+        first=m.assessment(self.project,'T-1',True)['run_estimate']
+        self.assertEqual((first['mode'],first['unique_questions'],first['gate_evaluations'],first['cache_reuses']),('jev',4,5,1))
+        self.assertEqual(first['provider_calls']['maximum'],8)
+        self.assertEqual(first['provider_calls']['expected'],4+sum(first['provider_calls']['planned_escalations'].values()))
+        self.assertNotIn('exception',first['provider_calls']['planned_escalations'])  # v2 claims: confident answers are not re-asked
+        self.assertGreater(first['estimated_input_tokens'],0)
+        self.assertEqual(first['observed_call_seconds'],{});self.assertIsNone(first['proposed_limits']['wall_seconds'])
+        self.assertEqual(self.compact(expected=self.assess()['sha256'])['status'],'pending_manual_acceptance')
+        later=m.assessment(self.project,'T-1',True)['run_estimate']
+        self.assertEqual(later['observed_call_seconds']['jev']['samples'],4)
+        self.assertIsInstance(later['proposed_limits']['wall_seconds'],int)
+
     def test_uncertain_claim_escalates_only_that_packet(self):
         self.score=lambda key:.5 if key=='claim_2' else .97
         self.plan_v2();a=self.assess()
