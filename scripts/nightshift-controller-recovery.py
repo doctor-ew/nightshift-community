@@ -11,6 +11,7 @@ import fcntl
 import importlib.util
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -220,7 +221,49 @@ def assessment(project, task, verify=False):
                         adapter.engine.independent_envelope(packet,'decision-review-'+'0'*32)
                     else:
                         adapter.engine.request_body(packet,value['decision_readiness']['settings'])
+            result['run_estimate']=estimate_run(value,state,result['verification'])
     return result
+
+
+def estimate_run(value, state, verification):
+    """A measured run proposal for the operator; nothing is spent and nothing is applied.
+
+    Counts come from the actual packets; durations only from calls this ticket has
+    already made. Without observations a duration is reported as unknown.
+    """
+    adapter=load('recovery-decisions');engine=adapter.engine
+    mode=value['decision_readiness'].get('semantic_mode','jev');settings=value['decision_readiness']['settings']
+    unique={};evaluations=0
+    for gate in GATES:
+        for packet in adapter.packets(value,verification,gate):
+            evaluations+=1;unique.setdefault(engine.digest(packet),packet)
+    questions=list(unique.values())
+    if mode=='independent':
+        tokens=sum(adapter.review_framing(value,packet)['estimated_tokens'] for packet in questions)
+        planned={};kinds=('independent','reask')
+    else:
+        tokens=sum(engine.estimated_tokens(len(engine.request_body(packet,settings)),engine.SEED_BYTES_PER_TOKEN) for packet in questions)
+        # Escalations the policy will make even when Jev is confident (deterministic).
+        planned={}
+        for packet in questions:
+            kind=engine.escalation_mode('yes',packet,engine.default_policy(packet))
+            if kind:planned[kind]=planned.get(kind,0)+1
+        kinds=('jev','exception','shadow')
+    durations={}
+    for session in state.get('recovery_sessions',{}).values():
+        for call in (session.get('decision_calls') or {}).values():
+            if isinstance(call,dict) and call.get('kind') in kinds and call.get('status')=='complete' and all(type(call.get(k)) in (int,float) for k in ('started_at','finished_at')):
+                durations.setdefault(call['kind'],[]).append(call['finished_at']-call['started_at'])
+    observed={kind:dict(samples=len(v),median=round(sorted(v)[len(v)//2],3),maximum=round(max(v),3)) for kind,v in sorted(durations.items())}
+    expected=len(questions)+sum(planned.values());maximum=2*len(questions)
+    slowest=max((row['maximum'] for row in observed.values()),default=None)
+    seconds=None if slowest is None else min(adapter.MAX_ALLOWANCE_SECONDS,math.ceil(slowest*maximum))
+    return dict(mode=mode,unique_questions=len(questions),gate_evaluations=evaluations,cache_reuses=evaluations-len(questions),
+                provider_calls=dict(expected=expected,maximum=maximum,planned_escalations=planned),
+                estimated_input_tokens=tokens,token_budget=dict(request=engine.REQUEST_TOKEN_BUDGET,state_question=engine.STATE_QUESTION_TOKEN_BUDGET),
+                observed_call_seconds=observed,
+                proposed_limits=dict(provider_calls=min(adapter.MAX_PROVIDER_CALLS,maximum),wall_seconds=seconds,active_seconds=seconds),
+                basis='Counts from the actual packets; maximum allows one escalation or re-ask per question; seconds = slowest observed call on this ticket x maximum calls (unknown without observations). A proposal for operator approval; nothing is applied.')
 
 
 def clean_environment():
