@@ -50,6 +50,12 @@ with tempfile.TemporaryDirectory(prefix='nightshift-trajectory-test-') as tempor
     target.write_text('{invalid'); assert run(replay,'--baseline',target).returncode!=0
 assert baseline_path.read_bytes()==original, 'replay rewrote committed baseline'
 workflow=(root/'.github/workflows/shellcheck.yml').read_text()
-assert workflow.count("'nightshift/**'")>=2, 'stacked pushes and PRs must trigger offline CI'
+# Stacked PRs (base nightshift/**) must run the offline harness; pushes are
+# validated where no pull request covers them, and newer runs cancel older ones.
+triggers=workflow.split('\njobs:',1)[0]
+pull_request=triggers.split('pull_request:',1)[1].split('\n\n',1)[0]
+assert "'nightshift/**'" in pull_request, 'stacked PRs must trigger offline CI'
+assert 'cancel-in-progress: true' in triggers, 'superseded runs must be cancelled'
+assert 'bash evals/run-tests.sh --shard' in workflow, 'CI must run the offline harness'
 print('PASS: trajectory replay, sanitization, order, policy, evidence and baseline mutations')
 PYTEST
