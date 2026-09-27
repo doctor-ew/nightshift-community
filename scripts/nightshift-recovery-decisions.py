@@ -176,6 +176,26 @@ def plan(value):
     return data
 
 
+def claims(definitions, question):
+    """Narrow statements taken verbatim from the obligations; nothing is paraphrased.
+
+    Each case contributes its then clause, its forbidden clause and each expected
+    or prohibited item; each retained finding contributes one claim.
+    """
+    out=[]
+    def text(value):return value if isinstance(value,str) else json.dumps(value,sort_keys=True)
+    for case in definitions['cases']:
+        if isinstance(case.get('then'),str) and case['then'].strip():out.append(dict(id=case['id']+':then',text=case['then'].strip()))
+        if isinstance(case.get('forbidden'),str) and case['forbidden'].strip():
+            out.append(dict(id=case['id']+':forbidden',text='The implementation does not do the following: '+case['forbidden'].strip()))
+        for i,item in enumerate(case.get('expected') or [],1):out.append(dict(id=case['id']+':expected-'+str(i),text=text(item)))
+        for i,item in enumerate(case.get('prohibited') or [],1):
+            out.append(dict(id=case['id']+':prohibited-'+str(i),text='The implementation does not do the following: '+text(item)))
+    for finding in definitions['findings']:
+        out.append(dict(id='finding:'+finding['id'],text=text(finding.get('finding',finding))))
+    return out or [dict(id='question',text=question)]
+
+
 def packets(value, verification, gate):
     data=plan(value);target=Path(value['worktree'])
     outputs={c['id']:c for c in verification['checks']}
@@ -210,6 +230,8 @@ def packets(value, verification, gate):
         packet=dict(version=1,id=row['id'],kind=row['kind'],question=question+' Obligations: '+json.dumps(definitions,sort_keys=True),
                     requirements=obligations,findings=[dict(id=i,evidence=mapped) for i in row['finding_ids']],
                     evidence=refs,checks=list(checks.values()),high_risk=row['high_risk'] or row['kind'] in ('scope_matches','oracle_valid') or len({r['path'] for r in refs if r['role']=='source'}-{r['path'] for r in refs if r['role']=='assertion'})>1)
+        if data['version']==2:
+            packet.update(version=3,claims=claims(definitions,question))
         engine.validate(packet);result.append(packet)
     return result
 

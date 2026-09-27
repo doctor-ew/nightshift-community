@@ -104,8 +104,44 @@ class DeterministicEvidence(f.Decisions):
             if v['decision_readiness']['status']!='ready':raise ValueError(v['decision_readiness']['reason'])
             m.verify_checks(v,timeout=60)
 
+class JevClaims(DeterministicEvidence):
+    """Version 2 plans reach Jev as narrow claims over shared evidence (synthetic transport)."""
+    def setUp(self):
+        super().setUp()
+        doc=json.loads((self.docs/'behavior-scenarios.json').read_text())
+        doc['cases'][0].update(then='The source file reads fixed.',forbidden='Report a pass when the source is broken.')
+        (self.docs/'behavior-scenarios.json').write_text(json.dumps(doc));self.commit('case clauses')
+        self.score=lambda key:.97
+
+    def transport(self,cfg,key,body):
+        request=json.loads(body);self.network.append(request)
+        return json.dumps(dict(model=cfg['model'],answers={k:dict(type='noul',noul=self.score(k)) for k in request['questions']},usage=dict(input_tokens=1500,output_tokens=10))).encode()
+
+    def test_v2_plan_runs_as_claims_through_the_controller(self):
+        self.plan_v2();a=self.assess();self.assertEqual(a['decisions']['status'],'ready',a['decisions'])
+        result=self.compact(expected=a['sha256'])
+        self.assertEqual(result['status'],'pending_manual_acceptance',result)
+        self.assertEqual(len(self.network),4)  # review reuses adoption's identical judgment
+        self.assertEqual(self.review_calls,[])  # confident claims are not escalated
+        for request in self.network:
+            self.assertNotIn('supported',request['questions'])
+            self.assertTrue(all(q['type']=='noul' for q in request['questions'].values()))
+        texts=[q['instructions'] for r in self.network for q in r['questions'].values()]
+        self.assertTrue(any('The source file reads fixed.' in t for t in texts))
+        self.assertTrue(any('does not do the following: Report a pass when the source is broken.' in t for t in texts))
+
+    def test_uncertain_claim_escalates_only_that_packet(self):
+        self.score=lambda key:.5 if key=='claim_2' else .97
+        self.plan_v2();a=self.assess()
+        result=self.compact(expected=a['sha256'])
+        self.assertEqual(result['status'],'pending_manual_acceptance',result)
+        self.assertTrue(self.review_calls)
+        self.assertLess(len(self.review_calls),len(self.network)+1)
+
+
 # Reuse the fixture, not its tests: those already run in test-recovery-decisions.py.
-for _name in [n for n in dir(f.Decisions) if n.startswith('test_') and n not in DeterministicEvidence.__dict__]:
-    setattr(DeterministicEvidence,_name,None)
+for _cls in (DeterministicEvidence,JevClaims):
+    for _name in [n for n in dir(_cls) if n.startswith('test_') and n not in _cls.__dict__]:
+        setattr(_cls,_name,None)
 
 if __name__=='__main__':unittest.main()
