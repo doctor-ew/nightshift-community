@@ -12,7 +12,7 @@ jq '.roles["nightshift-code-fact-extractor"].gears["1"]={provider:"claude",model
   "$ROOT/routing.json" > "$TMP/runtime/routing.json"
 cp "$ROOT/scripts/nightshift-agent.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-ticket-budget.py" "$TMP/runtime/scripts/"
-cp "$ROOT/scripts/nightshift-provider-policy.py" "$TMP/runtime/scripts/"
+cp "$ROOT/scripts/nightshift-provider-policy.py" "$ROOT/scripts/nightshift-checkout-identity.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-route.sh" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-routing-path.py" "$TMP/runtime/scripts/"
 cp "$ROOT/scripts/nightshift-dispatch-bounded.sh" "$TMP/runtime/scripts/"
