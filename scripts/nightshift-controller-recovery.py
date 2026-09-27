@@ -33,6 +33,13 @@ def load(name):
 p = load('pipeline')
 digest = p.recovery.digest
 LIMITS = dict(wall_seconds=600, active_seconds=600, provider_calls=4)
+# Recovery sessions per ticket. Every failed session stays retained; this only
+# bounds how many operator-authorized attempts a ticket may accumulate.
+MAX_RECOVERY_SESSIONS = 5
+# Files that shape what an independent decision reviewer sees and returns.
+# An earlier session's answer is reusable only when all are byte-identical.
+REVIEWER_ASSETS = ('agents/nightshift-decision-reviewer.md', 'contracts/nightshift-decision-reviewer.schema.json',
+                   'scripts/nightshift-decision-render.py', 'scripts/nightshift-agent.sh', 'scripts/nightshift-contract.jq')
 GATES = ('adoption', 'review', 'drift', 'qa')
 
 
@@ -311,6 +318,16 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None,missing_rol
     return decision.review_from_grounding(result,packet)
 
 
+def reusable_sessions(value,session,root):
+    """Earlier authorized sessions of this ticket with identical reviewer framing."""
+    try:state=p.read(root/'state.json')
+    except (OSError,ValueError):return []
+    return [binding for binding,other in sorted(state.get('recovery_sessions',{}).items())
+            if binding!=session['binding'] and isinstance(other,dict)
+            and all(other.get('evidence',{}).get('assets',{}).get(name) is not None
+                    and other['evidence']['assets'].get(name)==value['assets'].get(name) for name in REVIEWER_ASSETS)]
+
+
 def compact_verdict(value,stage,checks,session,directory,save,step,transport=None,escalator=None):
     adapter=load('recovery-decisions');decision=adapter.engine
     packets=adapter.packets(value,checks,stage)
@@ -346,7 +363,8 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
             output=directory/('decision-'+decision.digest(packet)+('.reask' if missing_roles else '')+'.review.json')
             extra=dict(missing_roles=missing_roles) if missing_roles else {}
             return (escalator or compact_review)(value,packet,'independent',output,max(.001,min(120,remaining())),reviewer_id=reviewer_id,**extra)
-        evaluator=decision.IndependentEngine(directory/'decisions',session['binding'],settings,reserve,finish,independent_review)
+        evaluator=decision.IndependentEngine(directory/'decisions',session['binding'],settings,reserve,finish,independent_review,
+                                             prior=reusable_sessions(value,session,directory.parent))
     else:
         evaluator=decision.Engine(directory/'decisions',session['binding'],settings,reserve,finish,
                                   transport=invoke_jev,escalate=escalate)
@@ -508,7 +526,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
         if session is None:
             if operation != 'authorize': raise ValueError('recovery_authorization_missing')
             if not operator.strip() or len(operator)>200: raise ValueError('recovery_operator_identity_required')
-            if len(sessions)>=3: raise ValueError('recovery_session_limit_exhausted')
+            if len(sessions)>=MAX_RECOVERY_SESSIONS: raise ValueError('recovery_session_limit_exhausted')
             if any(s['status']=='running' for s in sessions.values()): raise ValueError('recovery_already_running')
             now = time.time()
             session = dict(binding=expected, operator=operator, authorized_at=now, evidence=value,

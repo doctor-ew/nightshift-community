@@ -389,7 +389,10 @@ def validate_independent_receipt(record, packet, settings, authority, directory)
         second = independent_envelope(packet, record.get('reviewer_id'), reask['missing_roles'])
         if artifacts.get('reask_request') != second or reask['request_bytes'] != len(encoded(second)):
             raise ValueError('decision_cache_artifact_changed')
-    kinds = ['independent'] + (['reask'] if reask is not None else [])
+    reused = record.get('reused_from')
+    if reused is not None:
+        validate_reused(record, packet, settings, authority, directory)
+    kinds = [] if reused is not None else ['independent'] + (['reask'] if reask is not None else [])
     if record['status'] == 'complete':
         if [c.get('kind') for c in record.get('calls', [])] != kinds or any(c.get('status') != 'complete' for c in record['calls']):
             raise ValueError('decision_cache_unfinished')
@@ -401,18 +404,75 @@ def validate_independent_receipt(record, packet, settings, authority, directory)
     return record
 
 
+def origin_directory(directory, authority):
+    """Sibling session folder: <ticket>/recovery-<binding>/decisions."""
+    if not isinstance(authority, str) or not re.fullmatch(r'[0-9a-f]{64}', authority):
+        raise ValueError('decision_reuse_origin_invalid')
+    return Path(directory).parent.parent/('recovery-'+authority)/'decisions'
+
+
+def validate_reused(record, packet, settings, authority, directory):
+    """A reused answer must still be a valid, directly reviewed answer in its origin session."""
+    reused = record['reused_from']
+    if (not isinstance(reused, dict) or set(reused) != {'authority','key','receipt_sha256'} or reused['authority'] == authority
+            or record.get('calls') != [] or record.get('status') != 'complete' or record.get('reason') != 'decision_reused'):
+        raise ValueError('decision_cache_integrity')
+    origin_dir = origin_directory(directory, reused['authority'])
+    path = origin_dir/(reused['key']+'.json')
+    if path.is_symlink() or not path.is_file():
+        raise ValueError('decision_reuse_origin_missing')
+    origin = json.loads(path.read_text())
+    if origin.get('receipt_sha256') != reused['receipt_sha256'] or origin.get('reused_from') is not None or origin.get('decision') != record.get('decision'):
+        raise ValueError('decision_cache_integrity')
+    validate_independent_receipt(origin, packet, settings, reused['authority'], origin_dir)
+    if origin.get('status') != 'complete':
+        raise ValueError('decision_cache_integrity')
+
+
 class IndependentEngine:
     """Explicit independent review only; never contacts or falls back from Jev.
 
     The enclosing controller holds the same lease and explicit allowance as the
     assisted mode. review(packet, reviewer_id) executes its tool-free route.
     """
-    def __init__(self, directory, authority, settings, reserve, finish, review):
+    def __init__(self, directory, authority, settings, reserve, finish, review, prior=()):
         if not isinstance(authority, str) or not authority:
             raise ValueError('decision_authority_required')
         self.directory, self.authority = Path(directory), authority
         self.settings = independent_identity(settings)
         self.reserve, self.finish, self.review = reserve, finish, review
+        # Earlier operator-authorized sessions whose reviewer framing is unchanged.
+        self.prior = [a for a in prior if a != authority]
+
+    def reuse(self, packet, key, path):
+        """Adopt a completed yes/no for the byte-identical packet from an earlier session.
+
+        No provider call is reserved. Abstentions and blocked answers are never
+        reused; reusing a no prevents re-asking identical evidence until it passes.
+        """
+        for authority in self.prior:
+            try:
+                origin_dir = origin_directory(self.directory, authority)
+                origin_key = digest(dict(authority=authority, packet=packet, settings=self.settings, rubric=RUBRIC, semantic_mode='independent'))
+                origin_path = origin_dir/(origin_key+'.json')
+                if origin_path.is_symlink() or not origin_path.is_file():
+                    continue
+                record = json.loads(origin_path.read_text())
+                if record.get('reused_from') is not None or record.get('status') != 'complete' or record.get('decision') not in ('yes','no'):
+                    continue
+                validate_independent_receipt(record, packet, self.settings, authority, origin_dir)
+                artifacts = {suffix: json.loads((origin_dir/(origin_key+'.'+suffix+'.json')).read_text()) for suffix in record['artifacts']}
+            except (ValueError, OSError, KeyError, TypeError):
+                continue
+            for suffix, value in artifacts.items():
+                atomic(self.directory/(key+'.'+suffix+'.json'), value)
+            reused = {k:v for k,v in record.items() if k not in ('key','calls','reason','receipt_sha256','cache_hit')}
+            reused.update(key=key, calls=[], reason='decision_reused', cache_hit=False,
+                          reused_from=dict(authority=authority, key=origin_key, receipt_sha256=record['receipt_sha256']))
+            reused['receipt_sha256'] = digest({k:v for k,v in reused.items() if k not in ('receipt_sha256','cache_hit')})
+            atomic(path, reused)
+            return reused
+        return None
 
     def decide(self, packet):
         validate(packet)
@@ -429,6 +489,9 @@ class IndependentEngine:
                 return dict(record, status='blocked', decision='abstain', reason='decision_unfinished_reservation', cache_hit=True)
             validate_independent_receipt(record, packet, self.settings, self.authority, self.directory)
             return dict(record, cache_hit=True)
+        reused = self.reuse(packet, key, path)
+        if reused is not None:
+            return reused
         reviewer_id = 'decision-review-' + __import__('uuid').uuid4().hex
         request = independent_envelope(packet, reviewer_id)
         record = dict(version=1, key=key, semantic_mode='independent', packet_sha256=digest(packet), reviewer_id=reviewer_id,
