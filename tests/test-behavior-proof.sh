@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# nightshift-ci-weight: 6
 # Contract and admission tests; exact fixture sources remain outside GREEN context.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
