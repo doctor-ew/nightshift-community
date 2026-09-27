@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Resolve opt-in provider restrictions before any Nightshift provider launch."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,14 @@ import tomllib
 MODES = ('standard', 'claude-only')
 
 
+def checkout_identity(project):
+    """Shared, fingerprint-validated cache (scripts/nightshift-checkout-identity.py)."""
+    spec = importlib.util.spec_from_file_location('nightshift_checkout_identity', Path(__file__).with_name('nightshift-checkout-identity.py'))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module.checkout_identity(project)
+
+
+
 def mode(project=None):
     """Restrictions compose: a child or project cannot relax inherited restrictions."""
     values = [os.environ.get('NIGHTSHIFT_PROVIDER_POLICY', 'standard')]
@@ -18,12 +27,10 @@ def mode(project=None):
     roots = [Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home() / '.nightshift'))), project]
     # A directly invoked worker in an isolated worktree must still see the
     # primary checkout's project policy, even without the factory environment.
-    result = subprocess.run(['git', '-C', str(project), 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
-                            capture_output=True, text=True, timeout=5)
-    if result.returncode == 0:
-        lines = result.stdout.splitlines()
-        roots.append(Path(lines[0]))
-        common = Path(lines[1])
+    identity = checkout_identity(project)
+    if identity:
+        top, common = identity
+        roots.append(top)
         if common.name == '.git':
             roots.append(common.parent)
     for root in dict.fromkeys(roots):

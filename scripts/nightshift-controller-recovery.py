@@ -169,7 +169,7 @@ def evidence(project, task):
     assets = ['scripts/nightshift-controller-recovery.py', 'scripts/nightshift-agent.sh',
               'scripts/nightshift-contract.jq', 'scripts/nightshift-pipeline.py', 'scripts/nightshift-recovery-exec.py',
               'agents/nightshift-recovery-reviewer.md', 'contracts/nightshift-recovery-reviewer.schema.json',
-              'scripts/nightshift-provider-policy.py', 'scripts/nightshift-project-context.py',
+              'scripts/nightshift-provider-policy.py', 'scripts/nightshift-project-context.py', 'scripts/nightshift-checkout-identity.py',
               'scripts/nightshift-routing-path.py', 'scripts/nightshift-architecture.py']
     assets += ['scripts/nightshift-manual-acceptance.py','scripts/nightshift-recovery-acceptance.py']
     assets += ['scripts/nightshift-decision-engine.py','scripts/nightshift-recovery-decisions.py','scripts/nightshift-decision-render.py',
@@ -238,14 +238,34 @@ def estimate_run(value, state, verification):
         for packet in adapter.packets(value,verification,gate):
             evaluations+=1;unique.setdefault(engine.digest(packet),packet)
     questions=list(unique.values())
+    # Answers an earlier authorized session already settled are reused at no call cost.
+    root=p.root(value['worktree'],value['task']);prior=reusable_sessions(value,dict(binding=digest(value)),root)
+    def reusable(packet):
+        for authority in prior:
+            origin=root/('recovery-'+authority)/'decisions'
+            if mode=='independent':
+                key=engine.digest(dict(authority=authority,packet=packet,settings=engine.independent_identity(settings),rubric=engine.RUBRIC,semantic_mode='independent'))
+                check=lambda r:engine.validate_independent_receipt(r,packet,settings,authority,origin)
+            else:
+                identity={k:settings[k] for k in ('endpoint','model','timeout_seconds','max_bytes','allow_loopback','enabled','key_env')}
+                key=engine.digest(dict(authority=authority,packet=packet,policy=engine.default_policy(packet),settings=identity,rubric=engine.RUBRIC))
+                check=lambda r:engine.validate_receipt(r,packet,settings,authority,origin)
+            try:
+                record=json.loads((origin/(key+'.json')).read_text())
+                if record.get('status')=='complete' and record.get('decision') in ('yes','no') and record.get('reused_from') is None:
+                    check(record);return True
+            except (OSError,ValueError,KeyError,TypeError):continue
+        return False
+    reused=[packet for packet in questions if reusable(packet)]
+    fresh=[packet for packet in questions if packet not in reused]
     if mode=='independent':
-        tokens=sum(adapter.review_framing(value,packet)['estimated_tokens'] for packet in questions)
+        tokens=sum(adapter.review_framing(value,packet)['estimated_tokens'] for packet in fresh)
         planned={};kinds=('independent','reask')
     else:
-        tokens=sum(engine.estimated_tokens(len(engine.request_body(packet,settings)),engine.SEED_BYTES_PER_TOKEN) for packet in questions)
+        tokens=sum(engine.estimated_tokens(len(engine.request_body(packet,settings)),engine.SEED_BYTES_PER_TOKEN) for packet in fresh)
         # Escalations the policy will make even when Jev is confident (deterministic).
         planned={}
-        for packet in questions:
+        for packet in fresh:
             kind=engine.escalation_mode('yes',packet,engine.default_policy(packet))
             if kind:planned[kind]=planned.get(kind,0)+1
         kinds=('jev','exception','shadow')
@@ -255,15 +275,15 @@ def estimate_run(value, state, verification):
             if isinstance(call,dict) and call.get('kind') in kinds and call.get('status')=='complete' and all(type(call.get(k)) in (int,float) for k in ('started_at','finished_at')):
                 durations.setdefault(call['kind'],[]).append(call['finished_at']-call['started_at'])
     observed={kind:dict(samples=len(v),median=round(sorted(v)[len(v)//2],3),maximum=round(max(v),3)) for kind,v in sorted(durations.items())}
-    expected=len(questions)+sum(planned.values());maximum=2*len(questions)
+    expected=len(fresh)+sum(planned.values());maximum=2*len(fresh)
     slowest=max((row['maximum'] for row in observed.values()),default=None)
     seconds=None if slowest is None else min(adapter.MAX_ALLOWANCE_SECONDS,math.ceil(slowest*maximum))
     return dict(mode=mode,unique_questions=len(questions),gate_evaluations=evaluations,cache_reuses=evaluations-len(questions),
-                provider_calls=dict(expected=expected,maximum=maximum,planned_escalations=planned),
+                provider_calls=dict(expected=expected,maximum=maximum,planned_escalations=planned,reusable_answers=len(reused)),
                 estimated_input_tokens=tokens,token_budget=dict(request=engine.REQUEST_TOKEN_BUDGET,state_question=engine.STATE_QUESTION_TOKEN_BUDGET),
                 observed_call_seconds=observed,
                 proposed_limits=dict(provider_calls=min(adapter.MAX_PROVIDER_CALLS,maximum),wall_seconds=seconds,active_seconds=seconds),
-                basis='Counts from the actual packets; maximum allows one escalation or re-ask per question; seconds = slowest observed call on this ticket x maximum calls (unknown without observations). A proposal for operator approval; nothing is applied.')
+                basis='Counts from the actual packets, excluding answers reusable from earlier authorized sessions; maximum allows one escalation or re-ask per fresh question; seconds = slowest observed call on this ticket x maximum calls (unknown without observations). A proposal for operator approval; nothing is applied.')
 
 
 def clean_environment():
@@ -529,7 +549,7 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
                                              prior=reusable_sessions(value,session,directory.parent))
     else:
         evaluator=decision.Engine(directory/'decisions',session['binding'],settings,reserve,finish,
-                                  transport=invoke_jev,escalate=escalate)
+                                  transport=invoke_jev,escalate=escalate,prior=reusable_sessions(value,session,directory.parent))
     receipts=[]
     for packet in packets:
         current_binding(value['worktree'],value['task'],session['binding'])
@@ -643,7 +663,7 @@ def validate_adopted(project, task, state, record):
     if state['recovery_sessions'][binding].get('status')=='complete':
         return load('recovery-acceptance').validate(self_module(),project,task,state,binding)
     session=state['recovery_sessions'][binding]
-    current_binding(project,task,binding)
+    current_binding(project,task,binding,session['evidence'])
     for stage,step in session['steps'].items():
         if step['status']=='pass' and p.sha(step['receipt'])!=step['sha256']:
             raise ValueError('recovery_receipt_changed')
@@ -657,8 +677,19 @@ def validate_adopted(project, task, state, record):
     validate_review(p.read(adoption['receipt']),session['evidence'],'adoption',checks,adoption['reviewer_id'])
 
 
-def current_binding(project, task, expected):
+def current_binding(project, task, expected, recorded=None):
     value, _ = evidence(project, task)
+    if digest(value) != expected and recorded is not None:
+        # After authorization the reviewer route (model, key variable) that produced the
+        # receipts is part of the recorded evidence. It may come from the environment,
+        # so a later process without it must not see the evidence as changed. Only the
+        # route and its allowance are taken from the record, and only for the same plan.
+        adapter=load('recovery-decisions')
+        try: plan_sha=adapter.engine.digest(adapter.plan(value))
+        except (OSError,ValueError,KeyError,TypeError): plan_sha=None
+        prior=recorded.get('decision_readiness',{})
+        if plan_sha and prior.get('plan_sha256')==plan_sha:
+            value=dict(value,decision_readiness=prior,limits=recorded['limits'])
     if digest(value) != expected: raise ValueError('recovery_inputs_changed; reassess before authorization')
     return value
 

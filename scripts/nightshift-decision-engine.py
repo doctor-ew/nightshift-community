@@ -237,7 +237,9 @@ def validate_receipt(record, packet, settings, authority, directory):
         artifacts[suffix]=value
     if artifacts.get('packet')!=packet:raise ValueError('decision_cache_artifact_changed')
     if record['status']=='complete':
-        if not record['calls'] or any(c['status']!='complete' for c in record['calls']):raise ValueError('decision_cache_unfinished')
+        if record.get('reused_from') is not None:
+            validate_reused(record,packet,settings,authority,directory,validate_receipt)
+        elif not record['calls'] or any(c['status']!='complete' for c in record['calls']):raise ValueError('decision_cache_unfinished')
         raw=artifacts.get('jev',{})
         if raw.get('model')!=settings['model'] or record.get('reported_model')!=settings['model']:
             raise ValueError('decision_cache_verdict_changed')
@@ -281,7 +283,7 @@ class Engine:
     packet_sha256, reviewer_id, evidence:[reference IDs]}. Caller enforces an
     independent reviewer identity and configured route before returning it.
     """
-    def __init__(self, directory, authority, settings, reserve, finish, transport=None, escalate=None, policy=None):
+    def __init__(self, directory, authority, settings, reserve, finish, transport=None, escalate=None, policy=None, prior=()):
         if not isinstance(authority,str) or not authority:
             raise ValueError('decision_authority_required')
         self.directory=Path(directory); self.authority=authority; self.settings=dict(settings)
@@ -291,6 +293,8 @@ class Engine:
         # Default policy follows the packet: claim packets (from version 2 plans) use
         # the tiered policy; earlier packets keep the version 1 rules unchanged.
         self.explicit_policy=None if policy is None else validate_policy(json.loads(json.dumps(policy)))
+        # Earlier operator-authorized sessions whose reviewer framing is unchanged.
+        self.prior=[a for a in prior if a!=authority]
         self.policy=self.explicit_policy or POLICY
 
     def policy_for(self, packet):
@@ -311,6 +315,35 @@ class Engine:
                 ratios.append(size/(tokens-TOKEN_OVERHEAD))
         return min(ratios)
 
+    def reuse(self, packet, key, path, identity):
+        """Adopt a completed Jev yes/no for the byte-identical packet from an earlier session.
+
+        Same rules as the independent engine: policy, settings and rubric are part of
+        the key, the origin must still validate (raw Jev answer and any escalation
+        review included), abstentions are never reused and reuse is not chained.
+        """
+        for authority in self.prior:
+            try:
+                origin_dir=origin_directory(self.directory,authority)
+                origin_key=digest(dict(authority=authority,packet=packet,policy=self.policy,settings=identity,rubric=RUBRIC))
+                origin_path=origin_dir/(origin_key+'.json')
+                if origin_path.is_symlink() or not origin_path.is_file():continue
+                record=json.loads(origin_path.read_text())
+                if record.get('reused_from') is not None or record.get('status')!='complete' or record.get('decision') not in ('yes','no'):continue
+                validate_receipt(record,packet,self.settings,authority,origin_dir)
+                artifacts={suffix:json.loads((origin_dir/(origin_key+'.'+suffix+'.json')).read_text()) for suffix in record['artifacts']}
+            except (ValueError,OSError,KeyError,TypeError):
+                continue
+            for suffix,value in artifacts.items():
+                atomic(self.directory/(key+'.'+suffix+'.json'),value)
+            reused={k:v for k,v in record.items() if k not in ('key','calls','reason','receipt_sha256','cache_hit')}
+            reused.update(key=key,calls=[],reason='decision_reused',cache_hit=False,
+                          reused_from=dict(authority=authority,key=origin_key,receipt_sha256=record['receipt_sha256']))
+            reused['receipt_sha256']=digest({k:v for k,v in reused.items() if k not in ('receipt_sha256','cache_hit')})
+            atomic(path,reused)
+            return reused
+        return None
+
     def decide(self, packet):
         validate(packet)
         self.policy=self.policy_for(packet)
@@ -327,6 +360,8 @@ class Engine:
                 return dict(record,status='blocked',decision='abstain',reason='decision_unfinished_reservation',cache_hit=True)
             validate_receipt(record,packet,self.settings,self.authority,self.directory)
             return dict(record,cache_hit=True)
+        reused=self.reuse(packet,key,path,identity)
+        if reused is not None:return reused
         body=request_body(packet,self.settings,self.bytes_per_token())
         record=dict(version=1,key=key,packet_sha256=digest(packet),status='pending',decision='abstain',reason='',rubric=RUBRIC,policy=self.policy,request_bytes=len(body),calls=[],artifacts={'packet':digest(packet)},cache_hit=False)
         atomic(path,record)
@@ -523,8 +558,9 @@ def origin_directory(directory, authority):
     return Path(directory).parent.parent/('recovery-'+authority)/'decisions'
 
 
-def validate_reused(record, packet, settings, authority, directory):
+def validate_reused(record, packet, settings, authority, directory, validator=None):
     """A reused answer must still be a valid, directly reviewed answer in its origin session."""
+    validator = validator or validate_independent_receipt
     reused = record['reused_from']
     if (not isinstance(reused, dict) or set(reused) != {'authority','key','receipt_sha256'} or reused['authority'] == authority
             or record.get('calls') != [] or record.get('status') != 'complete' or record.get('reason') != 'decision_reused'):
@@ -536,7 +572,7 @@ def validate_reused(record, packet, settings, authority, directory):
     origin = json.loads(path.read_text())
     if origin.get('receipt_sha256') != reused['receipt_sha256'] or origin.get('reused_from') is not None or origin.get('decision') != record.get('decision'):
         raise ValueError('decision_cache_integrity')
-    validate_independent_receipt(origin, packet, settings, reused['authority'], origin_dir)
+    validator(origin, packet, settings, reused['authority'], origin_dir)
     if origin.get('status') != 'complete':
         raise ValueError('decision_cache_integrity')
 

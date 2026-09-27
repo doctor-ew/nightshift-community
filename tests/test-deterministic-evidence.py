@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import unittest
+import unittest.mock
 spec=importlib.util.spec_from_file_location('decisions_fixture',Path(__file__).with_name('test-recovery-decisions.py'))
 f=importlib.util.module_from_spec(spec);spec.loader.exec_module(f)
 m=f.m
@@ -160,6 +161,45 @@ class JevClaims(DeterministicEvidence):
         session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
         kinds={v['kind']+':'+v['status'] for k,v in session['decision_calls'].items() if ':interrupted-' in k}
         self.assertIn('jev:complete',kinds);self.assertIn('exception:interrupted',kinds)
+
+    def test_adopted_evidence_validates_without_the_route_environment(self):
+        self.plan_v2();binding=self.assess()['sha256']
+        self.assertEqual(self.compact(expected=binding)['status'],'pending_manual_acceptance')
+        state=m.p.snapshot(self.project,'T-1');row=next(r for r in state['completed'].values() if r.get('recovery_binding'))
+        m.validate_adopted(self.project,'T-1',state,row)
+        with unittest.mock.patch.dict(os.environ,{'NIGHTSHIFT_JEV_MODEL':'jev-latest'}):
+            m.validate_adopted(self.project,'T-1',state,row)  # route absent/different: recorded route governs
+        (self.target/'source.txt').write_text('changed\n');self.commit('real change')
+        with unittest.mock.patch.dict(os.environ,{'NIGHTSHIFT_JEV_MODEL':'jev-latest'}),self.assertRaisesRegex(ValueError,'inputs_changed'):
+            m.validate_adopted(self.project,'T-1',state,row)
+
+    def test_jev_answers_are_reused_by_a_later_session(self):
+        # Two questions complete confidently; the third escalates and the controller dies.
+        self.score=lambda key:.5 if key=='claim_2' and len(self.network)>=3 else .97
+        self.plan_v2();first=self.assess()['sha256']
+        original=self.escalate;state={'crash':True}
+        def crash(*args,**kwargs):
+            if state['crash']:raise KeyboardInterrupt('controller process died')
+            return original(*args,**kwargs)
+        self.escalate=crash
+        with self.assertRaises(KeyboardInterrupt):self.compact(expected=first)
+        asked=len(self.network);self.assertGreater(asked,0)
+        state['crash']=False
+        self.plan['limits']=dict(self.plan['limits'],provider_calls=self.plan['limits']['provider_calls']+1);self.save_plan()
+        second=self.assess()['sha256'];self.assertNotEqual(first,second)
+        estimate=m.assessment(self.project,'T-1',True)['run_estimate']
+        self.assertEqual(estimate['provider_calls']['reusable_answers'],2)
+        self.assertEqual(estimate['provider_calls']['maximum'],2*(estimate['unique_questions']-2))
+        done=self.compact(expected=second)
+        self.assertEqual(done['status'],'pending_manual_acceptance',done)
+        decisions=m.p.root(self.project,'T-1')/('recovery-'+second)/'decisions'
+        reused=[r for f in decisions.glob('*.json') if f.name.count('.')==1 for r in [__import__('json').loads(f.read_text())] if r.get('reason')=='decision_reused']
+        self.assertTrue(reused);self.assertTrue(all(r['calls']==[] for r in reused))
+        # Completed answers were not asked again: only the interrupted packet and later ones were.
+        self.assertLess(len(self.network)-asked,4)
+        sessions=m.p.snapshot(self.project,'T-1')['recovery_sessions'];self.assertEqual(sessions[first]['status'],'interrupted')
+        state_now=m.p.snapshot(self.project,'T-1');row=next(r for r in state_now['completed'].values() if r.get('recovery_binding')==second)
+        m.validate_adopted(self.project,'T-1',state_now,row)
 
     def test_uncertain_claim_escalates_only_that_packet(self):
         self.score=lambda key:.5 if key=='claim_2' else .97

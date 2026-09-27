@@ -176,6 +176,19 @@ def plan(value):
     return data
 
 
+def finding_text(finding):
+    """A retained finding as a plain statement; structured records are not shown as raw JSON."""
+    body=finding.get('finding',finding)
+    if isinstance(body,str):return body
+    if isinstance(body,dict) and body.get('problem'):
+        target=body.get('target') or body.get('path')
+        where=' recorded in '+Path(str(target)).name if target else ''
+        category=finding.get('failure_category')
+        kind=' (category: '+str(category)+')' if category else ''
+        return f"the retained failure '{body['problem']}'{kind}{where}"
+    return json.dumps(body,sort_keys=True)
+
+
 def claims(definitions, question):
     """Narrow statements taken verbatim from the obligations; nothing is paraphrased.
 
@@ -192,7 +205,7 @@ def claims(definitions, question):
         for i,item in enumerate(case.get('prohibited') or [],1):
             out.append(dict(id=case['id']+':prohibited-'+str(i),text='The implementation does not do the following: '+text(item)))
     for finding in definitions['findings']:
-        out.append(dict(id='finding:'+finding['id'],text=text(finding.get('finding',finding))))
+        out.append(dict(id='finding:'+finding['id'],text=finding_text(finding)))
     return out or [dict(id='question',text=question)]
 
 

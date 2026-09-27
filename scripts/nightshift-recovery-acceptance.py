@@ -33,7 +33,7 @@ def verified(c, project, task, state, binding):
         raise ValueError('recovery_not_ready_for_acceptance')
     if session.get('controller_revision')!=c.controller_revision(state):
         raise ValueError('recovery_controller_changed')
-    value=c.current_binding(project,task,binding)
+    value=c.current_binding(project,task,binding,session['evidence'])
     if c.digest(session['evidence'])!=binding:raise ValueError('recovery_session_evidence_changed')
     if session.get('semantic_mode','jev')!=value['decision_readiness'].get('semantic_mode','jev'):
         raise ValueError('recovery_semantic_mode_changed')

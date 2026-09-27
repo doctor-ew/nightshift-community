@@ -99,6 +99,14 @@ class ObservationView(unittest.TestCase):
         self.assertNotEqual(adapter.observation_view(a),adapter.observation_view(a.replace('✔','✖')))
 
 
+class FindingText(unittest.TestCase):
+    def test_structured_findings_read_as_statements(self):
+        record={'failure_category':'schema','finding':{'id':'x','problem':'invalid_stage_receipt','target':'/a/b/product-3.json'}}
+        self.assertEqual(adapter.finding_text(record),"the retained failure 'invalid_stage_receipt' (category: schema) recorded in product-3.json")
+        self.assertEqual(adapter.finding_text({'finding':'plain'}),'plain')
+        self.assertNotIn('{',adapter.finding_text({'finding':{'problem':'p'}}))
+
+
 class Controller(unittest.TestCase):
     def test_only_sessions_with_identical_reviewer_framing_are_reusable(self):
         c=load('reuse_controller',ROOT/'scripts/nightshift-controller-recovery.py')
