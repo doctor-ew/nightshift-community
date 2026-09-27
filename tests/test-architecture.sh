@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# nightshift-ci-weight: 10
+# nightshift-ci-weight: 13
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 export PYTHONDONTWRITEBYTECODE=1

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# nightshift-ci-weight: 2
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 python3 - "$ROOT" <<'PYTEST'
