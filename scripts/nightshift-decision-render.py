@@ -6,18 +6,16 @@ import json
 from pathlib import Path
 import re
 
-MAX_BYTES=24576
-# Linux caps one argv string at MAX_ARG_STRLEN (128 KiB); the prompt is one argument.
-ARGUMENT_CEILING=131072
+# Read-safety bound for the input file, not a request limit.
+MAX_BYTES=8*1024*1024
+# Operator decision on #65: state plus the longest question may carry at most
+# 32k tokens. A reviewer call asks one question, so its whole framing (system
+# prompt, user prompt and schema) is held to that, estimated conservatively.
+STATE_QUESTION_TOKEN_BUDGET=32000
+SEED_BYTES_PER_TOKEN=2.0
+TOKEN_OVERHEAD=300
 ROLE_ORDER=('requirement','source','assertion','observation')
 EXECUTION='Independent bounded operation. Return only the requested structured result and patch if requested. No tools, edits, dispatches, authorization or stage completion.'
-
-
-def input_limit(routing, provider):
-    """Configured reviewer argument ceiling: providers.<provider>.limits.max_input_bytes."""
-    value=((routing or {}).get('providers',{}).get(provider,{}).get('limits',{}) or {}).get('max_input_bytes',MAX_BYTES)
-    if type(value) is not int or not 4096<=value<=ARGUMENT_CEILING:raise ValueError('decision_review_limit_invalid')
-    return value
 
 
 def grounding_schema(refs):
@@ -27,7 +25,7 @@ def grounding_schema(refs):
                 properties={r:dict(type='array',items=dict(type='string',enum=[ref['id'] for ref in refs if ref.get('role')==r])) for r in roles})
 
 
-def render(root, raw, provider, model, role_path='agents/nightshift-decision-reviewer.md', limit=MAX_BYTES):
+def render(root, raw, provider, model, role_path='agents/nightshift-decision-reviewer.md'):
     if not isinstance(raw,bytes) or len(raw)>MAX_BYTES:raise ValueError('decision_review_request_too_large')
     request=json.loads(raw)
     if not isinstance(request,dict) or not isinstance(request.get('packet'),dict):raise ValueError('decision_review_input_invalid')
@@ -55,16 +53,16 @@ def render(root, raw, provider, model, role_path='agents/nightshift-decision-rev
     # The role travels once, as the system prompt; the user prompt carries only task data.
     prompt='Task input:\n'+raw.decode('utf-8')+'\n'+contract+'\n'+EXECUTION
     size=sum(len(v.encode()) for v in (role,prompt,schema_text))
-    if size>limit:raise ValueError('decision_review_framing_too_large')
-    return dict(role=role,prompt=prompt,schema=schema_text,argument_content_bytes=size,input_envelope_bytes=len(raw),maximum_bytes=limit,scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments')
+    tokens=TOKEN_OVERHEAD+-(-size//SEED_BYTES_PER_TOKEN)
+    if tokens>STATE_QUESTION_TOKEN_BUDGET:raise ValueError('decision_review_over_token_budget')
+    return dict(role=role,prompt=prompt,schema=schema_text,argument_content_bytes=size,estimated_tokens=int(tokens),token_budget=STATE_QUESTION_TOKEN_BUDGET,input_envelope_bytes=len(raw),scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments')
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--root',required=True);parser.add_argument('--input',required=True);parser.add_argument('--directory',required=True);parser.add_argument('--provider',required=True);parser.add_argument('--model',required=True);parser.add_argument('--role-path',default='agents/nightshift-decision-reviewer.md');parser.add_argument('--routing')
+    parser=argparse.ArgumentParser();parser.add_argument('--root',required=True);parser.add_argument('--input',required=True);parser.add_argument('--directory',required=True);parser.add_argument('--provider',required=True);parser.add_argument('--model',required=True);parser.add_argument('--role-path',default='agents/nightshift-decision-reviewer.md')
     args=parser.parse_args()
-    limit=input_limit(json.loads(Path(args.routing).read_text()) if args.routing else None,args.provider)
     with open(args.input,'rb') as stream:raw=stream.read(MAX_BYTES+1)
-    result=render(args.root,raw,args.provider,args.model,args.role_path,limit)
+    result=render(args.root,raw,args.provider,args.model,args.role_path)
     folder=Path(args.directory)
     for name,key in (('role','role'),('prompt','prompt'),('provider.schema.json','schema')):(folder/name).write_text(result[key])
     (folder/'decision-framing.json').write_text(json.dumps({k:v for k,v in result.items() if k not in ('role','prompt','schema')},sort_keys=True))

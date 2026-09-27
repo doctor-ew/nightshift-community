@@ -16,11 +16,7 @@
       "model_flag": "--model",
       "agent_flag": "--agents",
       "schema_enforced": true,
-      "$comment": "Role body is injected inline via --agents <json>; no ~/.claude/agents install needed.",
-      "limits": {
-        "$comment": "max_input_bytes bounds one tool-free decision reviewer invocation (system prompt + user prompt + JSON schema, UTF-8 bytes). 4096-131072; see docs/operations/REVIEWER-GROUNDING.md.",
-        "max_input_bytes": 24576
-      }
+      "$comment": "Role body is injected inline via --agents <json>; no ~/.claude/agents install needed."
     },
     "codex": {
       "cmd": "codex",

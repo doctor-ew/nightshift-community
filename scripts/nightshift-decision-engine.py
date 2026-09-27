@@ -14,7 +14,9 @@ import re
 from pathlib import Path
 import tempfile
 
-MAX_BYTES = 24 * 1024
+# Safety bound for reading local artifacts and provider responses. It is not a
+# request limit: requests are governed by the operator's token budget below.
+MAX_BYTES = 8 * 1024 * 1024
 POLICY_V1 = dict(version=1, yes=.95, no=.05, shadow_percent=10)
 # Operator decision on #65: thresholds by consequence, in two tiers. Adoption and
 # QA carry acceptance; review and drift support it. Unknown kinds use the strict
@@ -394,12 +396,11 @@ def independent_envelope(packet, reviewer_id, missing_roles=None):
     if not isinstance(reviewer_id, str) or not re.fullmatch(r'decision-review-[0-9a-f]{32}', reviewer_id):
         raise ValueError('decision_reviewer_identity_invalid')
     value = dict(packet=packet, packet_sha256=digest(packet), reviewer_id=reviewer_id, mode='independent')
+    # Size is checked on the complete reviewer framing (decision-render), in tokens.
     if missing_roles is not None:
         if not isinstance(missing_roles, list) or not missing_roles or missing_roles != sorted(set(missing_roles)) or not set(missing_roles) <= required_roles(packet):
             raise ValueError('decision_reask_roles_invalid')
         value['missing_roles'] = missing_roles
-    if len(encoded(value)) > MAX_BYTES:
-        raise ValueError('decision_review_request_too_large')
     return value
 
 

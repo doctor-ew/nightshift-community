@@ -71,11 +71,12 @@ class Rendering(unittest.TestCase):
             if kind=='stale':value['packet_sha256']='0'*64
             if kind=='wrongtype':value['packet']['evidence']={}
             with self.subTest(kind=kind),self.assertRaises(ValueError):render.render(ROOT,e.e.encoded(value),'claude','model')
-    def test_envelope_below_limit_can_fail_full_framing_without_truncation(self):
+    def test_framing_is_held_to_the_token_budget_without_truncation(self):
         value=self.envelope();value['packet']['question']='Synthetic bound '+('x'*21000)
-        value['packet_sha256']=e.e.digest(value['packet']);raw=e.e.encoded(value)
-        self.assertLess(len(raw),render.MAX_BYTES)
-        with self.assertRaisesRegex(ValueError,'framing_too_large'):render.render(ROOT,raw,'claude','model')
+        value['packet_sha256']=e.e.digest(value['packet'])
+        self.assertLessEqual(render.render(ROOT,e.e.encoded(value),'claude','model')['estimated_tokens'],render.STATE_QUESTION_TOKEN_BUDGET)
+        value['packet']['question']='Synthetic bound '+('x'*70000);value['packet_sha256']=e.e.digest(value['packet'])
+        with self.assertRaisesRegex(ValueError,'over_token_budget'):render.render(ROOT,e.e.encoded(value),'claude','model')
 
 class Dispatcher(f.IndependentRecovery):
     def run_synthetic(self,mode):
@@ -84,14 +85,15 @@ class Dispatcher(f.IndependentRecovery):
         stub.write_text('#!/usr/bin/env python3\nimport sys,json,os\n'+
           'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
           'assert sys.argv[sys.argv.index("--tools")+1]==""\n'+
-          'schema=json.loads(sys.argv[sys.argv.index("--json-schema")+1]);data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\n'+
+          'prompt=sys.stdin.read();assert "Task input:" not in " ".join(sys.argv)\n'+
+          'schema=json.loads(sys.argv[sys.argv.index("--json-schema")+1]);data=json.JSONDecoder().raw_decode(prompt.split("Task input:\\n",1)[1])[0]\n'+
           'props=schema["properties"]["results"]["properties"];refs=data["packet"]["evidence"];ids=[r["id"] for r in refs]\n'+
           'roles=[x for x in ("requirement","source","assertion","observation") if any(r["role"]==x for r in refs)]\n'+
           'assert "evidence" not in props and props["grounding"]["required"]==roles\n'+
           'assert all(props["grounding"]["properties"][x]["items"]["enum"]==[r["id"] for r in refs if r["role"]==x] for x in roles)\n'+
           'assert props["packet_sha256"]["enum"]==[data["packet_sha256"]]\nassert props["reviewer_id"]["enum"]==[data["reviewer_id"]]\n'+
-          'assert sys.argv[sys.argv.index("--system-prompt")+1] not in sys.argv[-1]\n'+
-          'size=sum(len(s.encode()) for s in (sys.argv[-1],sys.argv[sys.argv.index("--system-prompt")+1],sys.argv[sys.argv.index("--json-schema")+1]));assert size<=24576\n'+
+          'assert sys.argv[sys.argv.index("--system-prompt")+1] not in prompt\n'+
+          'size=sum(len(s.encode()) for s in (prompt,sys.argv[sys.argv.index("--system-prompt")+1],sys.argv[sys.argv.index("--json-schema")+1]))\n'+
           'mode=os.environ["SYNTHETIC_REVIEW_MODE"]\n'+
           'if mode=="reask_recovers":mode="yes" if "missing_roles" in data else "missing_roles"\n'+
           'group={x:[r["id"] for r in refs if r["role"]==x] for x in roles}\n'+

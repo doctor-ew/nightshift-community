@@ -232,9 +232,9 @@ class IndependentRecovery(f.Decisions):
         self.assertEqual(result['allowance']['deadline_at'],deadline)
 
     def test_oversized_plan_blocks_before_authority(self):
-        self.setup_independent();self.target.joinpath('source.txt').write_text('x'*26000+'\n')
+        self.setup_independent();self.target.joinpath('source.txt').write_text('x'*70000+'\n')
         subprocess.run(['git','-C',str(self.target),'commit','-qam','oversized source'],check=True,capture_output=True)
-        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked')
+        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked');self.assertIn('token_budget',a['decisions']['reason'])
         with self.assertRaisesRegex(ValueError,'preflight'):self.recover(expected=a['sha256'])
         self.assertNotIn('recovery_sessions',m.p.snapshot(self.project,'T-1'))
 
@@ -244,7 +244,7 @@ class IndependentRecovery(f.Decisions):
         stub.write_text('#!/usr/bin/env python3\nimport sys,json\n'+
             'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
             'assert "--safe-mode" in sys.argv and "--no-session-persistence" in sys.argv\nassert sys.argv[sys.argv.index("--tools")+1]==""\n'+
-            'data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\nassert data["mode"]=="independent"\n'+
+            'data=json.JSONDecoder().raw_decode(sys.stdin.read().split("Task input:\\n",1)[1])[0]\nassert data["mode"]=="independent"\n'+
             'g={}\nfor r in data["packet"]["evidence"]:g.setdefault(r["role"],[]).append(r["id"])\n'+
             'result=dict(decision="yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],grounding=g)\n'+
             'with open('+repr(str(calls))+',"a") as stream:stream.write(data["packet"]["id"]+"\\n")\n'+
@@ -274,7 +274,7 @@ class IndependentCache(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('engine_fixture',Path(__file__).with_name('test-decision-engine.py'))
         fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
         self.engine_module=fixture.e;self.packet=fixture.packet()
-        self.settings=dict(semantic_mode='independent',provider='claude',model='configured-fixture',timeout_seconds=120,max_bytes=24576)
+        self.settings=dict(semantic_mode='independent',provider='claude',model='configured-fixture',timeout_seconds=120,max_bytes=self.engine_module.MAX_BYTES)
         self.calls=[];self.reviews=[]
 
     def reserve(self,kind,request_id,size):

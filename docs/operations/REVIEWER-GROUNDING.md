@@ -25,13 +25,8 @@ reasonable selective `yes` that omitted the assertion role and stopped the run.
 - **Role prompt sent once.** It was the system prompt and also prefixed to the
   user prompt, doubling its cost against the framing limit. It is now only the
   system prompt.
-- **Configured limit.** The reviewer argument limit (system prompt + user prompt
-  + schema, UTF-8 bytes) is `providers.<provider>.limits.max_input_bytes` in the
-  routing file in use. Absent, it is 24576, the previous constant. Valid values
-  are 4096–131072; the ceiling is Linux's per-argument `MAX_ARG_STRLEN`, because
-  the prompt is passed as a single argument. Readiness checks every packet
-  against the worst case, including a re-ask naming every role.
-
+- **Size limit (superseded).** The configurable byte limit introduced here was
+  removed in favor of the operator's token budget; see `TOKEN-BUDGET.md`.
 - **Allowance upper bound.** A recovery plan's `limits` (the per-run allowance the
   operator approves through the assessment binding) were also capped at 600 s by a
   hardcoded check. Reviewer calls run sequentially and measured ~30 s each with

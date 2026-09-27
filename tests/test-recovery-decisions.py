@@ -112,9 +112,9 @@ class Decisions(legacy.RecoveryTest):
         with patch.dict(os.environ,{'TYPESAFE_API_KEY':''}):
             a=self.assess();self.assertEqual(a['decisions']['reason'],'decision_credentials_missing')
             with self.assertRaisesRegex(ValueError,'preflight'):self.compact(expected=a['sha256'])
-        self.target.joinpath('source.txt').write_text('x'*26000+'\n')
+        self.target.joinpath('source.txt').write_text('x'*70000+'\n')
         subprocess.run(['git','-C',str(self.target),'commit','-qam','oversized evidence'],check=True,capture_output=True)
-        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked')
+        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked');self.assertIn('token_budget',a['decisions']['reason'])
         with self.assertRaisesRegex(ValueError,'preflight'):self.compact(expected=a['sha256'])
         self.assertNotIn('recovery_sessions',m.p.snapshot(self.project,'T-1'))
 
@@ -132,8 +132,8 @@ class Decisions(legacy.RecoveryTest):
         stub.write_text("#!/usr/bin/env python3\nimport sys,json\n"+
           "if sys.argv[1:3]==['auth','status']:\n print(json.dumps(dict(loggedIn=True,authMethod='claude.ai',apiProvider='firstParty')));sys.exit(0)\n"+
           "assert '--safe-mode' in sys.argv and '--no-session-persistence' in sys.argv\nassert sys.argv[sys.argv.index('--tools')+1]==''\n"+
-          "prompt=sys.argv[-1];data=json.JSONDecoder().raw_decode(prompt.split('Task input:\\n',1)[1])[0]\n".replace('\\n','\\n')+
-          "assert len(prompt.encode())<24576\nassert 'corpus' not in data and 'evidence' not in data\n"+
+          "prompt=sys.stdin.read();data=json.JSONDecoder().raw_decode(prompt.split('Task input:\\n',1)[1])[0]\n".replace('\\n','\\n')+
+          "assert 'corpus' not in data and 'evidence' not in data\n"+
           "g={}\nfor e in data['packet']['evidence']:g.setdefault(e['role'],[]).append(e['id'])\n"+
           "r=dict(decision='yes',packet_sha256=data['packet_sha256'],reviewer_id=data['reviewer_id'],grounding=g)\n"+
           "report=dict(status='SUCCESS',reason='Synthetic focused review',attempts=1,artifacts=dict(branch='',diff='',**"+repr(route)+"),rules_fired=[],results=r)\n"+
