@@ -24,10 +24,10 @@ class IndependentRecovery(f.Decisions):
         self.env_independent.start();self.addCleanup(self.env_independent.stop)
         self.envelopes=[]
 
-    def independent_review(self,value,packet,mode,output,timeout,reviewer_id=None):
+    def independent_review(self,value,packet,mode,output,timeout,reviewer_id=None,missing_roles=None):
         self.assertEqual(mode,'independent')
         self.review_calls.append(packet['id'])
-        self.envelopes.append(m.load('decision-engine').independent_envelope(packet,reviewer_id))
+        self.envelopes.append(m.load('decision-engine').independent_envelope(packet,reviewer_id,missing_roles))
         return dict(decision='yes',packet_sha256=m.load('decision-engine').digest(packet),reviewer_id=reviewer_id,evidence=[r['id'] for r in packet['evidence']])
 
     def recover(self,operation='authorize',expected=None,review=None):
@@ -245,7 +245,8 @@ class IndependentRecovery(f.Decisions):
             'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
             'assert "--safe-mode" in sys.argv and "--no-session-persistence" in sys.argv\nassert sys.argv[sys.argv.index("--tools")+1]==""\n'+
             'data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\nassert data["mode"]=="independent"\n'+
-            'result=dict(decision="yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],evidence=[r["id"] for r in data["packet"]["evidence"]])\n'+
+            'g={}\nfor r in data["packet"]["evidence"]:g.setdefault(r["role"],[]).append(r["id"])\n'+
+            'result=dict(decision="yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],grounding=g)\n'+
             'with open('+repr(str(calls))+',"a") as stream:stream.write(data["packet"]["id"]+"\\n")\n'+
             'print(json.dumps(dict(structured_output=dict(status="SUCCESS",reason="Synthetic independent review",attempts=1,artifacts=dict(branch="",diff="",**'+repr(route)+'),rules_fired=[],results=result))))\n')
         stub.chmod(0o755)

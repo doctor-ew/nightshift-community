@@ -41,6 +41,22 @@ def configuration(target):
     return cfg
 
 
+# Upper bounds on what a plan may request. The per-run allowance itself is the
+# plan's limits, which the operator approves through the assessment binding.
+# Reviewer calls run sequentially (~30 s each measured with Claude Haiku), so
+# the former 600 s bound could not fit a 31-question plan in one session.
+MAX_ALLOWANCE_SECONDS=3600
+MAX_PROVIDER_CALLS=64
+
+
+def validate_limits(limits):
+    if not isinstance(limits,dict) or set(limits)!={'wall_seconds','active_seconds','provider_calls'} or any(type(v) is not int or v<=0 for v in limits.values()):
+        raise ValueError('recovery_decision_limits_invalid')
+    if limits['wall_seconds']>MAX_ALLOWANCE_SECONDS or limits['active_seconds']>MAX_ALLOWANCE_SECONDS or limits['provider_calls']>MAX_PROVIDER_CALLS:
+        raise ValueError('recovery_decision_limits_invalid')
+    return limits
+
+
 def plan(value):
     target=Path(value['worktree']);name='docs/'+value['task']+'/recovery-plan.json'
     if not (target/name).exists() and not (target/name).is_symlink():raise ValueError('recovery_decision_plan_missing:'+name)
@@ -53,9 +69,7 @@ def plan(value):
     if not isinstance(environment,dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]{0,80}',k) or k in ('PATH','HOME','TMPDIR','SYSTEMROOT') or k.startswith(('GIT_','LD_','DYLD_','NIGHTSHIFT_')) or not isinstance(v,str) or len(v)>4096 for k,v in environment.items()):
         raise ValueError('recovery_decision_environment_invalid')
     if value['verification_environment']!={'NIGHTSHIFT_PYTHON3':__import__('shutil').which('python3'),**environment}:raise ValueError('recovery_decision_environment_changed')
-    limits=data['limits']
-    if set(limits)!={'wall_seconds','active_seconds','provider_calls'} or any(type(v) is not int or v<=0 for v in limits.values()) or limits['wall_seconds']>600 or limits['active_seconds']>600 or limits['provider_calls']>64:
-        raise ValueError('recovery_decision_limits_invalid')
+    validate_limits(data['limits'])
     # Every executable check is independently rerun. Existing report exits are ignored.
     checks=data['checks']
     if not checks or len(checks)>20 or len({c['id'] for c in checks})!=len(checks):raise ValueError('recovery_decision_checks_invalid')
@@ -156,11 +170,18 @@ def packets(value, verification, gate):
 
 
 def review_framing(value,packet,mode=None):
+    """Largest framing this packet can need: first ask or the worst-case single re-ask."""
     mode=mode or value.get('decision_readiness',{}).get('semantic_mode','jev')
-    envelope=dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id='decision-review-'+'0'*32,mode='independent' if mode=='independent' else 'exception')
-    raw=engine.encoded(envelope) if mode=='independent' else json.dumps(envelope,sort_keys=True).encode()
-    route=value['reviewer_route']
-    return load('decision-render').render(HERE.parent,raw,route['provider'],route['model'])
+    render=load('decision-render');route=value['reviewer_route']
+    routing_path=value.get('plan',{}).get('routing_path')
+    limit=render.input_limit(json.loads(Path(routing_path).read_text()) if routing_path else None,route['provider'])
+    reviewer='decision-review-'+'0'*32
+    if mode=='independent':
+        raws=[engine.encoded(engine.independent_envelope(packet,reviewer)),
+              engine.encoded(engine.independent_envelope(packet,reviewer,sorted(engine.required_roles(packet))))]
+    else:
+        raws=[json.dumps(dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id=reviewer,mode='exception'),sort_keys=True).encode()]
+    return max((render.render(HERE.parent,raw,route['provider'],route['model'],limit=limit) for raw in raws),key=lambda r:r['argument_content_bytes'])
 
 
 def readiness(value):

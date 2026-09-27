@@ -172,7 +172,7 @@ fail() {
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
          elif $role == "nightshift-operation-worker" then {binding:"",decision:"abstain",findings:[],resolved:[],coverage:[]}
-         elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",evidence:[]}
+         elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",grounding:{}}
          elif $role == "nightshift-recovery-reviewer" then {binding:"",stage:"adoption",reviewer_id:"",decision:"reject",findings:[],dispositions:[],cases:[],ac_ids:[]}
          elif $role == "nightshift-behavior-reviewer" then {decision:"repair",scenario_ids:[],findings:[],reviewed_input_sha256:""}
          else {files_changed:[]} end)}' > "$receipt"; then
@@ -443,7 +443,7 @@ PROMPT="$(cat "$TMP/prompt")"
 PROMPT+=$'\n'"$EXECUTION_CONTEXT"
 if [ "$ROLE" = nightshift-decision-reviewer ]; then
   [ "$PROVIDER" = claude ] || fail 'decision reviewer requires the verified tool-free transport'
-  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" || fail 'invalid or oversized decision reviewer framing'
+  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" --routing "$ROUTING" || fail 'invalid or oversized decision reviewer framing'
   PROMPT="$(cat "$TMP/prompt")"
 fi
 if [ "$ROLE" = nightshift-operation-worker ]; then

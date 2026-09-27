@@ -275,7 +275,7 @@ def verify_checks(value, timeout):
     return dict(binding=digest(value), status='pass' if len(results)==len(value['checks']) and all(r['exit_code']==0 for r in results) else 'fail', checks=results)
 
 
-def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
+def compact_review(value,packet,mode,output,timeout,reviewer_id=None,missing_roles=None):
     """One isolated reviewer sees only the obligation; primary answer is withheld."""
     policies=(value['plan']['policy'],os.environ.get('NIGHTSHIFT_PROVIDER_POLICY','standard'))
     if any(policy not in ('standard','claude-only') for policy in policies):
@@ -283,7 +283,7 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
     effective_policy='claude-only' if 'claude-only' in policies else 'standard'
     role_child=os.environ.get('NIGHTSHIFT_ROLE_CHILD')
     decision=load('decision-engine');reviewer_id=reviewer_id or 'decision-review-'+uuid.uuid4().hex
-    envelope=(decision.independent_envelope(packet,reviewer_id) if mode=='independent' else dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode))
+    envelope=(decision.independent_envelope(packet,reviewer_id,missing_roles) if mode=='independent' else dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id=reviewer_id,mode=mode))
     if len(decision.encoded(envelope))>decision.MAX_BYTES:raise ValueError('decision_review_request_too_large')
     request=output.with_suffix('.input.json')
     if mode=='independent':decision.atomic(request,envelope)
@@ -308,7 +308,7 @@ def compact_review(value,packet,mode,output,timeout,reviewer_id=None):
     result=report['results']
     if result.get('reviewer_id')!=reviewer_id:raise ValueError('decision_reviewer_identity_mismatch')
     # The original dispatcher report remains on disk; only its citation view changes.
-    return decision.normalize_review_citations(result,packet)
+    return decision.review_from_grounding(result,packet)
 
 
 def compact_verdict(value,stage,checks,session,directory,save,step,transport=None,escalator=None):
@@ -327,7 +327,7 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
         if request_id in calls:raise ValueError('decision_duplicate_reservation')
         budget['calls_used']+=1
         calls[request_id]=dict(kind=kind,request_bytes=request_bytes,status='pending',started_at=time.time())
-        if kind in ('independent','exception','shadow'):calls[request_id]['request_bytes_scope']='exact serialized reviewer input envelope; excludes CLI role/schema framing'
+        if kind in ('independent','reask','exception','shadow'):calls[request_id]['request_bytes_scope']='exact serialized reviewer input envelope; excludes CLI role/schema framing'
         save();return request_id
     def finish(request_id,outcome):
         session['decision_calls'][request_id].update(status=outcome,finished_at=time.time())
@@ -341,9 +341,11 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
         return (escalator or compact_review)(value,packet,mode,output,max(.001,min(120,remaining())))
     semantic_mode=value['decision_readiness'].get('semantic_mode','jev')
     if semantic_mode=='independent':
-        def independent_review(packet,reviewer_id):
-            output=directory/('decision-'+decision.digest(packet)+'.review.json')
-            return (escalator or compact_review)(value,packet,'independent',output,max(.001,min(120,remaining())),reviewer_id=reviewer_id)
+        def independent_review(packet,reviewer_id,missing_roles=None):
+            # A re-ask writes beside, never over, the retained first report.
+            output=directory/('decision-'+decision.digest(packet)+('.reask' if missing_roles else '')+'.review.json')
+            extra=dict(missing_roles=missing_roles) if missing_roles else {}
+            return (escalator or compact_review)(value,packet,'independent',output,max(.001,min(120,remaining())),reviewer_id=reviewer_id,**extra)
         evaluator=decision.IndependentEngine(directory/'decisions',session['binding'],settings,reserve,finish,independent_review)
     else:
         evaluator=decision.Engine(directory/'decisions',session['binding'],settings,reserve,finish,
