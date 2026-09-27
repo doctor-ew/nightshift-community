@@ -25,13 +25,15 @@ _GIT_ENV = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_CEILING_DIRECTORI
 def _fingerprint(project, top, common):
     try:
         real = Path(os.path.realpath(project))
-        if real != top and top not in real.parents:
-            return None
+        # Compare directories by filesystem identity, not spelling: git reports the
+        # on-disk case, which differs from the query on case-insensitive filesystems.
         for directory in (real, *real.parents):
-            if directory == top:
+            if os.path.samefile(directory, top):
                 break
             if os.path.lexists(directory / '.git'):
                 return None
+        else:
+            return None
         marker = top / '.git'; a = marker.lstat(); b = common.stat()
         pointer = marker.read_text() if marker.is_file() else ''
         return (str(real), a.st_mode, a.st_dev, a.st_ino, b.st_dev, b.st_ino, pointer)

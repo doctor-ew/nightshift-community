@@ -51,6 +51,11 @@ class CheckoutIdentity(unittest.TestCase):
         with unittest.mock.patch.dict(identity.os.environ,GIT_DIR=str(b/'.git'),GIT_WORK_TREE=str(b)):
             self.assertEqual(identity.checkout_identity(a),(b,b/'.git'))
         self.assertEqual(identity.checkout_identity(a),(a,a/'.git'))
+    def test_differently_cased_query_is_cached_on_case_insensitive_filesystems(self):
+        path=self.repo(self.tmp/'MyRepo');query=self.tmp/'myrepo'
+        if not query.exists():self.skipTest('case-sensitive filesystem')
+        self.assertEqual(identity.checkout_identity(query),(path,path/'.git'))
+        self.assertTrue(any(k[0]==str(query) for k in identity._CACHE))
     def test_non_checkouts_are_not_cached(self):
         plain=self.tmp/'plain';plain.mkdir()
         self.assertIsNone(identity.checkout_identity(plain));self.assertFalse(any(k[0]==str(plain) for k in identity._CACHE))
