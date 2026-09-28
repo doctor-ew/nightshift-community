@@ -8,7 +8,7 @@ edges:
   - target: context/conventions.md
     condition: when verifying a launcher change
 grounds_to: []
-last_updated: 2026-09-13
+last_updated: "2026-09-25"
 mex:
   id: mx_01M3024GD90Y8AHCKZVBHZGR9G
   type: pattern
@@ -106,3 +106,15 @@ Final macOS safe-mode pilot: 17 calls, 43,793 tokens, $0.257202 reported subscri
 cost estimate, eight public cases passed. All eight development trials are accounted
 for separately in `docs/WORKSHOP-VERIFICATION.md`; interrupted usage is explicitly
 unknown where a receipt is absent. Source tests and installed runtime tests pass.
+
+Portal consumers must use the shared routing resolver with the ticket worktree as explicit project context. Do not assume a consumer has `routing.json`; retain the admitted path for asynchronous workers. Sources: `scripts/nightshift-console-chat.py`, `scripts/nightshift-routing-path.py`, `tests/test-console-chat.py`.
+
+For semantic recovery, keep operator authority and test outcomes in the controller. Build bounded evidence packets from verified source and actual outputs; cache by obligation and authorized session. Never turn missing context into an approval or duplicate allowance. The same CLI/browser operation and explicit deployment limits are documented in `docs/DECISION-RECOVERY.md`.
+
+## Fresh source handoff
+
+Product child admission receives the original source reference before a retained
+contract exists. Subsequent stages use the canonical task key; budgets, decisions
+and worktree ownership stay bound to that key. Exercise the real child launcher
+and stop at the manifest gate to test input admission without provider calls.
+Sources: `scripts/nightshift-pipeline.py`, `tests/test-pipeline.py`.

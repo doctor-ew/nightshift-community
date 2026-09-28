@@ -15,7 +15,8 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
     stub = binary/'codex'
     stub.write_text('#!/usr/bin/env python3\nimport os,pathlib,sys\np=pathlib.Path(os.environ["STUB_CALLS"])\nwith p.open("a") as f:f.write("call\\n")\nif sys.argv[1:3]==["login","status"]: print("Logged in using ChatGPT")\n')
     stub.chmod(0o755)
-    env = dict(os.environ, PATH=str(binary)+os.pathsep+os.environ['PATH'], STUB_CALLS=str(calls), NIGHTSHIFT_SYNC_CHECK='off', NIGHTSHIFT_DASHBOARD='off', NIGHTSHIFT_HOME=str(base/'home'))
+    env = dict(os.environ, PATH=str(binary)+os.pathsep+os.environ['PATH'], STUB_CALLS=str(calls), NIGHTSHIFT_SYNC_CHECK='off', NIGHTSHIFT_UPDATE_GUARD='1', NIGHTSHIFT_DASHBOARD='off', NIGHTSHIFT_HOME=str(base/'home'))
+    (base/'home').mkdir();env['HOME']=str(base/'home')
     def git(p,*args):
         return subprocess.run(['git','-C',str(p),*args],check=True,capture_output=True,text=True).stdout
     def project(name, commit=True):
@@ -30,7 +31,11 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
     def run(p,ref,branch='auto',extra=()):
         calls.write_text('')
         before=inventory(p)
-        r=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),ref,'--project',str(p),'--auth','subscription','--provider','codex','--branch',branch,*extra],env=env,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
+        # Admission is tested against an explicit stage transport. A stub exit
+        # does not stand in for the controller's evidence-gated completion.
+        handoff=base/'handoff.json';handoff.write_text('{}')
+        stage_env=dict(env,NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='preflight-fixture',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(base/'receipt.json'))
+        r=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),ref,'--project',str(p),'--auth','subscription','--provider','codex','--branch',branch,*extra],env=stage_env,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
         after=inventory(p)
         if r.returncode == 0:
             # An admitted worker may publish lifecycle observations, never source edits.

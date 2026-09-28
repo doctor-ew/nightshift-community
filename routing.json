@@ -1,7 +1,8 @@
 {
   "$comment": [
     "Active routing consumed by scripts/nightshift-agent.sh. Exact role/gear routes are required.",
-    "Provider envelopes are normalized and validated locally against strict role contracts."
+    "Provider envelopes are normalized and validated locally against strict role contracts.",
+    "Codex leads ordinary role work at gears 1\u20133. Gear 4 retains explicit Claude delegation; independent review selects the other configured provider from author provenance."
   ],
   "version": 1,
   "providers": {
@@ -48,7 +49,7 @@
     }
   },
   "defaults": {
-    "provider": "claude",
+    "provider": "codex",
     "sandbox": "read-only"
   },
   "roles": {
@@ -57,39 +58,39 @@
       "sandbox": "read-only",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "haiku"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "haiku"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
           "model": "sonnet"
         }
       },
-      "$comment": "Read-only search role. Strongest candidate for a local model once one is pulled — no design judgment required."
+      "$comment": "Read-only search role. Strongest candidate for a local model once one is pulled \u2014 no design judgment required."
     },
     "nightshift-spec-writer": {
       "prompt": "agents/nightshift-spec-writer.md",
       "sandbox": "read-only",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "opus"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
@@ -103,16 +104,16 @@
       "sandbox": "workspace-write",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
@@ -126,16 +127,16 @@
       "sandbox": "workspace-write",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "opus"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
@@ -148,16 +149,16 @@
       "sandbox": "read-only",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "opus"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
@@ -170,39 +171,39 @@
       "sandbox": "workspace-write",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "haiku"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "haiku"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "haiku"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",
           "model": "haiku"
         }
       },
-      "$comment": "Runs commands and parses output. No design role — effort does not need to rise with gear."
+      "$comment": "Runs commands and parses output. No design role \u2014 effort does not need to rise with gear."
     },
     "nightshift-repair-analyst": {
       "prompt": "agents/nightshift-repair-analyst.md",
       "sandbox": "read-only",
       "gears": {
         "1": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "2": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "3": {
-          "provider": "claude",
-          "model": "sonnet"
+          "provider": "codex",
+          "model": "gpt-5.4"
         },
         "4": {
           "provider": "claude",

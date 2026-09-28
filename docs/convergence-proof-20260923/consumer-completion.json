@@ -1,0 +1,20 @@
+{
+  "ticket": "convergence-proof",
+  "gate": "synthetic-consumer-behavior",
+  "status": "complete",
+  "reason": "Original behavior failed; deterministic apply repaired the pinned value; three actual consumer assertions passed.",
+  "scope": "synthetic deterministic consumer; not full factory or live model proof",
+  "elapsed_seconds": 0.162,
+  "time_limit_seconds": 30,
+  "provider_launch_limit": 0,
+  "provider_launches": 0,
+  "repair_attempts": 1,
+  "behavior_retries": 1,
+  "known_provider_tokens": 0,
+  "assistant_session_tokens": null,
+  "unknown_accounting": [
+    "assistant session token usage",
+    "historical subscription usage"
+  ],
+  "gate_approval": false
+}

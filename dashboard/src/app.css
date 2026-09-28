@@ -56,3 +56,20 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 .chat-message {margin:12px 0;padding:12px;border-radius:8px;background:#1a2431;font-size:13px;}
 .chat-message.user {background:#1a2d27;}
 @media(max-width:700px){.live-facts{grid-template-columns:1fr;}.live-progress .run-head{flex-wrap:wrap;}}
+
+.ticket-decision {padding:1.4rem;border:1px solid #bb9461;border-radius:12px;margin:1rem 0;background:#29251e}.ticket-decision fieldset {border:0;padding:0;margin:1rem 0}.decision-option {display:flex;gap:.7rem;align-items:flex-start;padding:.65rem 0}.decision-option input {margin-top:.3rem}.decision-option small {display:block;margin-top:.3rem}.ticket-decision textarea {width:100%;box-sizing:border-box}.ticket-decision h4 {margin-top:0}
+
+/* Keep operation evidence readable without expanding the entire dashboard. */
+.operations-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; padding: 12px; background: #141a23; border-radius: 6px; }
+.operations-panel input, .operations-panel select { max-width: 100%; }
+.operations-panel .artifact-row > * { min-width: 0; }
+
+.intake-panel {min-width:0;overflow-wrap:anywhere;}
+.intake-panel > label {display:flex;flex-direction:column;gap:7px;margin:16px 0;max-width:720px;font-size:13px;color:#b7c1d0;}
+.intake-panel input,.intake-panel select,.intake-panel textarea {width:100%;min-width:0;max-width:100%;padding:10px;background:#101720;border:1px solid #526074;border-radius:6px;color:#e6e9ef;font:inherit;}
+.intake-panel textarea {min-height:84px;resize:vertical;}
+.intake-panel textarea:focus-visible {outline:2px solid #89c6ab;outline-offset:3px;}
+.intake-panel button {min-height:44px;max-width:100%;white-space:normal;margin:6px 8px 6px 0;padding:9px 14px;background:#1c232d;color:#cdd8e4;border:1px solid #526074;border-radius:7px;}
+.intake-panel pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;padding:12px;background:#141a23;border-radius:6px;}
+
+.operations-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;max-height:28rem;overflow:auto}.operations-panel fieldset{min-width:0}.operations-panel textarea{display:block;box-sizing:border-box;width:100%;max-width:100%}.operations-panel p,.operations-panel label{overflow-wrap:anywhere}

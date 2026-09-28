@@ -23,6 +23,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-35-boundary-') as tmp:
         f=binary/name;f.write_text(content);f.chmod(0o755)
     ROUTING=str(base/'routing.json')
     env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_ROUTING_FILE=ROUTING,NIGHTSHIFT_PROJECT_DIR=str(project),PYTHONDONTWRITEBYTECODE='1')
+    (base/'home').mkdir();env['HOME']=str(base/'home')
     for key in ['NIGHTSHIFT_RUN_ID','NIGHTSHIFT_RUN_DIR','NIGHTSHIFT_TICKET_JSON','NIGHTSHIFT_ROLE_CHILD']:
         env.pop(key,None)
     metrics=ROOT/'scripts/nightshift-run-metrics.py'
@@ -48,7 +49,9 @@ with tempfile.TemporaryDirectory(prefix='nightshift-35-boundary-') as tmp:
 
     shutil.copy(ROOT/'nightshift.toml',project/'.nightshift.toml')
     shutil.copy(ROOT/'routing.json',project/'routing.json')
-    factory_env=dict(env,NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_OUTPUT_MODE='verbose')
+    # A single stage transport supplies usage; a process exit is not factory approval.
+    handoff=base/'handoff.json';handoff.write_text('{}')
+    factory_env=dict(env,NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_OUTPUT_MODE='verbose',NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='35',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(base/'receipt.json'))
     run(['bash',str(ROOT/'scripts/nightshift-factory.sh'),'gh:35','--project',str(project),'--provider','claude','--branch','none'],factory_env)
     report=json.loads(run(['python3',str(metrics),'ticket-report','--project',str(project),'--source','gh','--repository','doctor-ew/nightshift-community','--source-id','35'],env))
     assert report['run_count']==3,report

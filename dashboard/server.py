@@ -77,6 +77,12 @@ class DashboardServer(ThreadingHTTPServer):
 
 
 
+def operation_module():
+    spec = importlib.util.spec_from_file_location('operations', ROOT / 'scripts/nightshift-operations.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
 def action_module():
     spec = importlib.util.spec_from_file_location('console_actions', ROOT / 'scripts/nightshift-console-actions.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -85,6 +91,12 @@ def action_module():
 
 def chat_module():
     spec = importlib.util.spec_from_file_location('console_chat', ROOT / 'scripts/nightshift-console-chat.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
+def decision_module():
+    spec = importlib.util.spec_from_file_location('console_decisions', ROOT / 'scripts/nightshift-console-decisions.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     return module
 
@@ -118,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'evidence_api': 1, 'ticket_chat_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'recovery_decisions_api': 1, 'operations_api': 1, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -136,6 +148,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, json.dumps(value).encode(), 'application/json')
             except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
                 self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')
+            return
+        if self.path == '/api/intake':
+            try:
+                value=operation_module().api(self.server.project,dict(action='intake-bootstrap'))
+                self.reply(200,json.dumps(dict(view=value,token=self.server.approval_token)).encode(),'application/json')
+            except (OSError,ValueError,subprocess.SubprocessError) as error:self.reply(409,json.dumps(dict(error=str(error))).encode(),'application/json')
+            return
+        if urlsplit(self.path).path == '/api/operations':
+            try:
+                query = parse_qs(urlsplit(self.path).query, strict_parsing=True)
+                if set(query) != {'task'} or len(query['task']) != 1: raise ValueError('Invalid operation query')
+                view = operation_module().api(self.server.project, dict(task=query['task'][0], action='view'))
+                self.reply(200, json.dumps(dict(view=view, token=self.server.approval_token)).encode(), 'application/json')
+            except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
+                self.reply(409, json.dumps({'error':str(error)}).encode(), 'application/json')
             return
         if self.path == '/api/tickets':
             try:
@@ -171,7 +198,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/workshop/approve', '/api/tickets/resume', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat'):
+        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/tickets/recovery-accept', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected
@@ -180,21 +207,29 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin approval required'); return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= (16384 if self.path == '/api/tickets/chat' else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (16384 if self.path in ('/api/operations', '/api/tickets/chat', '/api/tickets/decision', '/api/tickets/recovery-accept') else 4096) or self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             self.connection.settimeout(5)
             body = json.loads(self.rfile.read(length))
-            allowed = {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
-            if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, str) for v in body.values()):
+            if self.path == '/api/operations':
+                result = operation_module().api(self.server.project, body)
+                self.reply(200, json.dumps(result).encode(), 'application/json')
+                return
+            allowed = {'task', 'sha256', 'assessment_sha256', 'operator', 'attestation'} if self.path == '/api/tickets/recovery-accept' else {'task', 'sha256', 'assessment_sha256', 'operator'} if self.path in ('/api/tickets/recovery-authorize','/api/tickets/recovery-resume') else {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
+            if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, dict) if k=='attestation' and self.path=='/api/tickets/recovery-accept' else isinstance(v, str) for k,v in body.items()):
                 raise ValueError('Invalid approval')
-            if self.path == '/api/workshop/approve':
+            if self.path.startswith('/api/tickets/recovery-'):
+                result = action_module().recovery_action(self.server.project,body['task'],body['sha256'],self.path.rsplit('/',1)[1],body.get('assessment_sha256',''),body.get('operator',''),**({'attestation':body.get('attestation')} if self.path.endswith('/recovery-accept') else {}))
+            elif self.path == '/api/workshop/approve':
                 result = review_module().approve_and_continue(self.server.project, body['task'], body['sha256'])
+            elif self.path == '/api/tickets/decision':
+                result = decision_module().submit(self.server.project, body['task'], body['sha256'], body['decision_sha256'], body['choice'], body['answer'])
             elif self.path == '/api/tickets/chat':
                 result = chat_module().start(self.server.project, body['task'], body['sha256'], body['provider'], body['message'])
             else:
-                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1], provider=body.get('provider', 'auto'))
+                result = action_module().action(self.server.project, body['task'], body['sha256'], self.path.rsplit('/', 1)[1], provider=body.get('provider', 'auto'), **({'budget_revision': body['budget_revision']} if self.path == '/api/tickets/continue' else {}))
             self.reply(200, json.dumps(result).encode(), 'application/json')
-        except (ValueError, OSError, subprocess.SubprocessError) as error:
+        except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
             self.reply(409, json.dumps({'error': str(error)}).encode(), 'application/json')
 
     do_PUT = do_PATCH = do_DELETE = do_OPTIONS = do_HEAD = reject_method

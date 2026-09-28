@@ -1,0 +1,18 @@
+{
+  "status": "FAIL",
+  "reason": "provider launch or transport failed (exit=1 category=model_unavailable)",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "codex",
+    "model": "gpt-5.4"
+  },
+  "rules_fired": [
+    "dispatcher_failure"
+  ],
+  "results": {
+    "passed": 0,
+    "failed": 0
+  }
+}

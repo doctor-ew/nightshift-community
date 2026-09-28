@@ -1,0 +1,28 @@
+{
+  "kind": "synthetic",
+  "status": "pending_manual_acceptance",
+  "jev_calls": 4,
+  "independent_review_calls": 2,
+  "jev_request_bytes": [
+    3766,
+    7205,
+    3713,
+    3701
+  ],
+  "review_packet_ids": [
+    "scope_matches",
+    "oracle_valid"
+  ],
+  "provider_calls_used": 6,
+  "original_budget_unchanged": true,
+  "stage_cache_hits": {
+    "verify": 0,
+    "adoption": 0,
+    "review": 1,
+    "drift": 0,
+    "qa": 0
+  },
+  "maximum_payload_bytes": 24576,
+  "live_accuracy": "not measured",
+  "live_savings": "not measured"
+}

@@ -462,6 +462,8 @@ are installed to `~/.nightshift/agents/`:
 
 Role prompts carry **no `model:` key**. The active Bash+jq dispatcher reads the exact
 `roles[role].gears[gear]` provider/model and `roles[role].prompt` from `routing.json`.
+
+A routing file may set `allowed_providers` to `["claude", "codex"]` for a frontier-only run. Automatic local extraction then selects an allowed configured role route; cross-provider review still requires a different allowed provider and fails if none exists. Omit the setting to retain all configured providers. This does not change subscription authentication or relax review gates.
 Gear defaults to 1 and must be 1–4; missing routes and malformed options fail before
 launch. Copy and symlink installations include all five schemas and the local jq
 validator alongside shared assets.
@@ -555,6 +557,13 @@ bash ~/.nightshift/scripts/nightshift-capability.sh --has mex  # exit 0/1, for g
 ---
 
 ## Dashboard
+
+The live operations portal supports version-bound operator decisions: choose an
+option or type your answer, then **Submit & continue**. Parent tickets surface
+owned child questions and repair the actual failing child's public evidence.
+Active work is protected from concurrent repairs. See the [portal guide](dashboard/README.md#operator-decisions-and-repair-evidence)
+for decision handling, retained answers, repair scope and recovery.
+
 
 ### Live operations console
 
@@ -1038,5 +1047,25 @@ streams, and filters eligible successful test/build output when RTK is available
 `nightshift evaluate --input FILE` optionally evaluates explicitly approved
 evidence using configurable Jev shadow judgments; it never approves pipeline gates.
 Opt out with `NIGHTSHIFT_RTK_ENABLED=false` or `NIGHTSHIFT_JEV_ENABLED=false`.
+
+Repair admission also supports `docs/<task>/repair-checks.json`: immutable original
+JSON snapshots and exact field assertions demonstrate that the original defect
+fails and the candidate passes before another source-review launch. These checks
+do not approve independent review or behavioral gates. Repeated findings require
+a different repair author/provider and a narrowed repair brief.
+The helper's explicit `apply` operation performs a recorded exact-field repair
+without a model call, only for one JSON artifact still matching its pinned
+original snapshot. It refuses later edits and rechecks the repaired result.
+
+Resolved single-ticket factory runs and role dispatchers share a persistent
+common-Git budget (default 64 provider-process launches and 3600 aggregate active
+seconds). Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
+`NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS` before the first instrumented launch to
+choose limits; later environment changes cannot expand them or reset usage.
+Child dispatches inherit `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`.
+This measures instrumented process launches, not provider-internal API turns,
+tokens, subscription quota, or historical work. Batch factory orchestration and
+direct proof calls retain their separate existing accounting. Interrupted
+unfinalized reservations remain charged conservatively.
 Missing optional components produce visible fallback/skip receipts.
 See [installation, limits, configuration, and examples](docs/EFFICIENCY-ADAPTERS.md).

@@ -215,10 +215,10 @@ migrate_legacy_hooks() {
   [ -f "$path" ] || return 0
   # Match the literal tilde stored in hook command text, not an expanded path.
   # shellcheck disable=SC2088
-  grep -q '~/.claude/scripts/nightshift-' "$path" 2>/dev/null || return 0
+  grep -Eq '~/.((claude)|(nightshift))/scripts/nightshift-' "$path" 2>/dev/null || return 0
   backup_if_exists "$path"
   python3 - "$path" <<'PYEOF'
-import json, sys
+import json, re, sys
 path = sys.argv[1]
 with open(path) as f:
     settings = json.load(f)
@@ -228,7 +228,8 @@ for groups in settings.get("hooks", {}).values():
         for hook in group.get("hooks", []):
             command = hook.get("command")
             if isinstance(command, str):
-                migrated = command.replace("~/.claude/scripts/nightshift-", "~/.nightshift/scripts/nightshift-")
+                match = re.fullmatch(r"bash ~/\.(?:claude|nightshift)/scripts/(nightshift-(?:scope-freeze|spec-guardrail|stop-hook)\.sh)", command)
+                migrated = ('bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/' + match.group(1) + '"') if match else command
                 if migrated != command:
                     hook["command"] = migrated
                     changed = True
@@ -518,20 +519,20 @@ added = []
 if not pre_wired("nightshift-scope-freeze.sh"):
     pre.append({
         "matcher": "Edit|Write",
-        "hooks": [{"type": "command", "command": "bash ~/.nightshift/scripts/nightshift-scope-freeze.sh"}]
+        "hooks": [{"type": "command", 'command': 'bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-scope-freeze.sh"'}]
     })
     added.append("scope-freeze")
 
 if not pre_wired("nightshift-spec-guardrail.sh"):
     pre.append({
         "matcher": "Edit|Write",
-        "hooks": [{"type": "command", "command": "bash ~/.nightshift/scripts/nightshift-spec-guardrail.sh"}]
+        "hooks": [{"type": "command", 'command': 'bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-spec-guardrail.sh"'}]
     })
     added.append("spec-guardrail")
 
 if not stop_wired("nightshift-stop-hook.sh"):
     stop.append({
-        "hooks": [{"type": "command", "command": "bash ~/.nightshift/scripts/nightshift-stop-hook.sh"}]
+        "hooks": [{"type": "command", 'command': 'bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stop-hook.sh"'}]
     })
     added.append("nightshift-stop-hook")
 

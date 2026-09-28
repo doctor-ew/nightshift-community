@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nightshift durable operation result version 1",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "operation": {
+      "enum": [
+        "groom-spec",
+        "groom-rules",
+        "groom-adversarial",
+        "groom",
+        "implement",
+        "adopt",
+        "verify",
+        "review",
+        "accept",
+        "publish"
+      ]
+    },
+    "dependencies": {
+      "type": "object"
+    },
+    "request": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "completed_at": {
+      "type": "number"
+    },
+    "source": {
+      "type": "object"
+    },
+    "review": {
+      "type": "object"
+    },
+    "resolved": {
+      "type": "object"
+    },
+    "observations": {
+      "type": "array"
+    },
+    "architecture": {
+      "type": "object"
+    },
+    "publication": {
+      "type": "object"
+    },
+    "semantic": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "external": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "version",
+    "operation",
+    "dependencies",
+    "request",
+    "evidence",
+    "outputs",
+    "provenance",
+    "digest"
+  ],
+  "additionalProperties": false
+}

@@ -30,6 +30,7 @@ canonical() {
 }
 
 [ "$#" -ge 2 ] || fail 'usage: prepare|finish|migrate|refresh|check TASK --project PATH [--base REF] [--root DIR] [--legacy PATH]'
+original_args=("$@")
 operation=$1; task=$2; shift 2
 [[ "$task" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]] || fail 'unsafe task identifier'
 case "$operation" in prepare|finish|migrate|refresh|check) ;; *) fail "unknown operation: $operation" ;; esac
@@ -53,6 +54,11 @@ project=$(canonical "$project")
 common=$(git -C "$project" rev-parse --git-common-dir)
 [[ "$common" = /* ]] || common="$project/$common"
 common=$(canonical "$common")
+# Serialize mutating CLI preparation with portal repair ownership. Read-only
+# inspection remains available while a repair owns the target.
+if [ "$operation" != check ] && [ "${NIGHTSHIFT_WORKTREE_LEASE_GUARDED:-}" != 1 ]; then
+  exec python3 "$(dirname "$0")/nightshift-console-lease.py" --project "$project" --task "$task" -- bash "$0" "${original_args[@]}"
+fi
 branch="nightshift/$task"
 git check-ref-format --branch "$branch" >/dev/null || fail 'invalid task branch'
 if [ "$explicit" = true ]; then

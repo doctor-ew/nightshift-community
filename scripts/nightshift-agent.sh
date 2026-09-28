@@ -17,6 +17,7 @@ INVOCATION_ID="agent-$$-$(date -u +%s 2>/dev/null || echo 0)-$RANDOM"
 USAGE_INPUT='' USAGE_OUTPUT='' OBS_EMITTED=false
 ACCOUNTING_EMITTED=false TICKET_JSON='null' ATTRIBUTION=unattributed
 ERROR=''
+BUDGET_RESERVED=false BUDGET_TASK='' BUDGET_PROJECT=''
 # Run-scoped dispatcher observations, separate from the per-dispatch lifecycle
 # telemetry file above: a run-local, typed record of this one invocation for
 # nightshift-run-metrics.py's summary. Purely observational and nonfatal;
@@ -127,6 +128,9 @@ telemetry() (
   mv -f -- "$temporary" "$TELEMETRY_FILE"
 )
 cleanup() {
+  if [ "$BUDGET_RESERVED" = true ]; then
+    python3 "$ROOT/scripts/nightshift-ticket-budget.py" finish --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID" --outcome "$TELEMETRY_STATUS" >/dev/null 2>&1 || true
+  fi
   emit_accounting_receipts "$TELEMETRY_STATUS" || true
   [ -z "$TELEMETRY_FILE" ] || telemetry "$TELEMETRY_STATUS" || true
   emit_observation "$TELEMETRY_STATUS" || true
@@ -167,6 +171,9 @@ fail() {
        results:(if $role == "nightshift-code-fact-extractor" then {claims:[]}
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
+         elif $role == "nightshift-operation-worker" then {binding:"",decision:"abstain",findings:[],resolved:[],coverage:[]}
+         elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",grounding:{}}
+         elif $role == "nightshift-recovery-reviewer" then {binding:"",stage:"adoption",reviewer_id:"",decision:"reject",findings:[],dispositions:[],cases:[],ac_ids:[]}
          elif $role == "nightshift-behavior-reviewer" then {decision:"repair",scenario_ids:[],findings:[],reviewed_input_sha256:""}
          else {files_changed:[]} end)}' > "$receipt"; then
       publish "$receipt" || printf 'nightshift-agent: cannot publish failure to %s\n' "$OUTPUT" >&2
@@ -215,7 +222,7 @@ if [ -n "$TASK_KEY" ]; then
     ATTRIBUTION=ticket
   fi
 fi
-case "$ROLE" in nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
+case "$ROLE" in nightshift-operation-worker|nightshift-decision-reviewer|nightshift-recovery-reviewer|nightshift-repair-analyst|nightshift-engineer|nightshift-architect|nightshift-behavior-reviewer|nightshift-code-fact-extractor|nightshift-run-all-tests|nightshift-spec-writer) ;; *) fail "unsupported role: $ROLE";; esac
 if [ -n "$LAUNCH_RECEIPT" ]; then
   [ "$ROLE" = nightshift-behavior-reviewer ] || fail 'launch receipt requires behavior reviewer'
   [ ! -e "$LAUNCH_RECEIPT" ] && [ ! -L "$LAUNCH_RECEIPT" ] || fail 'launch receipt already exists'
@@ -261,16 +268,148 @@ ROUTE=$(python3 "$ROOT/scripts/nightshift-provider-policy.py" "${POLICY_ARGS[@]}
 export NIGHTSHIFT_PROVIDER_POLICY="$PROVIDER_POLICY"
 PROVIDER="$(jq -r '.provider' <<< "$ROUTE")"
 MODEL="$(jq -r '.model' <<< "$ROUTE")"
+SPEC_REPAIR_CONTEXT=''
+if [ "$ROLE" = nightshift-spec-writer ]; then
+  SPEC_REPAIR_CONTEXT=$(python3 "$ROOT/scripts/nightshift-spec-repair-brief.py" --directory "$(dirname "$OUTPUT")") || fail 'Existing draft requires a current focused repair brief; reuse the draft instead of restarting discovery'
+fi
 if [ "$AUTH" = subscription ]; then
   unset OPENAI_API_KEY CODEX_API_KEY ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_BASE_URL ANTHROPIC_BASE_URL
   unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY
   case "$PROVIDER" in
-    codex)
-      LOGIN=$(codex login status 2>&1) || fail 'ChatGPT subscription login required'
-      [[ "$LOGIN" == *ChatGPT* ]] || fail 'ChatGPT subscription login required';;
-    claude)
-      LOGIN=$(claude auth status --json 2>/dev/null) || fail 'Claude subscription login required'
-      jq -e '.loggedIn == true and .authMethod == "claude.ai" and .apiProvider == "firstParty"' <<< "$LOGIN" >/dev/null || fail 'Claude subscription login required';;
+    codex|claude)
+      # Authentication observation is bounded and separate from a model call.
+      # Retain classifications and counts only; CLI output can contain secrets.
+      LOGIN=$(python3 - "$PROVIDER" "$OUTPUT" <<'PYAUTH'
+import json, os, selectors, shutil, signal, subprocess, sys, time, uuid
+from pathlib import Path
+provider, output = sys.argv[1:]
+record = dict(version=1, scope='authentication_observation_only', provider=provider, auth_mode='subscription', authenticated=None,
+              category='auth_probe_failed', exit_code=None, stdout_bytes=0, stderr_bytes=0,
+              raw_output_retained=False, provider_dispatched=False)
+executable = shutil.which(provider)
+child = None
+started = time.monotonic()
+parent = os.getppid()
+streams = {'stdout': bytearray(), 'stderr': bytearray()}
+
+def interrupted(_signum, _frame):
+    raise KeyboardInterrupt
+
+signal.signal(signal.SIGTERM, interrupted)
+signal.signal(signal.SIGINT, interrupted)
+try:
+    if executable is None:
+        record['category'] = 'auth_cli_missing'
+    else:
+        argv = [executable, 'login', 'status'] if provider == 'codex' else [executable, 'auth', 'status', '--json']
+        child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        with selectors.DefaultSelector() as poll:
+            for name in streams:
+                poll.register(getattr(child, name), selectors.EVENT_READ, name)
+            while poll.get_map():
+                if os.getppid() != parent or time.monotonic() - started >= 5:
+                    record['category'] = 'auth_probe_timeout'
+                    break
+                for key, _event in poll.select(.05):
+                    data = os.read(key.fileobj.fileno(), 4096)
+                    if not data:
+                        poll.unregister(key.fileobj)
+                        continue
+                    record[key.data + '_bytes'] += len(data)
+                    streams[key.data].extend(data)
+                if sum(len(value) for value in streams.values()) > 32768:
+                    record['category'] = 'auth_probe_output_limit'
+                    break
+            else:
+                remaining = max(.01, 5 - (time.monotonic() - started))
+                try:
+                    record['exit_code'] = child.wait(timeout=remaining)
+                except subprocess.TimeoutExpired:
+                    record['category'] = 'auth_probe_timeout'
+        if record['category'] not in ('auth_probe_timeout', 'auth_probe_output_limit'):
+            try:
+                stdout = streams['stdout'].decode('utf-8')
+                stderr = streams['stderr'].decode('utf-8')
+            except UnicodeError:
+                record['category'] = 'auth_probe_invalid_output'
+            else:
+                combined = (stdout + '\n' + stderr).lower()
+                denied = any(term in combined for term in ('operation not permitted', 'permission denied', 'access denied', 'sandbox denied'))
+                if denied or record['exit_code'] in (126, 13):
+                    record['category'] = 'auth_probe_denied'
+                elif provider == 'claude':
+                    try:
+                        def unique(pairs):
+                            result = {}
+                            for key, value in pairs:
+                                if key in result: raise ValueError('duplicate')
+                                result[key] = value
+                            return result
+                        status = json.loads(stdout, object_pairs_hook=unique)
+                    except (ValueError, TypeError):
+                        status = None
+                    if isinstance(status, dict) and status.get('loggedIn') is False:
+                        record.update(category='subscription_login_required', authenticated=False)
+                    elif record['exit_code'] != 0:
+                        record['category'] = 'auth_probe_failed'
+                    elif not isinstance(status, dict) or status.get('loggedIn') is not True:
+                        record['category'] = 'auth_probe_invalid_output'
+                    elif status.get('authMethod') == 'claude.ai' and status.get('apiProvider') == 'firstParty':
+                        record.update(category='subscription_confirmed', authenticated=True)
+                    elif isinstance(status.get('authMethod'), str) and status['authMethod'] and isinstance(status.get('apiProvider'), str) and status['apiProvider']:
+                        record['category'] = 'subscription_method_mismatch'
+                    else:
+                        record['category'] = 'auth_probe_invalid_output'
+                else:
+                    lines = [line.strip() for line in (stdout + '\n' + stderr).splitlines() if line.strip()]
+                    if lines in (['Not logged in'], ['Not logged in.']):
+                        record.update(category='subscription_login_required', authenticated=False)
+                    elif record['exit_code'] != 0:
+                        record['category'] = 'auth_probe_failed'
+                    elif lines == ['Logged in using ChatGPT']:
+                        record.update(category='subscription_confirmed', authenticated=True)
+                    elif any(line.startswith('Logged in using an API key') for line in lines):
+                        record['category'] = 'subscription_method_mismatch'
+                    else:
+                        record['category'] = 'auth_probe_invalid_output'
+except PermissionError:
+    record['category'] = 'auth_probe_denied'
+except OSError:
+    record['category'] = 'auth_probe_failed'
+except KeyboardInterrupt:
+    record['category'] = 'auth_probe_interrupted'
+finally:
+    if child is not None:
+        try: os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError: pass
+        try: child.wait(timeout=.2)
+        except subprocess.TimeoutExpired: pass
+        try: os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        child.wait()
+        if record['exit_code'] is None: record['exit_code'] = child.returncode
+record['elapsed_seconds'] = time.monotonic() - started
+record['output_complete'] = record['category'] not in ('auth_probe_timeout', 'auth_probe_output_limit', 'auth_probe_interrupted')
+path = Path(output).with_name(Path(output).name + '.auth-' + uuid.uuid4().hex + '.json')
+try:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(record, stream, sort_keys=True)
+        stream.write('\n')
+except OSError:
+    print('auth_diagnostic_unavailable')
+else:
+    print(record['category'])
+PYAUTH
+      ) || fail 'authentication status could not be verified (auth_probe_failed)'
+      case "$LOGIN" in
+        subscription_confirmed) ;;
+        subscription_login_required) fail "$PROVIDER subscription login required (explicit logged-out status)" ;;
+        subscription_method_mismatch) fail "$PROVIDER subscription authentication method mismatch" ;;
+        auth_cli_missing) fail "$PROVIDER authentication CLI unavailable (auth_cli_missing)" ;;
+        auth_diagnostic_unavailable) fail "$PROVIDER authentication diagnostic could not be retained; dispatch blocked (auth_diagnostic_unavailable)" ;;
+        *) fail "$PROVIDER authentication status could not be verified ($LOGIN); login state unknown" ;;
+      esac;;
   esac
 fi
 # Carry controller mode into the prompt: worker environments alone are not a
@@ -288,6 +427,10 @@ EXECUTION_CONTEXT+=$'\nPreserve scope, test firewall, behavioral proof, independ
 if [ "$PROVIDER_POLICY" = claude-only ]; then
   EXECUTION_CONTEXT+=$'\nProvider policy: claude-only. Do not launch Codex, Ollama, local models, or other providers. Review is a fresh Claude session, with no author-session resume; preserve every evidence gate. Same-provider review is permitted only by this explicit policy.'
 fi
+EXECUTION_CONTEXT+="$SPEC_REPAIR_CONTEXT"
+if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
+  EXECUTION_CONTEXT='Independent bounded operation. Return only the requested structured result and patch if requested. No tools, edits, dispatches, authorization or stage completion.'
+fi
 PROMPT_PATH="$(jq -r --arg r "$ROLE" '.roles[$r].prompt' "$ROUTING")"
 [ -f "$ROOT/$PROMPT_PATH" ] && [ -r "$ROOT/$PROMPT_PATH" ] || fail 'missing role prompt'
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/nightshift-agent.XXXXXX")"
@@ -298,15 +441,38 @@ CONTRACT="Dispatcher contract: Override prose-only return conventions for this i
 { cat "$TMP/role"; printf '\nTask input:\n'; cat "$INPUT"; printf '\n%s\n' "$CONTRACT"; } > "$TMP/prompt"
 PROMPT="$(cat "$TMP/prompt")"
 PROMPT+=$'\n'"$EXECUTION_CONTEXT"
+if [ "$ROLE" = nightshift-decision-reviewer ]; then
+  [ "$PROVIDER" = claude ] || fail 'decision reviewer requires the verified tool-free transport'
+  python3 "$ROOT/scripts/nightshift-decision-render.py" --root "$ROOT" --input "$INPUT" --directory "$TMP" --provider "$PROVIDER" --model "$MODEL" --role-path "$PROMPT_PATH" || fail 'invalid or oversized decision reviewer framing'
+  PROMPT="$(cat "$TMP/prompt")"
+fi
+if [ "$ROLE" = nightshift-operation-worker ]; then
+  OPERATION_BYTES=$( { printf '%s' "$PROMPT"; cat "$TMP/role" "$SCHEMA"; } | wc -c | tr -d ' ')
+  [ "$OPERATION_BYTES" -le 65536 ] || fail 'operation prompt and schema exceed 64 KiB'
+fi
 case "$PROVIDER" in
   claude)
     AGENTS="$(jq -n --arg role "$ROLE" --rawfile body "$TMP/role" --arg contract "$CONTRACT" --arg execution "$EXECUTION_CONTEXT" '{($role):{description:"Selected Nightshift role",prompt:($body+"\n"+$contract+"\n"+$execution)}}')"
     # Claude's CLI schema compiler rejects the 2020-12 dialect declaration.
     # Project transport metadata only; keep full authoritative local validation.
-    jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
-    if [ "$ROLE" = nightshift-behavior-reviewer ]; then
+    if [ "$ROLE" != nightshift-decision-reviewer ]; then
+      jq 'del(.allOf, ."$schema")' "$SCHEMA" > "$TMP/provider.schema.json"
+    fi
+    if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
-      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")")
+      if [ "$ROLE" = nightshift-decision-reviewer ]; then
+        # Evidence travels on stdin, so no command-line argument size limit applies.
+        STDIN_FILE="$TMP/prompt"
+      else
+        CMD+=("$PROMPT")
+      fi
+    elif [ "$ROLE" = nightshift-code-fact-extractor ]; then
+      # Source verification needs repository reads, not installed skills, MCP,
+      # plugins or another copy of the role in the user prompt.
+      CMD=(claude -p --safe-mode --tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")
+$CONTRACT
+$EXECUTION_CONTEXT" --json-schema "$(cat "$TMP/provider.schema.json")" "$(cat "$INPUT")")
     elif [ "$ROLE" = nightshift-repair-analyst ]; then
       CMD=(claude -p --tools "Read,Glob,Grep" --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
@@ -387,8 +553,26 @@ if [ "${NIGHTSHIFT_TELEMETRY_DIR:-}" != off ]; then
     telemetry running || true
   fi
 fi
+# Shared admission covers instrumented dispatches across stages and restarts.
+# A parent factory may explicitly bind children to its common ticket budget.
+BUDGET_TASK=${NIGHTSHIFT_BUDGET_TASK:-$TASK_KEY}
+if [ -n "$BUDGET_TASK" ]; then
+  BUDGET_PROJECT=${NIGHTSHIFT_BUDGET_PROJECT:-${NIGHTSHIFT_PROJECT_DIR:-$(pwd)}}
+  BUDGET_ARGS=(reserve --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" --invocation "$INVOCATION_ID")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_CALLS:-}" ] || BUDGET_ARGS+=(--max-calls "$NIGHTSHIFT_TICKET_MAX_CALLS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS:-}" ] || BUDGET_ARGS+=(--max-seconds "$NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS")
+  [ -z "${NIGHTSHIFT_TICKET_MAX_WALL_SECONDS:-}" ] || BUDGET_ARGS+=(--max-wall-seconds "$NIGHTSHIFT_TICKET_MAX_WALL_SECONDS")
+  if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" "${BUDGET_ARGS[@]}" > "$TMP/ticket-budget.json"; then
+    fail "ticket budget admission denied: $(cat "$TMP/ticket-budget.json")"
+  fi
+  BUDGET_RESERVED=true
+fi
 set -m
-NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+if [ -n "${STDIN_FILE:-}" ]; then
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" < "$STDIN_FILE" > "$TMP/stdout" 2> "$TMP/stderr" &
+else
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+fi
 CHILD=$!
 if [ -n "$LAUNCH_RECEIPT" ]; then
   python3 - "$LAUNCH_RECEIPT" "$PROVIDER" "$MODEL" "$CHILD" <<'PY' || fail 'cannot record provider launch'
@@ -404,6 +588,19 @@ try:
 finally:
     os.unlink(temporary)
 PY
+fi
+if [ "$BUDGET_RESERVED" = true ]; then
+  budget_ticks=0
+  while kill -0 "$CHILD" 2>/dev/null; do
+    if [ "$budget_ticks" -eq 0 ]; then
+      if ! python3 "$ROOT/scripts/nightshift-ticket-budget.py" check --project "$BUDGET_PROJECT" --task "$BUDGET_TASK" > "$TMP/ticket-budget.json"; then
+        fail "ticket budget enforcement stopped provider: $(cat "$TMP/ticket-budget.json")"
+      fi
+    fi
+    # Cheap completion polling avoids adding two seconds to short calls.
+    sleep 0.1
+    budget_ticks=$(( (budget_ticks + 1) % 20 ))
+  done
 fi
 if wait "$CHILD"; then CHILD=''; else
   provider_exit=$?

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Resolve opt-in provider restrictions before any Nightshift provider launch."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,14 @@ import tomllib
 MODES = ('standard', 'claude-only')
 
 
+def checkout_identity(project):
+    """Shared, fingerprint-validated cache (scripts/nightshift-checkout-identity.py)."""
+    spec = importlib.util.spec_from_file_location('nightshift_checkout_identity', Path(__file__).with_name('nightshift-checkout-identity.py'))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module.checkout_identity(project)
+
+
+
 def mode(project=None):
     """Restrictions compose: a child or project cannot relax inherited restrictions."""
     values = [os.environ.get('NIGHTSHIFT_PROVIDER_POLICY', 'standard')]
@@ -18,18 +27,16 @@ def mode(project=None):
     roots = [Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home() / '.nightshift'))), project]
     # A directly invoked worker in an isolated worktree must still see the
     # primary checkout's project policy, even without the factory environment.
-    result = subprocess.run(['git', '-C', str(project), 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
-                            capture_output=True, text=True, timeout=5)
-    if result.returncode == 0:
-        lines = result.stdout.splitlines()
-        roots.append(Path(lines[0]))
-        common = Path(lines[1])
+    identity = checkout_identity(project)
+    if identity:
+        top, common = identity
+        roots.append(top)
         if common.name == '.git':
             roots.append(common.parent)
     for root in dict.fromkeys(roots):
         canonical = root / '.nightshift.toml'
-        path = canonical if canonical.exists() else root / 'nightshift.toml'
-        if not path.exists():
+        path = canonical if canonical.exists() or canonical.is_symlink() else root / 'nightshift.toml'
+        if not path.exists() and not path.is_symlink():
             continue
         data = tomllib.loads(path.read_text())
         providers = data.get('providers', {})
@@ -43,6 +50,11 @@ def mode(project=None):
 
 def select_route(routing, role, gear, policy, author='', adversarial=False, initial=None):
     route = dict(initial or routing['roles'][role]['gears'][str(gear)])
+    allowed = routing.get('allowed_providers', ['claude', 'codex', 'local'])
+    if (not isinstance(allowed, list) or not allowed or
+            any(p not in ('claude', 'codex', 'local') for p in allowed) or
+            len(set(allowed)) != len(allowed)):
+        raise ValueError('invalid allowed_providers')
     if adversarial and author not in ('claude', 'codex', 'local'):
         raise ValueError('adversarial dispatch requires valid author provenance')
     if policy == 'claude-only':
@@ -58,8 +70,18 @@ def select_route(routing, role, gear, policy, author='', adversarial=False, init
                 raise ValueError('claude-only policy has no Claude route for this role')
         if not isinstance(route.get('model'), str) or not route['model']:
             raise ValueError('claude-only policy requires a configured Claude model')
-    elif adversarial and routing['adversarial']['cross_provider'] and route['provider'] == author:
-        route = next((dict(item) for item in routing['adversarial']['routes'] if item['provider'] != author), None)
+    if route is not None and route['provider'] not in allowed:
+        choices = routing['roles'][role]['gears']
+        permitted = next(((key, item) for key, item in sorted(choices.items())
+                          if item['provider'] in allowed and (policy != 'claude-only' or item['provider'] == 'claude')), None)
+        if permitted is None:
+            raise ValueError('no allowed provider route for role')
+        key, replacement = permitted
+        route = {**route, **replacement}
+        if 'gear' in route:
+            route['gear'] = int(key)
+    if policy != 'claude-only' and adversarial and routing['adversarial']['cross_provider'] and route['provider'] == author:
+        route = next((dict(item) for item in routing['adversarial']['routes'] if item['provider'] != author and item['provider'] in allowed), None)
         if route is None:
             raise ValueError('no different-provider adversarial route available')
     return route

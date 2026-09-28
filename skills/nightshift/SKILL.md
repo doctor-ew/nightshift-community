@@ -23,6 +23,12 @@ It runs the complete `eng` pipeline autonomously and leaves a durable tracker
 and stage artifacts in the consumer repository. No additional stage-by-stage
 call is required.
 
+Independent operation form: `$nightshift ops <arguments>`. Read
+`commands/nightshift-ops.md` from the source checkout (or its installed shared
+command) and use the operation controller directly. Do not wrap an operation in
+`eng` or set up a second model-directed pipeline. Assessment, authorization,
+execution and restart follow the same CLI/dashboard contract.
+
 Advanced form: `$nightshift <stage> <arguments>`
 
 Advisory commands: `help`, `explain`, `architect`, `dev`, `pm`,

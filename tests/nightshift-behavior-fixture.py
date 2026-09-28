@@ -33,7 +33,7 @@ def attest(document):
     return document
 
 
-def prepare(root, project, task='fixture', final=False, require_gate=True):
+def prepare(root, project, task='fixture', final=False, require_gate=True, manual=False):
     root, project = Path(root).resolve(), Path(project).resolve()
     project.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, NIGHTSHIFT_PROJECT_DIR=str(project), PYTHONDONTWRITEBYTECODE='1')
@@ -71,6 +71,18 @@ def prepare(root, project, task='fixture', final=False, require_gate=True):
                           'given':'An existing answer value','when':'Read answer','then':'Answer equals 42',
                           'forbidden':'Any answer other than 42','input':None,'expected':[], 'prohibited':[],
                           'counterexamples':['An answer value of 0'],'visibility':'public'}], 'heldout':None}
+    if manual:
+        document['ac_ids'].append('AC-2')
+        case = copy.deepcopy(document['cases'][0])
+        case.update(id='manual-delivery', ac_ids=['AC-2'],
+                    applicability={'kind':'manual','rationale':'Operator checks external delivery',
+                                   'risks':[], 'review':None},
+                    manual_acceptance={'owner':'fixture-operator',
+                                       'authorization':'Operator explicitly retained inbox verification',
+                                       'procedure':'Inspect the delivered test email in the inbox'})
+        document['cases'].append(case)
+        spec.write_text(spec.read_text().replace('1. AC-1: answer equals 42.',
+            '1. AC-1: answer equals 42.\n2. AC-2: operator verifies email delivery.'))
     scenarios = directory/'behavior-scenarios.json'; scenarios.write_bytes(canonical(attest(document)))
     run(['bash',root/'scripts/nightshift-scope-activate.sh',task,'--project',project,'--spec',spec])
     run(['bash',root/'scripts/nightshift-tdd-spec-lock.sh',task])
@@ -103,7 +115,8 @@ def prepare(root, project, task='fixture', final=False, require_gate=True):
             log={'path':str(final_log),'sha256':digest(final_log)},source_hashes={p:digest(project/p) for p in paths})
         final_path=directory/'final-evidence.json';final_path.write_bytes(canonical(final_evidence))
         run([sys.executable,proof,'record-final','--project',project,'--task',task,'--evidence',final_path])
-        run([sys.executable,proof,'gate','--project',project,'--task',task,'--gate','final'])
+        if not manual:
+            run([sys.executable,proof,'gate','--project',project,'--task',task,'--gate','final'])
         result['final_evidence_path']=str(final_path)
     return result
 

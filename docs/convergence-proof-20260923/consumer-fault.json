@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/Users/drew.schillinger/.local/share/mise/installs/python/3.14.7/bin/python3",
+    "verify.py"
+  ],
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/private/tmp/nightshift-bounded-convergence/docs/convergence-proof-20260923/consumer/verify.py\", line 4, in <module>\n    assert actual == value * 2, (value, actual)\n           ^^^^^^^^^^^^^^^^^^^\nAssertionError: (-3, -9)\n"
+}

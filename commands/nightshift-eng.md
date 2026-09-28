@@ -20,6 +20,21 @@ Execute each stage's canonical instructions. Dispatch every role through
 `scripts/nightshift-agent.sh`; never use native Agent/Task tools or invoke a
 provider directly. This is required for provider policy and dashboard reporting.
 
+For repairs, use the product stage's `repair-checks.json` regression contract.
+Before another paid review, demonstrate original-fails/current-passes for each
+reported machine-checkable defect. Send only the affected contract, changed
+artifact excerpts, and unresolved finding IDs. Do not regenerate an entire spec
+to correct metadata or repeat already verified source claims.
+
+On a recurring finding, change the repair author/provider and require a targeted
+regression before re-review. Keep reviewer independence. A check receipt proves
+only the stated regression, never product acceptance or behavioral proof.
+Do not interpret broad completion authorization as permission to keep extending
+exhausted repair allowances. Preserve the failure and publish a concrete recovery
+decision through the portal when the remaining action requires a user choice.
+Propagate the launcher's `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`
+unchanged to child dispatches; never change identity to evade a shared allowance.
+
 Local evidence checkpoints and TDD lock commits are authorized during the run.
 After verification, push only when push=true, and open a PR only when pr=true. Do not invoke the deploy
 stage, merge, or deploy. Record the delivery result, then proceed to Step 10.
@@ -62,6 +77,31 @@ later and it picks up at the failed stage. Every stage runs a context-budget che
 through this pipeline autonomously, then writes an aggregate retro. See `commands/nightshift-batch.md`.
 
 ---
+
+## Decisions in the web portal
+
+At each ticket/stage boundary, read `nightshift-console-decisions.py context`
+with the caller project and canonical task key. Apply explicit recorded answers
+within the requested scope; an answer does not pass a test/review or reset a budget.
+When the brief and existing authorization answer a question, proceed without asking again.
+For an actual unresolved product choice, use `nightshift-console-decisions.py request`
+with `--project`, `--task`, and `--input` pointing to a JSON object containing
+`question`, `reason`, and `options`. Supply up to three concrete options, each with
+`id`, `label`, and `description`. Free text is always available in the portal.
+Use a stable `decision_key` for each underlying choice, unchanged across wording or
+reviewer changes. Inspect the request result: if `response` is already present,
+apply that recorded answer and continue; do not mark needs-decision or ask again.
+To reopen a settled choice, supply `supersedes` with its latest decision hash and
+`reopen_reason` stating the new evidence. A repeated review preference is not new
+evidence. Answers settle choices, not test or review results.
+Ask one decision at a time; publish an unanswered request before recording `needs-decision` and exiting.
+Do not leave a decision solely in prose logs or a tool question invisible to the portal.
+For a decomposed ticket, use the child task key; the parent card aggregates owned
+unfinished-child decisions. The portal retains the answer and queues continuation
+under the parent's existing provider, branch, authentication and publication policy.
+On continuation read the recorded answer before drafting or requesting another decision.
+Record real failure evidence separately from product choices; missing evidence is a
+harness repair, not a reason to ask the user to reconstruct the run.
 
 ## Scope assessment and decomposition
 
@@ -182,7 +222,7 @@ fi
 if echo "$REF" | grep -qE '^(gh|jira|monday|notion|bd|spec):'; then
   ROUTE_FRESH=1
   # Read-only normalized ticket lookup; do not mirror or write product artifacts yet.
-  TICKET_JSON=$(bash ~/.nightshift/scripts/nightshift-ticket-source.sh "$REF") || exit 1
+  TICKET_JSON=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-ticket-source.sh" "$REF") || exit 1
   TASK_KEY=$(printf '%s\n' "$TICKET_JSON" | jq -er '.source_id | select(. != null) | tostring') || exit 1
 
 # (2) Bare ref that matches an existing task folder → resume by task key
@@ -219,7 +259,7 @@ its exact value in `BASE_REF` / `BASE_ARGS`. A prerequisite branch must be passe
 unchanged; never substitute main. Resolve the stable upstream task key read-only first.
 
 ```bash
-WORKTREE_RECEIPT=$(bash ~/.nightshift/scripts/nightshift-worktree.sh prepare "$TASK_KEY" \
+WORKTREE_RECEIPT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" prepare "$TASK_KEY" \
   --project "$PROJECT" "${BASE_ARGS[@]}") || exit 1
 PROJECT=$(printf '%s\n' "$WORKTREE_RECEIPT" | jq -er '.worktree') || exit 1
 cd "$PROJECT" || exit 1
@@ -227,7 +267,7 @@ PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightsh
 eval "$PROJECT_CONTEXT"
 export NIGHTSHIFT_PREPARED_TASK="$TASK_KEY"
 export NIGHTSHIFT_WORKTREE_RECEIPT="$WORKTREE_RECEIPT"
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 DOCS_DIR="$PROJECT/docs"
 ```
 
@@ -269,7 +309,7 @@ if [ "$ABANDON" = "1" ]; then
   done
 
   # 2. Retire matching ownership, retaining the worktree and every file.
-  bash ~/.nightshift/scripts/nightshift-worktree.sh finish "$TASK_KEY" --project "$PROJECT" || exit 1
+  bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
 
   # 3. Release the Stop hook: rewrite any ⏳ in-progress row to 🚫 abandoned.
   if [ -f "$TRACKER" ]; then
@@ -330,7 +370,7 @@ ceiling across resumes. Other stages retain their existing budgets. Never reset
 or delete budget evidence to resume a failed gate.
 
 ```bash
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
 SPEC="${PROJECT}/docs/${TASK_KEY}/SPEC.md"
 BD_ID_FILE="${PROJECT}/docs/${TASK_KEY}/.bd-id"
@@ -343,7 +383,7 @@ fi
 echo "BD_ID:   $BD_ID  (used for bd note/close calls)"
 
 # Crash recovery — surface orphaned state from a prior killed session.
-bash ~/.nightshift/scripts/nightshift-crash-check.sh
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-crash-check.sh"
 ```
 
 Crash reports are diagnostic. Preserve leases and scopes on interruption; never unconditionally
@@ -431,7 +471,7 @@ the pipeline — nightshift-eng uses `/nightshift-implement` for the TDD locks.)
 Activate from the actual Files to Change table through the checkout-local lease helper:
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-scope-activate.sh "$TASK_KEY" \
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-scope-activate.sh" "$TASK_KEY" \
   --project "$PROJECT" --spec "$SPEC" || exit 1
 ```
 
@@ -624,7 +664,7 @@ sed -i '' "s|^⏳ /nightshift-deploy.*|✅ /nightshift-deploy — ship (complete
 ## Step 10 — Retain completion and final summary
 
 ```bash
-bash ~/.nightshift/scripts/nightshift-worktree.sh finish "$TASK_KEY" --project "$PROJECT" || exit 1
+bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
 ```
 
 Finish retires only matching lease/scope metadata and retains all worktree files, commits,

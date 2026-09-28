@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentRows, filterRows, ticketFailures, evidenceUrl, ticketProgress, blockerSummary, ticketSourceLink, ticketTimeline, ticketUsage } from './src/model.mjs';
+test('parent dependency blockage remains explicit even while orchestrator exits or runs', () => {
+  const ticket = {task:'parent', finished:true, progress:{dependency:{blocked:true}}};
+  assert.equal(ticketProgress([], ticket).status, 'Blocked');
+  assert.equal(ticketProgress([], {...ticket,running:true}).status, 'Active · dependency blocked');
+  assert.equal(ticketProgress([{ticket:'parent',source:'batch',state:'complete'}],ticket).complete,false);
+});
 test('ticket source links preserve recorded external URLs and local evidence', () => {
   const ticket = {task:'task-a', settings:{ref:'jira:task-a'}};
   const rows = [{ticket:'task-a', ticket_url:'https://example.atlassian.net/browse/task-a', links:[{label:'task-a.md',href:'file:///tmp/task-a.md'}]}];
@@ -80,4 +86,126 @@ test('ticket usage never borrows totals from the previous build', () => {
   assert.deepEqual(ticketUsage([old], {task:'fresh'}), []);
   const fresh = {ticket:{source_id:'fresh'},usage:{known_subtotal:{total:12}}};
   assert.deepEqual(ticketUsage([old,fresh], {task:'fresh'}), [fresh]);
+});
+test('controller evidence overrides stale process and batch success', () => {
+  const rows = [{ticket:'sample',source:'batch',state:'complete'}];
+  const ticket = {task:'sample',finished:true,pipeline:{status:'pending_manual_acceptance',next_action:'operator_verify_manual_acceptance'}};
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.equal(ticketProgress(rows,ticket).status,'Manual acceptance pending');
+  ticket.pipeline.status='stale';
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.equal(ticketProgress(rows,ticket).status,'Changed evidence · revalidation required');
+});
+
+
+test('continuation controls block active, exhausted-call and acceptance states', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const ticket = {budget:{revision:'current', calls_reserved:5,max_calls:64,unfinished:0}};
+  assert.equal(continuationControl(ticket).disabled,false);
+  for (const change of [{running:true},{finished:true},{pipeline:{status:'pending_manual_acceptance'}},{decisions:{pending:[{}]}}]) {
+    assert.equal(continuationControl({...ticket,...change}).disabled,true);
+  }
+  assert.match(continuationControl({...ticket,budget:{...ticket.budget,calls_reserved:64}}).reason,/cannot add launches/);
+  assert.equal(continuationControl({...ticket,budget:{...ticket.budget,unfinished:1}}).disabled,true);
+  assert.equal(continuationControl({}).disabled,true);
+});
+
+
+test('granting time cannot replace an unspent allowance', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const budget = {revision:'current',calls_reserved:5,max_calls:64,unfinished:0,exhausted:false,wall_seconds_remaining:200};
+  assert.match(continuationControl({budget}).reason,/Use Resume/);
+  assert.equal(continuationControl({budget:{...budget,exhausted:true,wall_seconds_remaining:0}}).disabled,false);
+  assert.equal(continuationControl({budget:{...budget,wall_seconds_remaining:null}}).disabled,false);
+});
+
+test('verified recovery supersedes historical stage failure without hiding stale evidence', async () => {
+  const {ticketTimeline} = await import('./src/model.mjs');
+  const ticket={task:'T-1',pipeline:{status:'pending_manual_acceptance',recovery_status:{status:'pending_manual_acceptance',next_action:'operator_verify_manual_acceptance'},completed:{adversarial:{recovery_binding:'bound'}},attempts:[{stage:'adversarial',status:'fail',reason:'old budget failure'}]}};
+  assert.equal(ticketTimeline([],ticket)[1].state,'passed');
+  assert.equal(ticketProgress([],ticket).stage,'operator_verify_manual_acceptance');
+  assert.equal(ticketProgress([],ticket).stoppingReason,'');
+  ticket.pipeline.status='stale';
+  assert.equal(ticketTimeline([],ticket)[1].state,'pending');
+});
+
+test('more time cannot restore an exhausted current-stage retry allowance', async () => {
+  const {continuationControl} = await import('./src/model.mjs');
+  const ticket = {budget:{revision:'current',calls_reserved:1,max_calls:64,unfinished:0,exhausted:true},pipeline:{next_action:'product',retry_budgets:{product:{next_action:'stop'}}}};
+  assert.match(continuationControl(ticket).reason,/cannot add retries/);
+  assert.equal(continuationControl(ticket).disabled,true);
+  ticket.pipeline.next_action='review';
+  assert.equal(continuationControl(ticket).disabled,false);
+});
+
+test('worker diagnostics remain bounded display data and cannot establish completion', async () => {
+  const {workerDiagnostic,ticketProgress} = await import('./src/model.mjs');
+  const ticket={task:'1',pipeline:{status:'blocked',attempts:[{stage:'product',status:'fail',diagnostic:{label:'UNVALIDATED_WORKER_DIAGNOSTIC',validation_error:'stage_receipt.task:expected_string',reported_findings:[{target:'input',problem:'<script>unsafe()</script>'},{problem:'x'.repeat(2000)},{problem:17},{problem:'fourth'}]}}]}};
+  const diagnostic=workerDiagnostic(ticket);
+  assert.equal(diagnostic.findings[0].problem,'<script>unsafe()</script>');
+  assert.equal(diagnostic.findings[1].problem.length,1024);
+  assert.equal(diagnostic.findings.length,2);
+  assert.equal(ticketProgress([],ticket).complete,false);
+  ticket.pipeline.attempts.push({status:'running'});
+  assert.equal(workerDiagnostic(ticket),null);
+});
+
+test('server-derived retry exhaustion survives stale and inspection view labels', async () => {
+  const {continuationControl,stageRetriesExhausted} = await import('./src/model.mjs');
+  for(const next_action of ['inspect_exhausted_or_interrupted_product','revalidate_changed_evidence']){
+    const ticket={retry_exhausted_stage:'product',budget:{revision:'current',calls_reserved:1,max_calls:64,exhausted:true},pipeline:{next_action}};
+    assert.equal(stageRetriesExhausted(ticket),true);
+    assert.match(continuationControl(ticket).reason,/cannot add retries/);
+  }
+});
+
+test('recovery overlay reports recorded progress without inventing liveness or dropping failures', async()=>{
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const ticket={task:'r',running:false,pipeline:{status:'blocked',recovery_status:{status:'running',next_action:'adoption',allowance:{calls_used:1},steps:{verify:{status:'pass'},adoption:{status:'pending'}}}}};
+  const before=JSON.stringify(ticket), rows=[{ticket:'r',source:'gate',state:'failed',reason:'Original retained failure'}];
+  assert.equal(ticketProgress(rows,ticket).status,'Recovery recorded · Adoption');
+  assert.equal(ticketProgress(rows,ticket).failures.length,1);
+  assert.equal(ticketProgress(rows,ticket).complete,false);
+  assert.match(recoveryProgress(ticket).explanation,/does not verify worker liveness/);
+  assert.equal(recoveryProgress(ticket).steps[0].status,'pass');
+  assert.equal(recoveryProgress(ticket).calls,1);
+  assert.equal(JSON.stringify(ticket),before);
+  // A crash with unchanged durable state has exactly the same honest presentation.
+  assert.equal(ticketProgress(rows,structuredClone(ticket)).status,'Recovery recorded · Adoption');
+});
+
+test('recovery blocked, pending acceptance, complete and stale observations remain distinct',async()=>{
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const ticket={task:'r',running:false,pipeline:{status:'blocked',recovery_status:{status:'blocked',reason:'Unknown evidence reference'}}};
+  assert.equal(ticketProgress([],ticket).status,'Recovery blocked');
+  assert.equal(recoveryProgress(ticket).reason,'Unknown evidence reference');
+  ticket.pipeline.recovery_status.status='pending_manual_acceptance';
+  assert.equal(ticketProgress([],ticket).status,'Manual acceptance pending');
+  assert.equal(ticketProgress([],ticket).complete,false);
+  ticket.pipeline.recovery_status.status='complete';
+  assert.equal(ticketProgress([],ticket).status,'Recovery completion unconfirmed');
+  ticket.pipeline.status='complete';assert.equal(ticketProgress([],ticket).complete,true);
+  ticket.pipeline.status='stale';ticket.running=true;
+  assert.match(ticketProgress([],ticket).status,/Changed evidence/);
+  assert.equal(ticketProgress([],ticket).complete,false);
+  assert.ok(recoveryProgress(ticket).steps.every(step=>step.status==='stale'));
+});
+
+test('recovery waiting for the operator names the question and the exact command', async () => {
+  const {recoveryProgress}=await import('./src/model.mjs');
+  const sha='a'.repeat(64), binding='b'.repeat(64);
+  const ticket={task:'1',settings:{ref:'gh:1'},pipeline:{status:'blocked',recovery_status:{status:'awaiting_operator',binding,next_action:'operator_decision',
+    awaiting:{stage:'qa',packet_id:'oracle_valid-9',packet_sha256:sha,reason:'decision_abstained'},
+    allowance:{calls_used:3},decision_calls:{x:{kind:'jev'},y:{kind:'jev'},z:{kind:'exception'}},steps:{qa:{status:'awaiting_operator'}}}}};
+  const view=recoveryProgress(ticket);
+  assert.equal(view.status,'Waiting for your decision');assert.equal(view.awaiting.stage,'QA');assert.equal(view.awaiting.question,'oracle_valid-9');
+  assert.match(view.awaiting.command,new RegExp(`operator-decide gh:1 --expected ${binding} --packet ${sha}`));
+  assert.deepEqual(view.callKinds,[['exception',1],['jev',2]]);
+  assert.equal(view.steps.find(step=>step.key==='qa').status,'waiting for your decision');
+  const forged=structuredClone(ticket);forged.pipeline.recovery_status.awaiting.packet_sha256='not-a-hash';
+  assert.equal(recoveryProgress(forged).awaiting,null);
+  const badBinding=structuredClone(ticket);badBinding.pipeline.recovery_status.binding='x';
+  assert.equal(recoveryProgress(badBinding).awaiting,null);
+  const hostile=structuredClone(ticket);hostile.settings.ref="spec:a'; rm -rf ~ #.md";
+  assert.match(recoveryProgress(hostile).awaiting.command,/operator-decide 'spec:a'\\''; rm -rf ~ #\.md' --expected/);
 });

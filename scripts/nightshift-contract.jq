@@ -12,6 +12,11 @@ def valid_contract($role):
   and (.rules_fired | strings)
   and (if $role == "nightshift-engineer" or $role == "nightshift-architect" or $role == "nightshift-repair-analyst" then
     (.results | keys_are(["files_changed"]) and (.files_changed | strings))
+  elif $role == "nightshift-operation-worker" then
+    (.results | keys_are(["binding","decision","findings","resolved","coverage"])
+      and (.binding | type == "string")
+      and (.decision | . == "approve" or . == "repair" or . == "abstain")
+      and (.findings | strings) and (.resolved | strings) and (.coverage | strings))
   elif $role == "nightshift-code-fact-extractor" then
     (.results | keys_are(["claims"]) and (.claims | type == "array" and all(.[];
       keys_are(["claim","status","file","line","inspected_files"])
@@ -29,6 +34,21 @@ def valid_contract($role):
       (.results.reviewed_input_sha256 | test("^[0-9a-f]{64}$"))
       and (if .results.decision == "approve" then (.results.findings | length == 0) else (.results.findings | length > 0) end)
       else true end)
+  elif $role == "nightshift-decision-reviewer" then
+    (.results | type == "object" and
+      (keys | sort) == (["decision","packet_sha256","reviewer_id","grounding"] | sort) and
+      (.decision == "yes" or .decision == "no" or .decision == "abstain") and
+      (.packet_sha256 | type == "string") and (.reviewer_id | type == "string") and
+      (.grounding | type == "object" and all(.[]; type == "array" and all(.[]; type == "string"))))
+  elif $role == "nightshift-recovery-reviewer" then
+    (.results | keys_are(["binding","stage","reviewer_id","decision","findings","dispositions","cases","ac_ids"])
+      and (.binding | type == "string") and (.reviewer_id | type == "string")
+      and (.stage | . == "adoption" or . == "review" or . == "drift" or . == "qa")
+      and (.decision | . == "approve" or . == "reject") and (.findings | strings) and (.ac_ids | strings)
+      and (.dispositions | type == "array" and all(.[]; keys_are(["id","resolution","reason"]) and all(.[]; type == "string")))
+      and (.cases | type == "array" and all(.[]; keys_are(["id","status","reason","checks"])
+        and (.id | type == "string") and (.status | type == "string") and (.reason | type == "string")
+        and (.checks | type == "array" and all(.[]; keys_are(["id","sha256"]) and all(.[]; type == "string"))))))
   elif $role == "nightshift-run-all-tests" then
     (.results | keys_are(["passed","failed"]) and (.passed | natural) and (.failed | natural))
     and (if .status == "SUCCESS" then .results.failed == 0 else true end)

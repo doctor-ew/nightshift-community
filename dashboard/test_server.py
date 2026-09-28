@@ -103,12 +103,42 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data['tickets'], [])
         body=json.dumps({'task':'42','sha256':'unknown'})
         headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
-        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat'):
+        for endpoint in ('/api/tickets/resume','/api/tickets/cleanup','/api/tickets/chat','/api/tickets/continue','/api/tickets/recovery-assess','/api/tickets/recovery-authorize','/api/tickets/recovery-resume','/api/tickets/recovery-accept'):
             self.assertEqual(self.request(endpoint,'POST',{'Content-Type':'application/json'},body)[0],403)
             wrong=dict(headers,Origin='https://evil.example')
             self.assertEqual(self.request(endpoint,'POST',wrong,body)[0],403)
             self.assertEqual(self.request(endpoint,'POST',headers,body)[0],409)
             self.assertEqual(self.request(endpoint,'POST',headers,json.dumps({'task':'42','sha256':'unknown','command':'anything'}))[0],409)
+
+    def test_ticket_decision_is_bound_authenticated_and_retained(self):
+        import hashlib
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('decisions',ROOT/'scripts/nightshift-console-decisions.py')
+        decisions=importlib.util.module_from_spec(spec);spec.loader.exec_module(decisions)
+        folder=self.repo/'.git/nightshift/console';folder.mkdir(parents=True)
+        record=dict(task='task-a',settings=dict(ref='spec:brief.md',provider='codex',policy='standard',auth='subscription',branch='auto',push=False,pr=False,model='',base=''))
+        (folder/'task-a.json').write_text(json.dumps(record))
+        question=decisions.request(self.repo,'task-a',dict(question='Choose format',reason='Needs a product choice',options=[dict(id='md',label='Markdown',description='Portable')]))
+        data=json.loads(self.request('/api/tickets')[1]);ticket=next(t for t in data['tickets'] if t['task']=='task-a')
+        self.assertEqual(ticket['decisions']['pending'][0]['question'],'Choose format')
+        payload=dict(task='task-a',sha256=ticket['sha256'],decision_sha256=question['sha256'],choice='md',answer='With citations')
+        headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(self.port),'X-Nightshift-Token':data['token']}
+        self.assertEqual(self.request('/api/tickets/decision','POST',{'Content-Type':'application/json'},json.dumps(payload))[0],403)
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(dict(payload,decision_sha256='stale')))[0],409)
+        code,body,_=self.request('/api/tickets/decision','POST',headers,json.dumps(payload))
+        self.assertEqual(code,200)
+        self.assertEqual(json.loads(body)['status'],'queued')
+        deadline=time.monotonic()+8
+        while time.monotonic()<deadline:
+            saved=decisions.snapshot(self.repo,'task-a')['answered'][0]
+            if saved.get('continuation',{}).get('status')=='blocked':break
+            time.sleep(.05)
+        self.assertEqual(saved['continuation']['status'],'blocked') # Missing ownership blocks launch, not answer persistence.
+        self.assertIn('worktree',saved['continuation']['message'])
+        self.assertEqual(decisions.snapshot(self.repo,'task-a')['answered'][0]['response']['choice'],'md')
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(payload))[0],200)
+        self.assertEqual(len(decisions.snapshot(self.repo,'task-a')['answered']),1)
+        self.assertEqual(self.request('/api/tickets/decision','POST',headers,json.dumps(dict(payload,answer='Different')))[0],409)
 
     def test_chat_query_is_scoped_and_requires_known_ticket(self):
         for path in ('/api/tickets/chat', '/api/tickets/chat?task=../escape', '/api/tickets/chat?task=missing', '/api/tickets/chat?task=a&task=b'):
@@ -224,6 +254,35 @@ class CollectorRaceTests(unittest.TestCase):
             self.assertIsNone(text)
             self.assertIsNotNone(error)
 
+
+class RecoveryAcceptanceTransport(unittest.TestCase):
+    def test_exact_attestation_forwarded_and_malformed_payload_rejected(self):
+        import importlib.util
+        import threading
+        from types import SimpleNamespace
+        spec=importlib.util.spec_from_file_location('acceptance_http',ROOT/'dashboard/server.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        calls=[]
+        def accept(*args,**kwargs):
+            calls.append((args,kwargs));return {'status':'complete'}
+        server=module.DashboardServer('/synthetic-project',0)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            body=dict(task='fixture',sha256='settings',assessment_sha256='a'*64,operator='synthetic operator',attestation=dict(binding='a'*64,cases=[dict(id='manual',case_sha256='b'*64,passed=True,observation='Observed '+'x'*1800,evidence='Local '+'x'*1800)]))
+            headers={'Content-Type':'application/json','Origin':'http://127.0.0.1:'+str(server.server_port),'X-Nightshift-Token':server.approval_token}
+            def request(payload, supplied=headers):
+                conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+                conn.request('POST','/api/tickets/recovery-accept',json.dumps(payload),supplied)
+                response=conn.getresponse();status=response.status;response.read();conn.close();return status
+            with patch.object(module,'action_module',return_value=SimpleNamespace(recovery_action=accept)):
+                self.assertEqual(request(body),200)
+                self.assertEqual(calls,[(('/synthetic-project','fixture','settings','recovery-accept','a'*64,'synthetic operator'),{'attestation':body['attestation']})])
+                for malformed in (dict(body,attestation='not an object'),dict(body,extra=True),dict(body,operator=False)):
+                    self.assertEqual(request(malformed),409)
+                self.assertEqual(request(body,dict(headers,Origin='https://example.invalid')),403)
+                self.assertEqual(len(calls),1)
+        finally:
+            server.shutdown();server.server_close();thread.join(5)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

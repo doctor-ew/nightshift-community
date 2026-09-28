@@ -284,14 +284,14 @@ class Multiturn(unittest.TestCase):
         before = json.loads(ledger.read_text())
         self.assertEqual(before['budget']['repairs'], 2)
         with (self.fx.project/'.nightshift.toml').open('a') as stream:
-            stream.write('repairs = 5\n')
+            stream.write('repairs = 5\ndevelopment_calls = 128\nfinal_calls = 128\n')
         self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'policy_changed')
         self.assertEqual(json.loads(self.fx.call('challenge', '--scenarios', self.fx.scenarios, '--out', self.fx.challenge).stdout)['reason'], 'policy_changed')
         authorization = self.fx.project/'docs/prototype/authorization.md'
-        authorization.write_text('Synthetic user authorizes three additional prototype repairs, cumulative cap five.\n')
+        authorization.write_text('Synthetic user authorizes three additional prototype repairs, cumulative cap five and 128 calls per gate.\n')
         amendment = {'version': 1, 'task': self.fx.task,
                      'previous_policy_sha256': proof.digest(before['budget']['policy']),
-                     'policy': dict(before['budget']['policy'], repairs=5),
+                     'policy': dict(before['budget']['policy'], repairs=5, development_calls=128, final_calls=128),
                      'rationale': 'Explicit continuation with all existing attempts retained',
                      'authorization': {'path': 'docs/prototype/authorization.md', 'sha256': fixture.digest(authorization)},
                      'review': None}
@@ -310,6 +310,8 @@ class Multiturn(unittest.TestCase):
         for key in ('repairs', 'attempts', 'reservations', 'launches', 'infrastructure_failures'):
             self.assertEqual(amended['budget'][key], before['budget'][key])
         self.assertEqual(amended['budget']['policy']['repairs'], 5)
+        self.assertEqual(amended['budget']['policy']['development_calls'], 128)
+        self.assertEqual(amended['budget']['policy']['final_calls'], 128)
         self.assertEqual(amended['policy_amendments'][0]['previous_policy'], before['budget']['policy'])
         self.assertEqual(json.loads(self.fx.call('amend-policy', '--evidence', path).stdout)['reason'], 'policy_amendment_stale')
         self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'seal_stale')

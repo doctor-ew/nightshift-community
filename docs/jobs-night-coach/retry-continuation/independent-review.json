@@ -1,0 +1,91 @@
+{
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "model": "sonnet",
+    "provider": "claude"
+  },
+  "attempts": 1,
+  "reason": "Read-only review at commit 43b3cb0 (extracted 2026-09-21T15:48:06Z). All six invariants hold; no substantive defect found. Minor non-defect notes: concurrency ordering is verified by code inspection only (no concurrent test); authorization file is an operator audit record only, per the stated scope.",
+  "results": {
+    "claims": [
+      {
+        "claim": "(1) Original retry counters, attempts and limits survive authorization: authorize_continuation only appends a 'continuations' entry (with ceilings) and sets next_action; state['limits'], total, attempts, substantive_failures and infrastructure_failures are never mutated. retry_limits overlays ceilings on a copy of limits. Test asserts limits/total/attempts/counters equal pre-authorization values.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 149,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(1 evidence) retry_limits returns dict(state['limits']) updated with the last continuation's ceilings; original limits object untouched. Test lines 121-122 and 130 (limits == before['limits']) confirm.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 105,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(2) A nonempty bounded decision file is required (hash recorded) and the exact prior-ledger sha256 is required (stale hash refused at 138-139). Replay of same decision returns existing state unchanged and raises if before_sha256 or attempts differ (133-137), so replay cannot grant more attempts. Tests: stale refused 117-119; replay equals state 123 and 131 (after exhaustion, still no new grant, extra account refused 132-134).",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 124,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(3) At most three additional dispatches: attempts validated as int (bool rejected via type() is) in 1..3 (120-121); ceilings total=total+attempts and substantive=substantive+attempts (155-156); account() counts every non-finalizing call including 'success'/'pending' toward total (175-176) and sets stop when total >= ceiling (188-191); a successful report ends as 'pending' first, so it stays pending until the canonical gate finalizes it. Test 126-134 runs three pending->success pairs, reaches total 7 with stop, and a fourth call is refused.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 155,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(4) Ineligible ledgers cannot be opened: pending attempts, non-'stop' next_action, proof ledgers ('budget' in state), non-version-1, and infrastructure_failures >= infrastructure limit are refused before any save(); also refused when no review allowance is exhausted (147-148). Tests 135-150 assert pending, infra-exhausted and proof ledgers raise ValueError and bytes remain unchanged.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 140,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(5) Concurrency lock order matches dispatch: authorize_continuation takes the invocation lock (.adversarial-invocation.lock in the ledger's directory, LOCK_EX) at 128-129, then enters transaction() which takes the accounting lock (<state>.lock, LOCK_EX) at 132/53-55. run_dispatch takes the same invocation lock at 329-330, then account() -> transaction() for the accounting lock. Same order, same lock file when the ledger is .adversarial-budget.json in the dispatch directory. Verified by code inspection; no test exercises concurrency.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 128,
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "(6) No automatic dispatcher calls authorization: authorize_continuation is referenced only in its definition (112), the explicit 'authorize-continuation' CLI branch (399-408), and tests; run_dispatch (321-395) never calls it, and a repo-wide grep finds no other callers.",
+        "file": "scripts/nightshift-retry-budget.py",
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py",
+          "tests/test-retry-budget.sh"
+        ],
+        "line": 399,
+        "status": "VERIFIED"
+      }
+    ]
+  },
+  "rules_fired": [
+    "tier1-exact-grep",
+    "tier3-function-deep-extraction",
+    "dynamic-vs-hardcoded-flag",
+    "read-only-no-edits"
+  ],
+  "status": "SUCCESS"
+}

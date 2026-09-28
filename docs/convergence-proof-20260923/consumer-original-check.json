@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/Users/drew.schillinger/.local/share/mise/installs/python/3.14.7/bin/python3",
+    "/private/tmp/nightshift-bounded-convergence/scripts/nightshift-repair-check.py",
+    "check",
+    "--project",
+    "/private/tmp/nightshift-bounded-convergence/docs/convergence-proof-20260923/consumer",
+    "--manifest",
+    "repair-checks.json",
+    "--out",
+    "repair-check.receipt.json"
+  ],
+  "exit_code": 1,
+  "stdout": "{\"status\": \"failed\", \"receipt\": \"repair-check.receipt.json\", \"gate_approval\": false}\n",
+  "stderr": ""
+}

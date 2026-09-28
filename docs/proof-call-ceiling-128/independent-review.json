@@ -1,0 +1,214 @@
+{
+  "status": "SUCCESS",
+  "reason": "Narrow independent review of nightshift behavior-proof retry-budget ceiling amendment. All claims verified; no defects found.",
+  "attempts": 1,
+  "rules_fired": [
+    "bounds-consistency",
+    "test-coverage-comprehensive",
+    "policy-enforcement-layered",
+    "counter-preservation",
+    "authorization-required",
+    "review-required",
+    "config-bypass-blocked",
+    "amendment-monotonic"
+  ],
+  "artifacts": {
+    "provider": "claude",
+    "model": "haiku",
+    "branch": "HEAD",
+    "diff": "git diff 2dd32bc -- scripts/nightshift-behavior-proof.py scripts/nightshift-retry-budget.py tests/test-behavior-proof.sh tests/test-behavior-multiturn.py docs/BEHAVIOR-PROOF.md"
+  },
+  "results": {
+    "claims": [
+      {
+        "claim": "development_calls bound raised from 64 to 128 in config validation",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 609,
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "final_calls bound raised from 64 to 128 in config validation",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 609,
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "repairs bound remains at 64 (unchanged) in config validation",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 609,
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "development_calls and final_calls bounds raised to 128 in proof_validate",
+        "file": "scripts/nightshift-retry-budget.py",
+        "line": 220,
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "repairs bound remains at 64 in proof_validate",
+        "file": "scripts/nightshift-retry-budget.py",
+        "line": 220,
+        "inspected_files": [
+          "scripts/nightshift-retry-budget.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Test accepts development_calls=128 and development_calls=65",
+        "file": "tests/test-behavior-proof.sh",
+        "line": 79,
+        "inspected_files": [
+          "tests/test-behavior-proof.sh"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Test accepts final_calls=128",
+        "file": "tests/test-behavior-proof.sh",
+        "line": 79,
+        "inspected_files": [
+          "tests/test-behavior-proof.sh"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Test rejects development_calls=129",
+        "file": "tests/test-behavior-proof.sh",
+        "line": 82,
+        "inspected_files": [
+          "tests/test-behavior-proof.sh"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Test rejects final_calls=129",
+        "file": "tests/test-behavior-proof.sh",
+        "line": 82,
+        "inspected_files": [
+          "tests/test-behavior-proof.sh"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment preserves repairs counter",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 310,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment preserves attempts, reservations, launches, infrastructure_failures counters",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 310,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment test updates policy with development_calls=128, final_calls=128, repairs=5",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 293,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment test verifies policy values match after amendment",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 312,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment requires authorization path and sha256 in test",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 296,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment requires independent review (different provider/author) in test",
+        "file": "tests/test-behavior-multiturn.py",
+        "line": 297,
+        "inspected_files": [
+          "tests/test-behavior-multiturn.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Pinned policy change detection blocks unauthorized config changes",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 854,
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Amendment can only increase policy bounds, not decrease them (line 894-897)",
+        "file": "scripts/nightshift-behavior-proof.py",
+        "line": 896,
+        "inspected_files": [
+          "scripts/nightshift-behavior-proof.py"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Documentation states 128 is finite ceiling for development_calls and final_calls",
+        "file": "docs/BEHAVIOR-PROOF.md",
+        "line": 321,
+        "inspected_files": [
+          "docs/BEHAVIOR-PROOF.md"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Documentation states 64 is finite ceiling for repairs",
+        "file": "docs/BEHAVIOR-PROOF.md",
+        "line": 321,
+        "inspected_files": [
+          "docs/BEHAVIOR-PROOF.md"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Documentation clarifies ceilings are not defaults",
+        "file": "docs/BEHAVIOR-PROOF.md",
+        "line": 322,
+        "inspected_files": [
+          "docs/BEHAVIOR-PROOF.md"
+        ],
+        "status": "VERIFIED"
+      },
+      {
+        "claim": "Documentation states existing pinned limits remain authoritative until amendment applied",
+        "file": "docs/BEHAVIOR-PROOF.md",
+        "line": 323,
+        "inspected_files": [
+          "docs/BEHAVIOR-PROOF.md"
+        ],
+        "status": "VERIFIED"
+      }
+    ]
+  }
+}

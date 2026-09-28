@@ -82,3 +82,55 @@ Actions require the local origin, a server token, and the current saved-settings
 hash. Repeat clicks reuse a live console launch. The console process must have
 the same credentials as a terminal run; missing Jira credentials block before
 any model starts. New terminal runs save only non-secret invocation settings.
+
+
+## Operator decisions and repair evidence
+
+The live portal shows a **Your decision is needed** panel for structured ticket
+questions. Select one of up to three options, write a custom answer, or add detail
+to the selected option. **Submit & continue** retains the answer against the exact
+question version and queues continuation using the saved run policy. If a worker
+is still exiting, continuation waits; failures remain visible with a retry action.
+Answers do not mark gates passed, reset budgets, or authorize arbitrary commands.
+Owned unfinished-child questions appear on the parent ticket card.
+
+Controllers publish questions through `scripts/nightshift-console-decisions.py`
+(`request --project DIR --task KEY --input FILE`) and read answers using `context`.
+Request JSON has question, reason, and options; each option has id, label and
+ description. Optional continuation is resume (default) or repair. The portal
+uses the same loopback Origin/token boundary as other ticket actions.
+
+Repair now gathers bounded public specs, scenarios, calibration fixtures and recent
+failure receipts before historical workflow logs. A parent resolves children only
+through its matching decomposition, batch and retained worktree ownership in the
+same Git repository. One blocked child is repaired in its own worktree; multiple
+blocked children prompt for a target. Active children prevent concurrent repair
+without charging a new repair attempt. Private held-out material, credentials and
+symlink escapes are excluded. Repair still requires independent review and actual
+verification before the original parent workflow resumes.
+
+## Explicit budget continuation
+
+The ticket allowance panel includes **Grant 10 minutes & continue**. It displays
+recorded active time, launch usage, and continuation count. The grant uses the
+existing ticket ledger: it sets a new allowance of up to 600 wall-clock seconds
+and 600 aggregate worker seconds from the recorded grant, retaining prior usage,
+reservations, and the launch limit. Unused time is not accumulated. Parallel
+workers consume the aggregate allowance together. These are not token or billing
+limits.
+
+The action checks retained ownership, primary and worker preflight, and provider
+routing before granting time. Configuration blockers leave the ledger unchanged.
+Active work, unfinished reservations, pending decisions, exhausted launch limits,
+and pending manual acceptance cannot receive a browser grant. A ledger revision
+binds each request to the displayed budget; repeating that request cannot grant
+again, even after the worker exits. While usable time remains, the button directs
+the operator to Resume; the server and ledger reject a browser replacement grant.
+The controller target must match the registered worktree. Ordinary Resume does
+not grant time.
+
+A grant and operating-system process creation are not a single transaction. If
+process creation fails after a grant, the grant remains in history and its clock
+continues; the action reports the launch failure. This UI does not introduce an
+automatic refund or reset. Provider login or service failures after local
+preflight remain runtime failures, not proof of completed work.

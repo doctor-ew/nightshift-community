@@ -1,0 +1,98 @@
+{
+  "synthetic": true,
+  "browser": "153.0.8010.12",
+  "provider_calls": 14,
+  "replay_calls": 0,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 6639,
+      "packet_bytes": 4216
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 17047,
+      "packet_bytes": 11583
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3153,
+      "packet_bytes": 730
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6322,
+      "packet_bytes": 858
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3415,
+      "packet_bytes": 992
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6788,
+      "packet_bytes": 1324
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3157,
+      "packet_bytes": 734
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6326,
+      "packet_bytes": 862
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3422,
+      "packet_bytes": 999
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6796,
+      "packet_bytes": 1332
+    },
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3907,
+      "packet_bytes": 1484
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 7076,
+      "packet_bytes": 1612
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4190,
+      "packet_bytes": 1767
+    },
+    {
+      "operation": "review",
+      "request_bytes": 7570,
+      "packet_bytes": 2106
+    }
+  ],
+  "usage": {
+    "calls": 14,
+    "execution_seconds": 4.953324001995497,
+    "unknown_calls": 0,
+    "reserved_seconds": 0,
+    "request_bytes": 30599,
+    "orchestration_provider_calls": 0,
+    "preparation_wall": {
+      "elapsed_seconds": 4.814988851547241,
+      "reserved_seconds": 0,
+      "unknown_phases": 0
+    }
+  },
+  "live_certification": false,
+  "runtime_revision": "8431ed2bb1acc7291949bb6c076633cf28973d8a",
+  "controller_sha256": "abddfcf4a660913fc4c519165fb9044c410d567bc0beb8060d05ae1fdf010209",
+  "tokens": null,
+  "provider_kv_cache_reuse": null,
+  "billed_cost": null,
+  "independent_reviewer_usage": null
+}

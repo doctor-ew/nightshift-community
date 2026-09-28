@@ -3,7 +3,7 @@ name: "proof-accounting"
 description: "Proof admission, pinned policy, and accounting invariants."
 triggers: ["proof", "budget", "pending attempt"]
 edges: [{"target": "context/architecture.md", "condition": "when placing the change in the pipeline"}, {"target": "context/conventions.md", "condition": "when implementing or verifying changes"}, {"target": "patterns/debug-proof-budget.md", "condition": "when proof admission fails"}]
-last_updated: "2026-09-20"
+last_updated: "2026-09-26"
 mex:
   id: mx_01M21Z3AMXY4C5AAH2N44827A3
   type: architecture
@@ -44,3 +44,21 @@ mex:
 
 ## Bounds
 The validated proof policy allows 1–64 calls per gate, 0–64 repairs and 0–2 infrastructure failures, 1–120 timeout seconds, and 1–1048576 output bytes. These proof limits must not be conflated with the setup manifest's stage repair budgets. Sources: `scripts/nightshift-retry-budget.py` (line 162), `scripts/nightshift-setup.py` (line 38).
+
+## Registered repair recurrence
+
+The source dispatcher stores canonical registered-artifact signatures per attempt and refuses a signature previously finalized as substantive. Restart, formatting, finding-ID and output-name changes cannot reset admission. Pending and infrastructure outcomes retain their separate handling. This is source-review accounting, separate from proof-call accounting. Sources: `scripts/nightshift-retry-budget.py` (`repair_admission`, `run_dispatch`), `tests/test-repair-dispatch.py`.
+
+Package composition wall follow-up: later authorizations, including a different operator or graph binding, cannot exceed the earliest retained composition deadline. Idle before the first composition authorization retains the active preparation policy. Sources: `scripts/nightshift-package-controller.py` (`Packages.authorize`), `tests/test-package-composition-window-review.py`, `docs/operations/COMPOSITION-WINDOW.md`. Synthetic evidence only; no live activation.
+Semantic cache identity follow-up: evaluator/mapper/configuration-adapter/transport source hashes bind semantic authority and are revalidated with the current task, policy and route. Changed code requires fresh calls within retained budgets; old receipts cannot be relabeled. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-cache-review.py`, `docs/operations/SEMANTIC-CACHE-IDENTITY.md`. Other typed mapping acceptance remains open.
+
+Operation decision/acceptance candidate: evidence-bound nonexecuting questions, exact manual-case testimony and actual-launcher bounded review failure are implemented in `scripts/nightshift-operations.py`. Synthetic evidence and limits: `docs/operations/MANUAL-ACCEPTANCE.md` and `docs/operations/MANUAL-ACCEPTANCE-VALIDATION.json`. No live certification or installed activation is claimed.
+Semantic provenance follow-up: operation-owned paths constrain evidence roles, each obligation requires complete context/case coverage, and independent escalation must return explicit evidence/requirement/finding identifiers. Raw malformed/partial outputs remain retained with charged calls. Sources: `scripts/nightshift-operation-decisions.py`, `tests/test-semantic-provenance-review.py`, `docs/operations/SEMANTIC-PROVENANCE.md`. Synthetic only; no live accuracy or savings claim.
+
+Operation cancellation and reconciliation use durable intents, owned-process cleanup, inherited parent restrictions and evidence-bound recovery without redispatch. Unknown usage remains reserved. Sources: `scripts/nightshift-operation-reconciliation.py`, `tests/test-operation-reconciliation-review.py`, `tests/test-package-cancellation-review.py`, `docs/operations/CANCELLATION-RECONCILIATION.md`. Synthetic integration only; no live activation.
+
+Typed Verify integrates Python unittest and Node framework receipts through existing operation authority and cancellation, with raw evidence retention and stale adapter/runtime invalidation. Legacy wrappers retain logs but cannot certify typed success. Sources: `scripts/nightshift-verification-adapters.py`, `tests/test-verification-adapters-review.py`, `tests/test-verification-controller-review.py`, `docs/operations/TYPED-VERIFICATION-INTEGRATION.md`. Synthetic only.
+
+Reviewed delivery composes explicit commit, branch, PR and CI actions through the shared controller. Durable effect intent, exact remote identity, trusted CI checks, inherited cancellation and existing bounded repair authority remain deterministic. Sources: `scripts/nightshift-delivery.py`, `scripts/nightshift-delivery-compose.py`, `scripts/nightshift-delivery-repair.py`, `docs/operations/REVIEWED-DELIVERY.md`. Candidate only; endpoint certification and activation remain separate under `docs/operations/ENDPOINT-CERTIFICATION-PROPOSAL.md`.
+
+Optional GitHub Actions admission binds reviewed workflow bytes, isolated per-attempt integration receipts and exact current merge parents. Raw reported heads remain distinct from verified merge revisions. Sources: `scripts/nightshift-delivery-actions.py`, `.github/workflows/shellcheck.yml`, `tests/test-delivery-actions-integration.py`, `docs/operations/ACTIONS-INTEGRATION-VALIDATION.json`. Synthetic browser proof and hosted receipt proof are separate; live endpoint certification remains unexecuted.

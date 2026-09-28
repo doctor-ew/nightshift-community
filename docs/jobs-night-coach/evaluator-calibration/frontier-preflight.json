@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-09-21T11:28:10.303517+00:00",
+  "codex_subscription": true,
+  "claude_subscription": true,
+  "allowed_providers": [
+    "claude",
+    "codex"
+  ],
+  "provider_policy": "standard",
+  "local_models_enabled": false,
+  "application_restarted": false
+}

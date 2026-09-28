@@ -45,6 +45,7 @@ def belongs(url, project):
         return (identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
                 and identity.get('ticket_actions_api') == 2
                 and identity.get('ticket_chat_api') == 1
+                and identity.get('ticket_decisions_api') == 1
                 and identity.get('evidence_api') == 1
                 and (not workshop or identity.get('workshop_review_api') == 2))
     except (OSError, ValueError, urllib.error.URLError):

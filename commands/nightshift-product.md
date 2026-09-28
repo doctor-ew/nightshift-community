@@ -95,7 +95,7 @@ PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 REF=$(jq -r '.arguments' <<< "$STAGE_ARGS")
-TICKET_JSON=$(~/.nightshift/scripts/nightshift-ticket-source.sh "$REF" 2>&1)
+TICKET_JSON=$("${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-ticket-source.sh" "$REF" 2>&1)
 # Use `printf '%s'` (not `echo`) when re-piping captured JSON — on shells
 # where echo interprets backslash escapes (the agent's calling shell does),
 # `\n` inside string values gets converted to a literal newline and breaks
@@ -124,9 +124,9 @@ A `bd:*` source still requires Beads and cannot be used with file-only mode.
 
 ```bash
 BD_ID=""
-LEDGER_MODE=$(python3 ~/.nightshift/scripts/nightshift-setup.py --read | jq -r '.ledger.mode // "auto"')
-if [ "$LEDGER_MODE" != files ] && bash ~/.nightshift/scripts/nightshift-capability.sh --has bd; then
-  BD_ID=$(printf '%s' "$TICKET_JSON" | ~/.nightshift/scripts/nightshift-beads-mirror.sh)
+LEDGER_MODE=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-setup.py" --read | jq -r '.ledger.mode // "auto"')
+if [ "$LEDGER_MODE" != files ] && bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has bd; then
+  BD_ID=$(printf '%s' "$TICKET_JSON" | "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-beads-mirror.sh")
   if [ -z "$BD_ID" ]; then
     echo "BEADS_MIRROR_FAILED — see stderr above."
     exit 1
@@ -151,7 +151,7 @@ else
   TASK_KEY="$SOURCE_ID"
 fi
 
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
 SPEC_DIR="${PROJECT}/docs/${TASK_KEY}"
 SPEC="${SPEC_DIR}/SPEC.md"
@@ -231,17 +231,26 @@ if [ -f "$SPEC" ]; then
 fi
 ```
 
-If a spec already exists, ask:
-> "A spec already exists for `$TASK_KEY`. Use it or regenerate? (use / regen)"
+If a spec already exists, reuse it by default. Read retained operator decisions and
+current findings. Do not repeat the grounding interview, source discovery, or writer
+invocation for unchanged requirements. Continue with missing validation and review
+in `/nightshift-spec` Step 4; existence is not approval and must not skip directly
+to the approved tracker in Step 8.
 
-- **use** → skip to Step 8 (handoff).
-- **regen** → continue to Step 5.
+Only concrete unresolved findings or changed upstream requirements justify a writer
+repair. Write `spec-repair.json` beside the draft with `spec_sha256` matching the
+current file and a nonempty `findings` array of `{id, target, problem}` objects.
+Use retained stable IDs and name the affected section or artifact; the dispatcher
+requires this brief before launching a writer against an existing draft. This is
+controller work, not another operator question. Do not manufacture a finding to
+obtain a rewrite. The repair prompt is restricted to the listed defects; validation
+and independent approval still follow.
 
 ---
 
 ## Step 5 — Three grounding questions
 
-Ask one at a time. Wait for each answer before asking the next.
+Use the ticket, prior answers, and existing user authorization first. Do not ask again when those already establish the answer. For a genuinely unresolved choice in factory mode, use the web-portal decision protocol in `nightshift-eng.md`: publish a structured question/options with `nightshift-console-decisions.py`, record `needs-decision`, and let the portal retain the answer and continue. In supervised mode ask one at a time.
 
 1. **Intent check:** "In one sentence — what is this ticket actually building? (Ticket titles drift from real intent — this anchors the spec.)"
 
@@ -306,7 +315,7 @@ Skip silently if graphify is not installed — it's an enhancement, not a requir
 
 After the extractor returns, write each clean result (`FOUND_MATCH` or `NET_NEW` — no
 conflicts) to the shared cache `$TASK_DIR/.claim-cache.jsonl` via
-`~/.nightshift/scripts/nightshift-claim-cache.sh`. The cache key is computed from
+`"${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-claim-cache.sh"`. The cache key is computed from
 `(identifier_text, $HEAD_SHA, sorted(file_targets))` — for /nightshift-product, `file_targets`
 are the files the extractor inspected (the ticket has no `## Files to Change` table yet;
 the upcoming spec will). This pre-populates the cache so /nightshift-adversarial gets hits on
@@ -394,6 +403,23 @@ integration; never silently drop requirements to shrink a ticket. Include the
 installed helper's capability discovery, one canonical output contract, and
 artifact-scoped assertion requirements in the brief. Follow the spec-writer's
 public counterexample and repair-coverage procedure before re-review.
+
+For repairs with mechanically checkable findings, require the writer's conventional
+`docs/<task-key>/repair-checks.json` and a passing, current hash-bound
+`repair-check.receipt.json` before another paid review. Use
+`nightshift-repair-check.py check` with project, manifest and output arguments;
+its schema and limits are documented in `agents/nightshift-spec-writer.md`.
+Snapshot the original artifact before editing and enumerate all affected public
+cases/turns. A passing regression check does not approve any product, design or
+behavioral gate. Absence of a manifest is not regression evidence. Do not add a
+fake equality assertion for an inherently semantic finding.
+
+A recurring stable finding changes the repair strategy: route a replacement
+author through a different configured provider with the narrowed defect and
+delta, within the existing cumulative allowance. Do not pay for another full
+spec rewrite or reset counters. Concrete technical failures are repair work;
+actual unresolved product choices must be published through the portal decision
+helper, preserving the answer for continuation.
 
 Spec saves to `docs/<task-key>/SPEC.md`; every mode also produces
 `docs/<task-key>/behavior-scenarios.json`. Include stable AC IDs, per-case
@@ -524,7 +550,7 @@ Read the answer. Treat empty input, `y`, `Y`, `yes`, `YES` as **Yes**. Treat `n`
 PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-TASK_DIR=$(bash ~/.nightshift/scripts/nightshift-state-dir.sh --project "$PROJECT")
+TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT")
 TRACKER=$(ls "${TASK_DIR}/"bd-*.md 2>/dev/null | head -1)
 ACTIVE=$(ls "${TASK_DIR}/ACTIVE-"* 2>/dev/null | head -1)
 

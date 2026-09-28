@@ -1,0 +1,18 @@
+{
+  "status": "FAIL",
+  "reason": "launch receipt requires behavior reviewer",
+  "attempts": 1,
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "provider": "",
+    "model": ""
+  },
+  "rules_fired": [
+    "dispatcher_failure"
+  ],
+  "results": {
+    "passed": 0,
+    "failed": 0
+  }
+}

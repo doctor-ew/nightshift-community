@@ -10,6 +10,7 @@ import json
 from unittest.mock import patch
 import subprocess
 import os
+import hashlib
 spec = importlib.util.spec_from_file_location('budget', pathlib.Path(sys.argv[1])/'scripts/nightshift-retry-budget.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -101,5 +102,51 @@ with tempfile.TemporaryDirectory() as tmp:
         try: module.run_dispatch(args)
         except ValueError: pass
         else: raise AssertionError('pending reservation accepted another launch')
-print('PASS: accounting and dispatcher admission, classification, rejection and interruption')
+with tempfile.TemporaryDirectory() as tmp:
+    root = pathlib.Path(tmp).resolve()
+    decision = root/'decision.md'
+    decision.write_text('User requested a supervised corrective continuation. Preserve original counts.')
+    path = root/'.adversarial-budget.json'
+    for i in range(4): module.account(path, str(i), 'substantive')
+    before = json.loads(path.read_text())
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    for amount in (0, 4, True):
+        try: module.authorize_continuation(path, decision, digest, amount)
+        except ValueError: pass
+        else: raise AssertionError('unbounded continuation accepted')
+    try: module.authorize_continuation(path, decision, 'stale', 3)
+    except ValueError: pass
+    else: raise AssertionError('stale ledger accepted')
+    resumed = module.authorize_continuation(path, decision, digest, 3)
+    for key in ('limits', 'total', 'attempts', 'substantive_failures', 'infrastructure_failures'):
+        assert resumed[key] == before[key], key
+    assert module.authorize_continuation(path, decision, digest, 3) == resumed
+    # A successful report still awaits canonical gate evaluation; exactly three
+    # additional launches are possible, including failures and successful calls.
+    for i in range(3):
+        module.account(path, 'supplement-'+str(i), 'pending')
+        state = module.account(path, 'supplement-'+str(i), 'success')
+    assert state['total'] == 7 and state['next_action'] == 'stop'
+    assert state['substantive_failures'] == 4 and state['limits'] == before['limits']
+    assert module.authorize_continuation(path, decision, digest, 3) == state
+    try: module.account(path, 'extra', 'pending')
+    except ValueError: pass
+    else: raise AssertionError('continuation exceeded three calls')
+    # Pending calls, infrastructure exhaustion and proof ledgers cannot be opened.
+    for name, categories in [('pending', ['pending']), ('infra', ['transport']*3)]:
+        other = root/(name+'.json')
+        for i, category in enumerate(categories): module.account(other, str(i), category)
+        snapshot = other.read_bytes()
+        try: module.authorize_continuation(other, decision, hashlib.sha256(snapshot).hexdigest())
+        except ValueError: pass
+        else: raise AssertionError('ineligible ledger accepted')
+        assert other.read_bytes() == snapshot
+    proof = root/'proof.json'
+    proof.write_text(json.dumps({'budget': {'pinned': True}, 'version': 1}))
+    snapshot = proof.read_bytes()
+    try: module.authorize_continuation(proof, decision, hashlib.sha256(snapshot).hexdigest())
+    except ValueError: pass
+    else: raise AssertionError('proof budget modified')
+    assert proof.read_bytes() == snapshot
+print('PASS: accounting, dispatcher admission, and bounded audited continuation')
 PY

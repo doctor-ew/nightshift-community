@@ -1,0 +1,100 @@
+{
+  "issue": "https://github.com/doctor-ew/nightshift-community/issues/49",
+  "samples": [
+    {
+      "profile": "baseline",
+      "synthetic_fixture": true,
+      "live_provider": "claude",
+      "reported_models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "result": [
+        {
+          "observed": "CONFLICT",
+          "reused": false
+        },
+        {
+          "observed": "VERIFIED",
+          "reused": false
+        },
+        {
+          "observed": "VERIFIED",
+          "reused": true
+        }
+      ],
+      "passed": true,
+      "instrumented_launches": 2,
+      "transport_retries": 0,
+      "targeted_repairs": 1,
+      "active_seconds": 19.65622305870056,
+      "wall_seconds": 20.261297941207886,
+      "driver_elapsed_seconds": 23.384,
+      "usage": {
+        "total": 83763,
+        "fresh_input": 36,
+        "cache_read_input": 57741,
+        "cache_write_input": 23923,
+        "output": 2063
+      },
+      "provider_estimate_usd": 0.0639711,
+      "actual_billed_usd": null,
+      "provider_internal_call_count": null,
+      "limits": {
+        "launches": 2,
+        "aggregate_active_seconds": 120,
+        "wall_seconds": 180
+      }
+    },
+    {
+      "profile": "isolated_reader",
+      "synthetic_fixture": true,
+      "live_provider": "claude",
+      "reported_models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "result": [
+        {
+          "observed": "CONFLICT",
+          "reused": false,
+          "role_status": "FAIL"
+        },
+        {
+          "observed": "VERIFIED",
+          "reused": false
+        },
+        {
+          "observed": "VERIFIED",
+          "reused": true
+        }
+      ],
+      "passed": true,
+      "instrumented_launches": 2,
+      "transport_retries": 0,
+      "targeted_repairs": 1,
+      "active_seconds": 11.298640012741089,
+      "wall_seconds": 98.38240599632263,
+      "driver_elapsed_seconds": 12.867,
+      "usage": {
+        "total": 26499,
+        "fresh_input": 36,
+        "cache_read_input": 18525,
+        "cache_write_input": 6719,
+        "output": 1219
+      },
+      "provider_estimate_usd": 0.0214215,
+      "actual_billed_usd": null,
+      "provider_internal_call_count": null,
+      "limits": {
+        "launches": 2,
+        "aggregate_active_seconds": 120,
+        "wall_seconds": 180
+      }
+    }
+  ],
+  "limitations": [
+    "Small synthetic source-review fixture, not full spec generation or work-ticket completion.",
+    "Second wall time includes a driver correction pause; active time is reported separately.",
+    "Usage includes cache-read and cache-write tokens. Provider estimates are not subscription charges.",
+    "No Jev or RTK savings claimed."
+  ]
+}

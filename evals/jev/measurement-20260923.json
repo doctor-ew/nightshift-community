@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "status": "incomplete",
+  "cases": [
+    {
+      "id": "passing-checks",
+      "expected_defective": false,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    },
+    {
+      "id": "process-false-pass",
+      "expected_defective": true,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    },
+    {
+      "id": "missing-review",
+      "expected_defective": true,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    },
+    {
+      "id": "honest-pending",
+      "expected_defective": false,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    },
+    {
+      "id": "invented-savings",
+      "expected_defective": true,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    },
+    {
+      "id": "bounded-measurement",
+      "expected_defective": false,
+      "request_attempted": false,
+      "status": "unavailable",
+      "reason": "NO_KEY",
+      "caught": null,
+      "usage": null
+    }
+  ],
+  "service_requests": 0,
+  "defects_caught": 0,
+  "false_positives": 0,
+  "evaluated_cases": 0,
+  "elapsed_seconds": 8.749993867240846e-06,
+  "claude_calls_avoided": 0,
+  "actual_billed_usd": null,
+  "recommendation": "keep_optional_shadow_only",
+  "limitations": [
+    "Small labelled public corpus, not consumer certification.",
+    "No required reviewer is replaced; avoided Claude calls are zero."
+  ]
+}

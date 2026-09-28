@@ -113,6 +113,8 @@ def make_inventory(project, runtime, targets):
         add('claude_adapters', 'scripts/nightshift-behavior-proof.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-retry-budget.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-provider-policy.py', 'claude')
+        # Loaded by provider-policy and project-context; Python helpers are listed explicitly.
+        add('claude_adapters', 'scripts/nightshift-checkout-identity.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-provider-usage.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-cleanup.py', 'claude')
         add('claude_adapters', 'scripts/nightshift-console-actions.py', 'claude')

@@ -12,10 +12,19 @@
 #   bash nightshift-capability.sh --which <tool>  # print the resolved command, empty if absent
 #   . "$(dirname "$0")/nightshift-capability.sh"  # NOT sourceable — call it, then eval the output
 #
-# Cache: $NIGHTSHIFT_CACHE_DIR/capabilities (default ~/.nightshift/capabilities), TTL 24h.
+# Cache: $NIGHTSHIFT_CACHE_DIR/capabilities; otherwise $NIGHTSHIFT_HOME/capabilities
+# (fallback ~/.nightshift/capabilities), TTL 24h.
 # Output is safe to `eval`.
 #
 # Deliberately NOT set -euo pipefail: probes must be allowed to fail.
+
+# Presence-only admission never invokes a provider or writes a capability cache.
+if [ "${1:-}" = --presence ]; then
+  case "${2:-}" in
+    git|bash|python3|jq|gh|codex|claude|ollama) command -v "$2" >/dev/null 2>&1; exit $? ;;
+    *) exit 64 ;;
+  esac
+fi
 
 # Semantic adapter lookup is pure: no CLI probes, shared cache, or tool execution.
 if [ "${1:-}" = --resolve ]; then
@@ -62,7 +71,7 @@ if [ "${2:-}" = rtk ] && { [ "${1:-}" = --has ] || [ "${1:-}" = --which ]; }; th
   exit 0
 fi
 
-CACHE_DIR="${NIGHTSHIFT_CACHE_DIR:-$HOME/.nightshift}"
+CACHE_DIR="${NIGHTSHIFT_CACHE_DIR:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}"
 CACHE_FILE="$CACHE_DIR/capabilities"
 TTL=86400
 

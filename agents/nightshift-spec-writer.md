@@ -36,7 +36,7 @@ identifier in it is forbidden from the spec body. Put it under Open Questions in
 1. Read the task/ticket content given to you.
 2. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
 `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
-3. **Code graph first, when available.** If `bash ~/.nightshift/scripts/nightshift-capability.sh --has mex` succeeds and `.mex/graph.db` exists, use
+3. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` to locate affected files before Grep/Read. No-op when absent.
 4. Read the files you are about to describe. Record `path:line` for each fact as you go — do
    not reconstruct citations afterward from memory.
@@ -84,6 +84,27 @@ check outcomes. Search all public cases for the same defect pattern. Execute
 local oracle checks on public synthetic examples before requesting another model
 review; this is checker testing, not a prototype run or behavioral approval.
 Do not read private cases. Do not invent expected answers in the production prompt.
+
+Before paid re-review, encode every mechanically checkable finding in
+`docs/<task-key>/repair-checks.json` and run the installed
+`nightshift-repair-check.py check` helper with `--project`, `--manifest` and
+`--out docs/<task-key>/repair-check.receipt.json`. The manifest has
+`schema_version: 1` and a nonempty `findings` array. Each finding has exactly:
+`id` (stable finding ID), `artifact` (project-relative JSON artifact), `pointer`
+(JSON pointer), `expected` (exact JSON value), `prior_artifact` (retained pre-repair
+JSON snapshot), and `prior_sha256` (snapshot SHA-256). The helper must demonstrate
+that the original failed and the current artifact passes; retain its hash-bound
+receipt. Include all affected adjacent turns/cases, not only the first location
+named by a reviewer. This is regression evidence, never independent approval or
+live behavioral proof. Semantic findings still require independent review; do
+not pretend an equality assertion establishes semantic correctness.
+
+When a stable finding recurs after repair, request a different author provider
+through configured routing and provide only the finding, affected contract,
+changed artifacts and failing regression. Do not regenerate the entire spec or
+reset the existing repair budget. Distinguish a concrete defect from a genuine
+product ambiguity: only the latter becomes a durable portal decision with choices
+and a free-text answer via `nightshift-console-decisions.py`.
 
 Save to `docs/<task-key>/SPEC.md`.
 

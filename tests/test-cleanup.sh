@@ -27,7 +27,10 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cleanup-test-') as temp:
     stub=binary/'claude'
     stub.write_text('#!/bin/sh\nif [ "$1" = auth ]; then echo \'{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}\'; else echo \'{"type":"result","subtype":"success"}\'; fi\n')
     stub.chmod(0o755)
-    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp)/'home'))
+    # Exercise cleanup before one controller-selected worker, not pipeline completion.
+    handoff=pathlib.Path(temp)/'handoff.json';handoff.write_text('{}')
+    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp)/'home'),NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='42',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(pathlib.Path(temp)/'receipt.json'))
+    env['HOME']=str(pathlib.Path(temp)/'home');pathlib.Path(env['HOME']).mkdir()
     result=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),'gh:42','--project',str(project),'--provider','claude','--branch','auto'],env=env,capture_output=True,text=True)
     assert result.returncode==0,result.stderr
     assert 'resumable' in result.stderr,result.stderr

@@ -25,7 +25,7 @@ class InitTest(unittest.TestCase):
 
     def run_init(self, *args, status=0):
         result = subprocess.run(['bash', str(ROOT / 'scripts/nightshift-factory.sh'), 'init',
-                                 '--project', str(self.project), *args], env=self.env,
+                                 '--project', str(self.project), '--mex', 'off', *args], env=self.env,
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, status, result.stdout + result.stderr)
         return result

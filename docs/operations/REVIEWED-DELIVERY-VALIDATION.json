@@ -1,0 +1,542 @@
+{
+  "synthetic": true,
+  "revision": "8300df7bc9e8cb7cbaa2ecd54dbcec626623b60e",
+  "installed_mode": "temporary_symlink",
+  "endpoint": "ci_passed",
+  "provider_calls": 6,
+  "replay_provider_calls": 0,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3872,
+      "packet_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 8930,
+      "packet_bytes": 749
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4169,
+      "packet_bytes": 947
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11103,
+      "packet_bytes": 2922
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4936,
+      "packet_bytes": 1714
+    },
+    {
+      "operation": "review",
+      "request_bytes": 11212,
+      "packet_bytes": 3031
+    }
+  ],
+  "pr_creates": 1,
+  "merges": 0,
+  "usage": {
+    "23f8c4e7-e56f-49b2-9b9c-f4075dfebba3": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 41.71861720085144
+    },
+    "889e0436-df57-4147-b32f-09527e7072cf": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 94.05229163169861
+    },
+    "be4e3a1e-5bb6-46cb-9fb4-aff371ea2e54": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 30.41911816596985
+    },
+    "d617ae3b-e436-4842-b0ba-deaab60b355e": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 82.8061261177063
+    },
+    "delivery-browser-factory": {
+      "calls": 6,
+      "measured_seconds": 1.9991137489996618,
+      "reserved_unknown_seconds": 0,
+      "seconds": 1.9991137489996618,
+      "unknown": 0,
+      "request_bytes": 10013,
+      "wall_seconds": 110.33036994934082
+    },
+    "delivery-child-079a45c5e2a5abdd2d1cc58388aa018213b88393e0cb3583": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 15.213777303695679
+    },
+    "delivery-child-3f697bf88a3aa739848aad66081ac59fecb6ee4f864784cf": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 27.56022882461548
+    },
+    "delivery-child-4e717f8275743334823bb3ca71d3e48e94449015017f2ea7": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 75.37919402122498
+    },
+    "delivery-child-7d0edaa49f12e0e4d0c77bd17371b80df1acf36a7050c1ba": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 23.240652084350586
+    },
+    "delivery-child-81f8f17a4a02a18fc65ccafe32d820bf3cbf69140793e385": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 79.84505081176758
+    },
+    "delivery-child-9403c41364f776c3853e418009191d5c41359deb078a3f2a": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 71.3229570388794
+    },
+    "delivery-child-a56071216395ef1c67f6696b5be6a3d69207ac3cb007f3a8": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 66.98797988891602
+    },
+    "delivery-child-e058d4c05e5e4c4225ceb7b08fed8bfae2c2deecc4151d96": {
+      "calls": 0,
+      "measured_seconds": 0,
+      "reserved_unknown_seconds": 0,
+      "seconds": 0,
+      "unknown": 0,
+      "request_bytes": 0,
+      "wall_seconds": 19.14840817451477
+    }
+  },
+  "unknown": 0,
+  "browser": {
+    "browser": "153.0.8010.12",
+    "initial_head": "6c8644a5ba6da3c8dd7ee344c5591b49485f88ef",
+    "final_head": "34c17eb60aa8c9becd7f2f188217e5d65b2e98d1",
+    "repair_worker_calls": 2,
+    "replay_provider_calls": 0,
+    "reused_delivery_steps": 4,
+    "endpoint": "ci_passed",
+    "checks": [
+      "rendered bound acceptance",
+      "rendered endpoint composition",
+      "real local Git publication",
+      "synthetic PR and integration CI transport",
+      "explicit existing repair grant bound in UI",
+      "CI failure repair followed by Verify and independent Review",
+      "needs acceptance without automatic commit or push",
+      "fresh rendered acceptance and newly authorized delivery",
+      "retained composition replay",
+      "reload and blocked merge",
+      "desktop/mobile no script errors"
+    ]
+  },
+  "provider_tokens": null,
+  "provider_cache_usage": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "source_revisions": {
+    "head": "34c17eb60aa8c9becd7f2f188217e5d65b2e98d1",
+    "base": "31249534ca7235af4187d0d66e1e24d97d53c5fc",
+    "initial_delivery_head": "6c8644a5ba6da3c8dd7ee344c5591b49485f88ef"
+  },
+  "repair_mode": true,
+  "runtime_sha256": {
+    "agents/nightshift-architect.md": "cf83a04d7b02208c235c672f5e83f1079e5f47a25e864c4596b4959affb17fe7",
+    "agents/nightshift-behavior-reviewer.md": "797c18c86a2be735ed54cee71286d9e020dc556834b1a1ded52acdf065cb03df",
+    "agents/nightshift-code-fact-extractor.md": "9b00905189aa72fd892a865dd8ab7a4d4bf84dab2766a9757fb0db5e74da1695",
+    "agents/nightshift-decision-reviewer.md": "708706896399f8d43df344ea5a9aa896a98233e213591647b3511fee6196ed47",
+    "agents/nightshift-engineer.md": "b4c646dfc8dde12a8ceedd9fa6ab3716918c461eca75373635a20e611b563fe3",
+    "agents/nightshift-operation-worker.md": "b793dcef9ae714bd234e666cd2a1a9aad77e8a8992fd0ada65d241cfdf949c4b",
+    "agents/nightshift-recovery-reviewer.md": "72c5a2ceee37b8b1cf3d03362fc5ff869898efa913194549d76b5b437c391fc9",
+    "agents/nightshift-repair-analyst.md": "fa2006b6a1139791fb7ea74c7d94fac48cd8749bbd7e3dc163356603f8ed7990",
+    "agents/nightshift-run-all-tests.md": "4e4190539592ede28104516281d974f7df263ef3f62ae1a22fff56105f6a4ecd",
+    "agents/nightshift-spec-writer.md": "012c6bea548b57f595b0b67ded8e39f91726af7f4429990cf0d09bdd681d83e8",
+    "contracts/nightshift-architect.schema.json": "995d2a17e6f26ce01af1f88e5a33c8873c5487a5763ba03039633a1e3fcf4157",
+    "contracts/nightshift-behavior-reviewer.schema.json": "a9e3eca01355c5271ed24dee7821614e3cd3f2ab1022489407ffafa3e66e60ae",
+    "contracts/nightshift-code-fact-extractor.schema.json": "b5b2e89acfc6b6494ee82c0b2dffd4a3d350e1136c308e0672fe06d4e8ce413f",
+    "contracts/nightshift-decision-reviewer.schema.json": "288a065944a7f5a673cc122e6e07c3ce3ae4e31c8b28ef80af0bddf922ff566b",
+    "contracts/nightshift-engineer.schema.json": "995d2a17e6f26ce01af1f88e5a33c8873c5487a5763ba03039633a1e3fcf4157",
+    "contracts/nightshift-operation-plan.schema.json": "8741281ce3550e7c3eed9f0056737cad4dbab0a8d10773804386cb5d02dd5329",
+    "contracts/nightshift-operation-result.schema.json": "72e6428175e4d261887294d4edf73080c60e7de77c98b17a0f0decbf25d1820c",
+    "contracts/nightshift-operation-scenarios.schema.json": "ad6cb93e0ff09239655d68991ceac7df0889eaa9bd7b378529d4c0d9522701b0",
+    "contracts/nightshift-operation-worker.schema.json": "1e06e0bd8656efc209cc3f8a0278df8b779293cfce95c4768d9bdfaebb22d55b",
+    "contracts/nightshift-recovery-reviewer.schema.json": "3be43fc803b1e89fe4cb56bea0d8cc674731708598e1579ce8a81455667ea87a",
+    "contracts/nightshift-repair-analyst.schema.json": "995d2a17e6f26ce01af1f88e5a33c8873c5487a5763ba03039633a1e3fcf4157",
+    "contracts/nightshift-run-all-tests.schema.json": "5fa196fe4701de5619fd98d5e1024968945883e4b837f4cf780763a7ce9865be",
+    "contracts/nightshift-spec-writer.schema.json": "344f65699dbe18fe0f323debbfc84c71ee27baa93abad13d96609a80d9ca0fbc",
+    "contracts/nightshift-work-packages.schema.json": "cff259e166d1bd1ef93440b8589864e7553d25795b33a4c6f27d73d7f7803fa0",
+    "dashboard/dist/assets/app.css": "4dbd2a028b5ef5f00212b4f9cd0146429730d58bf895f49cfad29f0f62d98f3f",
+    "dashboard/dist/assets/app.js": "77cc1acfadadc377260abd3711314da953cc87752208f6bd981b00ff630b913d",
+    "dashboard/dist/index.html": "8b89a6d0f43a01ea46d14f7a271b32eff9d8b87a3d56e27bab2d9a5935f601e8",
+    "dashboard/server.py": "3a9bafdb58320eef29ecdffbad01ac173165ecad530b74f5670d0567b1505a44",
+    "dashboard/src/app.css": "4d47bfed1ebe46db902b325728299c70c32efa71bbf805a4b916ff6fd82f8b07",
+    "dashboard/src/app.jsx": "d4f14941ac411116898a23cf7a646717def67e24b088d582804db39ed8fda1e0",
+    "dashboard/src/delivery.jsx": "c6cc86181c3c618c319a942adffd41d77648ea6ef8a4256b3baff987e9b3c3c4",
+    "dashboard/src/intake.jsx": "fe17aa5b3ca630abe9a8b97abda95f7ac95a83d9dc95a85044ac55070c51f5a2",
+    "dashboard/src/model.mjs": "817cd136008d27e10aa1d73b26eecc6bac904225b289fd3194276f94dafcc015",
+    "dashboard/src/operations.jsx": "603b97d87d8b7f9afed5091a5ce9ca7249b038df87b1491b75d7753b65a73846",
+    "dashboard/src/ticket-live.jsx": "6d4785797973f3a572b333e58dfb58bf3f7a57d8cd5ab6f3658bac25c372b175",
+    "routing.json": "fd18cd1fd17f9aeb488aebbb50a1cc4ea2093ea8b1324d2ff8ca4472cc3ddcd2",
+    "scripts/nightshift-agent.sh": "6843c4c48f1b6acb3e19ae6345d66bfc1da79bc27b31d7de0833ae1032ab395b",
+    "scripts/nightshift-architecture.py": "7ad60bea788bd5c421f6ac32a3266c72e1bc54947151715c07b0e342c6e9f0d9",
+    "scripts/nightshift-baseline-check.sh": "1a4826103741e74285d9700745d356edbf12714d97404e4f4636fd51b5e45221",
+    "scripts/nightshift-batch-init.sh": "4cf238a44733178a1a3358bc2b832062fe044537d0ce2eaf0302d75525338127",
+    "scripts/nightshift-batch-resolve.sh": "1ac4fc3025ff412d743f49068242925522e9a68ca1a4e9c1824edc7b372801b3",
+    "scripts/nightshift-batch-retro.sh": "6237900320079ea2bea059884abf661f1f17c6709e1985a4d19dc75ac9fa1ae8",
+    "scripts/nightshift-batch-update.sh": "921fa5fb7ce0f9dc291963d799d55e8bec0308937d629b8d02f2c10956542a7d",
+    "scripts/nightshift-beads-mirror.sh": "b9f7da364f307790ba0e4f60c4b281dcc90b0f3875b452856a96f70502e51b48",
+    "scripts/nightshift-behavior-proof.py": "0789a9474e5f47d8703385381ab66c3e45db0aabcb850f113ebd75cb44891c9b",
+    "scripts/nightshift-branding-policy.json": "2c9d5b9b5cdd40be68681427076a271b1cc402a40197d7ae68dbc655ba1f3bda",
+    "scripts/nightshift-branding.py": "413bb13ce7b1e193016c5758292b3895f7b709eff7614ac5e049c53e5693d58a",
+    "scripts/nightshift-capability.sh": "99742843941225b7cb8150028041875f0ec8afee5f59f8d5933ac55cb8d98da0",
+    "scripts/nightshift-citations-trim.sh": "4a2999c5ad3253c42adef2fae02a6f43db54a5bbc67ed473051b6fa89687c139",
+    "scripts/nightshift-claim-cache.sh": "3c3d9cb0b75283f1f34ea87fa01eda079173f8c87288c3b8e4f048a8456d5637",
+    "scripts/nightshift-cleanup.py": "3e4a630f341a093ccec312a3357988230097590792b95410770b03d563986fc9",
+    "scripts/nightshift-codex-evaluator.py": "00899c0aa1df721b428134f8456e195eb48834c5a1ddab3d82e94dfec19e11f3",
+    "scripts/nightshift-console-actions.py": "5b81bacdd86523b533578c80c0a94de184073d72ba5f1aca40ea8b9c736cbf34",
+    "scripts/nightshift-console-chat.py": "db843b0d06db7d2c0236ed5c962e93eaaf380d8005fb97624382b8681857b3f0",
+    "scripts/nightshift-console-decisions.py": "ac1a13d2b32c7dec6cf193526804ae63c17e627096480456b4e96f4b81e8b8d5",
+    "scripts/nightshift-console-evidence.py": "727f011f7340ae6cd8062e98dadc7d5ff38f1ce5064b837c8e5fb55819180aa8",
+    "scripts/nightshift-console-lease.py": "d65c2cdffedff4efd383c119947b4dae340decaac3bd7d6c72c58552af002bec",
+    "scripts/nightshift-console-progress.py": "acdb3bf4f321da5572ea3be2b38c00c0cbb4b7c762974d0c4d7d8d09c15066c2",
+    "scripts/nightshift-console-repair.py": "779007e1915202cdf0d0b94e3bb2419b6d9c5d3d18df8f463e8b19b9c5d2996e",
+    "scripts/nightshift-context-check.sh": "608eb6a632c7515ae78ec8729c999ca80f543ff2ddc965a600d5f783046203fd",
+    "scripts/nightshift-continue.sh": "63d9f75169cea36c6b52a5e736e6b0d9d222749aa2a72b5a5bfd6fcea0e1ac92",
+    "scripts/nightshift-contract.jq": "4d86b314b17d3af65437f80833bc9c32f24835d7f270d4909ae2ea24d43ae4d4",
+    "scripts/nightshift-controller-recovery.py": "98b3582d64f2f4f9aa0b7d4832470c50dcb7ec0dc376cdf33cd3e5cfd316bc6d",
+    "scripts/nightshift-controller.sh": "05057074d057a2b7db2e37fc5cc5c8a291a022d422df913c623a8521460c1d42",
+    "scripts/nightshift-crash-check.sh": "831cc39c1fca615f408c7c5cddd380cdbebb5318ba694a35e1a7096566f1c537",
+    "scripts/nightshift-credentials.sh": "1fdaed8a0fc4e6c6339cc30d2c46f21fb7531c124dedf96f301bdd6ea8b20172",
+    "scripts/nightshift-dashboard-start.py": "4f93571344939921454da9b1fe70b0935ca520716cd9925bfd3520ac517c7742",
+    "scripts/nightshift-dashboard.sh": "d3efc8e82938a12d58881ac55af8c42298771db6bf2db4f100fea1612fe76079",
+    "scripts/nightshift-decision-engine.py": "a9f9458461f3802d1684e6822582cdd10c726ee6ea18a18c76e56d8ec9c4538f",
+    "scripts/nightshift-decomposition.py": "29e49177a60691dcbe1fcc20d1567dfad800caf021174a9e645d1a56ab648cfa",
+    "scripts/nightshift-delivery-compose.py": "b4b6eeb8dae5813810ce11274b404cbec39961a9c49e2f78e29224c20249dee5",
+    "scripts/nightshift-delivery-repair.py": "ecea73ed7f43229ab9fd0faae70888037fce1df2193f3772b31dde55504e0804",
+    "scripts/nightshift-delivery.py": "f4b6f5a521438ffb3ebc281274ebcd915f3fcbcaf22146be2afdfb8a55fe0fc0",
+    "scripts/nightshift-dirty-check.sh": "e0534fe53ee80f1f768afdc1864decb8f22047e228c1b92ab8f631fc1e229006",
+    "scripts/nightshift-dispatch-bounded.sh": "c10b4ab06544664f9266ed51b2c7225055c66984816a8722891171556910b8b6",
+    "scripts/nightshift-efficiency.py": "9cf1ab5e7753848b793225a2e1557f762c3d22791c95b393ca6af754a6821117",
+    "scripts/nightshift-extractor-meta.sh": "649c8190cce09f419629992e72c3bb1bd5d9e3bd5e65b2bd77473187eab777d3",
+    "scripts/nightshift-factory.sh": "252836b8b3daa92d566c9a326a1eed8aa029d0f2c1c38756cf0628e6144430ec",
+    "scripts/nightshift-failure-memory.sh": "145be4ff64a5e420edf93409feaf015d744f7847b7abd08d1a5d910afc8cc5d0",
+    "scripts/nightshift-handoff.py": "5c3625c39b3104327417c9be1982d01083edfb5de75b6b7d94cef01731170899",
+    "scripts/nightshift-harness-audit-cron.sh": "4c3420f7cfd1c2994eaaf8de72c3cd2303282fb031f8a0a32ed0dc39f93bb29a",
+    "scripts/nightshift-harness-audit.sh": "aadf4d5794b2dcf64d53c5e3d2038142a1c9426c7ac81645499ecb662e0a5ed2",
+    "scripts/nightshift-init.py": "4cdec6ad96c7d8a56e636169fc3125d31899b7d929f1da59f1b9d21f6c249dfc",
+    "scripts/nightshift-install-inventory.py": "c543505658d12879a3b08e204f6fd85ff2c17862a8d1d2353e2778c057864a71",
+    "scripts/nightshift-intake.py": "7f0b437d7516abf5d621808f5f197cbb7326e4cce32eaf6af1d024523b67fbc5",
+    "scripts/nightshift-isolate.sh": "3fc5539f8492202b4c7e77abdac84f555558c10652d076b14f1389898b139b86",
+    "scripts/nightshift-jev-evaluation.py": "385260e3b95282e47459adbc5fdff350162734b6b8fa62ab845db9b6c2d7630a",
+    "scripts/nightshift-lock-field.sh": "44d847ec09b31b79b95a42286a0bbe64d486296734cea994450e6f9b7ffe8376",
+    "scripts/nightshift-manifest-path.sh": "eadf6602947b4033ce8d5f45f7da6923732f8af4cedb7e3533d94be214c31bd1",
+    "scripts/nightshift-manifest-validate.sh": "13f6e52f89dcd4e20cd51182d437bdc380ea653ba5ca2c1f81064eb3397833c2",
+    "scripts/nightshift-mex.py": "7e9c1c50df610045bb4a7b0cd99aafe93a165d225781540ae0ef85df8f1197d2",
+    "scripts/nightshift-operation-decisions.py": "0ac0cc27ac9c8b56e39d8aa1ca926ba9a6882669e1412c134291d8ae88c6acd7",
+    "scripts/nightshift-operation-reconciliation.py": "fd0c9498a5e2e91c6ea4184221e0e34fd117529b4fe4d4bbb4f44f13edd2055d",
+    "scripts/nightshift-operation-supervisor.py": "d18d54b2b0f1161cef4b02c587c3b81f6ebcd66c0d4e7c38b47f24e45fe5edcb",
+    "scripts/nightshift-operations.py": "12ac26b6791571d866b5602dc71cc48a0edb00cfe6491a08f82560872b4a63c2",
+    "scripts/nightshift-output.py": "26cb312bca03335c22d123c33d45bf996127872ecfafdfb8d001f5a818dd36f2",
+    "scripts/nightshift-package-bundle.py": "92975cddc8d516db1991f41c7c4bdf0391a05a56653bcb954f83de0eef4fead3",
+    "scripts/nightshift-package-controller.py": "471163897d74fbacee4c4d861adc39ce37d496d317278ba76fe141b3a4dde55b",
+    "scripts/nightshift-pipeline.py": "32554454ed71f496304652ce34f325b0ba0d4c504d2d59f894595c4be4a77192",
+    "scripts/nightshift-policy.sh": "c01d447547db8979378f7d8a2c4a20b90420e789138c24dc657bfbd929dc3b2f",
+    "scripts/nightshift-preflight-check.sh": "887c1888554ae74bb4f8cb57eb092cdb76630eeb7b82eaa0f85711fbf73627b6",
+    "scripts/nightshift-project-context.py": "a3095023c6ed07125f5fdf4001542965750bff394e715b43038e852879fd020c",
+    "scripts/nightshift-provider-policy.py": "bbabc154aec250bf76ada8e1385fa27608287e22a80a2d30b3896251105180a8",
+    "scripts/nightshift-provider-usage.py": "10a6885d0ae3b79a9c9b667ca3e79fd8fd854dfae2f1d92fc803adb5fd61505c",
+    "scripts/nightshift-pw.sh": "0a77536fc0735f140cdd8eb5eca245e7ce19c559ea407850cc7fea2e99522e42",
+    "scripts/nightshift-recovery-decisions.py": "c822785ee96a808ed1805f311cf3d9870ab0d15c6f4c6f28dba38bfe1e4d260c",
+    "scripts/nightshift-recovery-exec.py": "6ea698b90303b213f0af94947b8d854dadac7705416216b7d1b88ff44b39b8e3",
+    "scripts/nightshift-recovery-state.py": "951fcd05157fe928ff20ef740a48b4c3e651d9eb66645c67c87ca2db1bad5c54",
+    "scripts/nightshift-repair-check.py": "c431541274a08c0bd9b331a76d53e39f99212a5ce442ab458832e6bc389af892",
+    "scripts/nightshift-retry-budget.py": "4fa28f5c7606ae0608901dd6d60d53eed59e76641a51062adb6cc81b4d29e2c9",
+    "scripts/nightshift-retry-exhaust.sh": "3d1b6cacde22241d5af1bead7f107b17cb82a57c621040dc2a48f46b0a6d3760",
+    "scripts/nightshift-retry-increment.sh": "c2497d16fda98f51e41555625aeb7a7a9635bc6270b31d388413b4cd75b7750e",
+    "scripts/nightshift-review-reuse.py": "f54c4afaebeffcb2cea285711a7a939bacbd4b12ddef338d4e2acb3a4cddf31a",
+    "scripts/nightshift-route.sh": "63734f9c55353e48a3ca17fa69f4739c948e48650193208744525a3434c52339",
+    "scripts/nightshift-routing-path.py": "f79f967f3efb7babc4f60ac92c091ae0efc05fe4c280fdf9de75e7c439b4c8b0",
+    "scripts/nightshift-run-metrics.py": "a38d31c253c2019b9c330be99decf971070d9a70302433a06fae1b2e1d593111",
+    "scripts/nightshift-runtime.py": "0de97870476a3b621e7cfe4ea03a32e8aea3a80d435487a1c630f240732fcd6d",
+    "scripts/nightshift-scope-activate.sh": "9ebcb376d7b0807ca219e191d822d2c8b0c50c6e2544a9523d5b6d42a092fb7f",
+    "scripts/nightshift-scope-freeze.sh": "6caa2624941c7d5e58e2c84525a6114ac795f3ffb865ee85cfdeb860af9c6497",
+    "scripts/nightshift-scope-thaw.sh": "9f02ffec16e2b361737cd8a82ccada9c2fd6b5ee5cb31545b3bbb76021c8765e",
+    "scripts/nightshift-setup.py": "d4c8770ab8c3119161ea798a82009cd1bc4b3da061595e38d1771e6ed4ccfdb7",
+    "scripts/nightshift-setup.sh": "6b8726f9325fd1b3f8cea14263c6484d24172c8ad936dda6f22bec9943c53b54",
+    "scripts/nightshift-source-evaluation.py": "6e19a89bde6cf40c84519a6c7cf0879844be9a15032c6e27f1375261d7f91940",
+    "scripts/nightshift-spec-digest.sh": "69ec1b5458ab0d6fb4ed6fc2f6c1c480bd1c2942e93e6c4c8b1e2385e46acc12",
+    "scripts/nightshift-spec-guardrail.sh": "d3659a6d51219ee10f7ffb7ae3c7aad4d1035d94eaf3c197e0ebdbab7ff571c0",
+    "scripts/nightshift-spec-repair-brief.py": "80d51cec2587e3359438f57cee4ff8b39fa2a069e881bef3495c1907e5d87cf0",
+    "scripts/nightshift-spec-source.py": "06c165ff24fb474ebf8c45ad0463cfc857626433ddbd4f9b19eca1c9f338dc26",
+    "scripts/nightshift-stage-args.py": "dcdd70c8e8fd528ac488996284bd94d469814094027af3c350dc17014fcf6f5b",
+    "scripts/nightshift-state-dir.sh": "a38f0a69f77c65e8bf10c7ac911cb466ff9aef1647375314c72090ffd3711d35",
+    "scripts/nightshift-stop-hook.sh": "513295f30baff8f4f5cbbfbd3c493c1a6d49f817b56d62192a105cf0ba21c3b3",
+    "scripts/nightshift-sync.sh": "9b934765e2ca3a3f66669194adf06cc1109c0baa0ebad274699ca24aea755f3e",
+    "scripts/nightshift-tdd-integrity-check.sh": "c52ef751d141102f80cc13edde46f60f4bc3699717ba1c51fdda296a70f3e4f5",
+    "scripts/nightshift-tdd-red-lock.sh": "8c3cf92a09556c1b8cc12ec1bae287dc4df80147aef26fd5b53671855a25ae06",
+    "scripts/nightshift-tdd-spec-lock.sh": "776b93244b3dc4a349508dd5ac68bbef6384d053cdcad8a26e44151addecef09",
+    "scripts/nightshift-ticket-budget.py": "86f340c19f16aa7865668575d0125c88fb6074d359519e1f5a0d955813ea1b06",
+    "scripts/nightshift-ticket-source.sh": "4900eb8409c0801dfc238878582811b5a5eb7d2c5023d0405086634e499b901e",
+    "scripts/nightshift-tracker-trim.sh": "54510a3b28e0717d7bf13ac7d86182c62e8baa27b7db921312f1548503d0ddc9",
+    "scripts/nightshift-trajectory.py": "4c0e752dad764e29b7cb191cd42928057a9c1c2d44f3e87bcf27ba3cae0c71d7",
+    "scripts/nightshift-triage.sh": "e4bb65d081c36f1654d7278fea055c9b730c0ffde6e7a79134ccc4a091d40501",
+    "scripts/nightshift-update.py": "7e69e161ced9b9dc1eda1814b12285dcb2d4ff48e64a4805c572bc87dceb900a",
+    "scripts/nightshift-verification-adapters.py": "f735da7ad1219f50f8ee52a3b30dac0b269e6000184ddb544a09d44ff800c059",
+    "scripts/nightshift-verification-node.mjs": "0b7e12af3e0f63f9759ee328254ec88e84cbdf0cdcf8040f6a3c1bf3e461c3cb",
+    "scripts/nightshift-verification-python.py": "8fcb72fe1714fd25ff8bf5b273cff30eb99d7ea290e52ef5b5da7b888e018eee",
+    "scripts/nightshift-version.sh": "dbbe0636df486a7c4d26e9292844e3a156208102975564776c091b934285fb93",
+    "scripts/nightshift-windows-bootstrap.sh": "31081216096558eb8d5e6b39949ef63f2fff96f39c13097b6df3b2ab10b2eabe",
+    "scripts/nightshift-windows.ps1": "c855d026f100801b51f0d4676063a073d7cc7d168468c19e9a9311d5838b0ea5",
+    "scripts/nightshift-work-packages.py": "520ef3b105a2299d9c0b89874b4881b60bd2a99a3b476d2ce0085084bd782e2a",
+    "scripts/nightshift-workshop-review.py": "df648e7896be57630dcd94f262308a8fbf7a07a09a7d025494ca164b46b13afa",
+    "scripts/nightshift-workshop.py": "c2676159f4b70f956e5ab7144a27fdf3656905ade699e67d95d513ca355215ab",
+    "scripts/nightshift-worktree.sh": "36612f93022ecc780c6ffb2d103aa28b8d77149063b0f09ee4e57c69e8d2773f"
+  },
+  "runtime_matches_commit": true,
+  "runtime_match_scope": "Runtime scripts, roles, contracts, routing, dashboard server, source and built assets; excludes compiled caches and dependency symlinks. Byte identity only; executable modes are reported separately.",
+  "runtime_mismatches": [],
+  "untracked_artifact_categories": {},
+  "github_cli_requests": [
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "pr",
+        "create"
+      ],
+      "request_bytes": 325
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/pulls/1"
+      ],
+      "request_bytes": 37
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/git/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760"
+      ],
+      "request_bytes": 82
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760/check-runs"
+      ],
+      "request_bytes": 89
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/pulls/1"
+      ],
+      "request_bytes": 37
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/git/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760"
+      ],
+      "request_bytes": 82
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760/check-runs"
+      ],
+      "request_bytes": 89
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/pulls/1"
+      ],
+      "request_bytes": 37
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/git/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760"
+      ],
+      "request_bytes": 82
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/commits/d49dbbe7a543daaf21aaffb38ed313be49ca8760/check-runs"
+      ],
+      "request_bytes": 89
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "pr",
+        "list"
+      ],
+      "request_bytes": 164
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/pulls/1"
+      ],
+      "request_bytes": 37
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/git/commits/fe4d09239853e47369787e008db7c2ef5bf0e24d"
+      ],
+      "request_bytes": 82
+    },
+    {
+      "command": [
+        "api",
+        "repos/synthetic/repository/commits/fe4d09239853e47369787e008db7c2ef5bf0e24d/check-runs"
+      ],
+      "request_bytes": 89
+    }
+  ],
+  "metric_scope": {
+    "requests.request_bytes": "Sum UTF-8 bytes of synthetic provider CLI arguments; excludes executable and separators; not network payload or tokens.",
+    "requests.packet_bytes": "Serialized operation packet bytes; same scope as controller usage.request_bytes.",
+    "github_cli_requests": "Synthetic gh CLI argument bytes only; excludes executable, separators, and Git transport commands; not network payload.",
+    "git_transport": "Real disposable local Git transport exercised; invocation count and byte usage not measured.",
+    "usage.wall_seconds": "Overlapping grant-age intervals measured at observation; do not sum as elapsed execution or end-to-end wall time."
+  },
+  "revision_dirty": true,
+  "delivery_outcomes": [
+    "needs_acceptance",
+    "ci_passed"
+  ],
+  "validation_scope": "Installed isolated Community launcher and rendered browser, real disposable local Git remotes, synthetic provider and GitHub transport. No live certification.",
+  "evidence_location": "test-output/roadmap-73-installed-repair/",
+  "environment": {
+    "os": "Darwin 27.0.0",
+    "architecture": "arm64",
+    "python": "3.14.7",
+    "node": "26.1.0",
+    "chromium": "153.0.8010.12",
+    "macos": "27.0 build26A428",
+    "git": "2.55.0",
+    "playwright": "1.63.0"
+  },
+  "focused_review": {
+    "revision": "b9f5a8982bdd1ff2ca83f542824687ceee07acb6",
+    "integrated_delivery_source_unchanged": true,
+    "handoff": {
+      "tests": 9,
+      "seconds": 207.656
+    },
+    "standalone_repair": {
+      "tests": 10,
+      "seconds": 283.208
+    },
+    "adversarial_handoff": {
+      "tests": 15,
+      "seconds": 292.736
+    },
+    "independent_verdict": "No remaining blocker in reviewed delivery boundaries."
+  },
+  "installer_mode_observation": {
+    "method": "Separate installer-only reproduction at the same revision; original browser clone had already been removed by its fixture.",
+    "tracked_path": "scripts/nightshift-continue.sh",
+    "before": "100644",
+    "after": "100755",
+    "content_changes": false,
+    "evidence": "test-output/roadmap-73-installed-repair/installer-mode-audit.json"
+  },
+  "evidence_review": "Independent read-only review passed for privacy, source hashes, input digest, accounting and authorization boundaries; full offline-suite completion is separate."
+}

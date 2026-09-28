@@ -111,6 +111,13 @@ Inject verbatim into the brief:
 
 ## Step 3 — Delegate
 
+If `SPEC.md` already exists, go to Step 4 for missing validation/review. Invoke a
+writer again only for concrete findings or changed requirements. Before that repair,
+write `spec-repair.json` beside the draft: `spec_sha256` binds its current bytes and
+`findings` contains stable `{id, target, problem}` entries. The dispatcher validates
+this brief before authentication or a provider launch. Preserve unaffected text and
+recorded decisions; a draft is not an approved spec.
+
 Write the complete brief to `docs/$TASK/spec-writer.in.md` (reuse the product
 stage's prepared brief when present). Dispatch once through the shared boundary:
 
@@ -180,6 +187,18 @@ approval. Route evaluator gaps to a bounded harness dependency, retaining the
 blocked ticket and existing repair budget; do not reset attempts or weaken ACs.
 Record repeated/new finding counts and elapsed time plus available usage per
 approved spec; unknown usage stays unknown. Private heldouts remain independent.
+
+When the operator explicitly owns an external acceptance check (for example,
+confirming delivery in their email inbox), retain that AC as a required case with
+`applicability.kind: "manual"`. Add `manual_acceptance` with nonempty `owner`,
+`authorization` (the operator's recorded instruction), and `procedure` fields.
+Do not invent authorization, omit the AC, or classify it as documentation.
+Automatable wrapper behavior must retain deterministic cases and ordinary RED/GREEN
+proof. Manual cases allow development admission after the other required evidence
+passes; final completion remains blocked with `manual_acceptance_pending`.
+The helper does not yet ingest manual completion attestations. Never claim actual
+delivery or final success from development admission. Do not request email delivery
+before implementation or reopen the operator's recorded scope decision.
 
 Record actual independent classification review with the reviewed semantic digest.
 Ordinary deterministic/documentation-only work uses existing independent review,

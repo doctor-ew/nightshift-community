@@ -1,0 +1,21 @@
+{
+  "findings": [
+    {
+      "artifact": "current.json",
+      "artifact_content_sha256": "fa13578629def52feb78f6f8af416107c81dae28e5092f74bde9e87c599c3893",
+      "artifact_sha256": "9cb0684f5984277b8d814741bd357c9fc77a26105a26b856b1d3cb05b24183a8",
+      "current_passed": true,
+      "id": "double-input",
+      "original_failed": true,
+      "passed": true,
+      "pointer": "/multiplier",
+      "prior_artifact": "prior.json",
+      "prior_sha256": "23b521de2497c531ab04f5dccfd38ae7baf622d04ce6354c6fe60b2cd676f9f5"
+    }
+  ],
+  "gate_approval": false,
+  "manifest": "repair-checks.json",
+  "manifest_sha256": "74e2319b10869917ce0af93316a604be6467b8a1c0272ed0104d1de108beba65",
+  "schema_version": 1,
+  "status": "passed"
+}

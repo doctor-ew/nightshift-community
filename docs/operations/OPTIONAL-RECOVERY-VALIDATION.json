@@ -1,0 +1,28 @@
+{
+  "base_revision": "689de2987b9b2b7a5aa037cc01b6e5207071d4ec",
+  "candidate_status": "uncommitted reviewed source; per-file hashes identify tested content",
+  "source_sha256": {
+    "scripts/nightshift-controller-recovery.py": "8676bb77f5fa46a019a57f86a8911c427d389831e7e1763ca4cef94f3f631686",
+    "scripts/nightshift-recovery-decisions.py": "d572eccbec0a151a9a0070de3ed7f72a9b5cc1c746d82d31bcd71f4e7321bf6a",
+    "scripts/nightshift-decision-engine.py": "10432579806f6df1fd087dd43fc620e67ca75edc2a37eaff7a2e33062423c7f3",
+    "tests/test-recovery-independent-review.py": "d52f0ade3e0451eed76b982f61be9851a1db3a6ccb20791b195d1b229e047b8a"
+  },
+  "input_envelope_bytes": {
+    "sizes": [
+      5029,
+      3025,
+      3060,
+      3018
+    ],
+    "minimum": 3018,
+    "maximum": 5029,
+    "total": 14132
+  },
+  "provider_dispatches": 4,
+  "duplicate_additional_calls": 0,
+  "unique_receipts": 4,
+  "gate_evaluations": 5,
+  "within_run_receipt_reuses": 1,
+  "scope": "Synthetic Claude executable through actual dispatcher; bytes are exact retained input envelopes, exclude CLI role/schema framing",
+  "provider_usage": "unknown; synthetic response contains no token or billing usage; no real provider invoked"
+}

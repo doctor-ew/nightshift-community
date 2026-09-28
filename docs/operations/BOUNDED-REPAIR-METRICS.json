@@ -1,0 +1,90 @@
+{
+  "synthetic": true,
+  "provider_calls": 5,
+  "replay_provider_calls": 0,
+  "requests": [
+    {
+      "operation": "groom-spec",
+      "request_bytes": 3073,
+      "packet_bytes": 650
+    },
+    {
+      "operation": "groom-adversarial",
+      "request_bytes": 6236,
+      "packet_bytes": 772
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 3340,
+      "packet_bytes": 917
+    },
+    {
+      "operation": "implement",
+      "request_bytes": 4253,
+      "packet_bytes": 1830
+    },
+    {
+      "operation": "review",
+      "request_bytes": 6737,
+      "packet_bytes": 1273
+    }
+  ],
+  "usage": {
+    "repair-launcher": {
+      "calls": 5,
+      "measured_seconds": 1.764114707999397,
+      "reserved_unknown_seconds": 0,
+      "seconds": 1.764114707999397,
+      "unknown": 0,
+      "request_bytes": 5442,
+      "wall_seconds": 8.113017082214355
+    }
+  },
+  "decisions": [
+    {
+      "accounting": {
+        "attempts": {
+          "supervise-5b778a8ffc394f65aeaa84cc8cb77261c725bc3078249c3e": "substantive"
+        },
+        "infrastructure_failures": 0,
+        "limits": {
+          "infrastructure": 3,
+          "substantive": 4,
+          "total": 12
+        },
+        "next_action": "repair_spec_before_retry",
+        "substantive_failures": 1,
+        "total": 1,
+        "version": 1
+      },
+      "binding": "aa69f8f33da09b69b6eb225ca03c36d9eb3413d8f5a045dd3ddfa5b5a586034c",
+      "category": "substantive",
+      "eligible_operation": "implement",
+      "failed_request": "supervise-5b778a8ffc394f65aeaa84cc8cb77261c725bc3078249c3e",
+      "findings": [
+        "failed_or_vacuous_tests"
+      ],
+      "grant": "repair-launcher",
+      "operation": "verify",
+      "repair_binding": "9805905b88599570beed6f1c289e5ea6c3386db23b96a824fd780121ba65d006",
+      "signature": "c318b7df8efa2ebc0760ea13c96da85108da137221b78c464ef7782030dc882f",
+      "usage": {
+        "calls": 3,
+        "measured_seconds": 1.072808125998563,
+        "request_bytes": 2339,
+        "reserved_unknown_seconds": 0,
+        "seconds": 1.072808125998563,
+        "unknown": 0
+      }
+    }
+  ],
+  "provider_token_usage": null,
+  "billed_cost": null,
+  "live_certification": false,
+  "tested_runtime_revision": "dda220d3726706cb9aae184176f604b9c8122533",
+  "source_files": {
+    "scripts/nightshift-operation-supervisor.py": "3a4f2c2a502527dabb4a6b81adf316484182d3ad2b062239d6e25808180ec955",
+    "scripts/nightshift-operations.py": "1b024d20127f2b3cc2e43660b2acc21448860cf230b8bfd93a9beb9c3b33337e",
+    "tests/test-operation-interfaces.py": "dabac5e9280be49c030868e5b6ffd6dc920e8863122c5cc18d07c294ae728f4c"
+  }
+}
