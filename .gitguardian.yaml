@@ -1,0 +1,9 @@
+version: 2
+secret:
+  ignored_matches:
+    # Not a secret: SHA-256 of the public file scripts/nightshift-credentials.sh,
+    # recorded under runtime_sha256 in docs/operations/REVIEWED-DELIVERY-VALIDATION.json
+    # (commit 679e151). Flagged as incident 37650813 because its key path contains
+    # "credentials". Scoped to this exact value; scanning of every path stays on.
+    - name: runtime digest of scripts/nightshift-credentials.sh
+      match: 1fdaed8a0fc4e6c6339cc30d2c46f21fb7531c124dedf96f301bdd6ea8b20172
