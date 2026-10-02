@@ -20,7 +20,7 @@ system=args[args.index('--system-prompt')+1]; payload=args[-1]
 with open(os.environ['CALL_LOG'],'a') as f:
  f.write(json.dumps(dict(args=args,cwd=os.getcwd(),api=bool(os.getenv('ANTHROPIC_API_KEY'))))+'\n')
 mode=os.getenv('FIXTURE_MODE','')
-if mode=='hang': time.sleep(30)
+if mode=='slow': time.sleep(.3)
 if mode=='no-receipt': print('{}');sys.exit()
 if system.startswith('Return {'): value={'ready':True}
 elif 'Specify a small' in system: value={'title':'Coach','scope':'standalone_prompt','requirements':[{'id':'AC-1','criterion':'Coach respectfully'}],'exclusions':['applications']}
@@ -233,9 +233,18 @@ class WorkshopTest(unittest.TestCase):
         self.assertEqual(self.state()['cost_usd'],.25);self.run_workshop(status=1)
         self.assertEqual(len(self.log.read_text().splitlines()),1)
 
-    def test_timeout_is_bounded_and_terminal(self):
-        self.env['FIXTURE_MODE']='hang';self.limits('call_seconds = 1');self.run_workshop(status=1)
-        self.assertEqual(self.state()['status'],'failed');self.assertLess(self.state()['elapsed_seconds'],10)
+    def test_elapsed_time_is_observational(self):
+        self.env['FIXTURE_MODE']='slow';self.run_workshop()
+        state=self.state();state['elapsed_seconds']=100000
+        path=next((self.project/'.git/nightshift-workshop').glob('workshop-????????????????.json'))
+        path.write_text(json.dumps(state))
+        self.approve()
+        self.assertEqual(self.state()['status'],'complete')
+        self.assertGreater(self.state()['elapsed_seconds'],100000)
+
+    def test_legacy_time_limits_require_config_update(self):
+        self.limits('seconds = 900\ncall_seconds = 90');self.run_workshop(status=1)
+        self.assertFalse(self.log.exists())
 
     def test_reported_cost_overrun_stops_and_retains_receipt(self):
         self.env['FIXTURE_MODE']='overcost';self.run_workshop(status=1)

@@ -136,7 +136,7 @@ and distinguish a passing example from evidence about real reachable users.
 
 The default maximums apply across resume and repairs:
 
-- 30 model calls, 900 active seconds, 90 seconds per model call.
+- 30 model calls.
 - $2 reported-cost stop threshold; up to $0.25 requested per call.
 - 1,000,000 input tokens including cache and 40,000 output tokens.
 - 32 KiB of supplied context per call and 1 MiB of runtime output.
@@ -145,13 +145,11 @@ Configure these before a new exercise in `.nightshift.toml`:
 
 ```toml
 [workshop]
-seconds = 900
 calls = 30
 cost_usd = 2.0
 call_usd = 0.25
 input_tokens = 1000000
 output_tokens = 40000
-call_seconds = 90
 input_bytes = 32768
 response_bytes = 1048576
 ```
@@ -160,8 +158,12 @@ These are admission/stop limits, **not a guarantee of an exact API invoice cap**
 a response can cross the threshold before its receipt arrives. Missing receipts
 retain the reserved cost. Use Anthropic account/project spending controls as the
 billing backstop. A subscription's reported dollar estimate is not an API bill.
-Time spent waiting for spec approval is excluded. Exhausted or failed exercises
-cannot silently reset their budgets on resume; preserve them and use a new named
+Elapsed time is recorded for observability, not used as a completion gate. Model
+calls have no elapsed-time deadline; runtime availability probes retain short
+operational timeouts. Remove legacy `seconds` and `call_seconds` settings before
+starting a new exercise. Retained runs preserve their original configuration and
+evidence; start a new named exercise to use the changed limits.
+Exhausted or failed exercises cannot silently reset their budgets on resume; preserve them and use a new named
 brief for an explicitly new exercise. Record every trial when assessing costs.
 
 `--output concise` shows stages; `--output verbose` exposes events; `--output quiet`
@@ -179,8 +181,9 @@ The workflow does not merge or deploy. Keep the final approved prompt and eviden
 for the class discussion; a GitHub account is unnecessary for the exercise.
 
 Suggested class allocation (a teaching plan, not a measured promise):
-10 minutes brief/trust discussion, 10 minutes spec review, up to 15 minutes bounded
-execution, 10 minutes evidence inspection and new tests, 5 minutes reflection.
+10 minutes brief/trust discussion, 10 minutes spec review, execution through the
+verification gates, 10 minutes evidence inspection and new tests, 5 minutes
+reflection.
 Do setup before class; allow extra time for Windows onboarding.
 
 BMad can help students explore requirements before this run; use its output as the

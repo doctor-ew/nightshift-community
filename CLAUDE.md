@@ -88,3 +88,15 @@ nightshift is *not* opinionated about:
 - After a MEX write, say exactly what changed and its sharing boundary: a local draft is checkout-only and nothing is shared; a canonical artifact is written to the working tree and requires commit/push to share.
 - Skill activation is not approval for canonical actions.
 <!-- mex-agent:skills:end -->
+
+## Planning, verification and lessons
+
+Follow the work planning and verification policy in `AGENTS.md` and the canonical
+engineering stage in `commands/nightshift-eng.md`. Record checkable plans, gate
+evidence and reusable lessons in the existing task tracker. Replan when evidence
+invalidates an assumption, use focused delegation for independent work, and prove
+changed behavior before completion. Prefer simple root-cause repairs.
+
+Model work has no default elapsed-time deadline. Duration is telemetry; completion
+depends on passed gates and retained repair accounting. Explicit operator timeouts
+and short availability probes remain supported.

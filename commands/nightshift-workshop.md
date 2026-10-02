@@ -6,6 +6,9 @@ description: Bounded spec-driven workshop for a single standalone coaching promp
 This is an explicit classroom profile, not a replacement for production proof.
 It supports one Markdown brief and one standalone prompt artifact. No tools are
 available to model workers. The host controls all writes, budgets and execution.
+Elapsed time is telemetry,
+not a stopping criterion for model work. Plan against the brief, track stage
+results, repair within the existing limit and require evidence before completion.
 
 Stages: runtime/model admission → spec → independent spec review → human spec
 approval → independent public behavioral cases → implementation → execute each

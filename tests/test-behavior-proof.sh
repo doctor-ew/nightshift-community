@@ -32,6 +32,18 @@ print(json.dumps({'structured_output':{'status':'SUCCESS','reason':'','attempts'
                         print('Observed provider/auth calls before proof admission:',len(calls.read_text().splitlines()))
                     self.assertNotEqual(result.returncode,0,'GREEN dispatcher accepted work without mandatory task-bound proof')
                     self.assertFalse(calls.exists(),'Missing required task/proof launched provider authentication or execution')
+class BehaviorProofDuration(unittest.TestCase):
+    def test_model_work_without_deadline_and_output_bound(self):
+        spec=importlib.util.spec_from_file_location('proof_duration',ROOT/'scripts/nightshift-behavior-proof.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.assertEqual(module.DEFAULTS['timeout_seconds'],0)
+        with tempfile.TemporaryDirectory() as cwd:
+            result=module.bounded_process([sys.executable,'-c',"import time;time.sleep(.2);print('done')"],cwd,os.environ,0,1024)
+            self.assertEqual(result['reason'],None)
+            self.assertEqual(result['returncode'],0)
+            result=module.bounded_process([sys.executable,'-c',"print('x'*2048)"],cwd,os.environ,0,1024)
+            self.assertEqual(result['reason'],'runtime_output_limit')
+
 class BehaviorProofSchema(unittest.TestCase):
     def setUp(self):
         self.helper=ROOT/'scripts/nightshift-behavior-proof.py'

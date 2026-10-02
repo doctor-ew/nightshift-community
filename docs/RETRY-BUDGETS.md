@@ -61,3 +61,13 @@ failure. It does not detect semantically equivalent findings on changed artifact
 enforce provider switching, backfill historical signatures, or cover reviews that
 bypass the bounded source dispatcher. Artifact content changes are necessary for
 re-admission of the same registered targets; they are not proof of correctness.
+
+## Elapsed time
+
+Model work has no default elapsed-time deadline. Duration is observational;
+completion depends on verification gates and retained repair attempts.
+For behavior proof, `timeout_seconds = 0` is the default and disables the model
+call deadline. An explicit value from 1 through 120 opts into a per-call timeout.
+Availability probes remain bounded to 15 seconds, and output limits and process
+cleanup still apply. Existing pinned policies retain their explicit timeouts;
+changing policy requires the existing reconciliation flow.
