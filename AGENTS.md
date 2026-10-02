@@ -63,3 +63,30 @@ only that ticket; a batch continues with its other tickets.
 - After a MEX write, say exactly what changed and its sharing boundary: a local draft is checkout-only and nothing is shared; a canonical artifact is written to the working tree and requires commit/push to share.
 - Skill activation is not approval for canonical actions.
 <!-- mex-agent:skills:end -->
+
+## Work planning and verification
+
+- For non-trivial work, record a plan with checkable steps in the existing task
+  tracker before implementation. Include scope, acceptance criteria and verification.
+  Follow the canonical stage artifacts rather than introducing a second ledger.
+- When evidence invalidates the plan, pause the affected work, revise the plan and
+  continue within scope. Preserve failed attempts and apply the factory repair limit.
+- Track completed steps and record results, commands and relevant evidence in the
+  task tracker. Completion depends on passed gates, not an elapsed-time target.
+- Use focused delegation when independent research or analysis benefits from it;
+  give each worker a clear task and integrate its evidence before proceeding.
+- Prove the changed behavior before marking work complete. Inspect the relevant
+  diff, run appropriate checks and assess whether the evidence supports acceptance.
+- Prefer the simplest complete solution. Fix root causes, minimize unrelated changes
+  and reconsider a complicated repair before presenting it.
+- Resolve actionable bug reports and failing checks autonomously within authorized
+  scope. Ask for clarification only when missing information prevents sound progress.
+- After a user correction, record the reusable lesson in the existing task tracker
+  and apply it to subsequent work. Review relevant lessons when resuming the task.
+
+Model work has no default elapsed-time deadline. Record duration as telemetry;
+completion requires evidence gates. An explicit operator timeout may bound a call.
+Keep short availability probes and process cleanup bounded.
+
+Plans and lessons do not add approval gates. The autonomy and confirmation policy
+above remains authoritative.
