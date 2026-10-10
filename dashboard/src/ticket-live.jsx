@@ -9,7 +9,12 @@ export function LiveProgress({ticket}) {
   const recovery = recoveryProgress(ticket);
   if (recovery) return <section className="live-progress" aria-label="Recorded recovery progress">
     <h4>{recovery.status}</h4><p>{recovery.explanation}</p>
-    <p>{recovery.calls === null ? 'Recovery call usage unknown' : `${recovery.calls} recovery calls recorded`}</p>
+    <p>{recovery.calls === null ? 'Recovery call usage unknown' : `${recovery.calls} recovery calls recorded`}{recovery.callKinds.length > 0 && ` (${recovery.callKinds.map(([kind,count])=>`${kind} ${count}`).join(', ')})`}</p>
+    {recovery.awaiting && <div className="operator-decision" aria-label="Question waiting for your decision">
+      <p><strong>{recovery.awaiting.stage}: {recovery.awaiting.question}</strong> — {recovery.awaiting.reason}</p>
+      <p>Record your answer, then resume recovery:</p>
+      <code>{recovery.awaiting.command}</code>
+    </div>}
     <ul>{recovery.steps.map(step=><li key={step.key}>{step.label}: {step.status}</li>)}</ul>
     {recovery.reason && <p role="status">{recovery.reason}</p>}
     <p>Worker snapshot: {live?.phase || 'Worker liveness unverified'}</p>

@@ -172,7 +172,7 @@ fail() {
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
          elif $role == "nightshift-operation-worker" then {binding:"",decision:"abstain",findings:[],resolved:[],coverage:[]}
-         elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",evidence:[]}
+         elif $role == "nightshift-decision-reviewer" then {decision:"abstain",packet_sha256:"",reviewer_id:"",grounding:{}}
          elif $role == "nightshift-recovery-reviewer" then {binding:"",stage:"adoption",reviewer_id:"",decision:"reject",findings:[],dispositions:[],cases:[],ac_ids:[]}
          elif $role == "nightshift-behavior-reviewer" then {decision:"repair",scenario_ids:[],findings:[],reviewed_input_sha256:""}
          else {files_changed:[]} end)}' > "$receipt"; then
@@ -460,7 +460,13 @@ case "$PROVIDER" in
     fi
     if [ "$ROLE" = nightshift-operation-worker ] || [ "$ROLE" = nightshift-behavior-reviewer ] || [ "$ROLE" = nightshift-recovery-reviewer ] || [ "$ROLE" = nightshift-decision-reviewer ]; then
       # Public review input is complete; no filesystem tools or customization are needed.
-      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")")
+      if [ "$ROLE" = nightshift-decision-reviewer ]; then
+        # Evidence travels on stdin, so no command-line argument size limit applies.
+        STDIN_FILE="$TMP/prompt"
+      else
+        CMD+=("$PROMPT")
+      fi
     elif [ "$ROLE" = nightshift-code-fact-extractor ]; then
       # Source verification needs repository reads, not installed skills, MCP,
       # plugins or another copy of the role in the user prompt.
@@ -571,7 +577,11 @@ if [ -n "$BUDGET_TASK" ]; then
   BUDGET_RESERVED=true
 fi
 set -m
-NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+if [ -n "${STDIN_FILE:-}" ]; then
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" < "$STDIN_FILE" > "$TMP/stdout" 2> "$TMP/stderr" &
+else
+  NIGHTSHIFT_ROLE_CHILD=1 "${CMD[@]}" > "$TMP/stdout" 2> "$TMP/stderr" &
+fi
 CHILD=$!
 if [ -n "$LAUNCH_RECEIPT" ]; then
   python3 - "$LAUNCH_RECEIPT" "$PROVIDER" "$MODEL" "$CHILD" <<'PY' || fail 'cannot record provider launch'

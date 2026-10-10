@@ -41,21 +41,72 @@ def configuration(target):
     return cfg
 
 
+# Timing is not evidence. Test runners print durations that differ on every run,
+# which changed every packet and discarded every earlier answer. This view
+# replaces only duration tokens, line for line, so evidence spans stay exact.
+OBSERVATION_VIEW='timing-normalized-v1'
+# Only spec-reporter result lines (TAP reports time in duration_ms fields), and
+# only the final parenthetical: runners
+# append the measured time after the title, so a title ending in (5s) keeps it.
+_DURATION_SUFFIX=re.compile(r'^(\s*(?:✔|✖|✓|✗)\s.*) \((?:\d+(?:\.\d+)?) ?(?:ns|us|µs|ms|s)\)$')
+_UNITTEST_RAN=re.compile(r'^(Ran \d+ tests? in )\d+(?:\.\d+)?s$')
+_PYTEST_SUMMARY=re.compile(r'( in )\d+(?:\.\d+)?s( \(\d+:\d\d:\d\d\))?( =+)$')
+_DURATION_FIELD=re.compile(r'^(\s*(?:ℹ |# )?duration_ms:? )\d+(?:\.\d+)?$')
+# A unit suffix is required; a bare "duration" may be a configured threshold.
+_JSON_TIMING=re.compile(r'("(?:elapsed|duration)_(?:ms|s|seconds)"\s*:\s*)\d+(?:\.\d+)?')
+
+
+def observation_view(text):
+    lines=text.split('\n')
+    out=[]
+    for line in lines:
+        line=_DURATION_SUFFIX.sub(r'\1 (<duration>)',line)
+        line=_UNITTEST_RAN.sub(r'\1<duration>',line)
+        line=_PYTEST_SUMMARY.sub(r'\1<duration>\3',line)
+        line=_DURATION_FIELD.sub(r'\1<duration>',line)
+        line=_JSON_TIMING.sub(r'\1"<duration>"',line)
+        out.append(line)
+    return '\n'.join(out)
+
+
+# Upper bounds on what a plan may request. The per-run allowance itself is the
+# plan's limits, which the operator approves through the assessment binding.
+# Reviewer calls run sequentially (~30 s each measured with Claude Haiku), so
+# the former 600 s bound could not fit a 31-question plan in one session.
+MAX_ALLOWANCE_SECONDS=3600
+MAX_PROVIDER_CALLS=64
+
+
+def validate_limits(limits):
+    if not isinstance(limits,dict) or set(limits)!={'wall_seconds','active_seconds','provider_calls'} or any(type(v) is not int or v<=0 for v in limits.values()):
+        raise ValueError('recovery_decision_limits_invalid')
+    if limits['wall_seconds']>MAX_ALLOWANCE_SECONDS or limits['active_seconds']>MAX_ALLOWANCE_SECONDS or limits['provider_calls']>MAX_PROVIDER_CALLS:
+        raise ValueError('recovery_decision_limits_invalid')
+    return limits
+
+
 def plan(value):
     target=Path(value['worktree']);name='docs/'+value['task']+'/recovery-plan.json'
     if not (target/name).exists() and not (target/name).is_symlink():raise ValueError('recovery_decision_plan_missing:'+name)
     path=safe(target,name)
     data=json.loads(path.read_text())
-    if set(data)-{'version','checks','decisions','limits','environment','semantic_mode'} or not {'version','checks','decisions','limits'}<=set(data) or data['version']!=1 or not data['decisions'] or len(data['decisions'])>64:
+    allowed={'version','checks','decisions','limits','environment','semantic_mode'}|({'generated'} if data.get('version')==2 else set())
+    if set(data)-allowed or not {'version','checks','decisions','limits'}<=set(data) or data['version'] not in (1,2) or not data['decisions'] or len(data['decisions'])>64:
         raise ValueError('recovery_decision_plan_invalid')
+    # Version 2: generated artifacts are proven by verification, not reviewed, and
+    # every case must be traceable to an assertion span that names it.
+    generated=set()
+    if data['version']==2:
+        declared=[(g.get('path'),g.get('argv')) for g in data.get('generated',[]) if isinstance(g,dict)]
+        if declared!=[(g['path'],g['argv']) for g in value.get('generated',[])]:raise ValueError('recovery_decision_generated_changed')
+        generated={g['path'] for g in value.get('generated',[])}
+        if not generated<=set(value['source_files']):raise ValueError('recovery_decision_generated_not_a_changed_file')
     if data.get('semantic_mode','jev') not in ('jev','independent'):raise ValueError('recovery_semantic_mode_invalid')
     environment=data.get('environment',{})
     if not isinstance(environment,dict) or any(not re.fullmatch(r'[A-Z][A-Z0-9_]{0,80}',k) or k in ('PATH','HOME','TMPDIR','SYSTEMROOT') or k.startswith(('GIT_','LD_','DYLD_','NIGHTSHIFT_')) or not isinstance(v,str) or len(v)>4096 for k,v in environment.items()):
         raise ValueError('recovery_decision_environment_invalid')
     if value['verification_environment']!={'NIGHTSHIFT_PYTHON3':__import__('shutil').which('python3'),**environment}:raise ValueError('recovery_decision_environment_changed')
-    limits=data['limits']
-    if set(limits)!={'wall_seconds','active_seconds','provider_calls'} or any(type(v) is not int or v<=0 for v in limits.values()) or limits['wall_seconds']>600 or limits['active_seconds']>600 or limits['provider_calls']>64:
-        raise ValueError('recovery_decision_limits_invalid')
+    validate_limits(data['limits'])
     # Every executable check is independently rerun. Existing report exits are ignored.
     checks=data['checks']
     if not checks or len(checks)>20 or len({c['id'] for c in checks})!=len(checks):raise ValueError('recovery_decision_checks_invalid')
@@ -76,7 +127,7 @@ def plan(value):
         if case['applicability']['kind']=='deterministic':acs.update(case_acs)
     if classified!=declared:raise ValueError('recovery_decision_ac_unclassified')
     spec='docs/'+value['task']+'/SPEC.md';scenarios='docs/'+value['task']+'/behavior-scenarios.json'
-    required=set(value['source_files'])|{spec,scenarios}|{c['argv'][1] for c in checks}
+    required=(set(value['source_files'])-generated)|{spec,scenarios}|{c['argv'][1] for c in checks}
     files={name:safe(target,name).read_text().splitlines(keepends=True) for name in required}
     coverage={g:{} for g in KINDS};obligations={g:dict(cases=set(),acs=set(),findings=set()) for g in KINDS}
     for row in data['decisions']:
@@ -94,9 +145,10 @@ def plan(value):
                 if ref['path'] not in {c['id'] for c in checks}:raise ValueError('recovery_decision_observation_unknown')
             else:
                 name=ref['path']
+                if name in generated:raise ValueError('recovery_decision_generated_not_evidence')
                 if name not in files:raise ValueError('recovery_decision_source_unknown')
                 if ref['role']=='requirement' and name not in (spec,scenarios):raise ValueError('recovery_decision_requirement_invalid')
-                if ref['role']=='assertion' and name not in {c['argv'][1] for c in checks}:raise ValueError('recovery_decision_assertion_invalid')
+                if ref['role']=='assertion' and name not in set(value['source_files'])|{c['argv'][1] for c in checks}:raise ValueError('recovery_decision_assertion_invalid')
                 if ref['role']=='source' and name not in value['source_files']:raise ValueError('recovery_decision_source_invalid')
             a,b=ref['start_line'],ref['end_line']
             if type(a) is not int or type(b) is not int or not 1<=a<=b or (ref['role']!='observation' and b>len(files[ref['path']])):
@@ -104,6 +156,11 @@ def plan(value):
             for gate,kinds in KINDS.items():
                 if row['kind'] in kinds and ref['role']!='observation':coverage[gate].setdefault(ref['path'],set()).update(range(a,b+1))
         if roles!=engine.ROLES:raise ValueError('recovery_decision_roles_missing')
+        if data['version']==2:
+            for case in row['case_ids']:
+                token=re.compile(r'(?<![A-Za-z0-9_-])'+re.escape(case)+r'(?![A-Za-z0-9_-])')
+                if not any(ref['role']=='assertion' and token.search(''.join(files[ref['path']][ref['start_line']-1:ref['end_line']])) for ref in row['references']):
+                    raise ValueError('recovery_decision_case_untraced:'+row['id']+':'+case)
         for gate,kinds in KINDS.items():
             if row['kind'] in kinds:
                 obligations[gate]['cases'].update(row['case_ids']);obligations[gate]['acs'].update(row['ac_ids']);obligations[gate]['findings'].update(row['finding_ids'])
@@ -119,6 +176,39 @@ def plan(value):
     return data
 
 
+def finding_text(finding):
+    """A retained finding as a plain statement; structured records are not shown as raw JSON."""
+    body=finding.get('finding',finding)
+    if isinstance(body,str):return body
+    if isinstance(body,dict) and body.get('problem'):
+        target=body.get('target') or body.get('path')
+        where=' recorded in '+Path(str(target)).name if target else ''
+        category=finding.get('failure_category')
+        kind=' (category: '+str(category)+')' if category else ''
+        return f"the retained failure '{body['problem']}'{kind}{where}"
+    return json.dumps(body,sort_keys=True)
+
+
+def claims(definitions, question):
+    """Narrow statements taken verbatim from the obligations; nothing is paraphrased.
+
+    Each case contributes its then clause, its forbidden clause and each expected
+    or prohibited item; each retained finding contributes one claim.
+    """
+    out=[]
+    def text(value):return value if isinstance(value,str) else json.dumps(value,sort_keys=True)
+    for case in definitions['cases']:
+        if isinstance(case.get('then'),str) and case['then'].strip():out.append(dict(id=case['id']+':then',text=case['then'].strip()))
+        if isinstance(case.get('forbidden'),str) and case['forbidden'].strip():
+            out.append(dict(id=case['id']+':forbidden',text='The implementation does not do the following: '+case['forbidden'].strip()))
+        for i,item in enumerate(case.get('expected') or [],1):out.append(dict(id=case['id']+':expected-'+str(i),text=text(item)))
+        for i,item in enumerate(case.get('prohibited') or [],1):
+            out.append(dict(id=case['id']+':prohibited-'+str(i),text='The implementation does not do the following: '+text(item)))
+    for finding in definitions['findings']:
+        out.append(dict(id='finding:'+finding['id'],text=finding_text(finding)))
+    return out or [dict(id='question',text=question)]
+
+
 def packets(value, verification, gate):
     data=plan(value);target=Path(value['worktree'])
     outputs={c['id']:c for c in verification['checks']}
@@ -129,8 +219,10 @@ def packets(value, verification, gate):
         for ref in row['references']:
             name=ref['path']
             if ref['role']=='observation':
-                check=outputs[name];text=check['output'];sha=engine.text_hash(text)
-                if sha!=check['output_sha256'] or check['exit_code']!=0:raise ValueError('recovery_decision_output_unverified')
+                check=outputs[name]
+                if engine.text_hash(check['output'])!=check['output_sha256'] or check['exit_code']!=0:raise ValueError('recovery_decision_output_unverified')
+                # Reviewers see a timing-normalized view; raw output and hash stay in verify.json.
+                text=observation_view(check['output']);sha=engine.text_hash(text)
                 checks.setdefault(name,dict(id=name,exit_code=0,output_sha256=sha,evidence=[]))['evidence'].append(ref['id'])
             else:
                 path=safe(target,name);text=path.read_text();sha=hashlib.sha256(path.read_bytes()).hexdigest()
@@ -151,16 +243,23 @@ def packets(value, verification, gate):
         packet=dict(version=1,id=row['id'],kind=row['kind'],question=question+' Obligations: '+json.dumps(definitions,sort_keys=True),
                     requirements=obligations,findings=[dict(id=i,evidence=mapped) for i in row['finding_ids']],
                     evidence=refs,checks=list(checks.values()),high_risk=row['high_risk'] or row['kind'] in ('scope_matches','oracle_valid') or len({r['path'] for r in refs if r['role']=='source'}-{r['path'] for r in refs if r['role']=='assertion'})>1)
+        if data['version']==2:
+            packet.update(version=3,claims=claims(definitions,question))
         engine.validate(packet);result.append(packet)
     return result
 
 
 def review_framing(value,packet,mode=None):
+    """Largest framing this packet can need: first ask or the worst-case single re-ask."""
     mode=mode or value.get('decision_readiness',{}).get('semantic_mode','jev')
-    envelope=dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id='decision-review-'+'0'*32,mode='independent' if mode=='independent' else 'exception')
-    raw=engine.encoded(envelope) if mode=='independent' else json.dumps(envelope,sort_keys=True).encode()
-    route=value['reviewer_route']
-    return load('decision-render').render(HERE.parent,raw,route['provider'],route['model'])
+    render=load('decision-render');route=value['reviewer_route']
+    reviewer='decision-review-'+'0'*32
+    if mode=='independent':
+        raws=[engine.encoded(engine.independent_envelope(packet,reviewer)),
+              engine.encoded(engine.independent_envelope(packet,reviewer,sorted(engine.required_roles(packet))))]
+    else:
+        raws=[json.dumps(dict(packet=packet,packet_sha256=engine.digest(packet),reviewer_id=reviewer,mode='exception'),sort_keys=True).encode()]
+    return max((render.render(HERE.parent,raw,route['provider'],route['model']) for raw in raws),key=lambda r:r['argument_content_bytes'])
 
 
 def readiness(value):
@@ -181,7 +280,6 @@ def readiness(value):
                 framing.append(review_framing(value,packet,mode)['argument_content_bytes'])
                 # Reserve 4 KiB for observed output and transport framing. No truncation.
                 body=(engine.encoded(engine.independent_envelope(packet,'decision-review-'+'0'*32)) if mode=='independent' else engine.request_body(packet,cfg))
-                if len(body)>engine.MAX_BYTES-4096:raise ValueError('decision_request_too_large_preflight')
-        return dict(status='ready',semantic_mode=mode,review_argument_content_bytes=max(framing),review_argument_scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),max_request_bytes=engine.MAX_BYTES)
+        return dict(status='ready',semantic_mode=mode,review_argument_content_bytes=max(framing),review_argument_scope='sum_utf8_system_prompt_user_prompt_json_schema_arguments',plan_sha256=engine.digest(data),settings=cfg,limits=data['limits'],decisions=len(data['decisions']),request_token_budget=engine.REQUEST_TOKEN_BUDGET,state_question_token_budget=engine.STATE_QUESTION_TOKEN_BUDGET)
     except (OSError,ValueError,KeyError,TypeError) as error:
-        return dict(status='blocked',reason=str(error),max_request_bytes=engine.MAX_BYTES)
+        return dict(status='blocked',reason=str(error),request_token_budget=engine.REQUEST_TOKEN_BUDGET,state_question_token_budget=engine.STATE_QUESTION_TOKEN_BUDGET)

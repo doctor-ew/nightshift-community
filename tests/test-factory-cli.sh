@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# nightshift-ci-weight: 10
 # Exercise the real launcher with captured provider argv and isolated settings.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

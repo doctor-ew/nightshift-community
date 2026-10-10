@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only project identity and convention discovery; never execute project text."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -41,6 +42,14 @@ def resolve_project(explicit=None, cwd_default=False):
     return directory(Path.cwd())
 
 
+
+def checkout_identity(project):
+    """Shared, fingerprint-validated cache (scripts/nightshift-checkout-identity.py)."""
+    spec = importlib.util.spec_from_file_location('nightshift_checkout_identity', Path(__file__).with_name('nightshift-checkout-identity.py'))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module.checkout_identity(project)
+
+
 def manifest_path(project):
     """Prefer checkout configuration; inherit the primary checkout only when absent.
 
@@ -50,11 +59,9 @@ def manifest_path(project):
     """
     project = Path(project).resolve()
     roots = [project]
-    result = subprocess.run(['git', '-C', str(project), 'rev-parse',
-                             '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
-                            capture_output=True, text=True, timeout=5)
-    if result.returncode == 0:
-        top, common = map(Path, result.stdout.splitlines())
+    identity = checkout_identity(project)
+    if identity:
+        top, common = identity
         roots.append(top)
         if common.name == '.git':
             roots.append(common.parent)

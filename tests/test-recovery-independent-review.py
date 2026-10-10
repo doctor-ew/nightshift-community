@@ -24,10 +24,10 @@ class IndependentRecovery(f.Decisions):
         self.env_independent.start();self.addCleanup(self.env_independent.stop)
         self.envelopes=[]
 
-    def independent_review(self,value,packet,mode,output,timeout,reviewer_id=None):
+    def independent_review(self,value,packet,mode,output,timeout,reviewer_id=None,missing_roles=None):
         self.assertEqual(mode,'independent')
         self.review_calls.append(packet['id'])
-        self.envelopes.append(m.load('decision-engine').independent_envelope(packet,reviewer_id))
+        self.envelopes.append(m.load('decision-engine').independent_envelope(packet,reviewer_id,missing_roles))
         return dict(decision='yes',packet_sha256=m.load('decision-engine').digest(packet),reviewer_id=reviewer_id,evidence=[r['id'] for r in packet['evidence']])
 
     def recover(self,operation='authorize',expected=None,review=None):
@@ -183,12 +183,12 @@ class IndependentRecovery(f.Decisions):
         again=self.recover();self.assertEqual(again['allowance'],result['allowance'])
         self.assertEqual(len(self.review_calls),1)
 
-    def test_missing_role_coverage_blocks(self):
+    def test_missing_role_coverage_waits_for_the_operator(self):
         self.setup_independent()
         def missing(*args,**kwargs):
             result=self.independent_review(*args,**kwargs);result['evidence']=['observed'];return result
         result=self.recover(review=missing)
-        self.assertEqual(result['status'],'blocked')
+        self.assertEqual(result['status'],'awaiting_operator')
         self.assertIn('evidence_incomplete',result['reason'])
         self.assertNotIn('implement',m.p.snapshot(self.project,'T-1')['completed'])
 
@@ -208,15 +208,20 @@ class IndependentRecovery(f.Decisions):
         self.assertNotIn('implement',m.p.snapshot(self.project,'T-1')['completed'])
         self.assertEqual(self.ledger.read_bytes(),self.budget_before)
 
-    def test_unknown_interrupted_review_never_relaunches(self):
+    def test_unknown_interrupted_review_is_retained_counted_and_asked_again(self):
+        # Operator decision (#65, slice 7): an interrupted question is asked again on an
+        # explicit resume; the call whose outcome is unknown is never forgotten.
         self.setup_independent();a=self.assess()
         def crash(*args,**kwargs):
             self.review_calls.append('unknown');raise KeyboardInterrupt('synthetic provider interruption')
         with self.assertRaises(KeyboardInterrupt):self.recover(expected=a['sha256'],review=crash)
+        used=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))['allowance']['calls_used']
         resumed=self.recover('resume',a['sha256'])
-        self.assertEqual(resumed['status'],'blocked')
-        self.assertIn('unfinished_step',resumed['reason'])
-        self.assertEqual(self.review_calls,['unknown'])
+        self.assertEqual(resumed['status'],'pending_manual_acceptance',resumed)
+        session=next(iter(m.p.snapshot(self.project,'T-1')['recovery_sessions'].values()))
+        self.assertEqual([v['status'] for k,v in session['decision_calls'].items() if ':interrupted-' in k],['interrupted'])
+        self.assertGreater(session['allowance']['calls_used'],used)
+        self.assertEqual(self.review_calls[0],'unknown');self.assertGreater(len(self.review_calls),1)
         self.assertEqual(self.ledger.read_bytes(),self.budget_before)
 
     def test_restart_reuses_completed_independent_decisions(self):
@@ -232,9 +237,9 @@ class IndependentRecovery(f.Decisions):
         self.assertEqual(result['allowance']['deadline_at'],deadline)
 
     def test_oversized_plan_blocks_before_authority(self):
-        self.setup_independent();self.target.joinpath('source.txt').write_text('x'*26000+'\n')
+        self.setup_independent();self.target.joinpath('source.txt').write_text('x'*70000+'\n')
         subprocess.run(['git','-C',str(self.target),'commit','-qam','oversized source'],check=True,capture_output=True)
-        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked')
+        a=self.assess();self.assertEqual(a['decisions']['status'],'blocked');self.assertIn('token_budget',a['decisions']['reason'])
         with self.assertRaisesRegex(ValueError,'preflight'):self.recover(expected=a['sha256'])
         self.assertNotIn('recovery_sessions',m.p.snapshot(self.project,'T-1'))
 
@@ -244,8 +249,9 @@ class IndependentRecovery(f.Decisions):
         stub.write_text('#!/usr/bin/env python3\nimport sys,json\n'+
             'if sys.argv[1:3]==["auth","status"]:\n print(json.dumps(dict(loggedIn=True,authMethod="claude.ai",apiProvider="firstParty")));sys.exit(0)\n'+
             'assert "--safe-mode" in sys.argv and "--no-session-persistence" in sys.argv\nassert sys.argv[sys.argv.index("--tools")+1]==""\n'+
-            'data=json.JSONDecoder().raw_decode(sys.argv[-1].split("Task input:\\n",1)[1])[0]\nassert data["mode"]=="independent"\n'+
-            'result=dict(decision="yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],evidence=[r["id"] for r in data["packet"]["evidence"]])\n'+
+            'data=json.JSONDecoder().raw_decode(sys.stdin.read().split("Task input:\\n",1)[1])[0]\nassert data["mode"]=="independent"\n'+
+            'g={}\nfor r in data["packet"]["evidence"]:g.setdefault(r["role"],[]).append(r["id"])\n'+
+            'result=dict(decision="yes",packet_sha256=data["packet_sha256"],reviewer_id=data["reviewer_id"],grounding=g)\n'+
             'with open('+repr(str(calls))+',"a") as stream:stream.write(data["packet"]["id"]+"\\n")\n'+
             'print(json.dumps(dict(structured_output=dict(status="SUCCESS",reason="Synthetic independent review",attempts=1,artifacts=dict(branch="",diff="",**'+repr(route)+'),rules_fired=[],results=result))))\n')
         stub.chmod(0o755)
@@ -273,7 +279,7 @@ class IndependentCache(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('engine_fixture',Path(__file__).with_name('test-decision-engine.py'))
         fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
         self.engine_module=fixture.e;self.packet=fixture.packet()
-        self.settings=dict(semantic_mode='independent',provider='claude',model='configured-fixture',timeout_seconds=120,max_bytes=24576)
+        self.settings=dict(semantic_mode='independent',provider='claude',model='configured-fixture',timeout_seconds=120,max_bytes=self.engine_module.MAX_BYTES)
         self.calls=[];self.reviews=[]
 
     def reserve(self,kind,request_id,size):

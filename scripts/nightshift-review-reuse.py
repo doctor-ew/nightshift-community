@@ -57,7 +57,7 @@ def fingerprint(arguments, directory, state, routing):
             else:
                 options.append(arg)
         runtime = Path(__file__).resolve().parent.parent
-        assets = ['scripts/nightshift-agent.sh', 'scripts/nightshift-provider-policy.py',
+        assets = ['scripts/nightshift-agent.sh', 'scripts/nightshift-provider-policy.py', 'scripts/nightshift-checkout-identity.py',
                   'agents/nightshift-code-fact-extractor.md', 'contracts/nightshift-code-fact-extractor.schema.json',
                   'scripts/nightshift-contract.jq']
         payload = dict(version=1, head=head, input=digest(source.read_bytes()), files=hashes,

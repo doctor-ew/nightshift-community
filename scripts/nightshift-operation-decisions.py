@@ -233,6 +233,6 @@ def validate(controller,plan,record,observations,operation='review'):
     selected=packets(controller,plan,observations,operation)
     if len(selected)!=len(record['receipts']):raise ValueError('semantic_receipts_missing')
     for packet,receipt in zip(selected,record['receipts']):
-        if receipt['policy']!=engine.POLICY:raise ValueError('semantic_policy_changed')
+        if receipt['policy']!=engine.default_policy(packet):raise ValueError('semantic_policy_changed')
         engine.validate_receipt(receipt,packet,record['settings'],record['authority'],controller.directory/'decisions')
         if receipt['decision']!='yes':raise ValueError('semantic_approval_missing')

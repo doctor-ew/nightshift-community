@@ -208,3 +208,5 @@ class ContextContract(unittest.TestCase):
 
 unittest.main(verbosity=2)
 PY
+
+python3 "$ROOT/tests/test-checkout-identity.py"

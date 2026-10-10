@@ -110,7 +110,7 @@ def plan(target, settings, provider='auto'):
     return dict(routing=routing, policy=policy, routes=dict(proposal=author, review=review, verification=verification),
                 decisions=answers, settings={k:v for k,v in settings.items() if k != '_task'},
                 assets={p:hashlib.sha256((HERE.parent / p).read_bytes()).hexdigest() for p in
-                    ('scripts/nightshift-agent.sh', 'scripts/nightshift-provider-policy.py',
+                    ('scripts/nightshift-agent.sh', 'scripts/nightshift-provider-policy.py', 'scripts/nightshift-checkout-identity.py',
                      'agents/nightshift-repair-analyst.md', 'agents/nightshift-run-all-tests.md',
                      'contracts/nightshift-repair-analyst.schema.json', 'contracts/nightshift-run-all-tests.schema.json')})
 
