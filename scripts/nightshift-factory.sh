@@ -33,7 +33,7 @@ case "${1:-}" in
 esac
 if [ "${NIGHTSHIFT_OUTPUT_CHILD:-0}" != 1 ]; then
   case "${1:-}" in
-    recover|version|init|setup|cleanup|dashboard|sync|--sync|--help|-h|"") ;;
+    recover|version|init|setup|cleanup|dashboard|continue|sync|--sync|--help|-h|"") ;;
     *) exec python3 "$SCRIPT_DIR/nightshift-output.py" "$SCRIPT_PATH" "$@" ;;
   esac
 fi
@@ -52,6 +52,7 @@ if [ "${1:-}" = sync ]; then
   exec python3 "$SCRIPT_DIR/nightshift-update.py" --project "$SOURCE_DIR" "$@"
 fi
 if [ "${1:-}" = "recover" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-controller-recovery.py" "$@"; fi
+if [ "${1:-}" = "continue" ]; then shift; exec bash "$SCRIPT_DIR/nightshift-continue.sh" --run "$@"; fi
 if [ "${1:-}" = "version" ]; then shift; exec "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR" "$@"; fi
 if [ "${1:-}" = "cleanup" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-cleanup.py" "$@"; fi
 if [ "${1:-}" = "init" ]; then shift; exec python3 "$SCRIPT_DIR/nightshift-init.py" "$@"; fi
@@ -76,6 +77,7 @@ OPEN_PR="false"
 BATCH_ARGS=()
 PROFILE=""
 APPROVE_SPEC=""
+REVIEW_SPEC=false
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
@@ -95,6 +97,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift evaluate [--input FILE] [--no-enabled]
        nightshift init [runtime/model] [DIR] [--include FILE]
        nightshift cleanup TASK [--project DIR]
+       nightshift continue jira:TICKET [--project DIR]
        nightshift setup [--project DIR]
        nightshift dashboard [--project DIR] [--port PORT]
 
@@ -113,6 +116,7 @@ One autonomous Nightshift run. Examples:
 Options:
   --profile standard|workshop  Bounded prompt workshop or full engineering workflow
   --retry-review             Retry one malformed workshop final review
+  --review-spec             Review a local input spec in the console before starting
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
@@ -136,6 +140,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --profile) shift; PROFILE="${1:-}" ;;
     --retry-review) RETRY_REVIEW=true ;;
+    --review-spec) REVIEW_SPEC=true ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
     --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
@@ -388,15 +393,17 @@ if [ "$ADMISSION_REASON" = WORKTREE_COLLISION ]; then
   set -e
   ADMISSION_REASON="$(jq -r '.reason // ""' <<< "$ADMISSION")"
 fi
-if [ "$ADVISORY" = false ] && [ "$ADMISSION_STATUS" -eq 0 ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
-  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
-fi
 if [ "$ADMISSION_STATUS" -ne 0 ]; then
   echo "nightshift: preflight blocked (${ADMISSION_REASON:-UNKNOWN})" >&2
   case "$ADMISSION_REASON" in BASE_MISSING|MANIFEST_MISSING) echo "nightshift: run nightshift init in this project first; use --include FILE to commit a starter brief." >&2 ;; esac
   printf '%s\n' "$ADMISSION" >&2
   run_metrics_summary preflight_blocked "$ADMISSION_REASON"
   exit "$ADMISSION_STATUS"
+fi
+PROJECT_MANIFEST=$(bash "$SCRIPT_DIR/nightshift-manifest-path.sh" --project "$PROJECT")
+CONFIG_PROJECT=$(dirname "$PROJECT_MANIFEST")
+if [ "$ADVISORY" = false ] && [ "$CONFIG_PROJECT" = "$PROJECT" ] && [ ! -e "$PROJECT/.nightshift.toml" ]; then
+  bash "$SCRIPT_DIR/nightshift-setup.sh" --project "$PROJECT" --migrate
 fi
 if [ "$ADVISORY" = false ]; then
   bash "$SCRIPT_DIR/nightshift-manifest-validate.sh" --project "$PROJECT"
@@ -456,7 +463,7 @@ fi
 LOCAL_MODEL="$(jq -r '.routing.local_model // ""' <<< "$SETTINGS_JSON")"
 [ -z "$LOCAL_MODEL" ] || export NIGHTSHIFT_LOCAL_MODEL="$LOCAL_MODEL"
 ROUTING_FILE="$(jq -r '.routing.file // .providers.routing_file // ""' <<< "$PROJECT_SETTINGS")"
-ROUTING_BASE="$PROJECT"
+ROUTING_BASE="$CONFIG_PROJECT"
 if [ -z "$ROUTING_FILE" ]; then
   ROUTING_FILE="$(jq -r '.routing.file // .providers.routing_file // ""' <<< "$GLOBAL_SETTINGS")"
   ROUTING_BASE="$NIGHTSHIFT_HOME_DIR"
@@ -464,6 +471,10 @@ fi
 if [ -n "$ROUTING_FILE" ]; then
   case "$ROUTING_FILE" in /*) ;; *) ROUTING_FILE="$ROUTING_BASE/$ROUTING_FILE" ;; esac
   export NIGHTSHIFT_ROUTING_FILE="$ROUTING_FILE"
+fi
+EFFECTIVE_ROUTING=$(python3 "$SCRIPT_DIR/nightshift-routing-path.py" "$SOURCE_DIR")
+if ! jq -e --arg provider "$PROVIDER" '(.allowed_providers // ["codex","claude","local"]) | index($provider) != null' "$EFFECTIVE_ROUTING" >/dev/null; then
+  echo 'nightshift: selected provider is prohibited by routing allowed_providers' >&2; exit 64
 fi
 case "$PROVIDER" in codex|claude|local) ;; *) echo "Unknown provider: $PROVIDER" >&2; exit 64 ;; esac
 [ -n "$BRANCH" ] || { echo "--branch requires auto, none, or a branch name." >&2; exit 64; }
@@ -503,6 +514,7 @@ fi
 [ -n "$PROFILE" ] || PROFILE="$(jq -r '.workflow.profile // "standard"' <<< "$SETTINGS_JSON")"
 case "$PROFILE" in standard|workshop) ;; *) echo 'Unknown workflow profile.' >&2; exit 64 ;; esac
 if [ "$PROFILE" = workshop ]; then
+  [ "$REVIEW_SPEC" = false ] || { echo "Workshop already has its own spec approval flow." >&2; exit 64; }
   [ "$MODE" = eng ] || { echo 'Workshop accepts a single Markdown brief.' >&2; exit 64; }
   echo "nightshift: authentication: $AUTH_MODE; workshop reported costs are usage estimates." >&2
   WORKSHOP_ARGS=(--project "$PROJECT" --ref "$REF" --provider "$PROVIDER" --auth "$AUTH_MODE")
@@ -514,6 +526,9 @@ if [ "$PROFILE" = workshop ]; then
   exec python3 "$SCRIPT_DIR/nightshift-workshop.py" "${WORKSHOP_ARGS[@]}"
 fi
 [ "$RETRY_REVIEW" = false ] || { echo '--retry-review requires the workshop profile.' >&2; exit 64; }
+if [ "$REVIEW_SPEC" = true ] && { [ "$MODE" != eng ] || [ "$BRANCH" != auto ]; }; then
+  echo '--review-spec requires an individual local spec with --branch auto.' >&2; exit 64
+fi
 [ -z "$APPROVE_SPEC" ] || { echo '--approve-spec requires the workshop profile.' >&2; exit 64; }
 echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR")" >&2
 # The controller selects stages from durable evidence. Stage workers cannot
@@ -525,7 +540,9 @@ if [ "$MODE" = eng ] && [ -z "${NIGHTSHIFT_PIPELINE_STAGE:-}" ]; then
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
     --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
     '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
-  exec python3 "$SCRIPT_DIR/nightshift-pipeline.py" --project "$PROJECT" --task "$PIPELINE_TASK" --settings "$PIPELINE_SETTINGS"
+  PIPELINE_ARGS=(--project "$PROJECT" --task "$PIPELINE_TASK" --settings "$PIPELINE_SETTINGS")
+  [ "$REVIEW_SPEC" = false ] || PIPELINE_ARGS+=(--review-spec)
+  exec python3 "$SCRIPT_DIR/nightshift-pipeline.py" "${PIPELINE_ARGS[@]}"
 fi
 
 
@@ -574,6 +591,10 @@ Operator decisions: after resolving each task key and before each stage, read py
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
 Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Local checkpoint, ledger and TDD lock commits are authorized. Push for delivery only if push=true, and open a PR only if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+
+Your launcher PID is $$. Its process and your ancestor processes belong to THIS run; they are not a competing factory. A running lifecycle record for this launcher does not block you. Use the worktree ownership helper to detect actual collisions; never stop merely because your own parent launcher is alive.
+
+A user request to build authorizes routine engineering work, but preserve explicit unresolved spec decisions. If a spec needs human approval, report the concrete unresolved decisions instead of claiming success. Stay attached to dispatched roles until they finish; do not end your turn promising a background notification.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
@@ -658,7 +679,17 @@ if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ "$BRANCH" = auto ] && [ -n 
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
     --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
     '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
-  python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS" || true
+  CONSOLE_ARGS=(--project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS")
+  [ "$REVIEW_SPEC" = false ] || CONSOLE_ARGS+=(--review-spec)
+  python3 "$SCRIPT_DIR/nightshift-console-actions.py" "${CONSOLE_ARGS[@]}" || exit $?
+  if [ -n "$CONSOLE_TASK" ]; then
+    REVIEW_STATUS=$(python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --check-approval) || exit $?
+    if [ "$REVIEW_STATUS" = pending ]; then
+      echo 'nightshift: awaiting spec approval; open the console and choose Approve and continue. No model started.' >&2
+      exit 0
+    fi
+    [ "$REVIEW_STATUS" != approved ] || PROMPT+=$'\nThe user approved the exact input spec version through the local console. Its original waiting-for-spec-approval text is satisfied. Follow the approved requirements; later material spec changes and unresolved decisions still require review.'
+  fi
 fi
 
 # Factory launches are autonomous; propagate the mode to every role dispatcher.
@@ -730,6 +761,7 @@ fi
 
 set -m # Isolate the runtime and its ordinary tool children for bounded shutdown.
 if [ "$PROVIDER" = claude ]; then
+  [ "$ADVISORY" = true ] || export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
   CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
     case "$MODE" in

@@ -62,6 +62,17 @@ def view(project, task):
             if row.get('recovery_binding'):load('controller-recovery').validate_adopted(project,task,state,row)
     except (OSError,ValueError,KeyError):
         state=dict(state,status='stale',next_action='revalidate_changed_evidence')
+    # Enrich historical transport failures for display without rewriting receipts.
+    for attempt in state.get('attempts', []):
+        old = attempt.get('reason', '')
+        match = re.fullmatch(r'worker_exit_(\d+)', old)
+        if match and attempt.get('receipt'):
+            detail = worker_failure(Path(attempt['receipt']), int(match[1]))
+            if detail != old:
+                attempt['reason'] = detail
+                for finding in state.get('findings', []):
+                    if finding.get('problem') == old and finding.get('target') == attempt['receipt']:
+                        finding['problem'] = detail
     sessions=state.get('recovery_sessions',{})
     if sessions:
         latest=max(sessions.values(),key=lambda row:row['authorized_at'])
@@ -101,10 +112,13 @@ def source(project, task):
 
 def inputs(project, task, stage, state):
     docs=Path(project)/'docs'/task
-    value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),policy=state['plan'],decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
+    value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),policy={k:v for k,v in state['plan'].items() if k!='spec_author'},decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
     value['architecture']=load('architecture').resolve(project)
     value['architecture_checker']=sha(HERE/'nightshift-architecture.py')
     value['spec']={n:sha(docs/n) if (docs/n).is_file() else None for n in ('SPEC.md','behavior-scenarios.json')}
+    if (docs/'behavior-scenarios.json').is_file():
+        # Classification attestations are review output, not authored requirements.
+        value['spec']['behavior-scenarios.json']=load('behavior-proof').semantics(read(docs/'behavior-scenarios.json'))
     if stage in ('review','drift','qa'):value['source']=source(project,task)
     # A source edit requires final review again, not a fresh implementation plan.
     return recovery.digest(value)
@@ -221,6 +235,25 @@ class Pipeline:
 
     def refresh(self):
         selected=routes(self.project,self.settings)  # before any paid work
+        # Draft authorship survives runtime changes. Never infer it from today's default.
+        docs=self.project/'docs'/self.task
+        if (docs/'SPEC.md').is_file() and (docs/'behavior-scenarios.json').is_file():
+            author=read(docs/'behavior-scenarios.json').get('author', {})
+            provider=author.get('provider')
+            if provider not in ('codex','claude','local') or not author.get('author_id'):
+                raise ValueError('existing_draft_author_missing')
+            marker=docs/'spec-author-provider.txt'
+            writer=docs/'spec-writer.out.json'
+            if marker.exists() and marker.read_text().strip()!=provider:
+                raise ValueError('existing_draft_author_conflict')
+            if writer.exists():
+                report=read(writer)
+                recorded=report.get('_provenance', report.get('artifacts', {})).get('provider')
+                if recorded!=provider:raise ValueError('existing_draft_author_conflict')
+            selected['spec_author']=author
+            selected['stages']['adversarial']=load('provider-policy').select_route(
+                read(selected['routing_path']),'nightshift-code-fact-extractor',1,
+                selected['policy'],provider,True)
         decisions=load('console-decisions').read(load('console-decisions').location(self.project,self.task))['requests']
         self.state['decisions']=[dict(sha256=d['sha256'],question=d['question'],response=d['response']) for d in decisions]
         self.state['architecture']=load('architecture').resolve(self.project)
@@ -247,8 +280,12 @@ class Pipeline:
 
     def import_draft(self):
         # Import only the drafting stage, never a legacy review or completion claim.
-        if self.state['attempts'] or self.state['completed'] or self.state['history']:
+        if 'product' in self.state['completed']:
             return
+        if self.state['attempts'] or self.state['history']:
+            imported=any(h.get('reason')=='existing_draft_validated_without_dispatch' for h in self.state['history'])
+            if not imported or (self.state.get('finding_stage')=='adversarial' and self.state['findings']):
+                return
         docs=self.project/'docs'/self.task
         if not all((docs/name).is_file() for name in ('SPEC.md','behavior-scenarios.json')):
             return
@@ -257,9 +294,12 @@ class Pipeline:
         if result.returncode:
             self.state['findings']=[dict(id='existing-draft-schema',target='behavior-scenarios.json',problem='Existing draft requires schema repair; preserve it and resolve the validator failure.')]
             return
-        receipt=self.directory/'product-import.json'
         value=dict(version=1,task=self.task,stage='product',status='pass',findings=[],checks=[dict(command=' '.join(argv),exit_code=0)],evidence=[dict(path=str((docs/name).relative_to(self.project)),sha256=sha(docs/name)) for name in ('SPEC.md','behavior-scenarios.json')])
-        recovery.atomic(receipt,value)
+        receipt=self.directory/('product-import-'+recovery.digest(value)+'.json')
+        if receipt.exists():
+            if read(receipt)!=value:raise ValueError('import_receipt_changed')
+        else:
+            recovery.atomic(receipt,value)
         validate_receipt(receipt,self.task,'product',self.project)
         self.state['completed']['product']=dict(receipt=str(receipt),sha256=sha(receipt),input_sha256=inputs(self.project,self.task,'product',self.state))
         self.state['history'].append(dict(stage='product',reason='existing_draft_validated_without_dispatch'))
@@ -373,7 +413,7 @@ class Pipeline:
                 value=None
                 try:
                     code=self.runner(stage,handoff,receipt)
-                    if code:raise ValueError('worker_exit_'+str(code))
+                    if code:raise ValueError(worker_failure(receipt,code))
                     value=validate_receipt(receipt,self.task,stage,self.project)
                     if value['status']!='pass':raise ValueError('stage_failed')
                     if load('architecture').resolve(self.project)!=self.state['architecture']:
@@ -399,7 +439,7 @@ class Pipeline:
                     if self.state.get('finding_stage')==stage:self.state['findings']=[]
                     self.save()
                 except (OSError,ValueError,subprocess.SubprocessError) as error:
-                    attempt.update(status='fail',source_sha256=source(self.project,self.task),reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith('worker_exit_') else 'schema',finished_at=time.time())
+                    attempt.update(status='fail',source_sha256=source(self.project,self.task),reason=str(error),category='substantive' if str(error)=='stage_failed' else 'transport' if str(error).startswith(('worker_exit_', 'preflight_')) else 'schema',finished_at=time.time())
                     try:attempt['diagnostic']=retain_diagnostic(receipt,self.task,stage,self.project,str(error))
                     except (OSError,ValueError):attempt['diagnostic_unavailable']=True
                     self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
@@ -427,6 +467,96 @@ class Pipeline:
             self.save();return 0 if self.state['status']=='complete' else 1
 
 
+def worker_failure(receipt, code):
+    """Expose bounded typed admission failures without copying raw provider output."""
+    log = receipt.with_suffix('.log')
+    if 64 <= code <= 71 and log.is_file():
+        with log.open('rb') as handle:
+            handle.seek(max(0, log.stat().st_size - 16384))
+            lines = handle.read(16384).decode('utf-8', errors='replace').splitlines()
+        for line in reversed(lines):
+            try:
+                value = json.loads(line)
+            except ValueError:
+                continue
+            if (isinstance(value, dict) and value.get('schema_version') == 1
+                    and value.get('status') == 'blocked' and isinstance(value.get('checks'), dict)
+                    and re.fullmatch(r'[A-Z_]{1,80}', str(value.get('reason', '')))
+                    and re.fullmatch(r'[a-z_]{1,80}', str(value.get('next_action', '')))):
+                return 'preflight_' + value['reason'] + ': ' + value['next_action'] + ' (worker_exit_' + str(code) + '; log=' + str(log) + ')'
+    return 'worker_exit_' + str(code)
+
+
+
+def continuation_routes(project, target):
+    """Validate launcher configuration with the shared parser and route policy."""
+    home = Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home()/'.nightshift')))
+    configurations = []
+    for location in (home, Path(project)):
+        result = subprocess.run(['bash', str(HERE/'nightshift-setup.sh'), '--project', str(location), '--read'],
+                                capture_output=True, text=True, check=True)
+        configurations.append(json.loads(result.stdout))
+    global_runtime, project_runtime = (value.get('runtime', {}) for value in configurations)
+    mode = load('provider-policy').mode(project)
+    configured_provider = project_runtime.get('provider', global_runtime.get('provider', 'codex'))
+    provider = 'claude' if mode == 'claude-only' else configured_provider
+    canonical = lambda value: 'local' if value == 'ollama' else value
+    provider = canonical(provider)
+    # Match the factory's provider-specific model precedence; a different
+    # provider must never inherit another runtime's legacy model.
+    model = ''
+    for runtime, default_provider in ((project_runtime, configured_provider), (global_runtime, 'codex')):
+        models = runtime.get('models', {})
+        selected = models.get(provider)
+        if selected is None and provider == 'local':selected = models.get('ollama')
+        if selected is None and canonical(runtime.get('provider', default_provider)) == provider:
+            selected = runtime.get('model')
+        if selected is not None:
+            model = selected
+            break
+    settings = dict(provider=provider, model=model, policy=mode)
+    routes(project, settings)
+    routes(target, settings)
+
+
+def continuation_preflight(project, task):
+    """Validate the registered target without preparing, saving or granting anything."""
+    root(project, task)  # validate identity before passing it to the worktree helper
+    result = subprocess.run(['bash', str(HERE/'nightshift-worktree.sh'), 'check', task,
+                             '--project', str(project)], capture_output=True, text=True)
+    if result.returncode:
+        print(result.stderr or result.stdout, file=sys.stderr)
+        return result.returncode
+    registered = json.loads(result.stdout)
+    if not registered.get('registered'):
+        raise ValueError('retained_worktree_missing')
+    target = Path(registered['worktree']).resolve(strict=True)
+    if root(target, task) != root(project, task):
+        raise ValueError('pipeline_repository_changed')
+    existing = snapshot(project, task)
+    if existing and Path(existing['worktree']).resolve() != target:
+        raise ValueError('pipeline_identity_changed')
+    admission = subprocess.run(['bash', str(HERE/'nightshift-preflight-check.sh'),
+                                '--project', str(target), '--branch', 'none', '--ref', 'jira:'+task],
+                               capture_output=True, text=True)
+    if admission.returncode:
+        print(admission.stdout or admission.stderr, file=sys.stderr)
+        return admission.returncode
+    # Parse all runtime settings too; a syntactically invalid manifest cannot earn time.
+    settings = subprocess.run(['bash', str(HERE/'nightshift-setup.sh'), '--project', str(target), '--read'],
+                              capture_output=True, text=True)
+    if settings.returncode:
+        print(settings.stdout or settings.stderr, file=sys.stderr)
+        return settings.returncode
+    # Use the same operation-route and provider-policy validation as preparation.
+    # The launcher resumes from the primary project; a retained worktree override
+    # must also admit those routes before a new allowance is recorded.
+    continuation_routes(project, target)
+    print(target)
+    return 0
+
+
+
 def prepare(project, task, settings):
     project=Path(project).resolve()
     routes(project,settings)
@@ -448,13 +578,28 @@ def prepare(project, task, settings):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--project',required=True);parser.add_argument('--task',required=True);parser.add_argument('--settings',required=True)
-    args=parser.parse_args();settings=json.loads(args.settings);pipeline=None
-    request=Path(args.project)/settings['ref'].removeprefix('spec:')
-    if request.is_file():settings['ref']=str(request.resolve())
+    parser=argparse.ArgumentParser();parser.add_argument('--project',required=True);parser.add_argument('--task',required=True);parser.add_argument('--settings')
+    parser.add_argument('--continuation-preflight', action='store_true')
+    parser.add_argument('--review-spec', action='store_true')
+    args=parser.parse_args();pipeline=None
+    if not args.continuation_preflight and not args.settings:parser.error('--settings is required')
     try:
+        if args.continuation_preflight:return continuation_preflight(args.project,args.task)
+        settings=json.loads(args.settings)
+        if args.review_spec and settings['branch'] != 'auto':
+            raise ValueError('Spec review requires automatic ticket branching')
+        if settings['branch']=='auto':
+            console=load('console-actions')
+            # Keep the saved invocation stable: resolving the worker's input path
+            # must not invalidate the operator's approval of that invocation.
+            console.save(args.project,args.task,settings,review_spec=args.review_spec)
+            review=console.state(args.project,args.task).get('review')
+            if review is not None and not review['approved']:
+                print('nightshift: awaiting spec approval; open the console and choose Approve and continue. No model started.',file=sys.stderr)
+                return 0
+        request=Path(args.project)/settings['ref'].removeprefix('spec:')
+        if request.is_file():settings['ref']=str(request.resolve())
         target=prepare(args.project,args.task,settings)
-        if settings['branch']=='auto':load('console-actions').save(args.project,args.task,settings)
         pipeline=Pipeline(target,args.task,settings);code=pipeline.run()
         print(json.dumps(pipeline.state));return code
     except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:

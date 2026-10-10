@@ -13,6 +13,14 @@ chat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(chat)
 
 class ChatTests(unittest.TestCase):
+    def test_chat_configuration_obeys_provider_allowlist(self):
+        routing=json.loads((ROOT/'routing.json').read_text())
+        routing['allowed_providers']=['claude','codex']
+        routing['chat']={'provider':'claude','model':'fixture-chat'}
+        self.assertEqual(chat.route(routing,'auto','standard'),{'provider':'claude','model':'fixture-chat'})
+        with self.assertRaisesRegex(ValueError,'prohibited'):
+            chat.route(routing,'local','standard')
+
     def test_route_no_fallback_and_policy(self):
         routing = {'roles': {'nightshift-engineer': {'gears': {'1': {'provider':'codex','model':'sol'}, '2':{'provider':'claude','model':'sonnet'}}}}, 'local':{'model':'qwen'}}
         with self.assertRaisesRegex(ValueError, 'unavailable'):

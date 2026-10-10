@@ -54,7 +54,7 @@ def select_route(routing, role, gear, policy, author='', adversarial=False, init
         if route.get('provider') != 'claude':
             choices = routing['roles'][role]['gears']
             preferred = choices.get(str(gear))
-            options = ([preferred] if preferred else []) + [choices[k] for k in sorted(choices)]
+            options = ([preferred] if preferred else []) + [choices[k] for k in sorted(choices)] + routing.get('adversarial', {}).get('routes', [])
             permitted = next((dict(item) for item in options if item.get('provider') == 'claude'), None)
             route = {**route, **permitted} if permitted else None
             if route is not None and route.get('gear') == 0:

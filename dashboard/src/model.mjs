@@ -34,7 +34,7 @@ export function ticketProgress(rows, ticket) {
   const blocker = failures.length > 0 || !!stopped || dependencyBlocked;
   const controlled=ticket.pipeline;
   const recoveryView = recoveryProgress(ticket);
-  const status = recoveryView ? recoveryView.status : controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const status = recoveryView ? recoveryView.status : controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : ticket.review && !ticket.review.approved ? 'Awaiting spec approval' : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : ticket.owned === false ? 'Ready to start' : 'Ready to resume';
   const stage = running || stopped || passed;
   const recovery = controlled?.recovery_status;
   const controlledStage = recovery ? recovery.next_action : controlled?.attempts?.at(-1)?.stage;

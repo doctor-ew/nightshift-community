@@ -57,6 +57,15 @@ If missing, ask: `"No spec found. Run /nightshift-product <ref> first to generat
 
 ---
 
+## Retained draft review
+
+When the controller imports an existing draft, its product receipt establishes
+schema validity only. Preserve the draft and its actual author provenance.
+Before source review, complete any missing independent classification/design
+review using `commands/nightshift-spec.md` Step 4 and its behavior-proof protocol.
+Do not dispatch a writer merely because classification review is missing. Retain
+failed review evidence and all existing budgets; never treat import as approval.
+
 ## Step 3 — Resume detection
 
 ```bash

@@ -190,3 +190,6 @@ test('recovery blocked, pending acceptance, complete and stale observations rema
   assert.equal(ticketProgress([],ticket).complete,false);
   assert.ok(recoveryProgress(ticket).steps.every(step=>step.status==='stale'));
 });
+test('pending spec approval is distinct from readiness to resume', () => {
+  assert.equal(ticketProgress([], {task:'spec-a',review:{approved:false}}).status, 'Awaiting spec approval');
+});

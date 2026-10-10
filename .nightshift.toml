@@ -40,6 +40,11 @@ development_calls = 8
 final_calls = 2
 repairs = 2
 infrastructure_failures = 2
-timeout_seconds = 120
+timeout_seconds = 0
 output_bytes = 1048576
 force_prompt = false
+
+# Display only; investigation scope and provider routing are independent.
+# Omit mode to inherit a saved user preference; otherwise defaults to concise.
+# [output]
+# mode = "concise"

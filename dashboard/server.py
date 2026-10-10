@@ -130,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, b'Local same-origin access only')
             return
         if self.path == '/api/identity':
-            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'recovery_decisions_api': 1, 'operations_api': 1, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
+            self.reply(200, json.dumps({'service': 'nightshift-dashboard', 'runtime_root': str(ROOT), 'root': self.server.project, 'workshop_review_api': 2, 'ticket_actions_api': 2, 'recovery_decisions_api': 1, 'operations_api': 1, 'evidence_api': 1, 'ticket_chat_api': 1, 'ticket_decisions_api': 1}).encode(), 'application/json')
             return
         if self.path == '/api/workshop/reviews':
             try:
@@ -198,7 +198,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(405, b'Read-only dashboard; GET required')
 
     def do_POST(self):
-        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/tickets/recovery-accept', '/api/workshop/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
+        if self.path not in ('/api/operations', '/api/tickets/recovery-assess', '/api/tickets/recovery-authorize', '/api/tickets/recovery-resume', '/api/tickets/recovery-accept', '/api/workshop/approve', '/api/tickets/approve', '/api/tickets/resume', '/api/tickets/continue', '/api/tickets/cleanup', '/api/tickets/repair', '/api/tickets/stop', '/api/tickets/chat', '/api/tickets/decision'):
             self.reject_method(); return
         expected = '127.0.0.1:%d' % self.server.server_port
         if (self.headers.get('Host') != expected or self.headers.get('Origin') != 'http://' + expected

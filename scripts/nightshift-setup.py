@@ -1,5 +1,6 @@
 """Lossless additive setup for the documented scalar manifest schema."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,17 +19,22 @@ parser.add_argument('--ticket-ref', default='')
 parser.add_argument('--runtime-provider', default='')
 parser.add_argument('--runtime-model', default='')
 args = parser.parse_args()
-project = Path(args.project)
+project = Path(args.project).resolve()
+spec = importlib.util.spec_from_file_location('manifest_context', Path(__file__).with_name('nightshift-project-context.py'))
+context = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(context)
+source = context.manifest_path(project)
+# Configuration writes and relative file values stay with the selected owner.
+project = source.parent
 canonical = project / '.nightshift.toml'
 legacy = project / 'nightshift.toml'
-source = canonical if canonical.exists() else legacy
 
 def fail(code, message, missing=None):
     print(json.dumps(dict(status='failed', code=code, message=message, missing=missing or [])))
     sys.exit(1)
 
 try:
-    original = source.read_text() if source.exists() else ''
+    original = source.read_text() if source.exists() or source.is_symlink() else ''
     data = tomllib.loads(original)
 except (OSError, ValueError) as error:
     fail('CONFIG_INVALID', str(error))
@@ -81,7 +87,7 @@ if args.read:
     sys.exit(0)
 if missing and not sys.stdin.isatty() and not args.defaults:
     fail('CONFIG_INCOMPLETE', 'Run nightshift setup in an interactive terminal', [f'{t}.{k}' for t, k, _ in missing])
-route_file = section('providers').get('routing_file')
+route_file = section('routing').get('file') or section('providers').get('routing_file')
 if route_file and not (project / route_file).is_file():
     fail('CONFIG_INCOMPLETE', 'Configured routing file does not exist; create it or update providers.routing_file', ['providers.routing_file'])
 additions = {}
@@ -163,7 +169,7 @@ if content and not content.endswith('\n'):
     content += '\n'
 try:
     completed = tomllib.loads(content)
-    routing_path = project / completed.get('providers', {}).get('routing_file', 'routing.json')
+    routing_path = project / (completed.get('routing', {}).get('file') or completed.get('providers', {}).get('routing_file', 'routing.json'))
     if not routing_path.is_file():
         template = Path(__file__).resolve().parent.parent / 'routing.json'
         if (sys.stdin.isatty() or args.defaults) and template.is_file() and routing_path == project / 'routing.json':

@@ -125,6 +125,16 @@ sys.addaudithook(audit);runpy.run_path(script,run_name='__main__')
         result,payload=self.scan();self.assertEqual(result.returncode,1)
         self.finding(payload,entry['path'],2)
 
+    def test_retired_brand_exception_is_exact_and_policy_is_data(self):
+        policy,data,entry=self.policy_exception()
+        entry.update(rule='retired-brand',context=RETIRED+' fixture reference')
+        source=self.source/entry['path'];source.write_text(entry['context']+'\n')
+        policy.write_text(json.dumps(data))
+        result,payload=self.scan();self.assertEqual(result.returncode,0,result.stdout)
+        source.write_text(entry['context']+'\n'+RETIRED+' unrelated reference\n')
+        result,payload=self.scan();self.assertEqual(result.returncode,1,result.stdout)
+        self.finding(payload,entry['path'],2)
+
     def test_duplicate_unused_external_and_oversize_policy(self):
         policy,data,entry=self.policy_exception()
         original=json.dumps(data)
@@ -264,3 +274,21 @@ test -L "$FIXTURE/bin/nightshift"
 test -L "$FIXTURE/runtime/scripts/nightshift-setup.py"
 test "$(find "$FIXTURE/runtime/.backup" -path '*/retired/*' -type l | wc -l | tr -d ' ')" = 3
 echo 'PASS: installer archives owned aliases and preserves unrelated symlinks'
+
+python3 - "$FIXTURE" <<'PYCONFIG'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+for name in ('runtime/routing.json','runtime/nightshift.toml','claude/nightshift-routing.json'):
+    path=root/name;data=path.read_bytes();path.unlink();path.write_bytes(data)
+(root/'runtime/nightshift.toml').write_text((root/'runtime/nightshift.toml').read_text()+'\n# retained operator configuration\n')
+PYCONFIG
+before=$(shasum -a 256 "$FIXTURE/runtime/nightshift.toml")
+bash "$ROOT/install.sh" --runtime all --repair --target "$FIXTURE/claude" \
+  --codex-target "$FIXTURE/codex" --nightshift-target "$FIXTURE/runtime" \
+  --bin-target "$FIXTURE/bin" > "$FIXTURE/repair.log" 2>&1
+[ "$before" = "$(shasum -a 256 "$FIXTURE/runtime/nightshift.toml")" ]
+bash "$ROOT/install.sh" --check --runtime all --target "$FIXTURE/claude" \
+  --codex-target "$FIXTURE/codex" --nightshift-target "$FIXTURE/runtime" \
+  --bin-target "$FIXTURE/bin" > "$FIXTURE/check.json"
+echo 'PASS: repair preserves and audits operator configuration'

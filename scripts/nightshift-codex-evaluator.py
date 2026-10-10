@@ -98,6 +98,8 @@ def run(model, system, payload, schema, routing, policy, on_launch, proof, start
     if not executable: raise ValueError('evaluation_codex_runtime')
     executable_hash=proof.file_hash(Path(executable).resolve(strict=True))
     def remaining(cap=None):
+        # An unset model deadline does not remove bounded capability probes.
+        if not policy['timeout_seconds']:return cap
         value=policy['timeout_seconds']-(time.monotonic()-started)
         if value<=0: raise ValueError('evaluation_timeout')
         return min(cap,value) if cap else value

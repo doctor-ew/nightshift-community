@@ -115,13 +115,16 @@ def main():
     parser.add_argument('--project')
     parser.add_argument('--scope')
     modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--manifest-only', action='store_true')
     modes.add_argument('--root-only', action='store_true')
     modes.add_argument('--shell', action='store_true')
     parser.add_argument('--cwd-default', action='store_true')
     args = parser.parse_args()
     try:
         project = resolve_project(args.project, args.cwd_default)
-        if args.root_only:
+        if args.manifest_only:
+            print(manifest_path(project))
+        elif args.root_only:
             print(project)
         elif args.shell:
             print('export NIGHTSHIFT_PROJECT_DIR=' + shlex.quote(str(project)))

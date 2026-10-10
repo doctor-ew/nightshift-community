@@ -65,6 +65,17 @@ class Startup(unittest.TestCase):
                     except ProcessLookupError:
                         pass
 
+    def test_compatible_server_from_another_runtime_is_not_reused(self):
+        identity = dict(service='nightshift-dashboard', root=str(Path('/tmp').resolve()),
+                        runtime_root=str(ROOT.parent / 'another-runtime'), ticket_actions_api=2,
+                        ticket_chat_api=1, ticket_decisions_api=1, evidence_api=1)
+        with patch.object(module.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = io.BytesIO(json.dumps(identity).encode())
+            self.assertFalse(module.belongs('http://127.0.0.1:8765', Path('/tmp')))
+            identity['runtime_root'] = str(module.ROOT)
+            opener.return_value.open.return_value = io.BytesIO(json.dumps(identity).encode())
+            self.assertTrue(module.belongs('http://127.0.0.1:8765', Path('/tmp')))
+
     def test_untrusted_url_rejected(self):
         for url in ('https://example.invalid', 'http://localhost:8765', 'file:///tmp/x', 'http://127.0.0.1:8765/path'):
             self.assertFalse(module.belongs(url, Path('/tmp')))

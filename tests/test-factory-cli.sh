@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
     installed = base / 'installed'
     shutil.copytree(root / 'scripts', installed / 'scripts')
     shutil.copytree(root / 'commands', installed / 'commands')
-    for name in ('nightshift.toml', 'VERSION'):
+    for name in ('nightshift.toml', 'VERSION', 'routing.json'):
         shutil.copy(root / name, installed / name)
     (binary / 'nightshift').symlink_to(installed / 'scripts/nightshift-factory.sh')
     calls = base / 'calls.jsonl'
@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
 import json, os, pathlib, sys
 name = pathlib.Path(sys.argv[0]).name
 with open(os.environ['CLI_CALLS'], 'a') as f:
-    f.write(json.dumps({'name': name, 'args': sys.argv[1:]}) + '\\n')
+    f.write(json.dumps({'name': name, 'args': sys.argv[1:], 'background_disabled': os.environ.get('CLAUDE_CODE_DISABLE_BACKGROUND_TASKS')}) + '\\n')
 if sys.argv[1:3] == ['login', 'status']:
     print('Logged in using ChatGPT')
 elif name == 'claude' and sys.argv[1:2] == ['auth']:
@@ -132,7 +132,9 @@ elif name in ('codex', 'claude'):
            '[runtime.models]\ncodex="configured-codex"\n')
     args = worker(run('codex', 'gh:123'))
     assert args[args.index('--model') + 1] == 'configured-codex'
-    args = worker(run('prompt.md'), 'claude')
+    records = run('prompt.md')
+    args = worker(records, 'claude')
+    assert [r for r in records if r['args'][:1] != ['auth'] and r['name'] == 'claude'][0]['background_disabled'] == '1'
     assert args[args.index('--model') + 1] == 'configured-claude'
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n')
     assert '--model' not in worker(run('codex', 'prompt.md'))
@@ -214,5 +216,23 @@ elif name in ('codex', 'claude'):
     # Restart retains exhausted allowance and never invokes another worker.
     records = run('codex', 'budget-test.md', status=75, extra_env=budget_env)
     assert not [r for r in records if r['name'] == 'codex' and r['args'][:2] != ['login', 'status']]
+
+    subprocess.run(['git','-C',str(project),'add','.'], check=True)
+    subprocess.run(['git','-C',str(project),'-c','user.name=fixture','-c','user.email=fixture@local','commit','-qm','baseline'],check=True)
+    calls.write_text('')
+    gate = subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                           '--provider-policy','claude-only','--review-spec'],
+                          cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert gate.returncode == 0, gate.stderr
+    assert 'awaiting spec approval' in gate.stderr
+    records=[json.loads(line) for line in calls.read_text().splitlines()]
+    assert not any(r['name'] in ('claude','codex') and r['args'][:1] not in (['auth'],['login']) for r in records), records
+    # A plain retry cannot bypass the retained review requirement.
+    again=subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                          '--provider-policy','claude-only'],cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert again.returncode == 0 and 'awaiting spec approval' in again.stderr, again.stderr
+    records=[json.loads(line) for line in calls.read_text().splitlines()]
+    assert not any(r['name'] in ('claude','codex') and r['args'][:1] not in (['auth'],['login']) for r in records), records
+    assert len(subprocess.check_output(['git','-C',str(project),'worktree','list','--porcelain'],text=True).split('worktree ')) == 2
 print('PASS: factory shorthand, runtime defaults, argv preservation, and failure boundaries')
 PY
