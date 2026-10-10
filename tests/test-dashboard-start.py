@@ -1,4 +1,6 @@
 import importlib.util
+import io
+import json
 import os
 from pathlib import Path
 import signal
@@ -15,6 +17,17 @@ spec.loader.exec_module(module)
 
 
 class Startup(unittest.TestCase):
+    def test_legacy_console_is_not_reused(self):
+        identity = {'service':'nightshift-dashboard', 'root':'/tmp', 'ticket_actions_api':1}
+        with patch.object(module.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = io.BytesIO(json.dumps(identity).encode())
+            self.assertFalse(module.belongs('http://127.0.0.1:8765', Path('/tmp')))
+            opener.return_value.open.side_effect = module.urllib.error.HTTPError(
+                'http://127.0.0.1:8765/api/identity', 404, 'Not found', {}, None)
+            opener.return_value.open.reset_mock()
+            self.assertFalse(module.belongs('http://127.0.0.1:8765', Path('/tmp')))
+            self.assertEqual(opener.return_value.open.call_count, 1)
+
     def test_start_reuse_restart_and_project_isolation(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'NIGHTSHIFT_HOME': directory}), patch.object(module.webbrowser, 'open') as browser:
             first_project = Path(directory) / 'first'

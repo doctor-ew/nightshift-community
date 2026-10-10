@@ -35,6 +35,14 @@ class OutputTest(unittest.TestCase):
         self.assertIn('unrelated MCP', (directory / 'stderr.log').read_text())
         return result, directory
 
+    def test_model_free_approval_wait_is_not_an_empty_runtime_result(self):
+        self.launcher.write_text("echo 'nightshift: awaiting spec approval; open the console. No model started.' >&2\n")
+        result = subprocess.run(['python3', str(SCRIPT), str(self.launcher)], env=self.env,
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('awaiting spec approval', result.stdout)
+        self.assertNotIn('runtime returned no final answer', result.stderr)
+
     def test_codex_final_without_tool_noise(self):
         result, directory = self.launch([
             {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'Intermediate commentary'}},

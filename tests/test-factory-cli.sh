@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
 import json, os, pathlib, sys
 name = pathlib.Path(sys.argv[0]).name
 with open(os.environ['CLI_CALLS'], 'a') as f:
-    f.write(json.dumps({'name': name, 'args': sys.argv[1:]}) + '\\n')
+    f.write(json.dumps({'name': name, 'args': sys.argv[1:], 'background_disabled': os.environ.get('CLAUDE_CODE_DISABLE_BACKGROUND_TASKS')}) + '\\n')
 if sys.argv[1:3] == ['login', 'status']:
     print('Logged in using ChatGPT')
 elif name == 'claude' and sys.argv[1:2] == ['auth']:
@@ -110,6 +110,8 @@ elif name in ('codex', 'claude'):
     args = worker(run('prompt.md'))
     assert args[args.index('--model') + 1] == 'configured-codex'
     assert '$nightshift prompt.md' in args[-1]
+    assert re.search(r'Your launcher PID is [0-9]+', args[-1])
+    assert 'not a competing factory' in args[-1]
     assert str(installed / 'commands/nightshift-eng.md') in args[-1]
     args = worker(run('codex', 'prompt with spaces.md'))
     assert "$nightshift 'prompt with spaces.md'" in args[-1]
@@ -117,7 +119,9 @@ elif name in ('codex', 'claude'):
            '[runtime.models]\ncodex="configured-codex"\n')
     args = worker(run('codex', 'gh:123'))
     assert args[args.index('--model') + 1] == 'configured-codex'
-    args = worker(run('prompt.md'), 'claude')
+    records = run('prompt.md')
+    args = worker(records, 'claude')
+    assert [r for r in records if r['args'][:1] != ['auth'] and r['name'] == 'claude'][0]['background_disabled'] == '1'
     assert args[args.index('--model') + 1] == 'configured-claude'
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n')
     assert '--model' not in worker(run('codex', 'prompt.md'))
@@ -192,5 +196,20 @@ elif name in ('codex', 'claude'):
                     '[runtime.aliases]\nqwen="string"\n'):
         config(invalid)
         assert run('codex/qwen', 'prompt.md', status=1) == []
+    config()
+    subprocess.run(['git','-C',str(project),'add','.'], check=True)
+    subprocess.run(['git','-C',str(project),'-c','user.name=fixture','-c','user.email=fixture@local','commit','-qm','baseline'],check=True)
+    calls.write_text('')
+    gate = subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                           '--provider-policy','claude-only','--review-spec'],
+                          cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert gate.returncode == 0, gate.stderr
+    assert 'awaiting spec approval' in gate.stderr
+    records=[json.loads(line) for line in calls.read_text().splitlines()]
+    assert not any(r['name'] in ('claude','codex') and r['args'][:1] not in (['auth'],['login']) for r in records), records
+    # A plain retry cannot bypass the retained review requirement.
+    again=subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                          '--provider-policy','claude-only'],cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert again.returncode == 0 and 'awaiting spec approval' in again.stderr, again.stderr
 print('PASS: factory shorthand, runtime defaults, argv preservation, and failure boundaries')
 PY

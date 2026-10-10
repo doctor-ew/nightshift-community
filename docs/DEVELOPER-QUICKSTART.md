@@ -95,8 +95,10 @@ nightshift init claude
 
 Initialization creates or completes `.nightshift.toml` and `routing.json`,
 validates them, and commits the initialization files. It does not start a model.
-Git author identity must already be configured. Commit or unstage existing staged
-changes first; unrelated unstaged changes are preserved.
+Git author identity must already be configured. Initialization commits only its
+configuration files and explicitly included files. Unrelated staged and unstaged
+changes are preserved. Existing edits to initialization files must be resolved
+before initialization.
 
 For a mixed-provider team, `nightshift init codex` saves Codex as the factory
 default. You can still select Claude per run.
@@ -361,3 +363,24 @@ For a team walkthrough, have each developer complete one small ticket, inspect
 the tests and PR diff, locate its cost report, and practice stopping and resuming.
 See [configuration](CONFIGURATION.md), [cost policy](NIGHTSHIFT-COST-POLICY.md),
 [measurement details](RUN-MEASUREMENTS.md), and the [console guide](../dashboard/README.md).
+
+## Review a local input spec in the console
+
+For a local spec inside the consumer repository, add `--review-spec` to an
+individual run with `--branch auto`. For example, after creating and committing
+`onboarding-task.md` as described above:
+
+```bash
+nightshift spec:onboarding-task.md --provider-policy claude-only --review-spec
+```
+
+The launcher records the input spec for review and exits before starting a model.
+Open the printed console URL, read the spec under **Awaiting spec approval**, and
+select **Approve and continue**. The action starts the recorded run. Approval is
+bound to both the file bytes and provider/publication settings; changed content
+or settings require fresh approval. Retrying without the flag does not bypass a
+pending review. This approval covers the input requirements, not later generated
+spec changes, failed verification gates, or a production deployment.
+
+Workshop spec review remains available through the workshop profile. Arbitrary
+engineering-stage approval requests are not yet converted into UI approval cards.

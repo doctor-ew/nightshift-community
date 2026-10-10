@@ -35,3 +35,13 @@ This accounting is scoped to adversarial calls using the documented bounded entr
 It is not a hostile-process sandbox, a global controller migration, or a transport
 timeout/output quota implementation. Those separate #15 limits remain outstanding.
 The existing stricter malformed-response reissue cap still applies.
+
+## Elapsed time
+
+Model work has no default elapsed-time deadline. Duration is observational;
+completion depends on verification gates and retained repair attempts.
+For behavior proof, `timeout_seconds = 0` is the default and disables the model
+call deadline. An explicit value from 1 through 120 opts into a per-call timeout.
+Availability probes remain bounded to 15 seconds, and output limits and process
+cleanup still apply. Existing pinned policies retain their explicit timeouts;
+changing policy requires the existing reconciliation flow.

@@ -81,8 +81,8 @@ def main():
         if top.returncode == 0 and Path(top.stdout.strip()).resolve() != project:
             raise ValueError('target is inside another Git repository; use its root or a separate directory')
         if top.returncode == 0:
-            if git(project, 'diff', '--cached', '--name-only').stdout.strip():
-                raise ValueError('existing staged changes found; commit or unstage them before init')
+            if git(project, 'diff', '--cached', '--name-only', '--', '.nightshift.toml', 'routing.json', *includes).stdout.strip():
+                raise ValueError('existing staged changes to initialization files found; commit or unstage those files before init')
             if git(project, 'diff', '--name-only', '--', '.nightshift.toml', 'routing.json', *includes).stdout.strip():
                 raise ValueError('existing edits to initialization files found; commit them before init')
     # Check identity before creating files; do not invent identity or change Git config.
@@ -111,8 +111,8 @@ def main():
     files = sorted(set(files))
     if files:
         git(project, 'add', '--', *files)
-        if git(project, 'diff', '--cached', '--name-only').stdout.strip():
-            git(project, 'commit', '-m', 'chore: initialize Nightshift project')
+        if git(project, 'diff', '--cached', '--name-only', '--', *files).stdout.strip():
+            git(project, 'commit', '--only', '-m', 'chore: initialize Nightshift project', '--', *files)
     git(project, 'rev-parse', '--verify', 'HEAD^{commit}')
     print(json.dumps({'status': 'ready', 'project': str(project),
                       'baseline': git(project, 'rev-parse', 'HEAD').stdout.strip(),

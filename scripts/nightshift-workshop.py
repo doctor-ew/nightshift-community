@@ -16,9 +16,9 @@ import time
 import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULTS = dict(seconds=900, calls=30, cost_usd=2.0, call_usd=0.25,
+DEFAULTS = dict(calls=30, cost_usd=2.0, call_usd=0.25,
                 input_tokens=1000000, output_tokens=40000, input_bytes=32768,
-                call_seconds=90, response_bytes=1048576)
+                response_bytes=1048576)
 
 
 EVIDENCE_POLICY = (
@@ -306,21 +306,20 @@ class Run:
         if (len(self.state['calls']) >= self.limits['calls'] or
             self.state['cost_usd'] >= self.limits['cost_usd'] or
             self.state['input_tokens'] >= self.limits['input_tokens'] or
-            self.state['output_tokens'] >= self.limits['output_tokens'] or
-            self.prior_elapsed + time.monotonic() - self.started >= self.limits['seconds']):
+            self.state['output_tokens'] >= self.limits['output_tokens']):
             self.state['status'] = 'budget_exhausted'
             stop('whole-run budget exhausted; all attempts retained')
 
-    def execute(self, argv, timeout):
+    def execute(self, argv, timeout=None):
         # Every probe and generation uses this same bounded detached invocation.
         with tempfile.TemporaryDirectory(prefix='nightshift-call-') as cwd:
             with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
                 process = subprocess.Popen(argv, cwd=cwd, env=self.env, stdin=subprocess.DEVNULL,
                                            stdout=out, stderr=err, start_new_session=True)
-                end = time.monotonic() + timeout
+                end = time.monotonic() + timeout if timeout is not None else None
                 try:
                     while process.poll() is None:
-                        if time.monotonic() >= end:
+                        if end is not None and time.monotonic() >= end:
                             stop('runtime timeout')
                         if out.tell() + err.tell() > self.limits['response_bytes']:
                             stop('runtime output limit')
@@ -369,9 +368,8 @@ class Run:
         if self.args.auth == 'api':
             argv += ['--bare']
         argv += ['--', request]
-        timeout = min(self.limits['call_seconds'], self.limits['seconds'] - self.state['elapsed_seconds'])
         try:
-            code, stdout, stderr = self.execute(argv, max(0.1, timeout))
+            code, stdout, stderr = self.execute(argv)
             write(self.artifacts / 'calls' / receipt_name, stdout)
             write(self.artifacts / 'calls' / (name + '.stderr.log'), stderr)
             envelope = json.loads(stdout)

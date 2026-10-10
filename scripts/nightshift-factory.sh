@@ -68,6 +68,7 @@ OPEN_PR="false"
 BATCH_ARGS=()
 PROFILE=""
 APPROVE_SPEC=""
+REVIEW_SPEC=false
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
@@ -102,6 +103,7 @@ One autonomous Nightshift run. Examples:
 Options:
   --profile standard|workshop  Bounded prompt workshop or full engineering workflow
   --retry-review             Retry one malformed workshop final review
+  --review-spec             Review a local input spec in the console before starting
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
@@ -125,6 +127,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --profile) shift; PROFILE="${1:-}" ;;
     --retry-review) RETRY_REVIEW=true ;;
+    --review-spec) REVIEW_SPEC=true ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
     --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
@@ -481,6 +484,7 @@ fi
 [ -n "$PROFILE" ] || PROFILE="$(jq -r '.workflow.profile // "standard"' <<< "$SETTINGS_JSON")"
 case "$PROFILE" in standard|workshop) ;; *) echo 'Unknown workflow profile.' >&2; exit 64 ;; esac
 if [ "$PROFILE" = workshop ]; then
+  [ "$REVIEW_SPEC" = false ] || { echo "Workshop already has its own spec approval flow." >&2; exit 64; }
   [ "$MODE" = eng ] || { echo 'Workshop accepts a single Markdown brief.' >&2; exit 64; }
   echo "nightshift: authentication: $AUTH_MODE; workshop reported costs are usage estimates." >&2
   WORKSHOP_ARGS=(--project "$PROJECT" --ref "$REF" --provider "$PROVIDER" --auth "$AUTH_MODE")
@@ -492,6 +496,9 @@ if [ "$PROFILE" = workshop ]; then
   exec python3 "$SCRIPT_DIR/nightshift-workshop.py" "${WORKSHOP_ARGS[@]}"
 fi
 [ "$RETRY_REVIEW" = false ] || { echo '--retry-review requires the workshop profile.' >&2; exit 64; }
+if [ "$REVIEW_SPEC" = true ] && { [ "$MODE" != eng ] || [ "$BRANCH" != auto ]; }; then
+  echo '--review-spec requires an individual local spec with --branch auto.' >&2; exit 64
+fi
 [ -z "$APPROVE_SPEC" ] || { echo '--approve-spec requires the workshop profile.' >&2; exit 64; }
 echo "nightshift: installed build: $(bash "$SCRIPT_DIR/nightshift-version.sh" --project "$SOURCE_DIR")" >&2
 
@@ -526,6 +533,10 @@ PROMPT="You are the inner Nightshift factory worker. Execute this requested Nigh
 Canonical installation: ${SOURCE_DIR}. Read ${SOURCE_DIR}/commands/nightshift-${MODE}.md directly and use ${SCRIPT_DIR} for supporting scripts. Do not search the filesystem to locate Nightshift.
 
 Resolved factory policy: branch=${BRANCH}. With branch=none, work in the caller checkout and skip worktree preparation. Otherwise work only in clean isolated ticket worktrees; preserve the caller's dirty checkout; complete verified tickets through local verification. Publication authorization: push=${PUSH}, pr=${OPEN_PR}. Only commit and push for delivery if push=true, and only open a PR if pr=true, after all required gates pass. If push=false, an absent remote is not a blocker; do not request or create one. Do not deploy, merge a PR, request deployment environment details, or ask for production confirmation. Follow ticket dependencies in order. If a prerequisite is not yet merged, base a dependent ticket on the verified prerequisite branch and record the dependency; do not stop merely to ask whether to continue. Evidence failures get up to three smallest-scope repairs and then a durable failure receipt; continue independent later tickets.
+
+Your launcher PID is $$. Its process and your ancestor processes belong to THIS run; they are not a competing factory. A running lifecycle record for this launcher does not block you. Use the worktree ownership helper to detect actual collisions; never stop merely because your own parent launcher is alive.
+
+A user request to build authorizes routine engineering work, but preserve explicit unresolved spec decisions. If a spec needs human approval, report the concrete unresolved decisions instead of claiming success. Stay attached to dispatched roles until they finish; do not end your turn promising a background notification.
 
 Do not run the terminal launcher ('nightshift', 'drew', or 'scripts/nightshift-factory.sh') or start another factory/orchestrator. Perform the batch protocol and its per-ticket stages in this session instead.
 
@@ -604,7 +615,17 @@ if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ "$BRANCH" = auto ] && [ -n 
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
     --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
     '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
-  python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS" || true
+  CONSOLE_ARGS=(--project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS")
+  [ "$REVIEW_SPEC" = false ] || CONSOLE_ARGS+=(--review-spec)
+  python3 "$SCRIPT_DIR/nightshift-console-actions.py" "${CONSOLE_ARGS[@]}" || exit $?
+  if [ -n "$CONSOLE_TASK" ]; then
+    REVIEW_STATUS=$(python3 "$SCRIPT_DIR/nightshift-console-actions.py" --project "$PROJECT" --task "$CONSOLE_TASK" --check-approval) || exit $?
+    if [ "$REVIEW_STATUS" = pending ]; then
+      echo 'nightshift: awaiting spec approval; open the console and choose Approve and continue. No model started.' >&2
+      exit 0
+    fi
+    [ "$REVIEW_STATUS" != approved ] || PROMPT+=$'\nThe user approved the exact input spec version through the local console. Its original waiting-for-spec-approval text is satisfied. Follow the approved requirements; later material spec changes and unresolved decisions still require review.'
+  fi
 fi
 
 # Factory launches are autonomous; propagate the mode to every role dispatcher.
@@ -646,6 +667,7 @@ if [ "$ADVISORY" = false ]; then
 fi
 
 if [ "$PROVIDER" = claude ]; then
+  [ "$ADVISORY" = true ] || export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
   CLAUDE_ARGS=(--print --output-format stream-json --verbose)
   if [ "$ADVISORY" = true ]; then
     case "$MODE" in

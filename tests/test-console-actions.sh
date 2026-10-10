@@ -41,6 +41,34 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
         if module.state(project,'42')['launch']['status']=='exited':break
         time.sleep(.02)
     assert module.state(project,'42')['launch']['exit_code']==0
+    # An admission failure has no owned worktree: cleanup is a no-op, approval
+    # must bind both the source bytes and the saved invocation policy.
+    (project/'SPEC.md').write_text('First requirements')
+    local_settings=dict(settings, ref='spec:SPEC.md', push=False, pr=False)
+    module.save(project,'spec-fixture',local_settings,review_spec=True)
+    initial=module.state(project,'spec-fixture')
+    assert not initial['review']['approved'] and not initial['owned']
+    assert module.action(project,'spec-fixture',initial['sha256'],'cleanup')['status']=='ready'
+    try:module.action(project,'spec-fixture',initial['sha256'],'resume');raise AssertionError('unapproved spec launched')
+    except ValueError as error:assert 'approve' in str(error)
+    (project/'SPEC.md').write_text('Changed requirements')
+    try:module.action(project,'spec-fixture',initial['sha256'],'approve');raise AssertionError('stale spec approved')
+    except ValueError:pass
+    fresh=module.state(project,'spec-fixture')
+    assert module.action(project,'spec-fixture',fresh['sha256'],'approve')['status']=='running'
+    assert module.state(project,'spec-fixture')['review']['approved']
+    pid=module.state(project,'spec-fixture')['launch']['pid']
+    assert module.action(project,'spec-fixture',fresh['sha256'],'approve')['status']=='running'
+    assert module.state(project,'spec-fixture')['launch']['pid']==pid
+    for _ in range(150):
+        if module.state(project,'spec-fixture')['launch']['status']=='exited':break
+        time.sleep(.02)
+    module.save(project,'spec-fixture',local_settings)
+    assert module.state(project,'spec-fixture')['review']['approved']
+    (project/'SPEC.md').write_text('Edited after approval')
+    assert not module.state(project,'spec-fixture')['review']['approved']
+    module.save(project,'spec-fixture',dict(local_settings,push=True))
+    assert not module.state(project,'spec-fixture')['review']['approved']
     agents=target/'.nightshift/agents';agents.mkdir(parents=True)
     (agents/'active.json').write_text(json.dumps(dict(status='running',pid=os.getpid())))
     try:module.action(project,'42',state['sha256'],'resume');raise AssertionError('live worker accepted')

@@ -53,7 +53,7 @@ through normal manifest validation or `nightshift-behavior-proof.py validate
 | final_calls | 2 | Integer 1..64 |
 | repairs | 2 | Integer 0..2 |
 | infrastructure_failures | 2 | Integer 0..2 |
-| timeout_seconds | 120 | Integer 1..120 |
+| timeout_seconds | 0 | Integer 0..120; 0 disables model-call deadline |
 | output_bytes | 1048576 | Integer 1..1048576 |
 | force_prompt | false | Boolean; strengthens required prototype coverage only |
 
