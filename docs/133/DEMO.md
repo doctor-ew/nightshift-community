@@ -2,7 +2,7 @@
 
 ## Current status
 
-The original rehearsal is a retained failure, not a fallback success. Isolated candidate `36e4abc` passed all six stages. Candidate `201970d` also passes the identical invocation with zero additional provider calls and unchanged receipts and budget reservations. Final CI completion remains pending. A successful dashboard recording exists locally; Jev remains offline pending explicit payload approval.
+The original rehearsal is a retained failure, not a fallback success. Isolated candidate `36e4abc` passed all six stages. Candidate `201970d` also passes the identical invocation with zero additional provider calls and unchanged receipts and budget reservations. Implementation CI passed all ten harness shards, dashboard, lint and the required aggregate gate: [verified run](https://github.com/doctor-ew/nightshift-community/actions/runs/38600812302). A successful dashboard recording exists locally; Jev remains offline pending explicit payload approval.
 
 ## Demonstration sequence
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "issue": 133,
-  "status": "live_demo_verified_ci_pending",
+  "status": "live_demo_verified",
   "accepted": {
     "focused_boundaries": true,
     "architecture_integration": true,
@@ -14,11 +14,10 @@
     "isolated_installation_audit": true,
     "full_live_six_stage_acceptance": true,
     "actual_success_fallback_recording": true,
-    "repeat_receipt_reuse": true
+    "repeat_receipt_reuse": true,
+    "published_ci": true
   },
-  "pending": [
-    "latest_ci_completion"
-  ],
+  "pending": [],
   "limits": [
     "Earlier failed rehearsal remains preserved",
     "Unknown costs remain unknown",
@@ -38,5 +37,14 @@
     "status": "offline",
     "live_requests": 0,
     "reason": "External payload approval pending; automatic approval review rejected the request"
+  },
+  "ci": {
+    "conclusion": "success",
+    "tested_revision": "be272d92b9e91a0f20cee44a89d1a5924b49085a",
+    "run": "https://github.com/doctor-ew/nightshift-community/actions/runs/38600812302",
+    "harness_shards_passed": 10,
+    "dashboard": "pass",
+    "lint": "pass",
+    "required_aggregate": "pass"
   }
 }
