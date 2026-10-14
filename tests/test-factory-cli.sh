@@ -98,6 +98,10 @@ elif name in ('codex', 'claude'):
     config()
     args = worker(run('codex', 'prompt.md'))
     assert args[args.index('--sandbox') + 1] == 'danger-full-access'
+    assert 'deferred_findings are retained context owned by other stages' in args[-1]
+    assert 'artifact repairs explicitly assigned by the controller from a reviewer stage' in args[-1]
+    assert 'no unresolved findings owned by this stage' in args[-1]
+    assert 'Other-stage failures remain for the controller to sequence' in args[-1]
     for mode in ('help', 'explain', 'architect', 'dev', 'pm', 'ux-designer',
                  'architecture', 'ux', 'bmad'):
         args = worker(run('codex', mode, 'Explain', 'this change'))

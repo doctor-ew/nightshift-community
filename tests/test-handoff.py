@@ -38,4 +38,54 @@ class Handoff(unittest.TestCase):
   with tempfile.TemporaryDirectory() as tmp,patch.object(m.subprocess,'run') as run:
    result=m.graph(tmp,'scope');self.assertEqual(result['status'],'unavailable');run.assert_not_called()
 
+ def test_product_rewind_defers_exact_adversarial_receipt_even_after_stage_label_changes(self):
+  import copy
+  with tempfile.TemporaryDirectory() as tmp,patch.object(m,'graph',return_value={'status':'unavailable','records':[]}):
+   project=Path(tmp); receipt=str(project/'docs/sample/adversarial-2.json')
+   retained={'id':'adv-2','target':receipt,'problem':'Retained adversarial failure'}
+   own={'id':'product-4','target':'docs/sample/SPEC.md','problem':'Missing current Product acceptance criterion'}
+   state={'finding_stage':'product','findings':[retained,own],'attempts':[{'stage':'adversarial','status':'fail','receipt':receipt}]}
+   before=copy.deepcopy(state)
+   value=m.build(project,'sample','product',state,'repair')
+   self.assertEqual(value['findings'],[own]);self.assertEqual(value['deferred_findings'],[retained]);self.assertEqual(state,before)
+
+ def test_scope_finding_for_implementation_is_context_when_product_runs(self):
+  import copy
+  with tempfile.TemporaryDirectory() as tmp,patch.object(m,'graph',return_value={'status':'unavailable','records':[]}):
+   finding={'id':'scope','target':'app.py','problem':'Resolve implementation scope'}
+   state={'finding_stage':'implement','findings':[finding],'history':[{'reason':'scope_blocked'}],'attempts':[]}
+   before=copy.deepcopy(state)
+   product=m.build(tmp,'sample','product',state,'scope')
+   implementation=m.build(tmp,'sample','implement',state,'scope')
+   self.assertEqual(product['findings'],[]);self.assertEqual(product['deferred_findings'],[finding])
+   self.assertEqual(implementation['findings'],[finding]);self.assertEqual(implementation['deferred_findings'],[])
+   self.assertEqual(state,before)
+
+ def test_controller_assigned_artifact_repairs_remain_mandatory(self):
+  import copy
+  for origin,stage,target in [('adversarial','product','docs/sample/SPEC.md'),('review','implement','app.py')]:
+   with self.subTest(origin=origin),tempfile.TemporaryDirectory() as tmp,patch.object(m,'graph',return_value={'status':'unavailable','records':[]}):
+    receipt=str(Path(tmp)/'docs/sample'/f'{origin}-2.json')
+    finding={'id':'semantic','target':target,'problem':'Repair concrete reviewed defect'}
+    diagnostic={'id':'receipt','target':receipt,'problem':'Retained other-stage receipt failure'}
+    state={'status':'repairing','next_action':stage,'finding_stage':origin,'findings':[finding,diagnostic],'attempts':[{'stage':origin,'status':'fail','category':'substantive','reason':'stage_failed','receipt':receipt}]}
+    before=copy.deepcopy(state);value=m.build(tmp,'sample',stage,state,'repair')
+    self.assertEqual(value['findings'],[finding]);self.assertEqual(value['deferred_findings'],[diagnostic]);self.assertEqual(state,before)
+
+ def test_transport_and_stale_receipts_do_not_assign_artifact_repairs(self):
+  for category in ('transport','schema'):
+   with self.subTest(category=category),tempfile.TemporaryDirectory() as tmp,patch.object(m,'graph',return_value={'status':'unavailable','records':[]}):
+    finding={'id':'diagnostic','target':'docs/sample/SPEC.md','problem':'Unaccepted worker diagnostic'}
+    state={'status':'repairing','next_action':'product','finding_stage':'adversarial','findings':[finding],'attempts':[{'stage':'adversarial','status':'fail','category':category,'receipt':str(Path(tmp)/'adversarial.json')}]}
+    value=m.build(tmp,'sample','product',state,'repair')
+    self.assertEqual(value['findings'],[]);self.assertEqual(value['deferred_findings'],[finding])
+
+ def test_unvalidated_or_successful_origin_does_not_assign_artifact_repairs(self):
+  for attempt in (None,{'stage':'adversarial','status':'pass','category':'success','reason':'stage_failed'}, {'stage':'adversarial','status':'fail','reason':'worker_exit_1'}):
+   with self.subTest(attempt=attempt),tempfile.TemporaryDirectory() as tmp,patch.object(m,'graph',return_value={'status':'unavailable','records':[]}):
+    finding={'id':'unvalidated','target':'docs/sample/SPEC.md','problem':'Historical diagnostic'}
+    state={'status':'repairing','next_action':'product','finding_stage':'adversarial','findings':[finding],'attempts':[attempt] if attempt else []}
+    value=m.build(tmp,'sample','product',state,'repair')
+    self.assertEqual(value['findings'],[]);self.assertEqual(value['deferred_findings'],[finding])
+
 if __name__=='__main__':unittest.main()
