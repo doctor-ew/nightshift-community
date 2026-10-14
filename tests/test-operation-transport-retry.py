@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Provider transport retries retain budgets without inventing substantive findings."""
 import importlib.util
+import os
+import tempfile
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -77,6 +79,19 @@ class TransportRetry(unittest.TestCase):
         self.assertEqual(self.retry('review')['status'], 'passed')
 
     def test_bound_semantic_fail_with_nonzero_provider_remains_substantive(self):
+        runtime = tempfile.TemporaryDirectory(prefix='nightshift-sealed-operation-runtime-')
+        self.addCleanup(runtime.cleanup)
+        for provider in ('codex', 'claude'):
+            executable = Path(runtime.name) / provider
+            executable.write_text('#!/bin/sh\nexit 99\n')
+            executable.chmod(0o755)
+        runtime_path = patch.dict(os.environ, {'PATH': runtime.name + os.pathsep + os.environ['PATH']})
+        runtime_path.start()
+        self.addCleanup(runtime_path.stop)
+        # Admission sees only these provider stubs; bounded transport below owns
+        # every response, and accidental stub execution fails closed.
+        for provider in ('codex', 'claude'):
+            self.assertEqual(fixtures.m.shutil.which(provider), str(Path(runtime.name) / provider))
         self.controller.worker = self.controller.dispatch
         runner = fixtures.m.load('controller-recovery')
         def bounded(argv, target, env, seconds, logfile, **kw):
