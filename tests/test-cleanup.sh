@@ -50,3 +50,5 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cleanup-test-') as temp:
     assert result.returncode!=0
 print('PASS: preserved artifact recovery, unchanged reuse, changed-source rejection, live-worker refusal, ownership boundary')
 PY
+
+python3 "$(dirname "$0")/test-cleanup-controller-resume.py"

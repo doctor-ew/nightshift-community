@@ -91,6 +91,43 @@ class ControllerResume(unittest.TestCase):
         failed.write_text(json.dumps(value))
         result=self.cleanup();self.assertNotEqual(result.returncode,0,result.stdout)
 
+    def complete_controller(self):
+        with patch.dict(os.environ,self.env,clear=True):
+            for stage in pipeline.STAGES:
+                receipt=self.controller.directory/(stage+'-complete.json')
+                report=dict(version=1,task='sample',stage=stage,status='pass',findings=[],checks=[dict(command='synthetic retained passing stage',exit_code=0)],evidence=[dict(path='docs/sample/final-evidence.json',sha256=pipeline.sha(self.target/'docs/sample/final-evidence.json'))])
+                receipt.write_text(json.dumps(report))
+                self.controller.state['completed'][stage]=dict(receipt=str(receipt),sha256=pipeline.sha(receipt),input_sha256=pipeline.inputs(self.target,'sample',stage,self.controller.state))
+                self.controller.state['attempts'].append(dict(stage=stage,status='pass',category='success',receipt=str(receipt)))
+            self.controller.state.update(status='complete',next_action='none',final_evidence=pipeline.proof(self.target,'sample','final'))
+            self.controller.save()
+        return self.controller.path.read_bytes()
+
+    def test_complete_repeat_preserves_all_six_stages_and_runs_no_worker(self):
+        original=self.complete_controller()
+        source=self.source.read_bytes()
+        receipts={stage:Path(row['receipt']).read_bytes() for stage,row in self.controller.state['completed'].items()}
+        result=self.cleanup();self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual(self.work('check').returncode,0)
+        self.assertEqual(self.work('prepare').returncode,0)
+        self.assertEqual(self.cleanup().returncode,0)
+        self.assertEqual(self.controller.path.read_bytes(),original)
+        self.assertEqual(self.source.read_bytes(),source)
+        self.assertEqual({stage:Path(row['receipt']).read_bytes() for stage,row in self.controller.state['completed'].items()},receipts)
+        self.source.write_text('answer = 43\n')
+        self.assertNotEqual(self.work('check').returncode,0)
+        self.assertNotEqual(self.cleanup().returncode,0)
+
+    def test_complete_repeat_rejects_changed_stage_evidence(self):
+        self.complete_controller()
+        evidence=self.target/'docs/sample/final-evidence.json'
+        evidence.write_text(evidence.read_text()+'\n')
+        self.assertNotEqual(self.cleanup().returncode,0)
+
+    def test_complete_claim_without_all_stages_cannot_gain_resume(self):
+        self.complete_controller();self.controller.state['completed'].pop('review');self.controller.save()
+        self.assertNotEqual(self.cleanup().returncode,0)
+
     def test_foreign_worktree_identity_blocks(self):
         self.controller.state['worktree']=str(self.project);self.controller.save()
         result=self.cleanup();self.assertNotEqual(result.returncode,0,result.stdout)

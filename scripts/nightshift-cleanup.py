@@ -29,25 +29,33 @@ def controller_green_checkpoint(project, task):
     try:
         state=pipeline.snapshot(project,task)
         if (not state or state.get('version')!=1 or state.get('task')!=task
-                or state.get('worktree')!=str(project) or state.get('status')!='blocked'
-                or state.get('next_action')!='implement' or state.get('finding_stage')!='implement'
-                or not state.get('attempts') or 'implement' in state.get('completed',{})):
+                or state.get('worktree')!=str(project)):
             return False
-        last=state['attempts'][-1]
-        if (last.get('stage')!='implement' or last.get('status')!='fail'
-                or last.get('category')!='schema'
-                or not re.fullmatch(r'stage_receipt\.checks\[[0-9]+\]\.exit_code:required_check_failed',last.get('reason',''))
-                or last.get('source_sha256')!=pipeline.source(project,task)):
-            return False
-        failed=Path(last['receipt'])
-        if failed.parent!=pipeline.root(project,task) or not re.fullmatch(r'implement-[1-9][0-9]*\.json',failed.name):
-            return False
-        try:
-            pipeline.validate_receipt(failed,task,'implement',project)
-        except ValueError as error:
-            if str(error)!=last['reason']:return False
-        else:return False
-        for stage in ('product','adversarial'):
+        complete=(state.get('status')=='complete' and state.get('next_action')=='none'
+                  and state.get('final_evidence',{}).get('outcome')=='pass')
+        if complete:
+            stages=pipeline.STAGES
+        else:
+            if (state.get('status')!='blocked' or state.get('next_action')!='implement'
+                    or state.get('finding_stage')!='implement' or not state.get('attempts')
+                    or 'implement' in state.get('completed',{})):
+                return False
+            last=state['attempts'][-1]
+            if (last.get('stage')!='implement' or last.get('status')!='fail'
+                    or last.get('category')!='schema'
+                    or not re.fullmatch(r'stage_receipt\.checks\[[0-9]+\]\.exit_code:required_check_failed',last.get('reason',''))
+                    or last.get('source_sha256')!=pipeline.source(project,task)):
+                return False
+            failed=Path(last['receipt'])
+            if failed.parent!=pipeline.root(project,task) or not re.fullmatch(r'implement-[1-9][0-9]*\.json',failed.name):
+                return False
+            try:
+                pipeline.validate_receipt(failed,task,'implement',project)
+            except ValueError as error:
+                if str(error)!=last['reason']:return False
+            else:return False
+            stages=('product','adversarial')
+        for stage in stages:
             row=state.get('completed',{}).get(stage)
             if (not row or pipeline.sha(row['receipt'])!=row['sha256']
                     or row['input_sha256']!=pipeline.inputs(project,task,stage,state)

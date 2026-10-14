@@ -2,7 +2,7 @@
 
 ## Current status
 
-The original rehearsal is a retained failure, not a fallback success. Issue 133 certification is pending. Do not describe the harness as demo-ready until the corrected candidate passes all six stages.
+The original rehearsal is a retained failure, not a fallback success. Isolated candidate `36e4abc` passed all six stages. Repeat invocation reuse and final CI completion remain pending. A successful dashboard recording exists locally; Jev remains offline pending explicit payload approval.
 
 ## Demonstration sequence
 
@@ -20,3 +20,18 @@ Capture candidate commit, isolated installation audit, project baseline, control
 ## Optional models
 
 Hermes is deferred for this delivery. Jev already has a shadow-only adapter. Assess it only after the core run passes, using explicitly supplied public evidence and a bounded call. It cannot approve gates or replace independent review. Credential presence is not evidence of successful service access, accuracy or savings.
+
+## Local talk commands
+
+Run these commands from this checkout. The wrapper uses an isolated pinned installation and the retained public project; it does not replace the default installation.
+
+```bash
+bash .nightshift/133-runtime/nightshift-talk.sh spec:brief.md --provider codex --model gpt-6.1-sol --auth subscription --branch auto --base main --gear 1 --dashboard off
+NIGHTSHIFT_HOME="$PWD/.nightshift/133-runtime/runtime" bash .nightshift/133-runtime/runtime/scripts/nightshift-dashboard.sh --project /private/tmp/nightshift-certification-133 --serve --port 8878
+```
+
+Open `http://127.0.0.1:8878`. The current server already uses that port; start the second command only if it is stopped. Show the completed ticket and expand “Controller routing and receipts”. The retained failures explain recovery; they are not new failures of the last completed run.
+
+Local fallback assets are `.nightshift/133-browser-success/` (desktop, mobile, ticket screenshot and actual recording), `.nightshift/133-fallback/dashboard.html` (standalone snapshot), and `.nightshift/133-fallback/public-project-and-worktree.tar.gz` (public project, common Git controller state and registered worktree). `.nightshift/133-fallback/SHA256SUMS` records the archive hash. These files are checkout-only and are not shared by the PR.
+
+The archive retains absolute-path bindings. Restore only into the original missing paths under `/private/tmp`; never overwrite a newer project or claim that relocated evidence is still valid. Preserve the isolated installation under `.nightshift/133-runtime/` for the talks. Before travelling, open the recording and static snapshot and confirm the public project and registered worktree still exist.
