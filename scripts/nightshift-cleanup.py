@@ -22,6 +22,43 @@ def common_dir(project):
     return (project / git(project, 'rev-parse', '--git-common-dir').decode().strip()).resolve()
 
 
+def controller_green_checkpoint(project, task):
+    """Authorize unchanged source preservation, never a passed pipeline stage."""
+    spec=importlib.util.spec_from_file_location('cleanup_pipeline',HERE/'nightshift-pipeline.py')
+    pipeline=importlib.util.module_from_spec(spec);spec.loader.exec_module(pipeline)
+    try:
+        state=pipeline.snapshot(project,task)
+        if (not state or state.get('version')!=1 or state.get('task')!=task
+                or state.get('worktree')!=str(project) or state.get('status')!='blocked'
+                or state.get('next_action')!='implement' or state.get('finding_stage')!='implement'
+                or not state.get('attempts') or 'implement' in state.get('completed',{})):
+            return False
+        last=state['attempts'][-1]
+        if (last.get('stage')!='implement' or last.get('status')!='fail'
+                or last.get('category')!='schema'
+                or not re.fullmatch(r'stage_receipt\.checks\[[0-9]+\]\.exit_code:required_check_failed',last.get('reason',''))
+                or last.get('source_sha256')!=pipeline.source(project,task)):
+            return False
+        failed=Path(last['receipt'])
+        if failed.parent!=pipeline.root(project,task) or not re.fullmatch(r'implement-[1-9][0-9]*\.json',failed.name):
+            return False
+        try:
+            pipeline.validate_receipt(failed,task,'implement',project)
+        except ValueError as error:
+            if str(error)!=last['reason']:return False
+        else:return False
+        for stage in ('product','adversarial'):
+            row=state.get('completed',{}).get(stage)
+            if (not row or pipeline.sha(row['receipt'])!=row['sha256']
+                    or row['input_sha256']!=pipeline.inputs(project,task,stage,state)
+                    or pipeline.validate_receipt(row['receipt'],task,stage,project)['status']!='pass'):
+                return False
+        return all(pipeline.proof(project,task,gate).get('outcome')=='pass'
+                   for gate in ('development','final'))
+    except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
+        return False
+
+
 def inventory(project, task):
     if git(project, 'diff', '--cached', '--name-only').strip():
         raise ValueError('staged_changes_require_review')
@@ -35,6 +72,8 @@ def inventory(project, task):
         row = state['completed']['verification']
         evidence = Path(row['path'])
         verified = evidence.is_file() and not evidence.is_symlink() and hashlib.sha256(evidence.read_bytes()).hexdigest() == row['sha256']
+    if not verified and any(not (name.startswith('docs/'+task+'/') or name.startswith('.nightshift/')) for name in paths):
+        verified=controller_green_checkpoint(project,task)
     for name in sorted(paths):
         if not (verified or name.startswith('docs/' + task + '/') or name.startswith('.nightshift/')):
             raise ValueError('source_changes_require_review')
