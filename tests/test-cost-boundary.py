@@ -4,7 +4,7 @@ import json, os, pathlib, subprocess, tempfile, shutil
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
 with tempfile.TemporaryDirectory(prefix='nightshift-35-boundary-') as tmp:
-    base=pathlib.Path(tmp); project=base/'project'; project.mkdir(); binary=base/'bin';binary.mkdir()
+    base=pathlib.Path(tmp).resolve(); project=base/'project'; project.mkdir(); binary=base/'bin';binary.mkdir()
     def run(argv, env=None):
         result=subprocess.run(argv,cwd=project,env=env,capture_output=True,text=True)
         if result.returncode: raise AssertionError((argv[:3],result.returncode,result.stderr[-1000:]))
@@ -50,8 +50,10 @@ with tempfile.TemporaryDirectory(prefix='nightshift-35-boundary-') as tmp:
     shutil.copy(ROOT/'nightshift.toml',project/'.nightshift.toml')
     shutil.copy(ROOT/'routing.json',project/'routing.json')
     # A single stage transport supplies usage; a process exit is not factory approval.
-    handoff=base/'handoff.json';handoff.write_text('{}')
-    factory_env=dict(env,NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_OUTPUT_MODE='verbose',NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='35',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(base/'receipt.json'))
+    handoff=project/'.git/nightshift/pipeline/35/product-1.handoff.json';handoff.parent.mkdir(parents=True,exist_ok=True)
+    handoff.write_text(json.dumps(dict(version=1,task='35',stage='product')))
+    (project/'docs/35').mkdir(parents=True,exist_ok=True)
+    factory_env=dict(env,NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(base/'home'),NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_OUTPUT_MODE='verbose',NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='35',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(project/'docs/35/stage-receipt.json'))
     run(['bash',str(ROOT/'scripts/nightshift-factory.sh'),'gh:35','--project',str(project),'--provider','claude','--branch','none'],factory_env)
     report=json.loads(run(['python3',str(metrics),'ticket-report','--project',str(project),'--source','gh','--repository','doctor-ew/nightshift-community','--source-id','35'],env))
     assert report['run_count']==3,report

@@ -21,7 +21,7 @@ cp "$REPO_DIR/nightshift.toml" "$REPO_DIR/routing.json" "$TMP_ROOT/"
 export HOME="$TMP_ROOT/home"
 # Auth and argv tests exercise an explicit controller-selected stage. Pipeline
 # completion is tested separately; stub process success never approves a gate.
-printf '{}\n' > "$TMP_ROOT/handoff.json"
+git -C "$TMP_ROOT" init -q -b main
 export FIXTURE_FACTORY="$FACTORY" FIXTURE_STAGE_ROOT="$TMP_ROOT"
 FACTORY="$TMP_ROOT/factory-fixture"
 cat > "$FACTORY" <<'EOF'
@@ -29,8 +29,21 @@ cat > "$FACTORY" <<'EOF'
 set -euo pipefail
 if [ "${1:-}" != batch ]; then
   export NIGHTSHIFT_PIPELINE_STAGE=product NIGHTSHIFT_PIPELINE_TASK=auth-fixture
-  export NIGHTSHIFT_STAGE_HANDOFF="$FIXTURE_STAGE_ROOT/handoff.json"
-  export NIGHTSHIFT_STAGE_RECEIPT="$FIXTURE_STAGE_ROOT/receipt.json"
+  stage_project="$PWD"
+  previous=''
+  for argument in "$@"; do
+    [ "$previous" != --project ] || stage_project="$argument"
+    previous="$argument"
+  done
+  stage_project="$(cd "$stage_project" && pwd -P)"
+  if ! git -C "$stage_project" rev-parse --git-common-dir >/dev/null 2>&1; then git -C "$stage_project" init -q; fi
+  common="$(git -C "$stage_project" rev-parse --git-common-dir)"
+  [[ "$common" = /* ]] || common="$stage_project/$common"
+  common="$(cd "$common" && pwd -P)"
+  mkdir -p "$common/nightshift/pipeline/auth-fixture" "$stage_project/docs/auth-fixture"
+  export NIGHTSHIFT_STAGE_HANDOFF="$common/nightshift/pipeline/auth-fixture/product-$$.handoff.json"
+  export NIGHTSHIFT_STAGE_RECEIPT="$stage_project/docs/auth-fixture/stage-$$.json"
+  printf '%s\n' '{"version":1,"task":"auth-fixture","stage":"product"}' > "$NIGHTSHIFT_STAGE_HANDOFF"
 fi
 exec bash "$FIXTURE_FACTORY" "$@"
 EOF

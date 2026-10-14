@@ -48,6 +48,11 @@ def exact(value, keys):
         raise ValueError('invalid_shape:' + keys)
 
 
+def transport_failure(attempt):
+    """An unfinished provider transport is not a judgement; failure caps still apply."""
+    return attempt.get('status') == 'failed' and str(attempt.get('reason', '')).startswith('provider_exit:')
+
+
 def bounded_text(value):
     return isinstance(value, str) and bool(value.strip()) and len(value) <= 4000
 
@@ -262,7 +267,7 @@ class Operations:
 
     def repair_evidence(self, operation):
         gates = ('groom-adversarial',) if operation == 'groom-spec' else ('verify', 'review') if operation == 'implement' else ()
-        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status'] == 'failed'), None)
+        latest = next((a for a in reversed(self.state['attempts']) if a['operation'] in gates and a['status'] == 'failed' and not transport_failure(a)), None)
         ci=self.state.get('delivery_repair') if operation=='implement' else None
         if ci and not any(a is latest for a in self.state['attempts'][ci['attempt_position']:]):latest=ci
         return {k: latest.get(k, {}) for k in ('request', 'binding', 'signature', 'findings', 'evidence')} if latest else None
@@ -434,7 +439,7 @@ class Operations:
         prior = [a for a in self.state['attempts'] if a['operation'] == operation]
         if any(a['status'] in ('pending', 'checkpoint') for a in self.state['attempts']):
             blockers.append('unfinished_operation:resume_existing_request')
-        if any(a['status'] == 'failed' and a['signature'] == signature for a in prior):
+        if any(a['status'] == 'failed' and a['signature'] == signature and not transport_failure(a) for a in prior):
             blockers.append('unchanged_failure_requires_repair')
         cap_prior = prior
         implementation = self.state['results'].get('implement', {})
@@ -450,7 +455,7 @@ class Operations:
         result = dict(version=VERSION, operation=operation, status='current' if current else 'blocked' if blockers else 'ready', blockers=blockers,
             binding=digest(dict(dependencies=deps, source=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')} if operation=='groom-spec' else None, mode=mode)),
             dependencies=deps, signature=signature, allowance=p['limits'][operation], aggregate=p['aggregate'],
-            findings=sorted({f for a in (self.state['attempts'] if operation=='review' else prior) if a['status']=='failed' for f in a.get('findings',[])}),
+            findings=sorted({f for a in (self.state['attempts'] if operation=='review' else prior) if a['status']=='failed' and not transport_failure(a) for f in a.get('findings',[])}),
             next_action='reuse' if current else blockers[0] if blockers else 'authorize',
             result=self.state['results'].get(operation))
         if operation in AI and not blockers and not current:

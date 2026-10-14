@@ -21,6 +21,16 @@ required={'success','repaired-success','exhausted-failure','missing-isolation','
 assert set(baseline)==required, 'baseline must cover all eight core scenarios'
 assert {v.get('status') for v in baseline.values()} >= {'complete','failed','blocked','needs-decision'}
 assert baseline['adversarial-route']['route']['provider']!='claude', 'adversarial route must cross provider'
+# Historical records remain valid, while new routing stays exact and unknown fields fail.
+import importlib.util
+spec=importlib.util.spec_from_file_location('trajectory_contract',recorder)
+contract=importlib.util.module_from_spec(spec); spec.loader.exec_module(contract)
+for model in ('gpt-5.4','gpt-6.1-sol'):
+    contract.validate({'route': {'provider': 'codex', 'model': model}, 'tool_order': ['provider_dispatch']})
+for route in ({'provider':'codex','model':'unregistered-model'}, {'provider':'codex','model':'gpt-6.1-sol','extra':True}):
+    try: contract.validate({'route':route,'tool_order':['provider_dispatch']})
+    except ValueError: pass
+    else: raise AssertionError('unknown trajectory model or route field accepted')
 secret='trajectory-test-secret-should-never-escape'
 env=dict(os.environ,ANTHROPIC_API_KEY=secret,OPENAI_API_KEY=secret,NIGHTSHIFT_PRODUCTION_CONFIRMATION_TOKEN=secret)
 for name in sorted(required):

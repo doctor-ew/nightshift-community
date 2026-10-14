@@ -8,13 +8,10 @@ for argument in "$@"; do
     exec python3 "$ROOT/scripts/nightshift-retry-budget.py" dispatch "$ROLE" "$@"
   fi
 done
-OUTPUT='' EXPECT_OUTPUT=false RISK=${NIGHTSHIFT_RISK:-standard} EXPECT_RISK=false ADV=false
+OUTPUT='' EXPECT_OUTPUT=false
 for arg in "$@"; do
-  if [ "$EXPECT_RISK" = true ]; then RISK=$arg; EXPECT_RISK=false; fi
   if [ "$EXPECT_OUTPUT" = true ]; then OUTPUT=$arg; EXPECT_OUTPUT=false; fi
   [ "$arg" != --out ] || EXPECT_OUTPUT=true
-  [ "$arg" != --risk ] || EXPECT_RISK=true
-  [ "$arg" != --adversarial ] || ADV=true
   case "$arg" in --attempt|--gear) echo 'bounded dispatcher owns gear and attempt' >&2; exit 64;; esac
 done
 [ "$ROLE" = nightshift-code-fact-extractor ] && [ -n "$OUTPUT" ] || exit 64
@@ -30,7 +27,8 @@ publish_history
 for attempt in 1 2 3; do
   result=0
   bash "$ROOT/scripts/nightshift-agent.sh" "$ROLE" --gear auto --attempt "$attempt" "$@" || result=$?
-  gear=$(bash "$ROOT/scripts/nightshift-route.sh" "$ROLE" "$RISK" "$attempt" "$ADV" | jq '.gear') || gear=null
+  # Consume the actual selected route, rather than probing inventory again after launch.
+  gear=$(jq -r '[.rules_fired[] | select(test("^route_gear:[0-4]$")) | split(":")[1] | tonumber] | if length == 1 then .[0] else null end' "$OUTPUT") || gear=null
   # Never persist arbitrary model reasons or transport output in the sidecar.
   entry=$(jq -c --argjson attempt "$attempt" --argjson gear "$gear" '
     {attempt:$attempt,gear:$gear,

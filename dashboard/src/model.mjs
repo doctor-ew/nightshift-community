@@ -117,13 +117,14 @@ export function ticketUsage(reports, ticket) {
 export function continuationControl(ticket) {
   const budget = ticket.budget;
   let reason = '';
-  if (!budget || budget.error || !budget.revision) reason = 'Budget accounting is unavailable.';
+  if (ticket.settings?.branch === 'none') reason = 'Read-only controller run. Resume from the terminal with the recorded policy.';
+  else if (!budget || budget.error || !budget.revision) reason = 'Budget accounting is unavailable.';
   else if (ticket.running || budget.unfinished > 0) reason = 'Wait for active work to finish.';
   else if (ticket.finished || ['complete', 'pending_manual_acceptance'].includes(ticket.pipeline?.status) || ticket.recovery?.next_action === 'operator_verify_manual_acceptance') reason = 'Review the recorded outcome; more runtime is not needed.';
   else if (ticket.decisions?.pending?.length) reason = 'Answer the pending decision first.';
   else if (stageRetriesExhausted(ticket)) reason = 'Stage retry limit reached. More time cannot add retries; explicit recovery is needed.';
   else if (budget.calls_reserved >= budget.max_calls) reason = 'Launch limit reached. More time cannot add launches.';
-  else if (!budget.exhausted && budget.wall_seconds_remaining != null) reason = 'Time remains. Use Resume without granting a new allowance.';
+  else if (!budget.exhausted && (budget.wall_seconds_remaining != null || budget.wall_clock === 'none')) reason = 'Time remains. Use Resume without granting a new allowance.';
   return {disabled: !!reason, reason};
 }
 

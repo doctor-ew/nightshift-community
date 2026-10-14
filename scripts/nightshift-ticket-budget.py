@@ -37,8 +37,9 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
             if operation != 'reserve':
                 raise ValueError('budget has no instrumented reservations')
             state = dict(version=1, task=task, coverage='instrumented-dispatches-only', historical_usage='unknown',
-                         started_at=now, deadline_at=now + (max_wall_seconds if max_wall_seconds is not None else 600),
-                         max_wall_seconds=max_wall_seconds if max_wall_seconds is not None else 600, max_calls=max_calls if max_calls is not None else 64,
+                         started_at=now, deadline_at=now + max_wall_seconds if max_wall_seconds is not None else None,
+                         max_wall_seconds=max_wall_seconds,
+                         wall_clock='bounded' if max_wall_seconds is not None else 'none', max_calls=max_calls if max_calls is not None else 64,
                          max_active_seconds=max_seconds if max_seconds is not None else 3600, reservations={})
         for name, requested in [('max_calls', max_calls), ('max_active_seconds', max_seconds)]:
             if type(state[name]) is not int or state[name] <= 0:
@@ -46,7 +47,7 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
             if requested is not None and requested != state[name]:
                 raise ValueError('budget limits are pinned; changing environment cannot reset or expand them')
         if max_wall_seconds is not None and state.get('max_wall_seconds') is None:
-            raise ValueError('This historical ticket has no wall-clock deadline. Use explicit continuation before resuming; prior usage and call limits will be retained.')
+            raise ValueError('This ticket has no wall-clock deadline, and one cannot be added by environment. Use explicit continuation for exhausted time; prior usage and call limits will be retained.')
         if max_wall_seconds is not None and max_wall_seconds != state.get('max_wall_seconds'):
             raise ValueError('wall-clock limit is pinned')
         if state.get('max_wall_seconds') is not None and (type(state['max_wall_seconds']) is not int or state['max_wall_seconds'] <= 0):
@@ -58,8 +59,10 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
         if operation == 'continue':
             if expected_revision is not None and hashlib.sha256(path.read_bytes()).hexdigest() != expected_revision:
                 raise ValueError('Budget changed; refresh before granting more time')
-            if (expected_revision is not None and state.get('deadline_at') is not None
-                    and now < state['deadline_at'] and elapsed() < state['max_active_seconds']):
+            wall_open = (now < state['deadline_at'] if state.get('deadline_at') is not None
+                         else state.get('wall_clock') == 'none')
+            if ((expected_revision is not None or state.get('wall_clock') == 'none')
+                    and wall_open and elapsed() < state['max_active_seconds']):
                 raise ValueError('Time remains; use Resume without granting a new allowance')
             if type(continuation_seconds) is not int or not 1 <= continuation_seconds <= 600:
                 raise ValueError('explicit continuation must be between 1 and 600 seconds')
@@ -72,8 +75,9 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
                 active_seconds=elapsed(), calls_reserved=len(reservations)))
             state['max_active_seconds'] = elapsed() + continuation_seconds
             state['max_active_seconds'] = int(state['max_active_seconds'])
-            state['max_wall_seconds'] = continuation_seconds
-            state['deadline_at'] = now + continuation_seconds
+            if state.get('wall_clock') != 'none':
+                state['max_wall_seconds'] = continuation_seconds
+                state['deadline_at'] = now + continuation_seconds
         elif operation == 'reserve':
             if not invocation or len(invocation) > 256:
                 raise ValueError('reservation requires bounded invocation identity')
@@ -138,7 +142,7 @@ def snapshot(project, task, now=None):
                 continuations=len(state.get('continuations', [])),
                 calls_reserved=len(reservations), max_calls=state['max_calls'],
                 active_seconds=active, active_seconds_remaining=remaining,
-                wall_seconds_remaining=wall_remaining,
+                wall_seconds_remaining=wall_remaining, wall_clock=state.get('wall_clock'),
                 exhausted=remaining <= 0 or len(reservations) >= state['max_calls']
                           or wall_remaining == 0,
                 coverage=state['coverage'], historical_usage=state['historical_usage'])

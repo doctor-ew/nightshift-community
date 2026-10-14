@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "issue": 133,
+  "status": "in_progress",
+  "accepted": {
+    "focused_boundaries": true,
+    "architecture_integration": true,
+    "dashboard_read_only_browser": true,
+    "preflight_metrics_cleanup": true,
+    "classification_attestation_revalidation": true,
+    "pipeline_lifecycle": true,
+    "offline_trajectory_replay": true,
+    "operations_integration_constituents": true
+  },
+  "pending": [
+    "isolated_installation_audit",
+    "full_live_six_stage_acceptance",
+    "repeat_receipt_reuse",
+    "actual_success_fallback_recording",
+    "optional_jev_shadow_assessment"
+  ],
+  "limits": [
+    "Earlier failed rehearsal remains preserved",
+    "No full demo-ready claim",
+    "Unknown costs remain unknown",
+    "Hermes deferred",
+    "Default private installation unchanged"
+  ]
+}

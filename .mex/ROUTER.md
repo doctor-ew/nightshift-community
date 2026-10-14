@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-09-26"
+last_updated: "2026-10-13"
 ---
 
 # Session Bootstrap
@@ -28,6 +28,8 @@ If you haven't already read `AGENTS.md`, read it now — it contains the project
 Then read this file fully before doing anything else in this session.
 
 ## Current Project State
+Issue 133 local candidate: development proof is sealed during Implementation, with immutable independent classification evidence and runtime-bound retry identity. Automatic routing checks local inventory before dispatch; bounded handoffs avoid repeated raw logs. New ticket wall clocks are opt-in, while existing budgets and explicit limits remain enforced. Branchless controller tickets are visible but read-only in the dashboard. Sources: `docs/133/SPEC.md`, `docs/133/IMPLEMENTATION.md`, `scripts/nightshift-pipeline.py`, `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-handoff.py`, `scripts/nightshift-console-actions.py`. Architecture and focused regressions pass; full live certification remains pending. Earlier failed talk receipts and the default private installation are preserved. No full live acceptance is claimed.
+
 **Working (implementation/fixture evidence, not live deployment certification):**
 - Explicit workshop profile runs bounded, fresh safe-mode Claude stages with a file ledger and spec approval; fixture coverage includes costs, timeouts, resume, repairs, and dashboard receipts. Live macOS subscription pilot passed eight public cases in 198.3 seconds and 43,793 tokens; Windows/API-key certification remains unverified. Sources: `scripts/nightshift-workshop.py`, `tests/test-workshop.py`, `docs/WORKSHOP.md`.
 - Explicit `nightshift init` prepares configuration and a committed Git baseline without starting a model. Sources: `scripts/nightshift-init.py`, `tests/test-init.py`.

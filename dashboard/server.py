@@ -218,6 +218,8 @@ class Handler(BaseHTTPRequestHandler):
             allowed = {'task', 'sha256', 'assessment_sha256', 'operator', 'attestation'} if self.path == '/api/tickets/recovery-accept' else {'task', 'sha256', 'assessment_sha256', 'operator'} if self.path in ('/api/tickets/recovery-authorize','/api/tickets/recovery-resume') else {'task', 'sha256', 'budget_revision'} if self.path == '/api/tickets/continue' else {'task', 'sha256', 'decision_sha256', 'choice', 'answer'} if self.path == '/api/tickets/decision' else {'task', 'sha256', 'provider', 'message'} if self.path == '/api/tickets/chat' else {'task', 'sha256', 'provider'} if self.path == '/api/tickets/repair' else {'task', 'sha256'}
             if not isinstance(body, dict) or set(body) != allowed or not all(isinstance(v, dict) if k=='attestation' and self.path=='/api/tickets/recovery-accept' else isinstance(v, str) for k,v in body.items()):
                 raise ValueError('Invalid approval')
+            if self.path.startswith('/api/tickets/') and action_module().state(self.server.project, body['task']).get('read_only'):
+                raise ValueError('This in-place ticket is read-only in the dashboard; resume from the terminal with its recorded policy.')
             if self.path.startswith('/api/tickets/recovery-'):
                 result = action_module().recovery_action(self.server.project,body['task'],body['sha256'],self.path.rsplit('/',1)[1],body.get('assessment_sha256',''),body.get('operator',''),**({'attestation':body.get('attestation')} if self.path.endswith('/recovery-accept') else {}))
             elif self.path == '/api/workshop/approve':

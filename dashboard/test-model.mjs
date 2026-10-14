@@ -212,3 +212,16 @@ test('recovery waiting for the operator names the question and the exact command
   const hostile=structuredClone(ticket);hostile.settings.ref="spec:a'; rm -rf ~ #.md";
   assert.match(recoveryProgress(hostile).awaiting.command,/operator-decide 'spec:a'\\''; rm -rf ~ #\.md' --expected/);
 });
+
+test('read-only branchless tickets cannot grant time even with exhausted budget', async () => {
+  const {continuationControl}=await import('./src/model.mjs');
+  const ticket={settings:{branch:'none'},budget:{revision:'a'.repeat(64),exhausted:true,unfinished:0,calls_reserved:1,max_calls:64}};
+  assert.equal(continuationControl(ticket).disabled,true);
+  assert.match(continuationControl(ticket).reason,/terminal/);
+});
+test('no-wall active allowance still blocks unnecessary continuation', async () => {
+  const {continuationControl}=await import('./src/model.mjs');
+  const ticket={settings:{branch:'auto'},budget:{revision:'a'.repeat(64),wall_clock:'none',wall_seconds_remaining:null,exhausted:false,unfinished:0,calls_reserved:1,max_calls:64}};
+  assert.equal(continuationControl(ticket).disabled,true);
+  assert.match(continuationControl(ticket).reason,/Time remains/);
+});

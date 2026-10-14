@@ -48,7 +48,7 @@ class Continuation(unittest.TestCase):
             (scripts/'nightshift-factory.sh').write_text('#!/bin/bash\nprintf "%s\\n" "$@" > "$CONTINUE_CAPTURE"\n')
             capture = root/'launched'
             env = dict(os.environ, CONTINUE_CAPTURE=str(capture), NIGHTSHIFT_HOME=str(root/'isolated-home'))
-            budget.update(project, 'TEST-1', 'reserve', 'old', now=1)
+            budget.update(project, 'TEST-1', 'reserve', 'old', now=1, max_wall_seconds=600)
             budget.update(project, 'TEST-1', 'finish', 'old', now=2, outcome='failed')
             path = budget.ledger_path(project, 'TEST-1')
             budget.update(project,'TEST-1','continue',now=3,continuation_seconds=60)

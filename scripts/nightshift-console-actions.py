@@ -52,7 +52,8 @@ def validate(task, settings):
     if (settings.get('provider') not in ('claude', 'codex', 'local')
             or settings.get('policy') not in ('standard', 'claude-only')
             or settings.get('auth') not in ('subscription', 'api')
-            or settings.get('branch') != 'auto'
+            or settings.get('branch') not in ('auto', 'none')
+            or (settings.get('branch') == 'none' and (settings.get('push') or settings.get('pr')))
             or type(settings.get('push')) is not bool or type(settings.get('pr')) is not bool
             or (settings['pr'] and not settings['push'])):
         raise ValueError('Invalid saved run policy')
@@ -62,6 +63,11 @@ def validate(task, settings):
             raise ValueError('Invalid saved run argument')
     if not settings['ref'] or settings['ref'].startswith('-'):
         raise ValueError('Invalid saved ticket reference')
+
+
+def reject_read_only(current):
+    if current['settings'].get('branch') == 'none':
+        raise ValueError('This ticket is read-only in the console; resume from the terminal with the recorded policy.')
 
 
 def input_spec(project, settings):
@@ -190,12 +196,16 @@ def state(project, task):
     if pipeline:
         finished=pipeline['status']=='complete'
         if not running:live.update(next=pipeline['next_action'],action_required=pipeline['next_action'])
-    return dict(retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease, review=review, owned=ownership.exists())
+    return dict(read_only=record['settings']['branch'] == 'none',
+                resume_hint='Read-only controller run. Resume from the terminal with the recorded policy.' if record['settings']['branch'] == 'none' else '',
+                retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease, review=review, owned=ownership.exists())
 
 
 def recovery_action(project, task, expected, operation, assessment_sha256='', operator='', attestation=None):
     """Same controller operation as the CLI; browser authorization is never implicit."""
-    if state(project,task)['sha256']!=expected:
+    current = state(project,task)
+    reject_read_only(current)
+    if current['sha256']!=expected:
         raise ValueError('Run settings changed; refresh recovery evidence')
     controller=_recovery.load('controller-recovery')
     if operation=='recovery-assess':return controller.operate(project,task,'assess')
@@ -362,6 +372,7 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
     if provider not in ('auto', 'claude', 'codex', 'local'):
         raise ValueError('Invalid repair provider')
     current = state(project, task)
+    reject_read_only(current)
     if operation == 'stop':
         if current['sha256'] != expected:
             raise ValueError('Run settings changed; refresh before continuing')
@@ -378,6 +389,7 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
     with os.fdopen(fd, 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         current = state(project, task)
+        reject_read_only(current)
         if current['sha256'] != expected:
             raise ValueError('Run settings changed; refresh before continuing')
         if current['running']:
@@ -424,7 +436,8 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
             if (current.get('budget') or {}).get('revision') != budget_revision:
                 raise ValueError('Budget changed; refresh before granting more time')
             allowance = current['budget']
-            if not allowance['exhausted'] and allowance['wall_seconds_remaining'] is not None:
+            if not allowance['exhausted'] and (allowance['wall_seconds_remaining'] is not None
+                                               or allowance.get('wall_clock') == 'none'):
                 raise ValueError('Time remains; use Resume without granting a new allowance')
             continuation_preflight(project, task, current, settings)
         if current['owned'] and operation not in ('repair', 'continue') and not (operation=='resume' and current.get('pipeline')):

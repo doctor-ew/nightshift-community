@@ -151,6 +151,7 @@ function TicketActions({ rows, reports = [] }) {
     <p>Active and newest tickets appear first. Earlier tickets retain their own outcomes; a previous failure does not describe a new run.</p>
     {message && <p role="status">{message}</p>}
     <div className="ticket-list">{data.tickets.map(ticket => {
+      const readOnly = ticket.settings.branch === 'none';
       const progress = ticketProgress(rows, ticket);
       const continuation = continuationControl(ticket);
       const diagnostic = workerDiagnostic(ticket);
@@ -168,17 +169,23 @@ function TicketActions({ rows, reports = [] }) {
       <div className="run-head"><div><p className="eyebrow">TICKET</p><h3>{ticket.task}</h3><p>{ticket.settings.ref}</p></div><span className={'badge ' + progress.tone}>{progress.status}</span></div>
       {!!specs.length && <div className="artifact-actions" aria-label="Specification document">{specs.map((link, i) => <EvidenceLink key={i} link={{...link, label: 'Open specification'}} />)}<span>Document available · approval follows recorded gates</span></div>}
       <LiveProgress ticket={ticket} />
+      {readOnly && <p className="outcome-summary" role="status">Read-only controller run. Resume from the terminal with the recorded policy.</p>}
+      {ticket.pipeline && <details><summary>Controller routing and receipts</summary>
+        <p>Recorded state: {ticket.pipeline.status}. Next stage or action: {ticket.pipeline.next_action}.</p>
+        {ticket.pipeline.findings?.map((finding, i) => <p key={i}>{finding.target}: {finding.problem}</p>)}
+        {ticket.pipeline.attempts?.map((attempt, i) => <div key={i}><strong>{attempt.stage}</strong><p>{attempt.route?.provider || 'Provider not recorded'} · {attempt.route?.model || 'Model not recorded'} · {attempt.category || attempt.status || 'Outcome not recorded'}</p>{attempt.reason && <p>{attempt.reason}</p>}{attempt.receipt && <p>Receipt: <code>{attempt.receipt}</code></p>}</div>)}
+      </details>}
       {ticket.budget && <div className="outcome-summary" role="status">{ticket.budget.error || <>
         <strong>{ticket.budget.exhausted ? 'Budget exhausted' : 'Remaining allowance'}</strong>
         <p>{Math.floor(ticket.budget.active_seconds_remaining)} aggregate active seconds remaining · {ticket.budget.calls_reserved}/{ticket.budget.max_calls} instrumented launches reserved</p>
-        <p>{ticket.budget.wall_seconds_remaining == null ? 'Historical run: no wall-clock deadline was recorded.' : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
+        <p>{ticket.budget.wall_seconds_remaining == null ? (ticket.budget.wall_clock === 'none' ? 'No wall-clock deadline. Active time and launch limits remain enforced.' : 'Historical run: no wall-clock deadline was recorded.') : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
         <p>Used: {Math.floor(ticket.budget.active_seconds)} aggregate active seconds · {ticket.budget.continuations || 0} continuation grants.</p>
         <p>This action grants up to 10 minutes of wall time and 10 minutes of aggregate worker time. Unused time does not accumulate. Parallel workers share that allowance. Prior usage and launch limits stay recorded; these counters do not measure tokens or billing.</p>
-        <button disabled={!!busy || continuation.disabled} onClick={() => act(ticket, 'continue')}>{busy === ticket.task ? 'Checking and continuing…' : 'Grant 10 minutes & continue'}</button>
+        <button disabled={readOnly || !!busy || continuation.disabled} onClick={() => act(ticket, 'continue')}>{busy === ticket.task ? 'Checking and continuing…' : 'Grant 10 minutes & continue'}</button>
         <p>{continuation.reason || 'Configuration is checked before time is granted. The clock starts when the grant is recorded.'}</p>
       </>}</div>}
 
-      <TicketDecision ticket={ticket} token={data.token} />
+      {!readOnly && <TicketDecision ticket={ticket} token={data.token} />}
       {!!ticket.pipeline?.architecture?.length && <section className="ticket-decision" aria-label="Accepted architecture">
         <h4>Accepted architecture</h4>
         <p>These decisions apply to implementation and review.</p>
@@ -197,7 +204,7 @@ function TicketActions({ rows, reports = [] }) {
         <ol aria-label={'Recorded stages for ' + ticket.task}>{tracker.pipeline_steps.map((step, i) => <li className={'step ' + step.state} key={i} title={step.detail}><span className="step-dot" aria-hidden="true">{step.state === 'passed' ? '✓' : ['failed', 'blocked'].includes(step.state) ? '!' : i + 1}</span><strong>{step.stage === 'product' ? 'Spec' : step.stage === 'qa' ? 'QA' : step.stage === 'deploy' ? 'Deploy (optional)' : step.stage[0].toUpperCase() + step.stage.slice(1)}</strong><small>{step.state === 'pending' ? 'Not recorded' : step.state}</small></li>)}</ol>
         <div className="timeline-caption"><span>Recorded stage evidence{ticket.running ? ' · earlier attempts may still appear while this run progresses' : ''}</span><EvidenceLink link={{...tracker.links?.[0], label: 'Open tracker'}} /></div>
       </div>)}
-      <TicketChat ticket={ticket} token={data.token} />
+      {!readOnly && <TicketChat ticket={ticket} token={data.token} />}
       <TicketUsage reports={ticketUsage(reports, ticket)} compact running={ticket.running} />
       {progress.complete && <p className="outcome-summary">Completion is recorded. Open the pull request and files below to review the result.</p>}
       {blocked && <div className="failure-summary" role="status"><h4>Latest recorded gate failure</h4><p>This receipt may be from an earlier attempt. It does not establish why the latest run ended.</p><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
@@ -212,12 +219,12 @@ function TicketActions({ rows, reports = [] }) {
       <p>{ticket.settings.push ? (ticket.settings.pr ? 'Push and open PR after verification' : 'Push after verification') : 'Keep results local'}</p>
       <div className="artifact-actions"><EvidenceLink link={sourceLink} />{prs.map(href => <EvidenceLink key={href} link={{href, label: 'Open pull request'}} />)}</div>
       {ticket.launch?.status === 'exited' && ticket.launch.exit_code !== 0 && <p>Last launch exited with code {ticket.launch.exit_code}. Log: <code>{ticket.launch.log}</code></p>}
-      {ticket.review && <details open={!ticket.review.approved}><summary>{ticket.review.approved ? 'Approved spec' : 'Awaiting spec approval'}</summary><p>Read this version before continuing. Changes require fresh approval.</p><pre className="spec-preview">{ticket.review.spec}</pre><button disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'approve')}>{ticket.review.approved ? 'Continue approved spec' : 'Approve and continue'}</button></details>}
+      {ticket.review && <details open={!ticket.review.approved}><summary>{ticket.review.approved ? 'Approved spec' : 'Awaiting spec approval'}</summary><p>Read this version before continuing. Changes require fresh approval.</p><pre className="spec-preview">{ticket.review.spec}</pre><button disabled={readOnly || !!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'approve')}>{ticket.review.approved ? 'Continue approved spec' : 'Approve and continue'}</button></details>}
       {ticket.repair && <div className="repair-status" role="status"><strong>Repair: {ticket.repair.phase}</strong><p>{ticket.repair.message || ''}</p>{ticket.repair.changed_files?.map(path => <div key={path}>{path}</div>)}{ticket.launch?.log && <EvidenceLink link={{href: 'file://' + ticket.launch.log, label: 'Repair log'}} />}{ticket.launch?.evidence && <EvidenceLink link={{href: 'file://' + ticket.launch.evidence + '/status.json', label: 'Repair evidence'}} />}</div>}
-      <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={!!busy || ticket.running || ticket.finished || needsDecision || (ticket.review && !ticket.review.approved) || ticket.repair_remaining === 0} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.repair_remaining === 0 && <p role="status">Repair attempts exhausted. Review the diagnosis above; another repair click cannot proceed.</p>}{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={!!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
-      <div className="run-footer"><button disabled={!!busy || ticket.running || ticket.finished || needsDecision || stageExhausted || (ticket.review && !ticket.review.approved)} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
+      <div className="repair-controls"><label>Repair provider <select value={providers[ticket.task] || 'auto'} disabled={readOnly || ticket.running || !!busy} onChange={event => setProviders(current => ({...current, [ticket.task]: event.target.value}))}><option value="auto">Configured routing</option><option value="claude">Claude</option>{ticket.settings.policy !== 'claude-only' && <><option value="codex">Codex</option><option value="local">Local model</option></>}</select></label><button disabled={readOnly || !!busy || ticket.running || ticket.finished || needsDecision || (ticket.review && !ticket.review.approved) || ticket.repair_remaining === 0} onClick={() => act(ticket, 'repair')}>Diagnose &amp; repair</button>{ticket.repair_remaining === 0 && <p role="status">Repair attempts exhausted. Review the diagnosis above; another repair click cannot proceed.</p>}{ticket.running && ticket.launch?.operation === 'repair' && <button className="secondary" disabled={readOnly || !!busy} onClick={() => act(ticket, 'stop')}>Stop repair</button>}</div>
+      <div className="run-footer"><button disabled={readOnly || !!busy || ticket.running || ticket.finished || needsDecision || stageExhausted || (ticket.review && !ticket.review.approved)} onClick={() => act(ticket, 'resume')}>{ticket.finished ? 'Run ended' : ticket.running ? 'Running' : busy === ticket.task ? 'Working…' : 'Resume'}</button>
       <details className="recovery-actions"><summary>Recover externally completed work</summary>
-        <button className="secondary" disabled={!!busy || ticket.running} onClick={() => act(ticket, 'recovery-assess')}>Review recovery evidence</button>
+        <button className="secondary" disabled={readOnly || !!busy || ticket.running} onClick={() => act(ticket, 'recovery-assess')}>Review recovery evidence</button>
         {assessments[ticket.task] && <div>
           <p>{assessments[ticket.task].next_step}</p>
           <p>Source commit: {assessments[ticket.task].evidence.workspace.head}</p>
@@ -229,7 +236,7 @@ function TicketActions({ rows, reports = [] }) {
           {assessments[ticket.task].requested_allowance && <p>Requested separate allowance: {assessments[ticket.task].requested_allowance.wall_seconds} wall seconds, {assessments[ticket.task].requested_allowance.active_seconds} active seconds, and at most {assessments[ticket.task].requested_allowance.provider_calls} provider calls, including Jev and independent reviews.</p>}
           <p>{assessments[ticket.task].session ? 'Existing recovery allowance; resuming cannot add time or calls.' : 'No time is granted by this assessment. Original limits, usage and failures remain recorded.'}</p>
           <label>Authorizing operator<input value={operators[ticket.task] || ''} onChange={event => setOperators(current => ({...current,[ticket.task]:event.target.value}))} placeholder="Your name or operator ID" /></label>
-          <button disabled={!!busy || ticket.running || assessments[ticket.task].decisions?.status !== 'ready' || !operators[ticket.task]?.trim() || ['blocked','pending_manual_acceptance'].includes(assessments[ticket.task].session?.status)} onClick={() => act(ticket, assessments[ticket.task].session ? 'recovery-resume' : 'recovery-authorize')}>
+          <button disabled={readOnly || !!busy || ticket.running || assessments[ticket.task].decisions?.status !== 'ready' || !operators[ticket.task]?.trim() || ['blocked','pending_manual_acceptance'].includes(assessments[ticket.task].session?.status)} onClick={() => act(ticket, assessments[ticket.task].session ? 'recovery-resume' : 'recovery-authorize')}>
             {busy === ticket.task ? 'Verifying recovery evidence…' : assessments[ticket.task].session ? 'Resume authorized recovery' : 'Authorize bounded independent recovery review'}
           </button>
           {assessments[ticket.task].session && <p>Recovery: {assessments[ticket.task].session.status}. Next: {assessments[ticket.task].session.next_action}. {assessments[ticket.task].session.reason || ''}</p>}
@@ -237,7 +244,7 @@ function TicketActions({ rows, reports = [] }) {
           <p>Recovery never repeats implementation. Manual acceptance remains a separate operator step.</p>
         </div>}
       </details>
-      <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={!!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
+      <details className="recovery-actions"><summary>Recovery options</summary><p>Prepare retained artifacts for another attempt without starting a worker.</p><button className="secondary" disabled={readOnly || !!busy || ticket.running || ticket.finished} onClick={() => act(ticket, 'cleanup')}>Prepare to resume</button></details></div>
       {!!artifacts.length && <details><summary>Files and evidence ({artifacts.length})</summary>{artifacts.map((link, i) => <div className="evidence" key={i}><EvidenceLink link={link} /></div>)}</details>}
     </article>;})}</div>
   </section>;

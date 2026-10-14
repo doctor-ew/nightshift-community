@@ -4,7 +4,7 @@ python3 - "$(cd "$(dirname "$0")/.." && pwd)" <<'PY'
 import json, pathlib, subprocess, sys, tempfile, os, shutil
 root=pathlib.Path(sys.argv[1])
 with tempfile.TemporaryDirectory(prefix='nightshift-cleanup-test-') as temp:
-    project=pathlib.Path(temp)/'repo';project.mkdir()
+    project=pathlib.Path(temp).resolve()/'repo';project.mkdir()
     def git(*args):return subprocess.check_output(['git','-C',str(project),*args],stderr=subprocess.DEVNULL)
     git('init','-q');git('config','user.name','fixture');git('config','user.email','fixture@local')
     (project/'source.txt').write_text('original');git('add','.');git('commit','-qm','base')
@@ -23,14 +23,16 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cleanup-test-') as temp:
     # The launcher performs the same reconciliation before its stub provider starts.
     shutil.copy(root/'nightshift.toml',project/'.nightshift.toml')
     shutil.copy(root/'routing.json',project/'routing.json')
-    binary=pathlib.Path(temp)/'bin';binary.mkdir()
+    binary=pathlib.Path(temp).resolve()/'bin';binary.mkdir()
     stub=binary/'claude'
     stub.write_text('#!/bin/sh\nif [ "$1" = auth ]; then echo \'{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}\'; else echo \'{"type":"result","subtype":"success"}\'; fi\n')
     stub.chmod(0o755)
     # Exercise cleanup before one controller-selected worker, not pipeline completion.
-    handoff=pathlib.Path(temp)/'handoff.json';handoff.write_text('{}')
-    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp)/'home'),NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='42',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(pathlib.Path(temp)/'receipt.json'))
-    env['HOME']=str(pathlib.Path(temp)/'home');pathlib.Path(env['HOME']).mkdir()
+    handoff=project/'.git/nightshift/pipeline/42/product-1.handoff.json';handoff.parent.mkdir(parents=True,exist_ok=True)
+    handoff.write_text(json.dumps(dict(version=1,task='42',stage='product')))
+    (project/'docs/42').mkdir(parents=True,exist_ok=True)
+    env=dict(os.environ,PATH=str(binary)+os.pathsep+os.environ['PATH'],NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_HOME=str(pathlib.Path(temp).resolve()/'home'),NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='42',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(project/'docs/42/stage-receipt.json'))
+    env['HOME']=str(pathlib.Path(temp).resolve()/'home');pathlib.Path(env['HOME']).mkdir()
     result=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),'gh:42','--project',str(project),'--provider','claude','--branch','auto'],env=env,capture_output=True,text=True)
     assert result.returncode==0,result.stderr
     assert 'resumable' in result.stderr,result.stderr

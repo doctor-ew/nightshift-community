@@ -41,7 +41,7 @@ class ContinuationTests(unittest.TestCase):
         self.settings = dict(ref='gh:42', provider='codex', model='', policy='standard',
                              auth='subscription', branch='auto', base=git('rev-parse', 'HEAD'), push=False, pr=False)
         actions.save(self.project, '42', self.settings)
-        budget.update(self.project, '42', 'reserve', 'original', now=10)
+        budget.update(self.project, '42', 'reserve', 'original', now=10, max_wall_seconds=600)
         budget.update(self.project, '42', 'finish', 'original', now=20)
         self.ledger = budget.ledger_path(self.project, '42')
 
@@ -49,6 +49,21 @@ class ContinuationTests(unittest.TestCase):
         current = displayed or actions.state(self.project, '42')
         return actions.action(self.project, '42', current['sha256'], 'continue',
                               budget_revision=current['budget']['revision'])
+
+    def test_no_wall_policy_with_active_time_remaining_cannot_grant_continuation(self):
+        retained = json.loads(self.ledger.read_text())
+        retained.update(wall_clock='none', deadline_at=None, max_wall_seconds=None)
+        self.ledger.write_text(json.dumps(retained))
+        before = self.ledger.read_bytes()
+        current = actions.state(self.project, '42')
+        self.assertFalse(current['budget']['exhausted'])
+        self.assertEqual(current['budget']['wall_clock'], 'none')
+        with patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
+            with self.assertRaisesRegex(ValueError, 'Time remains'):
+                self.click(current)
+            self.assertFalse(any(str(actions.FACTORY) in str(call) for call in process.call_args_list))
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
 
     def test_exhausted_stage_cannot_grant_time_or_resume(self):
         module = actions._recovery.load('pipeline')
