@@ -174,6 +174,15 @@ def proof(project, task, gate):
     except ValueError:return dict(status='blocked',reason='proof_gate_unavailable')
 
 
+def validate_product_scope(project, task):
+    """Parse literal scope paths without activating a scope lease or changing files."""
+    helper=load('behavior-proof')
+    try:
+        return helper.scope_table(Path(project),task)
+    except (OSError,ValueError,helper.Invalid,helper.Blocked) as error:
+        raise ValueError('product_scope_invalid:'+str(error)) from None
+
+
 def record_classification_review(project, task, route, receipt, policy='standard'):
     """Reuse independent adversarial evidence bound to the current scenarios."""
     path = Path(project)/'docs'/task/'behavior-scenarios.json'
@@ -437,6 +446,10 @@ class Pipeline:
         docs=self.project/'docs'/self.task
         if not all((docs/name).is_file() for name in ('SPEC.md','behavior-scenarios.json')):
             return
+        try:validate_product_scope(self.project,self.task)
+        except ValueError as error:
+            self.state['findings']=[dict(id='existing-draft-scope',target='SPEC.md',problem=str(error))]
+            return
         argv=[sys.executable,str(HERE/'nightshift-behavior-proof.py'),'validate','--project',str(self.project),'--task',self.task,'--scenarios',str(docs/'behavior-scenarios.json')]
         result=subprocess.run(argv,capture_output=True,text=True,timeout=30)
         if result.returncode:
@@ -584,6 +597,7 @@ class Pipeline:
                     if stage=='product':
                         docs=self.project/'docs'/self.task
                         if not (docs/'SPEC.md').is_file() or not (docs/'behavior-scenarios.json').is_file():raise ValueError('draft_artifacts_missing')
+                        validate_product_scope(self.project,self.task)
                     if stage in REVIEW and attempt['input_sha256'] != inputs(self.project,self.task,stage,self.state):
                         raise ValueError('review_changed_its_inputs')
                     attempt.update(status='pass',category='success',finished_at=time.time())

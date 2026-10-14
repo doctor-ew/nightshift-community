@@ -106,6 +106,13 @@ reset the existing repair budget. Distinguish a concrete defect from a genuine
 product ambiguity: only the latter becomes a durable portal decision with choices
 and a free-text answer via `nightshift-console-decisions.py`.
 
+In the Files to Change table, every File or Path cell must contain only one
+literal repository-relative file path, optionally enclosed in backticks. Put
+annotations such as planned new files, rationale, and source-verification status
+in the Change, Action, or Why columns. Never append prose inside a path cell.
+The deterministic scope parser must accept this table before Product can pass;
+validation must not activate a scope lease or edit implementation files.
+
 Save to `docs/<task-key>/SPEC.md`.
 
 Also author `docs/<task-key>/behavior-scenarios.json` in every mode. Follow

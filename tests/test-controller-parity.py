@@ -168,4 +168,41 @@ class ControllerParity(unittest.TestCase):
                 (project/'docs/sample/product-check.log').write_text('tampered')
                 with self.assertRaises(ValueError):m.validate_receipt(row['receipt'],'sample','product',project)
 
+
+    def test_invalid_literal_scope_is_never_imported_or_mutated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',final=True)
+            spec=project/'docs/sample/SPEC.md'
+            spec.write_text(spec.read_text().replace('| tests/test_fixture_sample.py |', '| `tests/test_fixture_sample.py` — net-new planned file |'))
+            settings=dict(ref='gh:sample',provider='codex',model='synthetic',policy='standard',auth='subscription',branch='none',base='',push=False,pr=False)
+            controller=m.Pipeline(project,'sample',settings,lambda *args:1)
+            controller.state.update(plan=m.routes(project,settings),decisions=[])
+            before={str(p.relative_to(project)):p.read_bytes() for p in project.rglob('*') if p.is_file()}
+            controller.import_draft()
+            self.assertNotIn('product',controller.state['completed'])
+            self.assertIn('scope',controller.state['findings'][0]['id'])
+            after={str(p.relative_to(project)):p.read_bytes() for p in project.rglob('*') if p.is_file()}
+            self.assertEqual(after,before)
+            self.assertFalse(list((project/'.git').rglob('product-import-*.json')))
+
+    def test_worker_product_scope_is_checked_before_acceptance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',final=True)
+            spec=project/'docs/sample/SPEC.md';calls=[]
+            settings=dict(ref='gh:sample',provider='codex',model='synthetic',policy='standard',auth='subscription',branch='none',base='',push=False,pr=False)
+            def worker(stage,handoff,receipt):
+                calls.append(stage)
+                if stage!='product':return 1
+                spec.write_text(spec.read_text().replace('| tests/test_fixture_sample.py |','| `tests/test_fixture_sample.py` — net-new planned file |'))
+                receipt.write_text(json.dumps(dict(version=1,task='sample',stage=stage,status='pass',findings=[],checks=[dict(command='synthetic-check',exit_code=0)],evidence=[dict(path=str(spec.relative_to(project)),sha256=m.sha(spec))])))
+                return 0
+            handoff=m.load('handoff');original_load=m.load
+            with patch.object(handoff,'graph',return_value=dict(status='unavailable',records=[])),patch.object(m,'load',side_effect=lambda name:handoff if name=='handoff' else original_load(name)),patch.dict('os.environ',NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json')):
+                controller=m.Pipeline(project,'sample',settings,worker)
+                controller.state['history'].append(dict(reason='fresh-worker-fixture'));controller.save()
+                result=controller.run()
+            self.assertEqual(result,1);self.assertEqual(calls,['product'])
+            self.assertNotIn('product',controller.state['completed'])
+            self.assertIn('product_scope_invalid',controller.state['attempts'][0]['reason'])
+
 if __name__ == '__main__': unittest.main()
