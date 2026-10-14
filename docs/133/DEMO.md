@@ -15,7 +15,7 @@ The original rehearsal is a retained failure, not a fallback success. Issue 133 
 
 ## Acceptance evidence
 
-Capture candidate commit, isolated installation audit, project baseline, controller state, stage receipt hashes, real tests, proof gates and measured usage. Preserve unknown pricing, interrupted reservations and all earlier failures. No production deployment, global runtime replacement or private Connexure configuration is required.
+Capture candidate commit, isolated installation audit, project baseline, controller state, stage receipt hashes, real tests, proof gates and measured usage. Preserve unknown pricing, interrupted reservations and all earlier failures. No production deployment, global runtime replacement or private downstream configuration is required.
 
 ## Optional models
 

@@ -14,7 +14,7 @@ Branchless controller tickets appear in the dashboard with their receipts and bl
 
 ## Source adaptations
 
-Generic changes were adapted from Connexure commits 360131d, 3ecd101, e9c9258, 5437fd8, 1bfc639, 8363fab and d73190c. Policy identity and accounting ceilings were retained. Private configurations, endpoints, branding and ticket evidence were excluded. Hermes remains deferred. Jev remains optional and has no gate authority.
+Generic changes were adapted from downstream commits 360131d, 3ecd101, e9c9258, 5437fd8, 1bfc639, 8363fab and d73190c. Policy identity and accounting ceilings were retained. Private configurations, endpoints, branding and ticket evidence were excluded. Hermes remains deferred. Jev remains optional and has no gate authority.
 
 ## Evidence boundary
 
