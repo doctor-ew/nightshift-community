@@ -26,6 +26,50 @@ if [ "${1:-}" = --presence ]; then
   esac
 fi
 
+# Read-only local inventory admission: no generation, cache, or shared writes.
+# Unknown backends fail closed; explicit local dispatch remains separately selected.
+if [ "${1:-}" = --local-model ]; then
+  [ "${2:-}" = ollama ] && [ -n "${3:-}" ] || exit 1
+  bash "$0" --presence codex && bash "$0" --presence ollama || exit 1
+  python3 - "$3" <<'PYLOCAL'
+import os, selectors, signal, subprocess, sys, time
+proc = subprocess.Popen(['ollama', 'list'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        start_new_session=True)
+selector = selectors.DefaultSelector()
+for stream in (proc.stdout, proc.stderr):
+    os.set_blocking(stream.fileno(), False)
+    selector.register(stream, selectors.EVENT_READ)
+output = bytearray()
+total = 0
+deadline = time.monotonic() + 2
+try:
+    while selector.get_map():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0: raise TimeoutError()
+        for key, _ in selector.select(remaining):
+            chunk = os.read(key.fileobj.fileno(), 4096)
+            if not chunk:
+                selector.unregister(key.fileobj)
+                continue
+            total += len(chunk)
+            if total > 65536: raise ValueError('inventory too large')
+            if key.fileobj is proc.stdout: output.extend(chunk)
+    code = proc.wait(timeout=max(0.001, deadline - time.monotonic()))
+    lines = output.decode('utf-8').splitlines()
+    names = [line.split()[0] for line in lines[1:] if line.split()]
+    sys.exit(0 if code == 0 and lines and lines[0].split() and lines[0].split()[0] == 'NAME' and sys.argv[1] in names else 1)
+except (TimeoutError, ValueError, UnicodeError, subprocess.TimeoutExpired):
+    sys.exit(1)
+finally:
+    # Inventory clients may leave descendants; bound cleanup to our process group.
+    try: os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError: pass
+    proc.wait(timeout=1)
+    selector.close()
+PYLOCAL
+  exit $?
+fi
+
 # Semantic adapter lookup is pure: no CLI probes, shared cache, or tool execution.
 if [ "${1:-}" = --resolve ]; then
   shift

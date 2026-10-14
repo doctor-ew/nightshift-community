@@ -1,7 +1,7 @@
 {
   "adversarial-route": {
     "route": {
-      "model": "gpt-5.4",
+      "model": "gpt-6.1-sol",
       "provider": "codex"
     },
     "tool_order": [

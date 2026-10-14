@@ -165,9 +165,9 @@ fail() {
   if [ -n "$OUTPUT" ]; then
     local receipt
     receipt="$(mktemp "${TMPDIR:-/tmp}/nightshift-failure.XXXXXX")" || exit 1
-    if jq -n --arg role "$ROLE" --arg reason "$1" --arg provider "$PROVIDER" --arg model "$MODEL" --arg attempt "$ATTEMPT" '
+    if jq -n --arg role "$ROLE" --arg reason "$1" --arg provider "$PROVIDER" --arg model "$MODEL" --arg attempt "$ATTEMPT" --arg gear "$GEAR" '
       {status:"FAIL",reason:$reason,attempts:(try ($attempt|tonumber) catch 1),
-       artifacts:{branch:"",diff:"",provider:$provider,model:$model},rules_fired:["dispatcher_failure"],
+       artifacts:{branch:"",diff:"",provider:$provider,model:$model},rules_fired:(["dispatcher_failure"] + (if $provider != "" and ($gear|test("^[0-4]$")) then ["route_gear:"+$gear] else [] end)),
        results:(if $role == "nightshift-code-fact-extractor" then {claims:[]}
          elif $role == "nightshift-run-all-tests" then {passed:0,failed:0}
          elif $role == "nightshift-spec-writer" then {spec_path:""}
@@ -240,7 +240,9 @@ case "$ATTEMPT" in 1|2|3) ;; *) fail 'attempt must be 1..3';; esac
 if [ "$GEAR" = auto ] || [ "$GEAR" = 0 ]; then
   if [ "$GEAR" = 0 ] && [ "$ATTEMPT" != 1 ]; then fail 'explicit gear 0 requires attempt 1; use auto for escalation'; fi
   if [ "$GEAR" = 0 ] && { [ "$RISK" != low ] || [ "$ADV" = true ] || [ "$ROLE" != nightshift-code-fact-extractor ]; }; then fail 'gear 0 requires low-risk non-adversarial fact extraction'; fi
-  AUTO_ROUTE=$(bash "$ROOT/scripts/nightshift-route.sh" "$ROLE" "$RISK" "$ATTEMPT" "$ADV") || fail 'automatic route selection failed'
+  ROUTE_MODE=auto
+  [ "$GEAR" != 0 ] || ROUTE_MODE=explicit
+  AUTO_ROUTE=$(bash "$ROOT/scripts/nightshift-route.sh" "$ROLE" "$RISK" "$ATTEMPT" "$ADV" "$ROUTE_MODE") || fail 'automatic route selection failed'
   GEAR=$(jq -r '.gear' <<< "$AUTO_ROUTE")
 fi
 case "$GEAR" in 0|1|2|3|4) ;; *) fail "gear must be auto or an integer from 0 to 4";; esac
@@ -333,6 +335,14 @@ try:
             except UnicodeError:
                 record['category'] = 'auth_probe_invalid_output'
             else:
+                if provider == 'codex' and record['exit_code'] == 0:
+                    # Codex still reports status after this warning when a sandbox blocks its PATH-alias directory.
+                    def without_alias_warning(text):
+                        return '\n'.join(line for line in text.splitlines()
+                                         if line not in (
+                                             'WARNING: proceeding, even though we could not create PATH aliases: Operation not permitted',
+                                             'WARNING: proceeding, even though we could not create PATH aliases: Operation not permitted (os error 1)'))
+                    stdout, stderr = without_alias_warning(stdout), without_alias_warning(stderr)
                 combined = (stdout + '\n' + stderr).lower()
                 denied = any(term in combined for term in ('operation not permitted', 'permission denied', 'access denied', 'sandbox denied'))
                 if denied or record['exit_code'] in (126, 13):
@@ -652,7 +662,7 @@ else
 fi
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/contract" >/dev/null || fail 'invalid role contract'
 # Provenance belongs to the dispatcher, not the model.
-jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" --arg policy "$PROVIDER_POLICY" --arg adversarial "$ADV" '.rules_fired += (if $policy == "claude-only" then ["provider_policy:claude-only"] + (if $adversarial == "true" then ["review_independence:fresh-session"] else [] end) else [] end) | .artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
+jq --arg provider "$PROVIDER" --arg model "$MODEL" --argjson attempt "$ATTEMPT" --arg gear "$GEAR" --arg policy "$PROVIDER_POLICY" --arg adversarial "$ADV" '.rules_fired = ((.rules_fired | map(select(startswith("route_gear:") | not))) + ["route_gear:"+$gear]) | .rules_fired += (if $policy == "claude-only" then ["provider_policy:claude-only"] + (if $adversarial == "true" then ["review_independence:fresh-session"] else [] end) else [] end) | .artifacts.provider=$provider | .artifacts.model=$model | .attempts=$attempt' "$TMP/contract" > "$TMP/normalized"
 jq -e --arg role "$ROLE" -f "$VALIDATOR" "$TMP/normalized" >/dev/null || fail 'invalid normalized contract'
 publish "$TMP/normalized" || fail 'cannot publish output contract'
 [ "$(jq -r '.status' "$TMP/normalized")" != FAIL ] || exit 1

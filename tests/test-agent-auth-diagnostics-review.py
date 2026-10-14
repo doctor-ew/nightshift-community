@@ -49,6 +49,22 @@ class AuthenticationDiagnostics(unittest.TestCase):
             receipt,_=self.run_probe('subscription_confirmed',**{stream:'Logged in using ChatGPT\n'})
             self.assertIs(receipt['authenticated'],True)
 
+    def test_codex_sandbox_alias_warning_does_not_hide_a_confirmed_login(self):
+        warning='WARNING: proceeding, even though we could not create PATH aliases: Operation not permitted (os error 1)\n'
+        for stream in ('text','stderr'):
+            receipt,_=self.run_probe('subscription_confirmed',**{'stderr' if stream=='text' else 'text':warning,stream:'Logged in using ChatGPT\n'})
+            self.assertIs(receipt['authenticated'],True)
+
+    def test_codex_alias_warning_alone_or_with_failure_is_not_confirmation(self):
+        warning='WARNING: proceeding, even though we could not create PATH aliases: Operation not permitted (os error 1)\n'
+        self.run_probe('auth_probe_invalid_output',stderr=warning)
+        self.run_probe('auth_probe_denied',stderr=warning,text='Logged in using ChatGPT',code=1)
+        self.run_probe('auth_probe_denied',stderr=warning+'Permission denied: /private/config\n',text='Logged in using ChatGPT')
+
+    def test_other_alias_warning_denial_still_blocks(self):
+        warning='WARNING: proceeding, even though we could not create PATH aliases: Permission denied\n'
+        self.run_probe('auth_probe_denied',stderr=warning,text='Logged in using ChatGPT')
+
     def test_claude_confirmed_subscription(self):
         self.run_probe('subscription_confirmed','claude',json.dumps(dict(loggedIn=True,authMethod='claude.ai',apiProvider='firstParty')))
 

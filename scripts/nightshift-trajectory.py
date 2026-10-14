@@ -18,7 +18,7 @@ REASONS = {'normal command inside assigned worktree is unattended',
            'fresh production confirmation token accepted',
            'permanent-removal is denied by factory policy',
            'history-rewrite is denied by factory policy', 'unknown action'}
-MODELS = {'gpt-5.4', 'haiku', 'sonnet', 'opus'}
+MODELS = {'gpt-5.4', 'gpt-6.1-sol', 'haiku', 'sonnet', 'opus'}
 NEXT = {'continue to the next gate': 'continue',
         'inspect the final gate output and repair the smallest in-scope cause': 'inspect-and-repair',
         'Configure NIGHTSHIFT_WORKER_IMAGE; host execution is disabled.': 'configure-isolation'}

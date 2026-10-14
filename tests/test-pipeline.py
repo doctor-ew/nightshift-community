@@ -14,6 +14,27 @@ m=load('pipeline','scripts/nightshift-pipeline.py')
 f=load('fixture','tests/nightshift-behavior-fixture.py')
 
 class PipelineTest(unittest.TestCase):
+ def test_branchless_cli_saves_read_only_console_policy_before_dispatch(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
+   with patch('sys.argv',['pipeline','--project',str(project),'--task','sample','--settings',json.dumps(settings)]),patch.object(m,'prepare',return_value=project),patch.object(m,'Pipeline') as controller:
+    controller.return_value.run.return_value=0;controller.return_value.state={}
+    self.assertEqual(m.main(),0)
+   saved=m.load('console-actions').state(project,'sample')
+   self.assertTrue(saved['read_only']);self.assertEqual(saved['settings'],settings)
+
+ def test_launcher_change_invalidates_retained_stage_inputs(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='codex',model='gpt-6-sol',policy='standard',auth='subscription')
+   with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False):
+    controller=m.Pipeline(project,'sample',settings);self.assertTrue(controller.refresh())
+    before=m.inputs(project,'sample','product',controller.state)
+    original=m.sha
+    with patch.object(m,'sha',side_effect=lambda path:'0'*64 if Path(path)==ROOT/'scripts/nightshift-factory.sh' else original(path)):
+     self.assertNotEqual(m.inputs(project,'sample','product',controller.state),before)
+
  def test_worker_preflight_failure_preserves_draft_and_names_reason(self):
   with tempfile.TemporaryDirectory() as tmp:
    p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)

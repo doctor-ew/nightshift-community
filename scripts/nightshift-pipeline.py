@@ -11,11 +11,13 @@ import re
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = Path(__file__).resolve().parent
 STAGES = ('product', 'adversarial', 'implement', 'review', 'drift', 'qa')
 REVIEW = ('adversarial', 'review', 'drift', 'qa')
+UNSEALED = ('proof_state_unavailable', 'proof_unsealed')
 
 
 def load(name):
@@ -110,11 +112,53 @@ def source(project, task):
     return recovery.digest(value['files'])
 
 
+RUNTIME_SCRIPTS = ('nightshift-pipeline.py', 'nightshift-agent.sh', 'nightshift-factory.sh',
+                   'nightshift-contract.jq', 'nightshift-provider-policy.py',
+                   'nightshift-route.sh', 'nightshift-capability.sh',
+                   'nightshift-dispatch-bounded.sh', 'nightshift-handoff.py',
+                   'nightshift-behavior-proof.py', 'nightshift-retry-budget.py',
+                   'nightshift-routing-path.py', 'nightshift-source-evaluation.py',
+                   'nightshift-spec-repair-brief.py', 'nightshift-review-reuse.py',
+                   'nightshift-recovery-state.py', 'nightshift-ticket-budget.py')
+
+
+def runtime_digest():
+    root = HERE.parent
+    files = [HERE/name for name in RUNTIME_SCRIPTS]
+    for folder, pattern in (('agents', '*.md'), ('contracts', '*.json')):
+        files += sorted((root/folder).glob(pattern))
+    return recovery.digest({str(path.relative_to(root)): sha(path) for path in files})
+
+
+def stage_policy(plan, stage):
+    stages = plan.get('stages') or {}
+    dependencies = STAGES[:STAGES.index(stage)+1] if stage in STAGES else tuple(stages)
+    return dict(policy=plan.get('policy'), stages={name: stages[name] for name in dependencies if name in stages})
+
+
+def nested_routing(plan, stage):
+    routing = read(plan['routing_path'])
+    roles = {
+        'product': ('nightshift-code-fact-extractor', 'nightshift-spec-writer', 'nightshift-behavior-reviewer'),
+        'adversarial': ('nightshift-code-fact-extractor', 'nightshift-behavior-reviewer'),
+        'implement': ('nightshift-engineer', 'nightshift-architect', 'nightshift-run-all-tests', 'nightshift-behavior-reviewer'),
+        'review': ('nightshift-code-fact-extractor', 'nightshift-architect', 'nightshift-engineer'),
+        'drift': ('nightshift-code-fact-extractor',),
+        'qa': ('nightshift-run-all-tests',),
+    }
+    dependencies = STAGES[:STAGES.index(stage)+1] if stage in STAGES else STAGES
+    selected = {role for dependency in dependencies for role in roles[dependency]}
+    return dict(configuration={key: routing.get(key) for key in
+                               ('providers', 'allowed_providers', 'defaults', 'local', 'adversarial')},
+                roles={role: routing['roles'].get(role) for role in sorted(selected)})
+
+
 def inputs(project, task, stage, state):
     docs=Path(project)/'docs'/task
-    value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),policy={k:v for k,v in state['plan'].items() if k!='spec_author'},decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
+    value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),runtime=runtime_digest(),policy=stage_policy(state['plan'],stage),decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
     value['architecture']=load('architecture').resolve(project)
     value['architecture_checker']=sha(HERE/'nightshift-architecture.py')
+    value['nested_routing'] = recovery.digest(nested_routing(state['plan'], stage))
     value['spec']={n:sha(docs/n) if (docs/n).is_file() else None for n in ('SPEC.md','behavior-scenarios.json')}
     if (docs/'behavior-scenarios.json').is_file():
         # Classification attestations are review output, not authored requirements.
@@ -128,6 +172,72 @@ def proof(project, task, gate):
     process=subprocess.run([sys.executable,str(HERE/'nightshift-behavior-proof.py'),'gate','--project',str(project),'--task',task,'--gate',gate],capture_output=True,text=True,timeout=30)
     try:return json.loads(process.stdout)
     except ValueError:return dict(status='blocked',reason='proof_gate_unavailable')
+
+
+def validate_product_scope(project, task):
+    """Parse literal scope paths without activating a scope lease or changing files."""
+    helper=load('behavior-proof')
+    try:
+        return helper.scope_table(Path(project),task)
+    except (OSError,ValueError,helper.Invalid,helper.Blocked) as error:
+        raise ValueError('product_scope_invalid:'+str(error)) from None
+
+
+def record_classification_review(project, task, route, receipt, policy='standard'):
+    """Reuse independent adversarial evidence bound to the current scenarios."""
+    path = Path(project)/'docs'/task/'behavior-scenarios.json'
+    helper = load('behavior-proof')
+    try:
+        original = path.read_text(); doc = json.loads(original)
+        provider = (route or {}).get('provider'); model = (route or {}).get('model')
+        if (not provider or not model or
+                (provider == doc['author']['provider'] and not (policy == 'claude-only' and provider == 'claude'))):
+            return False
+        report = validate_receipt(receipt, task, 'adversarial', project)
+        if report['status'] != 'pass':
+            return False
+        classifications = [Path(project)/row['path'] for row in report['evidence']
+                           if (Path(row['path']).parent == path.relative_to(project).parent
+                               and Path(row['path']).name.startswith('classification-review-')
+                               and Path(row['path']).suffix == '.json')]
+        if len(classifications) != 1:
+            return False
+        classification = classifications[0]
+        helper.validate_doc(doc, Path(project), task)
+        digest = helper.semantics(doc)
+        observed = read(classification)
+        if (set(observed) != {'version', 'task', 'decision', 'reviewed_input_sha256', 'case_ids'}
+                or type(observed['version']) is not int or observed['version'] != 1
+                or observed['task'] != task or observed['decision'] != 'approve'
+                or observed['reviewed_input_sha256'] != digest
+                or not isinstance(observed['case_ids'], list)
+                or any(not isinstance(case, str) for case in observed['case_ids'])
+                or len(observed['case_ids']) != len(doc['cases'])
+                or set(observed['case_ids']) != {case['id'] for case in doc['cases']}):
+            return False
+        missing = [a for a in [doc['applicability']]+[case['applicability'] for case in doc['cases']]
+                   if (a.get('review') is None or a['review']['decision'] != 'approve'
+                       or a['review']['reviewed_input_sha256'] != digest
+                       or (a['review']['reviewer_provider'], a['review']['reviewer_author_id']) ==
+                          (doc['author']['provider'], doc['author']['author_id']))]
+        if not missing:
+            return False
+        # Attestation output must not mutate an artifact already hash-bound by
+        # this receipt. The immutable classification artifact binds semantics.
+        if any(row['path'] == str(path.relative_to(project)) for row in report['evidence']):
+            return False
+        review = dict(reviewer_provider=provider,
+                      reviewer_author_id='nightshift-adversarial:'+str(model)+':'+sha(receipt),
+                      decision='approve', reviewed_input_sha256=digest, evidence_sha256=sha(receipt))
+        for applicability in missing:
+            applicability['review'] = dict(review)
+        helper.validate_doc(doc, Path(project), task)
+        if helper.semantics(doc) != digest:
+            return False
+        recovery.atomic(path, doc)
+        return True
+    except (OSError, ValueError, KeyError, TypeError, helper.Invalid, helper.Blocked):
+        return False
 
 
 def receipt_object(path):
@@ -233,6 +343,53 @@ class Pipeline:
 
     def save(self):recovery.atomic(self.path,self.state)
 
+    def accept_classification(self, reviewer):
+        """Revalidate physical receipts after an attestation-only scenario edit."""
+        path=self.project/'docs'/self.task/'behavior-scenarios.json'
+        original=path.read_bytes(); name=str(path.relative_to(self.project))
+        affected={}
+        for stage,row in self.state['completed'].items():
+            if sha(row['receipt'])!=row['sha256'] or row['input_sha256']!=inputs(self.project,self.task,stage,self.state):
+                raise ValueError('classification_revalidation_stale_stage')
+            report=validate_receipt(row['receipt'],self.task,stage,self.project)
+            if any(item['path']==name for item in report['evidence']):
+                affected[stage]=(dict(row),report)
+        if not record_classification_review(self.project,self.task,reviewer.get('route'),
+                                            Path(self.state['completed']['adversarial']['receipt']),
+                                            self.state['plan']['policy']):
+            return False
+        completed=dict(self.state['completed']); history=list(self.state['history'])
+        try:
+            helper=load('behavior-proof'); helper.reviewed(read(path))
+            argv=[sys.executable,str(HERE/'nightshift-behavior-proof.py'),'validate',
+                  '--project',str(self.project),'--task',self.task,'--scenarios',str(path)]
+            checked=subprocess.run(argv,capture_output=True,text=True,timeout=30)
+            if checked.returncode:raise ValueError('classification_revalidation_failed')
+            for stage,(row,report) in affected.items():
+                if row['input_sha256']!=inputs(self.project,self.task,stage,self.state):
+                    raise ValueError('classification_changed_stage_semantics')
+                value=dict(report,checks=report['checks']+[dict(command=' '.join(argv),exit_code=0)],
+                           evidence=[dict(item,sha256=sha(path)) if item['path']==name else item
+                                     for item in report['evidence']])
+                receipt=self.directory/(stage+'-classification-'+recovery.digest(value)+'.json')
+                if receipt.exists():
+                    if read(receipt)!=value:raise ValueError('classification_receipt_changed')
+                else:recovery.atomic(receipt,value)
+                validate_receipt(receipt,self.task,stage,self.project)
+                self.state['completed'][stage]=dict(row,receipt=str(receipt),sha256=sha(receipt))
+                self.state['history'].append(dict(stage=stage,record=row,
+                    reason='classification_attestations_revalidated',receipt=str(receipt)))
+            self.save()
+            return True
+        except BaseException:
+            # Preserve the previous physical bindings if revalidation cannot finish.
+            fd,temporary=tempfile.mkstemp(prefix='.classification-',dir=path.parent)
+            with os.fdopen(fd,'wb') as stream:
+                stream.write(original);stream.flush();os.fsync(stream.fileno())
+            os.replace(temporary,path)
+            self.state['completed']=completed;self.state['history']=history
+            raise
+
     def refresh(self):
         selected=routes(self.project,self.settings)  # before any paid work
         # Draft authorship survives runtime changes. Never infer it from today's default.
@@ -289,6 +446,10 @@ class Pipeline:
         docs=self.project/'docs'/self.task
         if not all((docs/name).is_file() for name in ('SPEC.md','behavior-scenarios.json')):
             return
+        try:validate_product_scope(self.project,self.task)
+        except ValueError as error:
+            self.state['findings']=[dict(id='existing-draft-scope',target='SPEC.md',problem=str(error))]
+            return
         argv=[sys.executable,str(HERE/'nightshift-behavior-proof.py'),'validate','--project',str(self.project),'--task',self.task,'--scenarios',str(docs/'behavior-scenarios.json')]
         result=subprocess.run(argv,capture_output=True,text=True,timeout=30)
         if result.returncode:
@@ -316,8 +477,8 @@ class Pipeline:
         env=dict(os.environ,NIGHTSHIFT_PIPELINE_STAGE=stage,NIGHTSHIFT_PIPELINE_TASK=self.task,NIGHTSHIFT_PIPELINE_TICKET_JSON=os.environ.get('NIGHTSHIFT_TICKET_JSON',''),NIGHTSHIFT_STAGE_RECEIPT=str(worker_receipt),NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_ROUTING_FILE=self.state['plan']['routing_path'],NIGHTSHIFT_BUDGET_TASK=os.environ.get('NIGHTSHIFT_BUDGET_TASK',self.task),NIGHTSHIFT_BUDGET_PROJECT=os.environ.get('NIGHTSHIFT_BUDGET_PROJECT',str(self.project)))
         # Existing ticket admission owns the deadline; no replacement allowance.
         budget=load('ticket-budget').snapshot(self.project,self.task)
-        timeout=min(600,budget['wall_seconds_remaining']) if budget and budget['wall_seconds_remaining'] is not None else 600
-        if timeout<=0:raise ValueError('ticket_budget_exhausted')
+        timeout=budget['wall_seconds_remaining'] if budget and budget['wall_seconds_remaining'] is not None else None
+        if timeout is not None and timeout<=0:raise ValueError('ticket_budget_exhausted')
         with receipt.with_suffix('.log').open('wb') as log:
             process=subprocess.Popen(argv,cwd=self.project,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             completed=False
@@ -395,13 +556,19 @@ class Pipeline:
                 accounting=read(budget_path) if budget_path.exists() else None
                 if accounting and (accounting['next_action']=='stop' or 'pending' in accounting['attempts'].values()):
                     self.state.update(status='blocked',next_action='inspect_exhausted_or_interrupted_'+stage);self.save();return 1
+                recorded = False
+                if stage == 'implement' and 'adversarial' in self.state['completed']:
+                    reviewer = next((a for a in reversed(self.state['attempts'])
+                                     if a['stage'] == 'adversarial' and a['status'] == 'pass'), None)
+                    if reviewer:
+                        recorded = self.accept_classification(reviewer)
                 signature=inputs(self.project,self.task,stage,self.state)
                 current_source=source(self.project,self.task)
-                if any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
+                if not recorded and any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
                     self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
                 if stage=='implement':
                     result=proof(self.project,self.task,'development')
-                    if result.get('outcome')!='pass':
+                    if result.get('outcome')!='pass' and result.get('reason') not in UNSEALED:
                         self.state['completed'].pop('adversarial',None)
                         self.state.update(status='repairing',next_action='adversarial',finding_stage='adversarial',findings=[dict(id='development-proof',target='behavior-scenarios.json',problem=result.get('reason','missing'))]);self.save();continue
                 receipt=self.directory/(stage+'-'+str(count+1)+'.json');handoff=receipt.with_suffix('.handoff.json')
@@ -430,7 +597,7 @@ class Pipeline:
                     if stage=='product':
                         docs=self.project/'docs'/self.task
                         if not (docs/'SPEC.md').is_file() or not (docs/'behavior-scenarios.json').is_file():raise ValueError('draft_artifacts_missing')
-                    if stage=='adversarial' and proof(self.project,self.task,'development').get('outcome')!='pass':raise ValueError('development_proof_missing')
+                        validate_product_scope(self.project,self.task)
                     if stage in REVIEW and attempt['input_sha256'] != inputs(self.project,self.task,stage,self.state):
                         raise ValueError('review_changed_its_inputs')
                     attempt.update(status='pass',category='success',finished_at=time.time())
@@ -597,6 +764,8 @@ def main():
             if review is not None and not review['approved']:
                 print('nightshift: awaiting spec approval; open the console and choose Approve and continue. No model started.',file=sys.stderr)
                 return 0
+        elif settings['branch'] == 'none':
+            load('console-actions').save(args.project, args.task, settings)
         request=Path(args.project)/settings['ref'].removeprefix('spec:')
         if request.is_file():settings['ref']=str(request.resolve())
         target=prepare(args.project,args.task,settings)

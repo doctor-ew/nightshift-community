@@ -9,7 +9,7 @@ import json, os, pathlib, shutil, subprocess, sys, tempfile
 root = pathlib.Path(sys.argv[1])
 failures = []
 with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
-    base = pathlib.Path(temp)
+    base = pathlib.Path(temp).resolve()
     binary = base/'bin'; binary.mkdir()
     calls = base/'calls'
     stub = binary/'codex'
@@ -30,11 +30,13 @@ with tempfile.TemporaryDirectory(prefix='nightshift-preflight-test-') as temp:
         return {str(f.relative_to(p)):f.read_bytes() for f in p.rglob('*') if f.is_file() and '.git' not in f.relative_to(p).parts}
     def run(p,ref,branch='auto',extra=()):
         calls.write_text('')
-        before=inventory(p)
         # Admission is tested against an explicit stage transport. A stub exit
         # does not stand in for the controller's evidence-gated completion.
-        handoff=base/'handoff.json';handoff.write_text('{}')
-        stage_env=dict(env,NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='preflight-fixture',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(base/'receipt.json'))
+        handoff=p/'.git/nightshift/pipeline/preflight-fixture/product-1.handoff.json';handoff.parent.mkdir(parents=True,exist_ok=True)
+        handoff.write_text(json.dumps(dict(version=1,task='preflight-fixture',stage='product')))
+        (p/'docs/preflight-fixture').mkdir(parents=True,exist_ok=True)
+        before=inventory(p)
+        stage_env=dict(env,NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='preflight-fixture',NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(p/'docs/preflight-fixture/stage-receipt.json'))
         r=subprocess.run(['bash',str(root/'scripts/nightshift-factory.sh'),ref,'--project',str(p),'--auth','subscription','--provider','codex','--branch',branch,*extra],env=stage_env,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=30)
         after=inventory(p)
         if r.returncode == 0:

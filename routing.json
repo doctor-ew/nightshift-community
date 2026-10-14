@@ -59,15 +59,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -82,15 +82,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -105,15 +105,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -128,15 +128,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -150,15 +150,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -172,15 +172,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -195,15 +195,15 @@
       "gears": {
         "1": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "2": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "3": {
           "provider": "codex",
-          "model": "gpt-5.4"
+          "model": "gpt-6.1-sol"
         },
         "4": {
           "provider": "claude",
@@ -222,7 +222,7 @@
     "routes": [
       {
         "provider": "codex",
-        "model": "gpt-5.4"
+        "model": "gpt-6.1-sol"
       },
       {
         "provider": "claude",
