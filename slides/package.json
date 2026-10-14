@@ -1,0 +1,21 @@
+{
+  "name": "nightshift-talks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "slidev",
+    "build": "slidev build --base ./ --router-mode hash",
+    "export": "slidev export --output nightshift-final.pdf"
+  },
+  "dependencies": {
+    "@slidev/cli": "52.19.1",
+    "@slidev/theme-default": "0.25.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "playwright-chromium": "^1.55.0"
+  },
+  "overrides": {
+    "floating-vue": "5.2.2"
+  }
+}

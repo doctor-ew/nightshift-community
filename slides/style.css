@@ -1,0 +1,168 @@
+@font-face{font-family:"Source Code Pro";src:url('/fonts/source-code-pro-regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:"Source Code Pro";src:url('/fonts/source-code-pro-semibold.woff2') format('woff2');font-weight:600 900;font-style:normal;font-display:swap;}
+
+.slidev-layout { font-family: "Source Code Pro",monospace; background:#171817; color:#faf9f5; padding:54px 64px; }
+.slidev-layout h1 { font-family:"Source Code Pro",monospace; font-size:49px; line-height:1.08; font-weight:400; letter-spacing:-1.4px; margin:17px 0 30px; }
+.slidev-layout h3 { font-size:23px; margin:14px 0; font-weight:700; }
+.slidev-layout p,.slidev-layout li { font-size:23px; line-height:1.42; }
+.slidev-layout li { margin:14px 0; }
+.slidev-layout .slide-number { font-size:12px; letter-spacing:2px; color:#c8b8ab; }
+.slidev-layout .source { position:absolute; left:64px; bottom:22px; font-size:11px; color:#c8b8ab; max-width:900px; }
+.slidev-layout .source a {color:inherit; border-bottom:1px solid #96aaa1;}
+.slidev-layout .three { display:grid;grid-template-columns:repeat(3,1fr);gap:23px; }
+.slidev-layout section { border-top:3px solid #e7a58d;padding:16px 8px 0 0; }
+.slidev-layout section b {font-size:31px;color:#e7a58d;}
+.slidev-layout .two {display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+.slidev-layout .contrast {display:grid;grid-template-columns:1fr 1.4fr;gap:22px;}
+.slidev-layout .contrast>div {background:#282925;border-radius:8px;padding:23px;}
+.slidev-layout label,.slidev-layout .eyebrow {font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#e7a58d;font-weight:bold;}
+.slidev-layout .takeaway {color:#e7a58d;border-left:4px solid #d9a348;padding-left:18px;margin-top:24px;font-size:25px;}
+.slidev-layout .pill {display:inline-block;border:1px solid #978359;border-radius:20px;padding:8px 13px;color:#e7bf8c;font-size:11px;letter-spacing:1px;}
+.slidev-layout .route {display:flex;gap:12px;margin:38px 0;}.slidev-layout .route span {flex:1;background:#e7a58d;color:#fff;padding:24px;font-size:24px;border-radius:4px;}.slidev-layout .route b {font-size:15px;font-weight:normal;}
+.slidev-layout .flow {display:flex;align-items:center;gap:12px;margin:25px 0;}.slidev-layout .flow span {background:#282925;padding:20px 12px;flex:1;font-size:20px;text-align:center;}.slidev-layout .flow i {color:#e7a58d;}
+.slidev-layout .ladder>div {padding:17px 22px;background:#282925;margin:10px 0;font-size:25px;}.slidev-layout .ladder span{float:right;font-size:20px;color:#cabeb0;}
+.slidev-layout .experiment {display:grid;grid-template-columns:1fr 2fr 1.4fr;gap:20px;margin-bottom:20px;}.slidev-layout .experiment>div{border-top:3px solid #e7a58d;padding-top:14px;}
+.slidev-layout .exercise-time {font-size:13px;letter-spacing:2px;font-weight:bold;color:#edba83;}
+.slidev-layout .status-note {background:#f0ddb5;padding:14px 20px;font-size:17px;margin:20px 0;color:#503b13;}
+.slidev-layout .quote {font-family:"Source Code Pro",monospace;font-size:30px;padding:20px;border-left:4px solid #e7a58d;}
+.slidev-layout table {font-size:24px;margin:28px 0;}.slidev-layout td,.slidev-layout th {padding:17px;}.slidev-layout .accent{background:#efd7a8;color:#5c3700;}
+.slidev-layout .metrics b {font-size:53px;}.slidev-layout .hero-sub{font-size:28px;line-height:1.4;margin:20px 0;}
+.slidev-layout .tagline {font-size:20px;margin-top:34px;color:#e7a58d;}.slidev-layout .cover-mark{position:absolute;right:60px;top:56px;border:2px solid #e7a58d;color:#e7a58d;padding:17px;font-size:25px;}
+.slidev-layout .exit p{font-size:28px;margin:12px 0;}.slidev-layout .big{font-size:28px;}
+.slidev-layout pre {font-size:18px!important;padding:20px!important;line-height:1.7!important;}
+.slidev-layout.exercise{background:#211e1b;}.slidev-layout.closing{background:#171817;color:#f6f0e4;}.slidev-layout.closing .tagline,.slidev-layout.closing .source,.slidev-layout.closing .slide-number{color:#c4d8c4;}
+
+/* Code-photo treatment adapted from in-pursuit-of-memory/style.css. */
+.slidev-layout,.slidev-layout.exercise,.slidev-layout.closing {
+ background-image:linear-gradient(110deg,rgba(18,19,18,.96),rgba(25,23,21,.88)),url('/assets/code-background.jpg');
+ background-size:cover;background-position:center;
+}
+.slidev-layout .slide-number,.slidev-layout .eyebrow,.slidev-layout label{font-family:"Source Code Pro",monospace;}
+.slidev-layout .route span{background:#b76d53;color:#fff;}
+.slidev-layout .source{color:#c8b8ab;}
+.slidev-layout .cover-mark{border:0;padding:0;width:156px;top:48px;}
+.slidev-layout .cover-mark img{width:100%;height:auto;}
+.slidev-layout .sponsor-note{font-size:15px;color:#d8c4b5;margin-top:22px;}
+.slidev-layout .presenters{display:grid;grid-template-columns:1fr 1fr;gap:36px;}
+.slidev-layout .presenter{display:grid;grid-template-columns:135px 1fr;gap:20px;align-items:start;border-top:2px solid #d97757;padding-top:22px;}
+.slidev-layout .presenter img{width:135px;height:160px;object-fit:cover;border-radius:5px;}
+.slidev-layout .presenter h3{font-family:"Source Code Pro",monospace;font-size:27px;margin:0 0 10px;}
+.slidev-layout .presenter p{font-size:18px;line-height:1.45;margin:10px 0;}
+.slidev-layout .presenter .role{font-size:15px;color:#e7a58d;}
+.slidev-layout .evidence-check .cards>div{background:#282925;}
+.slidev-layout .evidence-check .cards strong{color:#e7a58d;}
+.slidev-layout .evidence-check .cards small{color:#c8b8ab;}
+.slidev-layout .evidence-check button{background:#9c4d35;}
+.slidev-layout .evidence-check .answer{color:#edba83;}
+
+/* Monospace typography: allow longer headings and labels to fit. */
+.slidev-layout h1{font-size:42px;letter-spacing:-1.6px;line-height:1.13;}
+.slidev-layout p,.slidev-layout li{font-size:21px;}
+.slidev-layout .presenter h3{font-size:24px;}
+.slidev-layout .presenter p{font-size:16px;}
+.slidev-layout .presenter .role{font-size:13px;}
+.slidev-layout .source{font-size:10px;}
+.slidev-layout button,.slidev-layout code,.slidev-layout pre{font-family:"Source Code Pro",monospace;}
+
+/* Coach walkthrough: persistent section rail and artifact-first layouts. */
+.slidev-layout{padding:48px 48px 48px 208px;}
+.slidev-layout .source{left:208px;right:48px;max-width:none;bottom:20px;font-size:10px;}
+.slidev-layout h1{font-size:42px;line-height:1.12;margin:20px 0 30px;}
+.slidev-layout .artifact,.slidev-layout .terminal{background:rgba(37,38,35,.96);border:1px solid #59524b;border-radius:8px;padding:22px 26px;}
+.slidev-layout .artifact p,.slidev-layout .artifact li{font-size:20px;line-height:1.45;margin:12px 0;}
+.slidev-layout .artifact blockquote{font-size:27px;line-height:1.5;margin:22px 0 8px;border:0;padding:0;}
+.slidev-layout .artifact pre{background:transparent!important;padding:12px 0!important;font-size:20px!important;}
+.slidev-layout .terminal{margin-bottom:20px;}
+.slidev-layout .terminal-label{font-size:12px;letter-spacing:1.5px;color:#e7a58d;margin-bottom:14px;}
+.slidev-layout .terminal pre{background:transparent!important;padding:0!important;white-space:pre-wrap;overflow-wrap:anywhere;font-size:21px!important;line-height:1.6!important;margin:0;}
+.slidev-layout .four{display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;}
+.slidev-layout .four section{padding-top:8px;}
+.slidev-layout .four p{font-size:20px;line-height:1.45;margin:10px 0;}
+.slidev-layout .build-strip{padding:26px 20px;background:#342720;border-left:4px solid #d97757;color:#f0b297;font-size:24px;line-height:1.5;margin:0 0 34px;}
+.slidev-layout .conversation{display:grid;gap:18px;}
+.slidev-layout .conversation>div{padding:20px 26px;border-radius:8px;}
+.slidev-layout .student{background:#34312a;margin-right:70px;}
+.slidev-layout .coach{background:#242c2a;margin-left:40px;border-left:3px solid #d97757;}
+.slidev-layout .conversation p{font-size:22px;line-height:1.5;margin:12px 0 0;}
+.slidev-layout .test-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;}
+.slidev-layout .test-grid p{min-height:65px;font-size:21px;margin:20px 0;}
+.slidev-layout .counts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px;}
+.slidev-layout .counts>div{padding:14px 22px;background:#282925;border-top:2px solid #d97757;}
+.slidev-layout .counts b{font-size:44px;display:block;color:#e7a58d;}
+.slidev-layout .counts span{font-size:18px;}
+.slidev-layout .presenter{grid-template-columns:130px 1fr;gap:18px;}
+.slidev-layout .presenter h3{font-size:24px;}
+.slidev-layout .presenter p{font-size:16px;}
+.slidev-layout .presenter .role{font-size:13px;}
+
+/* Original source image alongside the copilot comparison. */
+.slidev-layout .copilot-content{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:30px;align-items:start;}
+.slidev-layout .copilot-content .two{gap:24px;}
+.slidev-layout .copilot-content h3{font-size:21px;}
+.slidev-layout .copilot-content p{font-size:19px;line-height:1.45;}
+.slidev-layout .post-thumbnail{display:block;border:1px solid #978359;border-radius:6px;padding:8px;text-decoration:none;}
+.slidev-layout .post-thumbnail img{display:block;width:100%;height:auto;}
+.slidev-layout .post-thumbnail span{display:block;font-size:12px;line-height:1.5;color:#e7a58d;margin-top:9px;text-align:center;}
+.slidev-layout .post-thumbnail:hover,.slidev-layout .post-thumbnail:focus-visible{outline:2px solid #e7a58d;outline-offset:4px;}
+
+.slidev-layout .checkpoint-help{font-size:16px;line-height:1.4;color:#c8b8ab;margin-top:16px;}
+
+.slidev-layout.checkpoint .terminal pre{font-size:19px!important;line-height:1.45!important;}
+.slidev-layout.checkpoint .terminal{padding:18px 22px;margin-top:12px;margin-bottom:16px;}
+.slidev-layout.checkpoint section{padding-top:8px;}
+.slidev-layout.checkpoint .takeaway{margin-top:18px;font-size:23px;}
+
+/* Shared resource and speaker cards, with full QR quiet zones. */
+.slidev-layout .access-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+.slidev-layout .access-grid section{padding:12px 18px 0;text-align:center;}
+.slidev-layout .access-grid h3{font-size:27px;margin:8px 0 16px;}
+.slidev-layout .access-grid a{display:block;border:0;text-decoration:none;}
+.slidev-layout .access-grid a:focus-visible{outline:3px solid #e7a58d;outline-offset:6px;}
+.slidev-layout .access-qr{display:block;width:232px;height:232px;margin:0 auto 16px;background:#fff;}
+.slidev-layout .access-url{display:block;font-size:18px;line-height:1.4;color:#e7a58d;overflow-wrap:anywhere;}
+.slidev-layout .access-grid p{font-size:17px;line-height:1.4;margin:14px 0;}
+.slidev-layout .speaker-heading{display:flex;align-items:center;gap:18px;text-align:left;margin-bottom:18px;min-height:112px;}
+.slidev-layout .speaker-photo{width:100px;height:112px;object-fit:cover;border-radius:8px;}
+.slidev-layout .speaker-heading h3{font-size:23px;margin:0 0 8px;}
+.slidev-layout .speaker-heading p{font-size:13px;margin:0;}
+.slidev-layout .speaker-links .access-qr{width:208px;height:208px;}
+
+.slidev-layout .intro-linkedin{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:18px;}
+.slidev-layout .intro-linkedin a{display:flex;align-items:center;gap:20px;border:0;font-size:17px;color:#e7a58d;}
+.slidev-layout .intro-linkedin img{width:144px;height:144px;background:white;}
+.slidev-layout.presenters-slide .takeaway{margin-top:18px;margin-bottom:0;font-size:23px;}
+
+/* API credits onboarding: slides 3-6. */
+.slidev-layout .credits{display:grid;grid-template-columns:1.4fr 1fr;gap:36px;align-items:start;}
+.slidev-layout .credits .amount{font-size:56px;line-height:1;font-weight:600;color:#e7a58d;margin:0 0 18px;}
+.slidev-layout .credits ol{list-style:decimal;margin:12px 0 0;padding-left:28px;}
+.slidev-layout .credits li{font-size:19px;line-height:1.42;margin:9px 0;}
+.slidev-layout .qr{display:flex;flex-direction:column;align-items:center;gap:12px;text-decoration:none;color:#c8b8ab;font-size:13px;letter-spacing:1px;}
+.slidev-layout .qr img{width:300px;height:300px;background:#fff;padding:14px;border-radius:8px;box-sizing:border-box;}
+.slidev-layout .qr:hover,.slidev-layout .qr:focus-visible{color:#fff;outline:1px solid #d97757;}
+.slidev-layout .shot{display:block;max-height:430px;max-width:100%;width:auto;margin:0 auto;border:1px solid #59524b;border-radius:8px;}
+.slidev-layout .shot-short{max-height:320px;margin-top:4px;}
+.slidev-layout .shot-caption{font-size:17px;line-height:1.45;color:#d8c4b5;margin:14px auto 0;text-align:center;max-width:900px;}
+
+.slidev-layout .interface-image{display:block;text-align:center;border:0;}
+.slidev-layout .interface-image img{height:405px;max-width:100%;object-fit:contain;margin:auto;}
+.slidev-layout .interface-image span{display:block;font-size:13px;color:#e7a58d;margin-top:8px;}
+.slidev-layout .interface-caption{font-size:18px;line-height:1.4;margin-top:14px;}
+.slidev-layout.spec-prompt .terminal pre{font-size:20px!important;line-height:1.5!important;}
+.module-nav button{padding-top:10px;padding-bottom:10px;}
+
+.slidev-layout .workflow-screenshots{font-size:14px;line-height:1.65;margin:12px 0 0;}
+
+/* Nightshift talk layouts retain the supplied theme. */
+.slidev-layout .stage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 28px;}
+.slidev-layout .stage-grid section{padding-top:10px;}
+.slidev-layout .stage-grid section b{font-size:24px;}
+.slidev-layout .stage-grid h3{font-size:23px;margin:8px 0;}
+.slidev-layout .stage-grid p{font-size:18px;margin:8px 0;}
+.slidev-layout .evidence-header{display:block;width:100%;margin:8px 0 20px;border:1px solid #59524b;border-radius:5px;}
+.slidev-layout .evidence-stages{display:block;width:100%;margin:16px 0 26px;border:1px solid #59524b;border-radius:5px;}
+.slidev-layout .repo-link{font-size:25px;color:#e7a58d;margin-top:36px;}
+.slidev-layout .artifact code{display:inline-block;min-width:230px;color:#e7a58d;}
+.slidev-layout .hero-sub{font-size:32px;line-height:1.5;}
+
+.slidev-layout.closing p{color:#faf9f5;opacity:1;}
