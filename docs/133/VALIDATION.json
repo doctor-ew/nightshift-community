@@ -1,7 +1,7 @@
 {
   "version": 1,
   "issue": 133,
-  "status": "in_progress",
+  "status": "live_demo_verified_ci_pending",
   "accepted": {
     "focused_boundaries": true,
     "architecture_integration": true,
@@ -13,11 +13,10 @@
     "operations_integration_constituents": true,
     "isolated_installation_audit": true,
     "full_live_six_stage_acceptance": true,
-    "actual_success_fallback_recording": true
+    "actual_success_fallback_recording": true,
+    "repeat_receipt_reuse": true
   },
   "pending": [
-    "repeat_receipt_reuse",
-    "optional_jev_shadow_assessment",
     "latest_ci_completion"
   ],
   "limits": [
@@ -27,5 +26,17 @@
     "Default private installation unchanged",
     "Jev live payload approval pending; no live request sent"
   ],
-  "candidate_revision": "36e4abc"
+  "candidate_revision": "201970d9f8deabdf3d978297b2d035290d4f2edf",
+  "repeat": {
+    "exit_code": 0,
+    "additional_provider_calls": 0,
+    "accepted_receipts_unchanged": true,
+    "attempts_unchanged": true,
+    "budget_reservations_unchanged": true
+  },
+  "optional_jev": {
+    "status": "offline",
+    "live_requests": 0,
+    "reason": "External payload approval pending; automatic approval review rejected the request"
+  }
 }
