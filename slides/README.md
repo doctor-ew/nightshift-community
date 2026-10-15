@@ -72,3 +72,13 @@ npm run export:tuesday -- --executable-path "/Applications/Google Chrome.app/Con
 ```
 
 Event PDFs are `saturday-trust-doesnt-rust.pdf` and `tuesday-nightshift.pdf`. The builds are `dist-saturday/` and `dist-tuesday/`. The supplied code photograph is unchanged; lighter CSS overlays make it visible, with a stronger overlay on content slides to protect text.
+
+## Public decks
+
+GitHub Pages serves the published static builds from the dedicated `gh-pages` branch:
+
+- Landing page: https://doctor-ew.github.io/nightshift-community/
+- Saturday: https://doctor-ew.github.io/nightshift-community/saturday/
+- Tuesday: https://doctor-ew.github.io/nightshift-community/tuesday/
+
+The landing page links both PDFs and offline ZIP downloads. `web-index.html` is its editable source. Publication is a snapshot: editing this source branch does not automatically update the website. Rebuild the event decks and exports, copy `web-index.html` as `index.html` alongside `saturday/`, `tuesday/`, both PDFs and ZIPs in a checkout of `gh-pages`, retain `.nojekyll`, then commit and push that branch. Keep source and review changes on the normal source branch.
