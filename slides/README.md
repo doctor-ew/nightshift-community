@@ -82,3 +82,7 @@ GitHub Pages serves the published static builds from the dedicated `gh-pages` br
 - Tuesday: https://doctor-ew.github.io/nightshift-community/tuesday/
 
 The landing page links both PDFs and offline ZIP downloads. `web-index.html` is its editable source. Publication is a snapshot: editing this source branch does not automatically update the website. Rebuild the event decks and exports, copy `web-index.html` as `index.html` alongside `saturday/`, `tuesday/`, both PDFs and ZIPs in a checkout of `gh-pages`, retain `.nojekyll`, then commit and push that branch. Keep source and review changes on the normal source branch.
+
+### On-stage demonstration
+
+Slide 11 in both event decks contains `python3 scripts/nightshift-talk-check.py`, a link to the presenter laptop dashboard, and a public setup guide. Run it from the community checkout with the retained fixture and existing subscription login. It verifies the actual tests and proof gates and repeats the accepted controller invocation; it deliberately blocks new model generation. Audience laptops need their own installation and task to run a fresh workflow.

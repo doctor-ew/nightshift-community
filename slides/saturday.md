@@ -171,11 +171,15 @@ Switch to http://127.0.0.1:8878. Show the completed ticket and the six passing s
 
 <div class="slide-number">DEMONSTRATION</div>
 
-# Live walkthrough
+# Watch Nightshift work
 
-<div class="ladder"><div>Open the skill and canonical instructions</div><div>Inspect routing and recorded providers</div><div>Open source, tests and proof evidence</div><div>Repeat the retained acceptance invocation</div></div>
+<div class="terminal"><div class="terminal-label">PRESENTER TERMINAL · FROM THE COMMUNITY CHECKOUT</div><pre>python3 scripts/nightshift-talk-check.py</pre></div>
 
-<div class="source">docs/133/DEMO.md; docs/talks/TESTING.md</div>
+<p>Recheck six stage receipts, real tests and both proof gates.</p>
+<p>Repeat the retained task with zero new generation calls.</p>
+<p><a href="http://127.0.0.1:8878" target="_blank">Open the local dashboard ↗</a> · <a href="https://github.com/doctor-ew/nightshift-community/blob/nightshift/talks-135/docs/talks/TESTING.md" target="_blank">Demo setup and commands ↗</a></p>
+
+<div class="source">Presenter laptop: retained fixture and subscription login required. Cached repeat, not a fresh agent run.</div>
 
 <!--
 Allow roughly four minutes if the event schedule permits. Keep editor tabs, terminal and dashboard open before presenting. Use the exact pinned wrapper command from the runbook. This repeat demonstrates accepted evidence reuse, not a new author/reviewer run. If the live surface is unavailable, use the actual completed-dashboard recording or offline captured front end in .nightshift/133-fallback/. Do not improvise a global runtime update on stage.
