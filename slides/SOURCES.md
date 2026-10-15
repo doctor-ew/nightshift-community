@@ -28,3 +28,7 @@ Event names, dates, locations, talk titles, speaker role and audience framing co
 `public/assets/refactr-atlanta.avif` is the unchanged clean REFACTR.TECH Atlanta artwork supplied with the Tuesday details. It retains its original aspect ratio. The other supplied Tuesday banner and Saturday poster are source references, not altered or placed inside the deck.
 
 The event decks replace the generic PR-stack appendix with SOLID/ACID review lenses, grounded in `commands/nightshift-review.md`. Human-checkpoint content comes from `AGENTS.md` and `commands/nightshift-implement.md`; policy statements are not a claim that prompt text is a security boundary. Tuesday's contribution suggestions are proposed audience actions, not claims about current issue availability.
+
+## Nightshift builds Nightshift
+
+Slide 15: [issue #138 result](https://github.com/doctor-ew/nightshift-community/issues/138#issuecomment-6201648902) records the real review regression, repair, passing re-review/Drift, QA automated checks and pending visual acceptance/active-time exhaustion. [Issue #139](https://github.com/doctor-ew/nightshift-community/issues/139) tracks the human-acceptance sequencing defect. Candidate unmerged; this run is distinct from the completed duration formatter.

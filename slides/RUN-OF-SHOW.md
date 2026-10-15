@@ -1,6 +1,6 @@
 # Suggested talk paths
 
-The user expects approximately 20–40 minutes. These are adjustable rehearsal cuts, not confirmed session timings. Both event decks have 18 slides and the same navigation targets.
+The user expects approximately 20–40 minutes. These are adjustable rehearsal cuts, not confirmed session timings. Both event decks have 19 slides and the same navigation targets.
 
 ## Events
 
@@ -17,25 +17,25 @@ Saturday begins with the scope of trust and the need for current evidence. Tuesd
 
 ## About 20 minutes
 
-Use slides **1, 2, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15, 16**.
+Use slides **1, 2, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17**.
 
 | Segment | Suggested time | Action |
 |---|---|---|
 | Event opening and engineering problem, slides 1–3 | 4 minutes | Explain the event-specific motivation and harness responsibilities |
 | Skill, stages, small task and routing, slides 4/6/7/8 | 5 minutes | Show the skill file and configured versus recorded routes |
 | Front end and retained demo, slides 10–11 | 5 minutes | Show six passing stages, source/tests and cached repeat |
-| Evidence scope and human checkpoints, slides 13–15 | 3 minutes | Separate generation calls from login probes and policy from authority |
-| Closing and questions, slide 16 | 3 minutes | Saturday: current evidence. Tuesday: a reviewable contribution |
+| Evidence, self-hosted run and checkpoints, slides 13–16 | 3 minutes | Separate generation calls from login probes and policy from authority |
+| Closing and questions, slide 17 | 3 minutes | Saturday: current evidence. Tuesday: a reviewable contribution |
 
 Keep the demo to the preserved public task. The repeat shows current receipt reuse, not fresh model generation. Do not promise a new six-stage run within the slot.
 
 ## About 30 minutes
 
-Add slide **5** for the repository instruction layout, slide **9** for admission and bounded context, and slide **12** for the retained RED/GREEN evidence. Budget roughly two minutes each. Use slide **17** before the closing for a four-minute explanation or execution of the guarded checker.
+Add slide **5** for the repository instruction layout, slide **9** for admission and bounded context, and slide **12** for the retained RED/GREEN evidence. Budget roughly two minutes each. Use slide **18** before the closing for a four-minute explanation or execution of the guarded checker.
 
 ## About 40 minutes
 
-Use the 30-minute path, then add slide **18** for SOLID/ACID review lenses and spend the remaining time walking an actual stage receipt and taking questions. Explain that ACID is a review lens for state-mutating code, not a certification of arbitrary generated applications.
+Use the 30-minute path, then add slide **19** for SOLID/ACID review lenses and spend the remaining time walking an actual stage receipt and taking questions. Explain that ACID is a review lens for state-mutating code, not a certification of arbitrary generated applications.
 
 ## Demo preparation
 
@@ -46,3 +46,5 @@ Use the 30-minute path, then add slide **18** for SOLID/ACID review lenses and s
 5. Keep `.nightshift/133-fallback/completed-demo.webm` and `.nightshift/133-fallback/recorded-dashboard.html` available locally. Use the recorded passing dashboard if the live surface is unavailable.
 
 The event decks' appendix replaces the obsolete PR-stack discussion. Check current merge status separately if someone asks about installation. The pinned demonstration remains distinct from whichever runtime an audience member has installed.
+
+Slide 15 is a one-minute self-hosted run story. Link issues #138/#139; distinguish passing automation from pending human acceptance and the exhausted active-time allowance. Trim another evidence explanation if needed to keep the short cut within its slot.

@@ -1,6 +1,6 @@
 # Nightshift talk deck
 
-Editable Slidev core deck for the upcoming talks. The 18 slides contain 16 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
+Editable Slidev core deck for the upcoming talks. The 19 slides contain 17 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
 
 Two event-specific versions share the theme and engineering core:
 
@@ -86,3 +86,5 @@ The landing page links both PDFs and offline ZIP downloads. `web-index.html` is 
 ### On-stage demonstration
 
 Slide 11 in both event decks contains `python3 scripts/nightshift-talk-check.py`, a link to the presenter laptop dashboard, and a public setup guide. Run it from the community checkout with the retained fixture and existing subscription login. It verifies the actual tests and proof gates and repeats the accepted controller invocation; it deliberately blocks new model generation. Audience laptops need their own installation and task to run a fresh workflow.
+
+Slide 15 tells the real self-hosted dashboard story from issues #138/#139, including its unfinished acceptance and budget stop. It is distinct from the completed formatter demo.

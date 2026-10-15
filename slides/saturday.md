@@ -234,6 +234,23 @@ Keep the scope honest and brief. The run is real, the independent reviewer calls
 
 ---
 
+<div class="slide-number">NIGHTSHIFT BUILDS NIGHTSHIFT</div>
+
+# We pointed it at itself
+
+<div class="stage-grid"><section><b>1</b><h3>Build</h3><p>A control-room UI for Nightshift.</p></section><section><b>2</b><h3>Challenge</h3><p>Review catches a hidden continuation control.</p></section><section><b>3</b><h3>Repair</h3><p>Restore access. Tests and re-review pass.</p></section></div>
+
+<div class="takeaway">It caught a regression—and exposed its own workflow bug.</div>
+<p>Candidate unmerged. Visual acceptance pending.<br>The run stopped at its active-time limit.</p>
+
+<div class="source"><a href="https://github.com/doctor-ew/nightshift-community/issues/138">#138 · Real run and evidence ↗</a> &nbsp; <a href="https://github.com/doctor-ew/nightshift-community/issues/139">#139 · Human acceptance sent to code repair ↗</a></div>
+
+<!--
+This happened while preparing these talks. We asked Nightshift to improve Nightshift's dashboard, using the canonical controller, isolated runtime/worktree, Codex authoring and Claude independent review. Product, Adversarial and Implementation passed. First Review failed because an existing continuation control was hidden inside a closed disclosure. Implementation repaired accessibility and ambiguous receipt labels; independent re-review and Drift passed. QA's automated checks passed, but the QA stage failed on required human visual case C-6. The controller incorrectly routed that human-only finding back to Implementation. The persisted 3,600 active-second allowance exhausted before that worker could do substantive work. No acceptance was fabricated, no budget reset, no verified publication, merge or deployment. Issue 139 records the sequencing defect. This is a real partially completed run, separate from the completed duration-formatter rehearsal. Open issue 138 for durable evidence; localhost:8880 is the candidate on the presenter laptop only. Allow about one minute: build, challenge, repair, then the honest stop. Sources: issue138 result comment6201648902; issue139; retained controller receipts/state for138. Do not describe all six stages or final proof as passed.
+-->
+
+---
+
 <div class="slide-number">DEEP DIVE</div>
 
 # Human checkpoints

@@ -6,7 +6,7 @@ const sections = [
   {label:'Overview',start:1},{label:'Skills',start:4},
   {label:'Harness',start:6},{label:'Routing',start:8},
   {label:'Demonstration',start:10},{label:'Evidence',start:13},
-  {label:'Discussion',start:16},{label:'Appendix',start:17},
+  {label:'Discussion',start:17},{label:'Appendix',start:18},
 ]
 const active = computed(() => sections.reduce((found,s,i) => nav.currentPage.value >= s.start ? i : found, 0))
 </script>
