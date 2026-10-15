@@ -20,7 +20,77 @@ async function holdAction(action){
  });
  return {arrived,release:()=>resume()};
 }
+async function controlRoom() {
+ // AC-1 AC-2 AC-3 AC-5: synthetic presentation fixtures; no operator testimony.
+ let posts=[], polls=0;
+ const long='recorded-model-'+ 'long-route-'.repeat(18);
+ const fixture={task:'synthetic-control-room',sha256:'a'.repeat(64),settings:{branch:'auto',ref:'gh:synthetic/disposable#138',provider:'configured-must-not-leak',policy:'standard'},running:false,finished:false,
+ pipeline:{status:'pending',next_action:'review',attempts:[
+ {stage:'implement',status:'fail',reason:'Retained synthetic failure',route:{provider:'codex',model:'old-implementation-route'},receipt:'/tmp/'+ 'long-path/'.repeat(18)+'failure.json'},
+ {stage:'implement',status:'pass',receipt:'/tmp/implementation-pass.json'},
+ {stage:'review',status:'fail',reason:'Review synthetic failure',route:{provider:'claude',model:long},receipt:'/tmp/review-fail.json'}],completed:{implement:{receipt:'/tmp/implementation-pass.json'}}}};
+ await page.route('**/api/tickets',route=>{polls++;return route.fulfill({json:{token:'synthetic-token',tickets:[fixture]}});});
+ await page.route('**/api/tickets/*',route=>{posts.push(route.request().postDataJSON());return route.fulfill({json:{message:'synthetic saved'}});});
+ await page.goto(url);
+ const card=page.locator('.ticket-focus').filter({has:page.getByRole('heading',{name:fixture.task,exact:true})});
+ await card.waitFor();
+ assert(await card.evaluate(e=>!!(e.compareDocumentPosition(document.querySelector('[aria-label="Guided intake"]'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Task precedes request setup');
+ const nav=card.getByRole('navigation',{name:/stages/i});
+ const buttons=nav.getByRole('button');assert.equal(await buttons.count(),6);
+ const detail=card.getByRole('region',{name:/stage evidence/i});
+ assert.equal(await nav.locator('[aria-pressed="true"]').count(),1);
+ assert.match(await detail.innerText(),/Review synthetic failure/);
+ for(const width of [1440,390]) {
+  await page.setViewportSize({width,height:width===390?844:1000});
+  for(let i=0;i<6;i++) {
+   const b=buttons.nth(i);await b.focus();await page.keyboard.press(i%2?'Space':'Enter');
+   assert.equal(await b.getAttribute('aria-pressed'),'true');assert.equal(await nav.locator('[aria-pressed="true"]').count(),1);
+   assert(await b.evaluate(e=>e===document.activeElement));
+   const box=await b.boundingBox();assert(box.height>=44,'Stage target at least 44px');
+   assert(await b.evaluate(e=>getComputedStyle(e).outlineStyle!=='none'),'Visible focus');
+  }
+  await buttons.nth(2).click();
+  const evidence=await detail.innerText();assert.match(evidence,/Retained synthetic failure/);assert(!evidence.includes(long));
+  assert.match(evidence,/Provider not recorded/i);assert.match(evidence,/Model not recorded/i);
+  assert.match(evidence,/Tests/i);assert.match(evidence,/Proof|receipt/i);
+  assert(!evidence.includes('configured-must-not-leak'));
+  await buttons.nth(5).click();assert.match(await detail.innerText(),/not recorded/i);assert(!(await detail.innerText()).includes('Retained synthetic failure'));
+  await buttons.nth(3).focus();await page.keyboard.press('Enter');
+  const initial=polls;await page.waitForFunction(()=>true);while(polls===initial) await page.waitForTimeout(100);
+  assert.equal(await buttons.nth(3).getAttribute('aria-pressed'),'true');assert(await buttons.nth(3).evaluate(e=>document.activeElement===e));
+  await page.keyboard.press('Tab');assert(await buttons.nth(4).evaluate(e=>document.activeElement===e));await page.keyboard.press('Shift+Tab');assert(await buttons.nth(3).evaluate(e=>document.activeElement===e));
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal page overflow');
+  const contrast=await card.evaluate(root=>{
+   const rgb=s=>(s.match(/[\d.]+/g)||[]).map(Number);
+   const lum=c=>c.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+   const background=e=>{if(!e)return [0,0,0];const c=rgb(getComputedStyle(e).backgroundColor),base=background(e.parentElement),a=c.length>3?c[3]:1;return c.slice(0,3).map((v,i)=>v*a+base[i]*(1-a));};
+   const ratio=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+   const failures=[];
+   for(const e of root.querySelectorAll('*')){if(!e.getClientRects().length)continue;const cs=getComputedStyle(e),bg=background(e);
+    if([...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())){const large=parseFloat(cs.fontSize)>=24||(parseFloat(cs.fontSize)>=18.66&&parseInt(cs.fontWeight)>=700);if(ratio(rgb(cs.color),bg)<(large?3:4.5))failures.push(e.tagName+' text '+cs.color);}
+    if(e.matches('button:not(:disabled)')){if(e.getBoundingClientRect().height<44)failures.push('action height');if(ratio(rgb(cs.borderTopColor),bg)<3)failures.push('control boundary '+cs.borderTopColor);}
+   }return failures;
+  });assert.deepEqual(contrast,[],'Computed contrast including composed backgrounds');
+  await card.screenshot({path:resolve(artifacts,`control-room-${width}.png`)});
+ }
+ assert.equal(posts.length,0,'Inspection never dispatches');
+ for(const state of ['complete','stale','pending_manual_acceptance','running','readonly','exhausted','unknown']) {
+  fixture.pipeline.status=state==='readonly'||state==='exhausted'?'pending':state;
+  fixture.pipeline.next_action=state==='unknown'?'unsupported-recorded-action':'review';
+  fixture.running=state==='running';fixture.settings.branch=state==='readonly'?'none':'auto';fixture.finished=state==='complete';fixture.retry_exhausted_stage=state==='exhausted'?'review':null;
+  await page.reload();await card.waitFor();
+  if(['complete','running','readonly','exhausted'].includes(state))assert(await card.getByRole('button',{name:/^(Resume|Running|Run ended)$/,exact:true}).isDisabled());
+  if(state==='unknown')assert.match(await card.innerText(),/unsupported-recorded-action/);
+  assert.equal(posts.length,0);
+ }
+ fixture.task='synthetic-other-task';fixture.pipeline={status:'pending',next_action:'product',attempts:[]};await page.reload();
+ assert(!(await page.getByRole('region',{name:/stage evidence/i}).innerText()).includes('Review synthetic failure'));
+ await page.unroute('**/api/tickets');await page.unroute('**/api/tickets/*');
+ writeFileSync(resolve(artifacts,'control-room-report.json'),JSON.stringify({synthetic:true,widths:[1440,390],inspection_posts:posts,checks:['stage isolation','keyboard/focus/polling','missing routes','history','computed contrast','44px controls','overflow','admission states'],manual_acceptance:'pending'},null,2));
+}
 try{
+ await controlRoom();
+ await page.setViewportSize({width:1440,height:1000});
  await page.goto(url);
  assert(!(await intake.locator('.intake-options').evaluate(el=>el.open)),'Detailed request fields start collapsed');
  assert(!(await intake.locator('.intake-runtime').evaluate(el=>el.open)),'Runtime diagnostics start collapsed');
