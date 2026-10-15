@@ -22,6 +22,9 @@ async function holdAction(action){
 }
 try{
  await page.goto(url);
+ assert(!(await intake.locator('.intake-options').evaluate(el=>el.open)),'Detailed request fields start collapsed');
+ assert(!(await intake.locator('.intake-runtime').evaluate(el=>el.open)),'Runtime diagnostics start collapsed');
+ assert(await intake.getByLabel('Source reference').isVisible(),'Source reference stays available');
  await operations.getByLabel('Task key',{exact:true}).fill('demo');
  await operations.getByRole('button',{name:'Assess operations',exact:true}).click();
  await operations.getByRole('button',{name:'Select factory recipe',exact:true}).waitFor();await intake.getByLabel('Source reference').fill('spec:request.md');
@@ -29,7 +32,7 @@ try{
  const pendingResponse=click(intake,'Preview request plan','intake-preview');await intakeHold.arrived;
  assert(await operations.getByLabel('Task key',{exact:true}).isDisabled(),'Intake must lock operation task switching');
  assert(await operations.getByRole('button',{name:'Select factory recipe',exact:true}).isDisabled(),'Intake must lock operation actions');
- intakeHold.release();const pending=await pendingResponse;assert.equal(pending.status,'needs_decision');assert.equal(pending.decision.continuation_operation,'none');
+ intakeHold.release();const pending=await pendingResponse;assert.equal(pending.status,'needs_decision');assert(await intake.locator('.intake-options').evaluate(el=>el.open),'Missing choices reveal detailed controls');assert.equal(pending.decision.continuation_operation,'none');
  assert(!existsSync(resolve(root,'.synthetic-calls.jsonl')));
  await page.reload();await intake.getByLabel('Source reference').fill('spec:request.md');
  const retained=await click(intake,'Preview request plan','intake-preview');assert.equal(retained.binding,pending.binding);assert.equal(retained.decision.sha256,pending.decision.sha256);

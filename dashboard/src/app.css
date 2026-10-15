@@ -73,3 +73,12 @@ a:focus-visible { outline: 2px solid #89c6ab; outline-offset: 3px; }
 .intake-panel pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;padding:12px;background:#141a23;border-radius:6px;}
 
 .operations-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;max-height:28rem;overflow:auto}.operations-panel fieldset{min-width:0}.operations-panel textarea{display:block;box-sizing:border-box;width:100%;max-width:100%}.operations-panel p,.operations-panel label{overflow-wrap:anywhere}
+
+/* Guided intake starts with a reference; detailed controls stay available on demand. */
+.intake-options{max-width:900px;border:1px solid #354355;border-radius:8px;padding:12px 16px;}
+.intake-options>summary,.intake-runtime>summary{font-size:14px;color:#c6d8d0;}
+.intake-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0 8px;}
+.intake-fields>label{display:flex;flex-direction:column;gap:7px;min-width:0;font-size:13px;color:#b7c1d0;}
+.intake-panel .intake-hint{font-size:12px;max-width:720px;color:#a7b8ae;}
+.intake-runtime{max-width:900px;}
+@media(max-width:700px){.intake-fields{grid-template-columns:1fr;}}

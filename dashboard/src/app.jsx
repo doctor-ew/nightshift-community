@@ -306,8 +306,8 @@ function App() {
     <section className="intro"><p className="eyebrow">YOUR LOCAL CONTROL ROOM</p><h1>See the work. Follow the evidence.</h1><p>Recorded run and gate states across your repository. Local evidence and workshop spec approval, on this machine.</p><code className="repo">{data?.root || 'Loading repository…'}</code></section>
     {error && <div className="notice" role="alert">{error}</div>}
     <WorkshopReviews />
-    <OperationsPanel />
     <TicketActions rows={rows} reports={data?.ticket_usage || []} />
+    <OperationsPanel />
     <ArtifactLibrary rows={rows} />
     <details className="workspace disclosure"><summary>Cost and token usage</summary><TicketUsage reports={data?.ticket_usage || []} /></details>
     <details className="workspace disclosure"><summary>Agent history <span className="badge">{agents.length} records · {agents.filter(a => a.state === 'running').length} recorded running</span></summary><section className="workspace" aria-label="Agents"><div className="section-title"><div><h2>Agents <span className="badge busy">{agents.filter(a=>a.state==='running').length} recorded running</span></h2><p>Factory and role lifecycle records. A running record is not a verified OS heartbeat; interrupted processes may leave stale records.</p></div><label>Agent state <select value={agentState} onChange={e=>{setAgentState(e.target.value);setAgentPage(0);}}>{['all','running','success','failed','interrupted'].map(s=><option key={s}>{s}</option>)}</select></label></div>
