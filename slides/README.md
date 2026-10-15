@@ -2,7 +2,12 @@
 
 Editable Slidev core deck for the upcoming talks. The 18 slides contain 16 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
 
-The event names, audiences and speaking times have not been supplied. The current core assumes a technical audience and roughly 20 minutes including a four-minute walkthrough. Use the same core for Saturday and Tuesday until those details are confirmed. For a short slot, omit slides 5, 9, 12 and 15, and show the retained dashboard rather than a new provider run. For a longer slot, expand the editor walkthrough and questions. The appendices are optional.
+Two event-specific versions share the theme and engineering core:
+
+- `saturday.md`: **Trust doesn't rust**, ATL Dev Con, 17 October 2026, FCS Innovation Academy in Alpharetta.
+- `tuesday.md`: **Nightshift: From Copilot to Autopilot (Engineering Guardrails for AI Coding Agents)**, Open Source Night, 20 October 2026, Tech Square ATL. This version connects the harness to open contribution and independent review for a mixed-experience meetup audience.
+
+The user estimates a 20–40 minute speaking slot. Suggested 20-, 30- and 40-minute paths are in [RUN-OF-SHOW.md](RUN-OF-SHOW.md). Posted 8 AM–5 PM and 6:30–8:30 PM times are whole-event windows, not the duration of either talk.
 
 ## Present
 
@@ -47,3 +52,23 @@ The supplied GSU Slidev reference provides the code-photo background, Source Cod
 See [SOURCES.md](SOURCES.md) for content and asset provenance. Event-specific variants can change the title and examples while retaining this shared visual theme.
 
 The deck pins `floating-vue` to `5.2.2` to avoid the [reported tooltip compatibility issue](https://github.com/shikijs/shiki/issues/1329). This changes this deck’s dependency resolution, not the supplied reference project. The theme, Slidev version and native slide content remain intact.
+
+## Event versions
+
+From `slides/`:
+
+```bash
+npm run dev:saturday
+npm run dev:tuesday
+```
+
+Open http://localhost:3044/ for Saturday and http://localhost:3045/ for Tuesday. Add `/presenter/` for speaker notes.
+
+```bash
+npm run build:saturday
+npm run build:tuesday
+npm run export:saturday -- --executable-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+npm run export:tuesday -- --executable-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+```
+
+Event PDFs are `saturday-trust-doesnt-rust.pdf` and `tuesday-nightshift.pdf`. The builds are `dist-saturday/` and `dist-tuesday/`. The supplied code photograph is unchanged; lighter CSS overlays make it visible, with a stronger overlay on content slides to protect text.

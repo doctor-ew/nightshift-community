@@ -3,3 +3,5 @@ dist/
 *.pdf
 .slidev/
 *.zip
+dist-saturday/
+dist-tuesday/

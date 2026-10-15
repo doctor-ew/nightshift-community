@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "slidev",
     "build": "slidev build --base ./ --router-mode hash",
-    "export": "slidev export --output nightshift-final.pdf"
+    "export": "slidev export --output nightshift-final.pdf",
+    "dev:saturday": "slidev saturday.md --port 3044",
+    "dev:tuesday": "slidev tuesday.md --port 3045",
+    "build:saturday": "slidev build saturday.md --base ./ --router-mode hash --out dist-saturday",
+    "build:tuesday": "slidev build tuesday.md --base ./ --router-mode hash --out dist-tuesday",
+    "export:saturday": "slidev export saturday.md --output saturday-trust-doesnt-rust.pdf --per-slide",
+    "export:tuesday": "slidev export tuesday.md --output tuesday-nightshift.pdf --per-slide"
   },
   "dependencies": {
     "@slidev/cli": "52.19.1",

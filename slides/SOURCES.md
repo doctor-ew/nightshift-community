@@ -20,3 +20,11 @@ Reference supplied by the user: `gsu-hack-her-thon-2026/slides/` in the adjacent
 - `public/assets/demo-header.png` and `demo-stages.png`: new browser screenshots of the actual public ticket marked Complete and all six stages marked passed. These are original captures of the corresponding elements, not fabricated UI.
 
 The public rehearsal fixture is the retained duration formatter for issue 133. The deck does not claim arbitrary-project reliability, actual billed costs, Jev accuracy or model savings. Recorded routing describes this acceptance run. Merge/backlog statements are an observation on 14 October 2026 and should be refreshed if used later.
+
+## Event-specific updates, 15 October 2026
+
+Event names, dates, locations, talk titles, speaker role and audience framing come from the user's supplied ATL Dev Con speaker poster, Open Source Night banner and complete meetup listing. The Saturday event window is 8 AM–5 PM; Tuesday's event window is 6:30–8:30 PM. Neither establishes the speaker's allotted slot. The user estimates 20–40 minutes.
+
+`public/assets/refactr-atlanta.avif` is the unchanged clean REFACTR.TECH Atlanta artwork supplied with the Tuesday details. It retains its original aspect ratio. The other supplied Tuesday banner and Saturday poster are source references, not altered or placed inside the deck.
+
+The event decks replace the generic PR-stack appendix with SOLID/ACID review lenses, grounded in `commands/nightshift-review.md`. Human-checkpoint content comes from `AGENTS.md` and `commands/nightshift-implement.md`; policy statements are not a claim that prompt text is a security boundary. Tuesday's contribution suggestions are proposed audience actions, not claims about current issue availability.

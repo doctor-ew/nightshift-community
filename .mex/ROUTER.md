@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-10-14"
+last_updated: "2026-10-15"
 ---
 
 # Session Bootstrap
@@ -28,7 +28,7 @@ If you haven't already read `AGENTS.md`, read it now — it contains the project
 Then read this file fully before doing anything else in this session.
 
 ## Current Project State
-Issue 135 talk preparation: `slides/slides.md` provides an editable themed Slidev core deck with speaker notes. `scripts/nightshift-talk-check.py` verifies the pinned public fixture and refuses provider generation during its cached repeat. `docs/talks/TESTING.md` and `docs/talks/open-pr-audit.md` record test commands and observed merge/PR state. PR #134 merged into the integration branch behind #132; this alone does not put the fixes in main. The supplied reference slides and default installation remain unchanged.
+Issue 135 talk preparation: `slides/slides.md` provides an editable themed Slidev core deck with speaker notes. Event variants `slides/saturday.md` and `slides/tuesday.md` use the supplied ATL Dev Con and Open Source Night details; `slides/RUN-OF-SHOW.md` gives suggested 20/30/40-minute paths. The original code photograph is preserved with lighter overlays after the user reported poor visibility. `scripts/nightshift-talk-check.py` verifies the pinned public fixture and refuses provider generation during its cached repeat. `docs/talks/TESTING.md` and `docs/talks/open-pr-audit.md` record test commands and observed merge/PR state. PR #134 merged into the integration branch behind #132; this alone does not put the fixes in main. The supplied reference slides and default installation remain unchanged.
 
 Issue 133 local candidate: development proof is sealed during Implementation, with immutable independent classification evidence and runtime-bound retry identity. Automatic routing checks local inventory before dispatch; bounded handoffs avoid repeated raw logs. New ticket wall clocks are opt-in, while existing budgets and explicit limits remain enforced. Branchless controller tickets are visible but read-only in the dashboard. Sources: `docs/133/SPEC.md`, `docs/133/IMPLEMENTATION.md`, `scripts/nightshift-pipeline.py`, `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-handoff.py`, `scripts/nightshift-console-actions.py`. Architecture and focused regressions pass. Isolated public candidate `36e4abc` passed all six live stages and both proof gates; candidate `201970d` repeats the identical invocation with zero additional provider calls and unchanged receipts and budget reservations. Published implementation CI passed all ten harness shards, dashboard, lint and the required aggregate gate; evidence is recorded in `docs/133/VALIDATION.json`. Earlier failed talk receipts and the default private installation are preserved. Sources: `docs/133/VALIDATION.json`, `scripts/nightshift-cleanup.py`.
 
