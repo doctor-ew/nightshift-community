@@ -20,15 +20,15 @@ export function LiveProgress({ticket}) {
     <p>Worker snapshot: {live?.phase || 'Worker liveness unverified'}</p>
     <small>Gate statuses above are retained observations. They do not start workers, renew allowances or turn historical failures into success.</small>
   </section>;
-  if (!live) return <section className="live-progress"><h4>You are here</h4><p>Waiting for a live progress snapshot. Recorded gates remain below.</p></section>;
-  return <section className="live-progress" aria-label="Live ticket progress">
-    <div className="run-head"><h4>You are here</h4><span className={'badge '+(ticket.running?'busy':'')}>{live.phase || 'Status unavailable'}</span></div>
+  if (!live) return <section className="live-progress"><h4>Recorded progress</h4><p>No progress snapshot recorded. Worker liveness is unverified; inspect the retained stage evidence.</p></section>;
+  return <section className="live-progress" aria-label="Recorded ticket progress snapshot">
+    <div className="run-head"><h4>Recorded progress snapshot</h4><span className={'badge '+(ticket.running?'busy':'')}>{live.phase || 'Status unavailable'}</span></div>
     <p className="live-activity">{live.activity}</p>
     {(live.workers || []).map((worker, index) => <p className="run-meta" key={index}><span>{worker.role}</span><span>{worker.provider} · {worker.model}</span><span>{duration(worker.elapsed_seconds)} elapsed</span></p>)}
     <dl className="live-facts"><div><dt>Action needed</dt><dd>{live.action_required || 'Check the latest receipt'}</dd></div><div><dt>Next</dt><dd>{live.next || 'Await a recorded result'}</dd></div><div><dt>Last activity</dt><dd>{time(live.last_activity_at)}{typeof live.last_activity_age_seconds === 'number' && ` · ${duration(live.last_activity_age_seconds)} ago`}</dd></div></dl>
     {live.latest_event && <details className="latest-event" open><summary>Latest recorded update</summary><p>{live.latest_event}</p></details>}
     {live.dependency?.children?.length > 0 && <div aria-label="Child ticket status"><h4>Dependent tickets</h4><ul>{live.dependency.children.map(child => <li key={child.id}><strong>{child.id}: {child.status}</strong>{child.reason && ` — ${child.reason}`}</li>)}</ul></div>}
-    <small>Activity describes live processes. The timeline below records gate outcomes; an active repair does not erase a failed gate.</small>
+    <small>Activity is a retained snapshot, not a verified heartbeat. It may be stale; recorded running state does not establish worker liveness. Historical failed gates remain retained.</small>
   </section>;
 }
 

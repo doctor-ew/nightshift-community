@@ -225,3 +225,30 @@ test('no-wall active allowance still blocks unnecessary continuation', async () 
   assert.equal(continuationControl(ticket).disabled,true);
   assert.match(continuationControl(ticket).reason,/Time remains/);
 });
+
+// AC-2 AC-3 AC-5: UI-E1 binds evidence to a task and stage, never routing defaults.
+test('UI-E1 stage projection retains failures and rejects cross-task/stage fallback', async () => {
+  const model = await import('./src/model.mjs');
+  assert.equal(typeof model.stageEvidence, 'function', 'UI-E1 needs a pure stage evidence projection');
+  const ticket = {task:'fixture-a', settings:{provider:'configured-only'}, pipeline:{status:'pending', attempts:[
+    {stage:'implement',status:'fail',route:{provider:'codex',model:'recorded-old'},receipt:'/tmp/failed.json',reason:'Historical assertion failure'},
+    {stage:'review',status:'pass',route:{provider:'claude',model:'review-only'},receipt:'/tmp/review.json'},
+    {stage:'implement',status:'pass',receipt:'/tmp/passed.json'}
+  ],completed:{implement:{receipt:'/tmp/passed.json'}}}};
+  const rows = [
+    {ticket:'fixture-b',gate:'implement',source:'gate',provider:'foreign-provider',links:[{label:'foreign',href:'file:///tmp/foreign'}]},
+    {ticket:'fixture-a',source:'artifacts',links:[{label:'SPEC.md',href:'file:///tmp/SPEC.md'}]},
+    {ticket:'fixture-a',gate:'implement',source:'gate',state:'failed',links:[{label:'tests',href:'file:///tmp/tests.json'}]}
+  ];
+  const result=model.stageEvidence(rows,ticket,'implement');
+  assert.equal(result.task,'fixture-a');assert.equal(result.stage,'implement');
+  assert.equal(result.attempts.length,2);assert.equal(result.attempts[0].route.model,'recorded-old');
+  assert.match(JSON.stringify(result),/Historical assertion failure/);
+  assert(!JSON.stringify(result).includes('foreign'));assert(!JSON.stringify(result).includes('review-only'));
+  assert(!JSON.stringify(result).includes('configured-only'));
+  assert.equal(result.provider,null);assert.equal(result.model,null,'latest attempt must not borrow an older route');
+  assert(result.taskEvidence.some(link=>link.label==='SPEC.md'));
+  const missing=model.stageEvidence(rows,ticket,'qa');
+  assert.equal(missing.provider,null);assert.equal(missing.model,null);assert.equal(missing.attempts.length,0);
+  assert.equal(model.stageEvidence(rows,{...ticket,pipeline:{...ticket.pipeline,status:'stale'}},'implement').stale,true);
+});
