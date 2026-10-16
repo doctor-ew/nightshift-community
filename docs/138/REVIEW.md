@@ -56,7 +56,7 @@ Logs are under `docs/138/review-2-evidence/`.
 - `bash scripts/nightshift-tdd-integrity-check.sh 138`: PASS. `git diff --check`: clean.
 - `node --test test-model.mjs` (dashboard): 24 pass, 0 fail.
 - `node build.mjs` (dashboard): exit 0; `dist/assets/app.js` and `app.css` hashes unchanged after rebuild (reproducible).
-- `tests/test-console-read-only-browser.py`: PASS (previously failing). 
+- `tests/test-console-read-only-browser.py`: PASS (previously failing).
 - `tests/test-operation-browser.py`, `tests/test-intake-browser.py`, `tests/test-delivery-browser.py`, `tests/test-operation-cancellation-browser.py`, `tests/test-package-authoring-browser.py`, `tests/test-dashboard.sh`, `dashboard/test_server.py`: pass.
 - `tests/test-recovery-independent.sh` (4 failures, 3 errors) and `tests/test-semantic-transport-review.py` (1 failure): same failing test names as at 758ba3d (`docs/138/review-1-evidence/baseline-*.log`); unrelated to this change.
 - Manual acceptance C-6 remains pending; Drift and QA remain controller-owned.
