@@ -75,7 +75,14 @@ if [ -n "$LAST" ] && [ "${MOCK_MODE:-structured}" != missing ]; then
   else printf '%s\n' "$MOCK_RESPONSE" > "$LAST"; fi
 fi
 MOCK
-chmod +x "$TMP/bin/claude" "$TMP/bin/codex"
+cat > "$TMP/bin/ollama" <<'MOCK'
+#!/usr/bin/env bash
+[ "$*" = list ] || exit 99
+[ "${MOCK_INVENTORY_UNAVAILABLE:-false}" != true ] || exit 1
+[ -z "${MOCK_INVENTORY_LOG:-}" ] || printf 'inventory\n' >> "$MOCK_INVENTORY_LOG"
+printf 'NAME ID SIZE MODIFIED\nqwen2.5-coder:14b fixture 9GB now\n'
+MOCK
+chmod +x "$TMP/bin/claude" "$TMP/bin/codex" "$TMP/bin/ollama"
 export PATH="$TMP/bin:$PATH" MOCK_LOG="$TMP/calls.json"
 export MOCK_MODE=structured MOCK_EXIT=0
 export NIGHTSHIFT_TELEMETRY_DIR="$TMP/telemetry"
@@ -128,13 +135,22 @@ check 'automatic high-risk bounded gear dispatch' args '.[index("--model")+1] ==
 run nightshift-engineer --gear 0 --risk low --in "$INPUT" --out "$OUTPUT"
 check 'gear zero cannot bypass role restriction' test "$RC" -ne 0
 MOCK_RESPONSE='{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"branch":"fixture","diff":"done","provider":"claude","model":"fixture"},"rules_fired":[],"results":{"claims":[]}}'
+export MOCK_INVENTORY_UNAVAILABLE=true
+RC=0
+bash "$TMP/runtime/scripts/nightshift-dispatch-bounded.sh" nightshift-code-fact-extractor --risk low --in "$INPUT" --out "$OUTPUT" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
+check 'unavailable inventory promotes before launch' test "$RC" -eq 0
+check 'prelaunch promotion is one actual attempt' json '.attempts == 1 and .artifacts.provider == "claude"'
+check 'prelaunch promotion records configured gear' jq -e 'length == 1 and .[0].gear == 1 and .[0].provider == "claude"' "$OUTPUT.attempts.json"
+unset MOCK_INVENTORY_UNAVAILABLE
+export MOCK_INVENTORY_LOG="$TMP/inventory.log"
 export MOCK_LOCAL_UNAVAILABLE=true
 RC=0
 bash "$TMP/runtime/scripts/nightshift-dispatch-bounded.sh" nightshift-code-fact-extractor --risk low --in "$INPUT" --out "$OUTPUT" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
 check 'missing local service automatically escalates' test "$RC" -eq 0
 check 'fallback records second actual attempt' json '.attempts == 2 and .artifacts.provider == "claude"'
 check 'fallback preserves sanitized attempt evidence' jq -e 'length == 2 and .[0] == {attempt:1,gear:0,provider:"local",status:"FAIL",reason:"local_unavailable"} and .[1].attempt == 2 and .[1].status == "SUCCESS"' "$OUTPUT.attempts.json"
-unset MOCK_LOCAL_UNAVAILABLE
+check 'admitted local inventory is queried once per actual attempt' test "$(wc -l < "$MOCK_INVENTORY_LOG" | tr -d ' ')" -eq 1
+unset MOCK_LOCAL_UNAVAILABLE MOCK_INVENTORY_LOG
 export MOCK_AUTH='{"loggedIn":false}'
 RC=0
 bash "$TMP/runtime/scripts/nightshift-dispatch-bounded.sh" nightshift-code-fact-extractor --risk standard --in "$INPUT" --out "$OUTPUT" > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
@@ -268,6 +284,9 @@ for provider in codex claude; do
   mv "$TMP/route.json" "$TMP/runtime/routing.json"
   AUTONOMOUS=true NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider autonomous architect dispatch" test "$RC" -eq 0
+  if [ "$provider" = claude ]; then
+    check 'Claude unattended write worker receives CLI permission authority' args 'index("--dangerously-skip-permissions") != null'
+  fi
   check "$provider carries autonomous plan authority" args 'join(" ") | contains("Execution mode: autonomous.") and contains("without another plan-approval stop")'
   check "$provider removes unconditional architect stop" args 'join(" ") | contains("Hard gate, not a suggestion") | not'
   if [ "$provider" = codex ]; then
@@ -275,13 +294,20 @@ for provider in codex claude; do
   fi
   AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=true run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider factory flag carries authority" args 'join(" ") | contains("Execution mode: autonomous.")'
+  if [ "$provider" = claude ]; then
+    check 'Claude factory worker receives CLI permission authority' args 'index("--dangerously-skip-permissions") != null'
+  fi
   AUTONOMOUS=false NIGHTSHIFT_FACTORY_MODE=false run nightshift-architect --gear 1 --in "$INPUT" --out "$OUTPUT"
   check "$provider supervised mode retained" args 'join(" ") | contains("Execution mode: supervised.") and (contains("Execution mode: autonomous.") | not)'
+  if [ "$provider" = claude ]; then
+    check 'Claude supervised worker keeps permission prompts' args 'index("--dangerously-skip-permissions") == null'
+  fi
 done
 # Policy applies to direct role calls, including automatic local gear and reviews.
 export MOCK_RESPONSE='{"status":"SUCCESS","reason":"","attempts":1,"artifacts":{"branch":"fixture","diff":"","provider":"claude","model":"fixture"},"rules_fired":[],"results":{"claims":[]}}'
 export NIGHTSHIFT_PROVIDER_POLICY=claude-only
-run nightshift-code-fact-extractor --gear auto --risk low --in "$INPUT" --out "$OUTPUT"
+AUTONOMOUS=true run nightshift-code-fact-extractor --gear auto --risk low --in "$INPUT" --out "$OUTPUT"
+check 'Fact extraction does not receive write permission bypass' args 'index("--dangerously-skip-permissions") == null'
 check 'Claude-only never selects automatic local extraction' json '.artifacts.provider == "claude"'
 run nightshift-code-fact-extractor --gear 1 --adversarial --author-provider claude --in "$INPUT" --out "$OUTPUT"
 check 'Claude-only fresh same-provider review succeeds' test "$RC" -eq 0

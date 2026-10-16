@@ -35,13 +35,13 @@ class ContinuationTests(unittest.TestCase):
         (docs / 'SPEC.md').write_text('retained specification')
         subprocess.run(['git', '-C', str(self.target), 'add', '.'], check=True)
         subprocess.run(['git', '-C', str(self.target), 'commit', '-qm', 'retained draft'], check=True)
-        # Reproduce the retained-worktree failure: config exists only at the primary.
+        # Retained worktrees inherit configuration that exists only at the primary.
         shutil.copy(ROOT / 'nightshift.toml', self.project / '.nightshift.toml')
         shutil.copy(ROOT / 'routing.json', self.project / 'routing.json')
         self.settings = dict(ref='gh:42', provider='codex', model='', policy='standard',
                              auth='subscription', branch='auto', base=git('rev-parse', 'HEAD'), push=False, pr=False)
         actions.save(self.project, '42', self.settings)
-        budget.update(self.project, '42', 'reserve', 'original', now=10)
+        budget.update(self.project, '42', 'reserve', 'original', now=10, max_wall_seconds=600)
         budget.update(self.project, '42', 'finish', 'original', now=20)
         self.ledger = budget.ledger_path(self.project, '42')
 
@@ -49,6 +49,21 @@ class ContinuationTests(unittest.TestCase):
         current = displayed or actions.state(self.project, '42')
         return actions.action(self.project, '42', current['sha256'], 'continue',
                               budget_revision=current['budget']['revision'])
+
+    def test_no_wall_policy_with_active_time_remaining_cannot_grant_continuation(self):
+        retained = json.loads(self.ledger.read_text())
+        retained.update(wall_clock='none', deadline_at=None, max_wall_seconds=None)
+        self.ledger.write_text(json.dumps(retained))
+        before = self.ledger.read_bytes()
+        current = actions.state(self.project, '42')
+        self.assertFalse(current['budget']['exhausted'])
+        self.assertEqual(current['budget']['wall_clock'], 'none')
+        with patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
+            with self.assertRaisesRegex(ValueError, 'Time remains'):
+                self.click(current)
+            self.assertFalse(any(str(actions.FACTORY) in str(call) for call in process.call_args_list))
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
 
     def test_exhausted_stage_cannot_grant_time_or_resume(self):
         module = actions._recovery.load('pipeline')
@@ -91,7 +106,8 @@ class ContinuationTests(unittest.TestCase):
         self.assertEqual(self.ledger.read_bytes(), before)
         self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
 
-    def test_missing_worktree_manifest_grants_nothing_and_starts_no_worker(self):
+    def test_missing_effective_manifest_grants_nothing_and_starts_no_worker(self):
+        (self.project / '.nightshift.toml').rename(self.project / '.nightshift.toml.saved')
         before = self.ledger.read_bytes()
         with patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
             with self.assertRaisesRegex(ValueError, 'MANIFEST_MISSING'):
@@ -99,6 +115,16 @@ class ContinuationTests(unittest.TestCase):
             self.assertFalse(any(str(actions.FACTORY) in str(call) for call in process.call_args_list))
         self.assertEqual(self.ledger.read_bytes(), before)
         self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
+
+    def test_inherited_manifest_preflight_preserves_budget_and_starts_no_worker(self):
+        self.assertFalse((self.target / '.nightshift.toml').exists())
+        before = self.ledger.read_bytes()
+        with patch.object(actions.subprocess, 'Popen', wraps=subprocess.Popen) as process:
+            actions.continuation_preflight(self.project, '42', actions.state(self.project, '42'), self.settings)
+            self.assertFalse(any(str(actions.FACTORY) in str(call) for call in process.call_args_list))
+        self.assertEqual(self.ledger.read_bytes(), before)
+        self.assertFalse((actions.directory(self.project) / '42.launch.json').exists())
+        self.assertFalse((self.target / '.nightshift.toml').exists())
 
     def test_bad_routing_grants_nothing(self):
         for name in ('.nightshift.toml', 'routing.json'):

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate the portable Nightshift manifest without a language runtime beyond bash + jq.
+# Validate the effective manifest and its configuration-relative routing path.
 set -euo pipefail
 
 PROJECT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -20,7 +20,10 @@ required_bool() { local v; v="$(value "$1" "$2")"; [ "$v" = true ] || [ "$v" = f
 required_budget() { local v; v="$(value repair_budgets "$1")"; [[ "$v" =~ ^[1-9][0-9]*$ ]] || fail MANIFEST_INVALID "[repair_budgets].$1 must be a positive integer"; }
 
 provider="$(required_string ticket_source provider)"
-[ -f "${PROJECT}/$(required_string providers routing_file)" ] || fail MANIFEST_INVALID "[providers].routing_file must name an existing file"
+ROUTING="$(value routing file)"
+[ -n "$ROUTING" ] || ROUTING="$(required_string providers routing_file)"
+case "$ROUTING" in /*) ;; *) ROUTING="$(dirname "$MANIFEST")/$ROUTING" ;; esac
+[ -f "$ROUTING" ] || fail MANIFEST_INVALID "[providers].routing_file must name an existing file"
 production_name="$(required_string deployments.production name)"
 [ "$production_name" = production ] || fail MANIFEST_INVALID "[deployments.production].name must be exactly production"
 production_url="$(required_string deployments.production url)"

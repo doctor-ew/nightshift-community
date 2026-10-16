@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from datetime import datetime, timezone
 
 HERE = Path(__file__).resolve().parent
 FACTORY = HERE / 'nightshift-factory.sh'
@@ -51,7 +52,8 @@ def validate(task, settings):
     if (settings.get('provider') not in ('claude', 'codex', 'local')
             or settings.get('policy') not in ('standard', 'claude-only')
             or settings.get('auth') not in ('subscription', 'api')
-            or settings.get('branch') != 'auto'
+            or settings.get('branch') not in ('auto', 'none')
+            or (settings.get('branch') == 'none' and (settings.get('push') or settings.get('pr')))
             or type(settings.get('push')) is not bool or type(settings.get('pr')) is not bool
             or (settings['pr'] and not settings['push'])):
         raise ValueError('Invalid saved run policy')
@@ -63,11 +65,34 @@ def validate(task, settings):
         raise ValueError('Invalid saved ticket reference')
 
 
-def save(project, task, settings):
+def reject_read_only(current):
+    if current['settings'].get('branch') == 'none':
+        raise ValueError('This ticket is read-only in the console; resume from the terminal with the recorded policy.')
+
+
+def input_spec(project, settings):
+    ref = settings['ref']
+    name = ref[5:] if ref.startswith('spec:') else ref
+    source = Path(name)
+    if not source.is_absolute():
+        source = Path(project) / source
+    if source.is_symlink() or not source.is_file() or source.stat().st_size > 1048576:
+        raise ValueError('Spec review requires a regular local file of at most 1 MiB')
+    if not source.resolve().is_relative_to(Path(project).resolve()):
+        raise ValueError('Spec must be inside the selected project for console approval')
+    return source, source.read_bytes()
+
+
+def save(project, task, settings, review_spec=False):
     validate(task, settings)
     path = directory(project)
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    atomic(path / (task + '.json'), dict(task=task, settings=settings))
+    target = path / (task + '.json')
+    previous = read(target) if target.exists() else {}
+    required = review_spec or previous.get('review_spec', False)
+    if required:
+        input_spec(project, settings)
+    atomic(target, dict(task=task, settings=settings, review_spec=required))
 
 
 def state(project, task):
@@ -78,7 +103,14 @@ def state(project, task):
     validate(task, record['settings'])
     if record.get('task') != task:
         raise ValueError('Task identity changed')
-    digest = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
+    review = None
+    if record.get('review_spec'):
+        source, content = input_spec(project, record['settings'])
+        review = dict(path=str(source), spec=content.decode('utf-8'), sha256=hashlib.sha256(content).hexdigest())
+    digest = hashlib.sha256(json.dumps(dict(record=record, review=review), sort_keys=True).encode()).hexdigest()
+    if review is not None:
+        receipt = path.with_name(task + '.approval.json')
+        review['approved'] = receipt.exists() and read(receipt).get('sha256') == digest
     job_path = path.with_name(task + '.launch.json')
     job = read(job_path) if job_path.exists() else None
     running = False
@@ -164,12 +196,16 @@ def state(project, task):
     if pipeline:
         finished=pipeline['status']=='complete'
         if not running:live.update(next=pipeline['next_action'],action_required=pipeline['next_action'])
-    return dict(retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease)
+    return dict(read_only=record['settings']['branch'] == 'none',
+                resume_hint='Read-only controller run. Resume from the terminal with the recorded policy.' if record['settings']['branch'] == 'none' else '',
+                retry_exhausted_stage=exhausted_stage(project, task, pipeline), pipeline=pipeline, recovery=recovery, budget=ticket_budget, task=task, settings=record['settings'], sha256=digest, running=running, finished=finished, launch=job, repair=repair, updated_at=path.stat().st_mtime, repair_remaining=remaining, progress=live, decisions=decision_state, repair_lease=lease, review=review, owned=ownership.exists())
 
 
 def recovery_action(project, task, expected, operation, assessment_sha256='', operator='', attestation=None):
     """Same controller operation as the CLI; browser authorization is never implicit."""
-    if state(project,task)['sha256']!=expected:
+    current = state(project,task)
+    reject_read_only(current)
+    if current['sha256']!=expected:
         raise ValueError('Run settings changed; refresh recovery evidence')
     controller=_recovery.load('controller-recovery')
     if operation=='recovery-assess':return controller.operate(project,task,'assess')
@@ -183,7 +219,7 @@ def recovery_action(project, task, expected, operation, assessment_sha256='', op
 def list_tickets(project):
     result = []
     for path in sorted(directory(project).glob('*.json'))[:200]:
-        if path.name.endswith('.launch.json'):
+        if path.name.endswith(('.launch.json', '.approval.json')):
             continue
         try:
             result.append(state(project, path.stem))
@@ -331,11 +367,12 @@ def reject_exhausted_stage(project, task, current):
 
 
 def action(project, task, expected, operation, provider="auto", budget_revision=""):
-    if operation not in ('cleanup', 'resume', 'repair', 'stop', 'continue'):
+    if operation not in ('cleanup', 'resume', 'repair', 'stop', 'continue', 'approve'):
         raise ValueError('Invalid operation')
     if provider not in ('auto', 'claude', 'codex', 'local'):
         raise ValueError('Invalid repair provider')
     current = state(project, task)
+    reject_read_only(current)
     if operation == 'stop':
         if current['sha256'] != expected:
             raise ValueError('Run settings changed; refresh before continuing')
@@ -352,6 +389,7 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
     with os.fdopen(fd, 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         current = state(project, task)
+        reject_read_only(current)
         if current['sha256'] != expected:
             raise ValueError('Run settings changed; refresh before continuing')
         if current['running']:
@@ -362,9 +400,15 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
             raise ValueError('This ticket is finished; use the terminal for an intentional new run.')
         if not current.get('pipeline') and operation in ('resume', 'repair') and (current.get('recovery') or {}).get('next_action') == 'operator_verify_manual_acceptance' and current['recovery']['inputs'] == _recovery.workspace(current['recovery']['worktree']):
             return dict(status='pending_manual_acceptance', launched=False, message='Automated recovery passed; recorded manual acceptance remains pending.')
+        if operation == 'approve':
+            if current['review'] is None:
+                raise ValueError('No spec is awaiting approval')
+        elif operation in ('resume', 'continue', 'repair') and current['review'] and not current['review']['approved']:
+            raise ValueError('Read the current spec and approve it before continuing')
         if operation in ('resume', 'continue'):
             reject_exhausted_stage(project, task, current)
-        settings = resume_settings(project, task, current['settings'])
+        settings = (resume_settings(project, task, current['settings'])
+                    if current['owned'] or operation in ('resume', 'repair', 'continue') else current['settings'])
         if operation == 'resume' and not current.get('pipeline') and current.get('recovery') and current['recovery']['next_action'] in ('proposal', 'review', 'apply', 'verification', 'resume_pipeline', 'inspect_required_checks'):
             operation = 'repair'
         if operation == 'repair':
@@ -378,7 +422,7 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
             raise ValueError('Browser repair requires subscription authentication')
         if operation == 'repair' and settings['policy'] == 'claude-only' and provider not in ('auto', 'claude'):
             raise ValueError('Selected provider conflicts with saved policy')
-        if operation in ('resume', 'continue') and settings['ref'].startswith('jira:'):
+        if operation in ('resume', 'continue', 'approve') and settings['ref'].startswith('jira:'):
             if any(not os.environ.get(key) for key in ('JIRA_BASE_URL', 'JIRA_EMAIL', 'JIRA_TOKEN')):
                 raise ValueError('Jira credentials are absent from this console process. Restart the console from your configured terminal.')
         if operation == 'repair':
@@ -392,17 +436,23 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
             if (current.get('budget') or {}).get('revision') != budget_revision:
                 raise ValueError('Budget changed; refresh before granting more time')
             allowance = current['budget']
-            if not allowance['exhausted'] and allowance['wall_seconds_remaining'] is not None:
+            if not allowance['exhausted'] and (allowance['wall_seconds_remaining'] is not None
+                                               or allowance.get('wall_clock') == 'none'):
                 raise ValueError('Time remains; use Resume without granting a new allowance')
             continuation_preflight(project, task, current, settings)
-        if operation not in ('repair', 'continue') and not (operation=='resume' and current.get('pipeline')):
+        if current['owned'] and operation not in ('repair', 'continue') and not (operation=='resume' and current.get('pipeline')):
             cleaned = subprocess.run([sys.executable, str(HERE / 'nightshift-cleanup.py'), task,
                                       '--project', str(project)], capture_output=True, text=True, timeout=30)
             receipt = json.loads(cleaned.stdout)
             if cleaned.returncode:
                 raise ValueError('Cleanup blocked: ' + receipt.get('reason', 'inspect retained worktree'))
         if operation == 'cleanup':
-            return dict(status='ready', message='Artifacts preserved. The ticket is ready to resume.')
+            return dict(status='ready', message='Artifacts preserved.' if current['owned'] else 'No worktree has been created; there is nothing to clean up.')
+        if operation == 'approve':
+            # Bind approval to the displayed bytes AND publication/provider settings.
+            if state(project, task)['sha256'] != expected:
+                raise ValueError('Spec or settings changed; reload before approving')
+            atomic(path / (task + '.approval.json'), dict(task=task, sha256=expected, method='web', approved_at=datetime.now(timezone.utc).isoformat()))
         argv = ['bash', str(FACTORY), settings['ref'], '--project', str(project),
                 '--provider', settings['provider'], '--provider-policy', settings['policy'],
                 '--auth', settings['auth'], '--branch', settings['branch']]
@@ -449,6 +499,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project', required=True)
     parser.add_argument('--task', required=True)
-    parser.add_argument('--settings', required=True)
+    parser.add_argument('--settings')
+    parser.add_argument('--review-spec', action='store_true')
+    parser.add_argument('--check-approval', action='store_true')
     args = parser.parse_args()
-    save(args.project, args.task, json.loads(args.settings))
+    if args.check_approval:
+        review = state(args.project, args.task)['review']
+        print('not_required' if review is None else 'approved' if review['approved'] else 'pending')
+    else:
+        if not args.settings:
+            parser.error('--settings is required when saving')
+        save(args.project, args.task, json.loads(args.settings), args.review_spec)

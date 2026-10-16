@@ -259,6 +259,11 @@ def parse_transport_verdict(raw, provider, routing, proof_module):
 def judge(contract,payload,routing,policy,on_launch,proof_module):
     """One bounded launch, never retries. Caller reserves/finalizes accounting."""
     p=proof_module; started=time.monotonic(); usage={'input_tokens':None,'output_tokens':None}
+    def remaining(cap=None):
+        if not policy['timeout_seconds']:return cap
+        value=policy['timeout_seconds']-(time.monotonic()-started)
+        if value<=0:raise ValueError('evaluation_timeout')
+        return min(cap,value) if cap else value
     result={'outcome':'unknown','reason':'evaluation_transport','usage':usage,'verdict':None,'raw':None}
     try:
         validate(contract)
@@ -310,14 +315,12 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
             opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
             request=urllib.request.Request(base.rstrip('/')+'/chat/completions',json.dumps(body).encode(),headers)
             on_launch()
-            with opener.open(request,timeout=policy['timeout_seconds']) as response:
+            with opener.open(request,timeout=remaining()) as response:
                 chunks=[]; size=0
-                deadline=started+policy['timeout_seconds']
                 while size<=policy['output_bytes']:
-                    remaining=deadline-time.monotonic()
-                    if remaining<=0: raise ValueError('evaluation_timeout')
+                    call_timeout=remaining()
                     if response.fp is None: break
-                    response.fp.raw._sock.settimeout(remaining)
+                    response.fp.raw._sock.settimeout(call_timeout)
                     chunk=response.read1(min(65536,policy['output_bytes']+1-size))
                     if not chunk: break
                     chunks.append(chunk); size+=len(chunk)
@@ -347,17 +350,13 @@ def judge(contract,payload,routing,policy,on_launch,proof_module):
                 executable=p.resolved_runtime('claude')
                 if not executable: raise ValueError('evaluation_runtime')
                 env=p.subscription_env()
-                remaining=policy['timeout_seconds']-(time.monotonic()-started)
-                if remaining<=0: raise ValueError('evaluation_timeout')
-                auth=p.bounded_process([executable,'auth','status','--json'],directory,env,min(remaining,15),policy['output_bytes'])
+                auth=p.bounded_process([executable,'auth','status','--json'],directory,env,remaining(15),policy['output_bytes'])
                 login=p.parse_json(auth['stdout']) if not auth['reason'] and auth['returncode']==0 else {}
                 if not isinstance(login,dict): raise ValueError('evaluation_subscription')
                 if login.get('loggedIn') is not True or login.get('authMethod')!='claude.ai' or login.get('apiProvider')!='firstParty': raise ValueError('evaluation_subscription')
                 observed={'executable':executable}
                 argv=[observed['executable'],'--safe-mode','--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--setting-sources','','--disable-slash-commands','--no-session-persistence','-p','--output-format','json','--model',model,'--system-prompt',SYSTEM,prompt]
-                remaining=policy['timeout_seconds']-(time.monotonic()-started)
-                if remaining<=0: raise ValueError('evaluation_timeout')
-                transport=p.bounded_process(argv,directory,env,remaining,policy['output_bytes'],on_launch)
+                transport=p.bounded_process(argv,directory,env,remaining(),policy['output_bytes'],on_launch)
             if transport['reason'] or transport['returncode']!=0: raise ValueError('evaluation_transport')
             result['raw']=transport['stdout'].decode()
             completion,usage,_=p.completion_result(transport['stdout']); value=p.parse_json(completion)

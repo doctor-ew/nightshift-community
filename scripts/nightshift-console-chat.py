@@ -61,17 +61,23 @@ def route(routing, provider, policy):
         raise ValueError('Invalid chat provider')
     roles = routing.get('roles', {})
     selected = roles.get('nightshift-ticket-assistant', roles.get('nightshift-engineer', {})).get('gears', {}).get('1', {})
+    selected = routing.get('chat', selected)
+    allowed = routing.get('allowed_providers', ['codex', 'claude', 'local'])
+    if provider != 'auto' and provider not in allowed:
+        raise ValueError('Chat provider prohibited by routing policy')
     if policy == 'claude-only':
         if provider not in ('auto', 'claude'):
             raise ValueError('Chat provider conflicts with claude-only policy')
         provider = 'claude'
     if provider != 'auto':
-        candidates = [v for role in roles.values() for v in role.get('gears', {}).values()]
+        candidates = [selected] + [v for role in roles.values() for v in role.get('gears', {}).values()] + routing.get('adversarial', {}).get('routes', [])
         if provider == 'local':
             candidates.insert(0, dict(provider='local', model=routing.get('local', {}).get('model')))
         selected = next((v for v in candidates if v.get('provider') == provider and v.get('model')), {})
     if not selected.get('model') or selected.get('provider') not in ('claude', 'local', 'codex'):
         raise ValueError('No configured model for this chat provider')
+    if selected['provider'] not in allowed:
+        raise ValueError('Chat provider prohibited by routing policy')
     if selected['provider'] == 'codex':
         raise ValueError('Codex ticket chat is unavailable: this CLI has no verified tool-free mode. Select Claude or local; no fallback was made.')
     return {'provider': selected['provider'], 'model': selected['model']}
@@ -212,6 +218,8 @@ def worker(project, task):
         target = Path(value.pop('_target'))
         routing_path = value.pop('_routing', None) or _routing.resolve(HERE.parent, target)
         routing = json.loads(Path(routing_path).read_text())
+        if value['provider'] not in routing.get('allowed_providers', ['codex','claude','local']):
+            raise ValueError('Chat provider prohibited by routing policy')
         evidence, sources = bundle(target, task)
         saved = actions.state(project, task)
         snapshot = module('progress').progress(project, task, saved.get('launch'), saved.get('running', False))

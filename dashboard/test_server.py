@@ -274,7 +274,7 @@ class RecoveryAcceptanceTransport(unittest.TestCase):
                 conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
                 conn.request('POST','/api/tickets/recovery-accept',json.dumps(payload),supplied)
                 response=conn.getresponse();status=response.status;response.read();conn.close();return status
-            with patch.object(module,'action_module',return_value=SimpleNamespace(recovery_action=accept)):
+            with patch.object(module,'action_module',return_value=SimpleNamespace(recovery_action=accept, state=lambda *args: {'read_only': False})):
                 self.assertEqual(request(body),200)
                 self.assertEqual(calls,[(('/synthetic-project','fixture','settings','recovery-accept','a'*64,'synthetic operator'),{'attestation':body['attestation']})])
                 for malformed in (dict(body,attestation='not an object'),dict(body,extra=True),dict(body,operator=False)):

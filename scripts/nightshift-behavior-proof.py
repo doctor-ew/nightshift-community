@@ -34,7 +34,7 @@ RISKS = {'deterministic_logic', 'prompt_behavior', 'agent_behavior', 'runtime_in
 MODEL_RISKS = {'prompt_behavior', 'agent_behavior', 'runtime_interaction'}
 KINDS = {'prototype', 'deterministic', 'not_applicable', 'manual'}
 DEFAULTS = dict(version=1, development_calls=8, final_calls=2, repairs=2,
-                infrastructure_failures=2, timeout_seconds=120,
+                infrastructure_failures=2, timeout_seconds=0,
                 output_bytes=1048576, force_prompt=False)
 ENGINE = Path(__file__).resolve(strict=True)
 HERE = ENGINE.parent
@@ -311,11 +311,7 @@ def evaluation_settings(doc, project):
                   for turn in case['input'] if turn.get('evaluation')]
     if not contracts:
         return None
-    explicit = os.environ.get('NIGHTSHIFT_ROUTING_FILE')
-    manifest = project / '.nightshift.toml'
-    settings = tomllib.loads(bounded(manifest).decode()) if manifest.exists() else {}
-    configured = settings.get('routing', {}).get('file') or settings.get('providers', {}).get('routing_file')
-    path = (Path(explicit) if explicit else project / configured if configured else HERE.parent / 'routing.json').resolve(strict=True)
+    path = module('routing_path', 'nightshift-routing-path.py').resolve(HERE.parent, project)
     routing=read_json(path)
     allowed=routing.get('allowed_providers',['claude','codex','local']) if isinstance(routing,dict) else None
     if not isinstance(allowed,list) or not allowed or any(x not in ('claude','codex','local') for x in allowed) or any(c['evaluator']['provider'] not in allowed for c in contracts):
@@ -603,8 +599,9 @@ def reviewed(doc):
 
 def config(project):
     # Preserve the context resolver's canonical precedence, including dangling canonical paths.
-    candidates = (project / '.nightshift.toml', project / 'nightshift.toml')
-    selected = next((path for path in candidates if path.exists() or path.is_symlink()), None)
+    dependencies()
+    path = context.manifest_path(project)
+    selected = path if path.exists() or path.is_symlink() else None
     values = dict(DEFAULTS)
     if selected is not None:
         try:
@@ -617,7 +614,7 @@ def config(project):
         values.update(section)
     integer(values['version'], 1, 1)
     for key, low, high in (('development_calls', 1, 128), ('final_calls', 1, 128), ('repairs', 0, 64),
-                           ('infrastructure_failures', 0, 2), ('timeout_seconds', 1, 120), ('output_bytes', 1, MAX_JSON)):
+                           ('infrastructure_failures', 0, 2), ('timeout_seconds', 0, 120), ('output_bytes', 1, MAX_JSON)):
         integer(values[key], low, high)
     if type(values['force_prompt']) is not bool:
         raise Invalid('config_force_prompt')
@@ -1329,10 +1326,10 @@ def bounded_process(argv, cwd, env, timeout, limit, launched=None):
                 os.set_blocking(stream.fileno(), False)
                 selector.register(stream, selectors.EVENT_READ, sink)
             while selector.get_map():
-                remaining = timeout - (time.monotonic() - started)
-                if remaining <= 0:
+                remaining = timeout - (time.monotonic() - started) if timeout else None
+                if remaining is not None and remaining <= 0:
                     reason = 'runtime_timeout'; break
-                for key, _ in selector.select(min(remaining, 0.1)):
+                for key, _ in selector.select(min(remaining, 0.1) if remaining is not None else 0.1):
                     chunk = os.read(key.fileobj.fileno(), min(65536, limit - len(output) - len(errors) + 1))
                     if not chunk:
                         selector.unregister(key.fileobj)
@@ -1344,7 +1341,7 @@ def bounded_process(argv, cwd, env, timeout, limit, launched=None):
                     break
             if reason is None:
                 try:
-                    code = process.wait(timeout=max(0.01, timeout - (time.monotonic() - started)))
+                    code = process.wait(timeout=max(0.01, timeout - (time.monotonic() - started)) if timeout else None)
                 except subprocess.TimeoutExpired:
                     reason = 'runtime_timeout'
         if reason is None:
@@ -1374,7 +1371,7 @@ def probe(runtime, policy, directory):
         raise Blocked('runtime_unavailable')
     executable = Path(executable).resolve(strict=True)
     env = subscription_env()
-    version = bounded_process([str(executable), '--version'], directory, env, min(policy['timeout_seconds'], 15), policy['output_bytes'])
+    version = bounded_process([str(executable), '--version'], directory, env, min(policy['timeout_seconds'] or 15, 15), policy['output_bytes'])
     if version['reason'] or version['returncode'] != 0:
         raise Blocked('runtime_version_unknown')
     try:
@@ -1385,7 +1382,7 @@ def probe(runtime, policy, directory):
     if configured not in (observed, observed.split(' ', 1)[0]):
         raise Blocked('runtime_version_mismatch')
     auth = bounded_process([str(executable), 'auth', 'status', '--json'], directory, env,
-                           min(policy['timeout_seconds'], 15), policy['output_bytes'])
+                           min(policy['timeout_seconds'] or 15, 15), policy['output_bytes'])
     if auth['reason'] or auth['returncode'] != 0:
         raise Blocked('runtime_authentication')
     try:

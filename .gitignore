@@ -23,4 +23,7 @@ test-output/
 .dolt/
 *.db
 .beads-credential-key
+
+# Generated Python bytecode
 __pycache__/
+*.py[cod]

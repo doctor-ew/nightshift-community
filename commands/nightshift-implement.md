@@ -449,6 +449,14 @@ only commits this stage makes; the GREEN diff stays in the working tree for `/ni
 ---
 
 ## Rules
+- A passing controller receipt contains only successful assertions in `checks`.
+  Keep raw expected failures, including RED's exit code 1, in hashed evidence.
+  Assert the expected failure with a command that exits 0, or record the successful
+  development-proof gate; never relabel the original failing command as exit 0.
+- If only receipt validation failed after sealed development/final proof and GREEN
+  tests passed, preserve the rejected receipt and revalidate those existing results.
+  Write a new receipt for the controller's new attempt. Do not rewrite the prior
+  receipt, repeat initial implementation, or rerun RED against the GREEN source.
 - No spec = no build (hard stop).
 - Required deterministic RED and its lock precede fix code. Only declared minimal
   prototype files may change before development proof; surrounding GREEN requires

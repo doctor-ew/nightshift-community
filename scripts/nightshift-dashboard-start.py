@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Start or reuse a per-project loopback evidence and spec-review dashboard."""
 import argparse
+import importlib.util
 import fcntl
 import hashlib
 import json
@@ -17,6 +18,9 @@ import urllib.request
 import webbrowser
 
 ROOT = Path(__file__).resolve().parents[1]
+_context_spec = importlib.util.spec_from_file_location('manifest_context', Path(__file__).with_name('nightshift-project-context.py'))
+_context = importlib.util.module_from_spec(_context_spec)
+_context_spec.loader.exec_module(_context)
 CHILDREN = {}
 
 
@@ -40,9 +44,10 @@ def belongs(url, project):
         except urllib.error.HTTPError:
             # Legacy state-only servers cannot serve the current evidence UI.
             return False
-        config = project / '.nightshift.toml'
+        config = _context.manifest_path(project)
         workshop = config.is_file() and tomllib.loads(config.read_text()).get('workflow', {}).get('profile') == 'workshop'
         return (identity.get('service') == 'nightshift-dashboard' and identity.get('root') == str(project)
+                and identity.get('runtime_root') == str(ROOT)
                 and identity.get('ticket_actions_api') == 2
                 and identity.get('ticket_chat_api') == 1
                 and identity.get('ticket_decisions_api') == 1

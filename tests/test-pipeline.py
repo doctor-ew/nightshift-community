@@ -14,6 +14,127 @@ m=load('pipeline','scripts/nightshift-pipeline.py')
 f=load('fixture','tests/nightshift-behavior-fixture.py')
 
 class PipelineTest(unittest.TestCase):
+ def test_branchless_cli_saves_read_only_console_policy_before_dispatch(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
+   with patch('sys.argv',['pipeline','--project',str(project),'--task','sample','--settings',json.dumps(settings)]),patch.object(m,'prepare',return_value=project),patch.object(m,'Pipeline') as controller:
+    controller.return_value.run.return_value=0;controller.return_value.state={}
+    self.assertEqual(m.main(),0)
+   saved=m.load('console-actions').state(project,'sample')
+   self.assertTrue(saved['read_only']);self.assertEqual(saved['settings'],settings)
+
+ def test_launcher_change_invalidates_retained_stage_inputs(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   project=Path(tmp).resolve()/'project';f.prepare(ROOT,project,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='codex',model='gpt-6-sol',policy='standard',auth='subscription')
+   with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False):
+    controller=m.Pipeline(project,'sample',settings);self.assertTrue(controller.refresh())
+    before=m.inputs(project,'sample','product',controller.state)
+    original=m.sha
+    with patch.object(m,'sha',side_effect=lambda path:'0'*64 if Path(path)==ROOT/'scripts/nightshift-factory.sh' else original(path)):
+     self.assertNotEqual(m.inputs(project,'sample','product',controller.state),before)
+
+ def test_worker_preflight_failure_preserves_draft_and_names_reason(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='codex',model='gpt-6-sol',policy='standard',auth='subscription')
+   def fail(stage,handoff,receipt):
+    receipt.with_suffix('.log').write_text(json.dumps(dict(schema_version=1,status='blocked',checks={'manifest':'fail'},reason='MANIFEST_MISSING',next_action='run_setup'))+'\n')
+    return 68
+   with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False):
+    controller=m.Pipeline(p,'sample',settings,fail)
+    self.assertEqual(controller.run(),1)
+    self.assertIn('product',controller.state['completed'])
+    self.assertIn('MANIFEST_MISSING',controller.state['findings'][0]['problem'])
+    self.assertIn('adversarial-1.log',controller.state['findings'][0]['problem'])
+    self.assertEqual(controller.state['attempts'][0]['category'],'transport')
+    self.assertEqual(m.worker_failure(controller.directory/'missing.json',68),'worker_exit_68')
+    controller.state['attempts'][0]['reason']='worker_exit_68'
+    controller.state['findings'][0]['problem']='worker_exit_68'
+    controller.save();before=controller.path.read_bytes()
+    rendered=m.view(p,'sample')
+    self.assertIn('MANIFEST_MISSING',rendered['findings'][0]['problem'])
+    self.assertEqual(controller.path.read_bytes(),before)
+
+
+ def test_import_preserves_claude_author_and_budget_with_codex_default(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)
+   docs=p/'docs/sample';scenario=docs/'behavior-scenarios.json'
+   d=json.loads(scenario.read_text());d['author']['provider']='claude';scenario.write_text(json.dumps(d))
+   (docs/'spec-author-provider.txt').write_text('claude\n')
+   (docs/'spec-writer.out.json').write_text(json.dumps(dict(artifacts=dict(provider='claude',model='sonnet'))))
+   ledger=m.load('ticket-budget');ledger.update(p,'sample','reserve','old',now=1);ledger.update(p,'sample','finish','old',now=2,outcome='failed')
+   before=ledger.ledger_path(p,'sample').read_bytes()
+   settings=dict(ref='jira:sample',provider='codex',model='gpt-6-sol',policy='standard',auth='subscription')
+   with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False):
+    controller=m.Pipeline(p,'sample',settings);self.assertTrue(controller.refresh())
+    self.assertIn('product',controller.state['completed'])
+    self.assertEqual(controller.state['next_action'],'adversarial')
+    self.assertEqual(controller.state['plan']['spec_author']['provider'],'claude')
+    self.assertEqual(controller.state['plan']['stages']['adversarial']['provider'],'codex')
+    self.assertEqual(controller.state['plan']['stages']['review']['provider'],'claude')
+    self.assertEqual(ledger.ledger_path(p,'sample').read_bytes(),before)
+    signature=m.inputs(p,'sample','adversarial',controller.state)
+    d['applicability']['review']=None
+    for case in d['cases']:case['applicability']['review']=None
+    scenario.write_text(json.dumps(d))
+    self.assertEqual(m.inputs(p,'sample','adversarial',controller.state),signature)
+    self.assertTrue(controller.refresh())
+    self.assertIn('product',controller.state['completed'])
+    self.assertEqual(controller.state['next_action'],'adversarial')
+    d['cases'][0]['title']='Changed requirement'
+    scenario.write_text(json.dumps(d))
+    self.assertNotEqual(m.inputs(p,'sample','adversarial',controller.state),signature)
+    (docs/'spec-author-provider.txt').write_text('codex\n')
+    with self.assertRaisesRegex(ValueError,'author_conflict'):controller.refresh()
+
+
+ def test_reimport_keeps_prior_receipt_bytes(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)
+   settings=dict(ref='jira:sample',provider='codex',model='gpt-6-sol',policy='standard',auth='subscription')
+   with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False):
+    controller=m.Pipeline(p,'sample',settings);self.assertTrue(controller.refresh())
+    prior=dict(controller.state['completed']['product']);receipt=Path(prior['receipt']);original=receipt.read_bytes()
+    spec=p/'docs/sample/SPEC.md';spec.write_text(spec.read_text()+'\nAdditional retained requirement.\n')
+    self.assertTrue(controller.refresh())
+    current=controller.state['completed']['product']
+    self.assertNotEqual(current['receipt'],prior['receipt'])
+    self.assertEqual(receipt.read_bytes(),original)
+    self.assertEqual(m.sha(receipt),prior['sha256'])
+    archived=[h['record'] for h in controller.state['history'] if h.get('reason')=='relevant_inputs_changed' and h['stage']=='product']
+    self.assertIn(prior,archived)
+    current_bytes=Path(current['receipt']).read_bytes()
+    self.assertTrue(controller.refresh())
+    self.assertEqual(controller.state['completed']['product'],current)
+    self.assertEqual(Path(current['receipt']).read_bytes(),current_bytes)
+
+
+ def test_controller_enforces_retained_spec_approval_before_preparation(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',manual=True,final=True)
+   spec=p/'input.md';spec.write_text('# Approved input\nRequirement.\n')
+   settings=dict(ref='spec:input.md',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='auto',base='',push=False,pr=False)
+   argv=['pipeline','--project',str(p),'--task','sample','--settings',json.dumps(settings)]
+   console=m.load('console-actions')
+   with patch('sys.argv',argv+['--review-spec']), patch.object(m,'prepare') as prepare:
+    self.assertEqual(m.main(),0);prepare.assert_not_called()
+   current=console.state(p,'sample');self.assertFalse(current['review']['approved'])
+   with patch('sys.argv',argv), patch.object(m,'prepare') as prepare:
+    self.assertEqual(m.main(),0);prepare.assert_not_called()
+   console.atomic(console.directory(p)/'sample.approval.json',dict(task='sample',sha256=current['sha256']))
+   with patch('sys.argv',argv), patch.object(m,'prepare',return_value=p) as prepare, patch.object(m,'Pipeline') as controller:
+    controller.return_value.run.return_value=0;controller.return_value.state={}
+    self.assertEqual(m.main(),0);prepare.assert_called_once();controller.return_value.run.assert_called_once()
+   self.assertTrue(console.state(p,'sample')['review']['approved'])
+   self.assertEqual(console.state(p,'sample')['settings'],settings)
+   spec.write_text('# Changed input\nDifferent requirement.\n')
+   with patch('sys.argv',argv), patch.object(m,'prepare') as prepare:
+    self.assertEqual(m.main(),0);prepare.assert_not_called()
+
+
  def test_fresh_source_reaches_real_child_input_admission(self):
   for ref in ('jira:FIXTURE-66', 'gh:fixture/public-repo#66', 'spec:input with spaces.md', 'input with spaces.md'):
    with self.subTest(ref=ref), tempfile.TemporaryDirectory() as tmp:

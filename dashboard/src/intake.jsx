@@ -4,7 +4,7 @@ export function IntakePanel({onPrepared,blocked=false,onBusy=()=>{}}) {
   const [identity,setIdentity]=useState(null),[token,setToken]=useState(''),[source,setSource]=useState('');
   const [scope,setScope]=useState(''),[requirements,setRequirements]=useState(''),[check,setCheck]=useState(''),[runner,setRunner]=useState('python3');
   const [rules,setRules]=useState(''),[architecture,setArchitecture]=useState(''),[operator,setOperator]=useState('');
-  const [calls,setCalls]=useState(12),[seconds,setSeconds]=useState(180),[preview,setPreview]=useState(null),[error,setError]=useState(''),[pending,setPending]=useState(false);
+  const [calls,setCalls]=useState(12),[seconds,setSeconds]=useState(180),[preview,setPreview]=useState(null),[error,setError]=useState(''),[pending,setPending]=useState(false),[detailsOpen,setDetailsOpen]=useState(false);
   const busy=pending||blocked;
   function setBusy(value){setPending(value);onBusy(value);}
   useEffect(()=>{fetch('/api/intake',{cache:'no-store'}).then(r=>r.json()).then(v=>{setIdentity(v.view?.runtime);setToken(v.token||'');if(v.error)setError(v.error);}).catch(e=>setError(e.message));},[]);
@@ -18,15 +18,15 @@ export function IntakePanel({onPrepared,blocked=false,onBusy=()=>{}}) {
       const body=action==='preview'?{action:answering?'intake-answer':'intake-preview',source,choices:choices(),...(answering?{task:preview.task,binding:preview.binding}:{})}:{action:'intake-'+action,task:preview.task,binding:preview.binding,operator,request:crypto.randomUUID()};
       const response=await fetch('/api/operations',{method:'POST',headers:{'Content-Type':'application/json','X-Nightshift-Token':token},body:JSON.stringify(body)});
       const value=await response.json();if(!response.ok||value.status==='blocked')throw new Error(value.error||value.reason||'Intake unavailable');
-      if(action==='preview')setPreview(value);
+      if(action==='preview'){setPreview(value);if(value.status==='needs_decision')setDetailsOpen(true);}
       else if(action==='apply'){setPreview({...preview,status:value.status});onPrepared(value.task);}
       else setPreview({...preview,status:'cancelled'});
     }catch(e){setError(e.message);}finally{setBusy(false);}
   }
   return <section className="workspace intake-panel" aria-label="Guided intake"><h2>Start a request</h2>
-    <p>Resolve a GitHub issue or project Markdown request, inspect its plan, then authorize operations separately.</p>
-    {identity&&<><p>Serving candidate: <code>{identity.serving_revision}</code>. Installed runtime revision: {identity.installed_revision}. Delivery: {identity.endpoint}. Provider authentication: unverified; this preview makes no provider call.</p><p>Available tools: {Object.entries(identity.tools||{}).filter(([,present])=>present).map(([name])=>name).join(', ')||'none'}. Missing tools: {Object.entries(identity.tools||{}).filter(([,present])=>!present).map(([name])=>name).join(', ')||'none'}.</p></>}
+    <p>Paste a GitHub issue or a project Markdown reference to inspect the next steps.</p>
     <label>Source reference<input disabled={busy} value={source} onChange={e=>{setSource(e.target.value);setPreview(null);}} placeholder="gh:owner/repository#123 or spec:request.md" /></label>
+    <details className="intake-options" open={detailsOpen} onToggle={e=>setDetailsOpen(e.currentTarget.open)}><summary>Scope, tests and limits</summary><p>Supply details here when the request needs them. These limits also apply to the previewed plan.</p><div className="intake-fields">
     <label>Source files in scope, one per line<textarea disabled={busy} value={scope} onChange={e=>setScope(e.target.value)} /></label>
     <label>Required behaviors, one per line<textarea disabled={busy} value={requirements} onChange={e=>setRequirements(e.target.value)} /></label>
     <label>Existing test script<input disabled={busy} value={check} onChange={e=>setCheck(e.target.value)} /></label>
@@ -35,7 +35,10 @@ export function IntakePanel({onPrepared,blocked=false,onBusy=()=>{}}) {
     <label>Architecture context file<input disabled={busy} value={architecture} onChange={e=>setArchitecture(e.target.value)} /></label>
     <label>Maximum provider calls<input disabled={busy} type="number" min="1" max="64" value={calls} onChange={e=>setCalls(e.target.value)} /></label>
     <label>Maximum execution and wall seconds<input disabled={busy} type="number" min="1" max="3600" value={seconds} onChange={e=>setSeconds(e.target.value)} /></label>
+    </div></details>
+    <p className="intake-hint">Preview makes no provider call. You inspect the plan before preparing it; execution is authorized separately.</p>
     <button disabled={busy||!token||!source.trim()} onClick={()=>submit('preview')}>{preview?.status==='needs_decision'?'Save choices and preview':'Preview request plan'}</button>
+    <details className="intake-runtime"><summary>Runtime and tool diagnostics</summary>{identity&&<><p>Serving candidate: <code>{identity.serving_revision}</code>. Installed runtime revision: {identity.installed_revision}. Delivery: {identity.endpoint}. Provider authentication: unverified; this preview makes no provider call.</p><p>Available tools: {Object.entries(identity.tools||{}).filter(([,present])=>present).map(([name])=>name).join(', ')||'none'}. Missing tools: {Object.entries(identity.tools||{}).filter(([,present])=>!present).map(([name])=>name).join(', ')||'none'}.</p></>}</details>
     {error&&<p role="alert">{error}</p>}
     {preview&&<><p>Status: {preview.status}. {preview.missing?.length?'Required choices: '+preview.missing.join(', '):''}</p>
       {preview.decision&&<p>{preview.decision.question} {preview.decision.reason}</p>}

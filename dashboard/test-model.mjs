@@ -190,6 +190,9 @@ test('recovery blocked, pending acceptance, complete and stale observations rema
   assert.equal(ticketProgress([],ticket).complete,false);
   assert.ok(recoveryProgress(ticket).steps.every(step=>step.status==='stale'));
 });
+test('pending spec approval is distinct from readiness to resume', () => {
+  assert.equal(ticketProgress([], {task:'spec-a',review:{approved:false}}).status, 'Awaiting spec approval');
+});
 
 test('recovery waiting for the operator names the question and the exact command', async () => {
   const {recoveryProgress}=await import('./src/model.mjs');
@@ -208,4 +211,44 @@ test('recovery waiting for the operator names the question and the exact command
   assert.equal(recoveryProgress(badBinding).awaiting,null);
   const hostile=structuredClone(ticket);hostile.settings.ref="spec:a'; rm -rf ~ #.md";
   assert.match(recoveryProgress(hostile).awaiting.command,/operator-decide 'spec:a'\\''; rm -rf ~ #\.md' --expected/);
+});
+
+test('read-only branchless tickets cannot grant time even with exhausted budget', async () => {
+  const {continuationControl}=await import('./src/model.mjs');
+  const ticket={settings:{branch:'none'},budget:{revision:'a'.repeat(64),exhausted:true,unfinished:0,calls_reserved:1,max_calls:64}};
+  assert.equal(continuationControl(ticket).disabled,true);
+  assert.match(continuationControl(ticket).reason,/terminal/);
+});
+test('no-wall active allowance still blocks unnecessary continuation', async () => {
+  const {continuationControl}=await import('./src/model.mjs');
+  const ticket={settings:{branch:'auto'},budget:{revision:'a'.repeat(64),wall_clock:'none',wall_seconds_remaining:null,exhausted:false,unfinished:0,calls_reserved:1,max_calls:64}};
+  assert.equal(continuationControl(ticket).disabled,true);
+  assert.match(continuationControl(ticket).reason,/Time remains/);
+});
+
+// AC-2 AC-3 AC-5: UI-E1 binds evidence to a task and stage, never routing defaults.
+test('UI-E1 stage projection retains failures and rejects cross-task/stage fallback', async () => {
+  const model = await import('./src/model.mjs');
+  assert.equal(typeof model.stageEvidence, 'function', 'UI-E1 needs a pure stage evidence projection');
+  const ticket = {task:'fixture-a', settings:{provider:'configured-only'}, pipeline:{status:'pending', attempts:[
+    {stage:'implement',status:'fail',route:{provider:'codex',model:'recorded-old'},receipt:'/tmp/failed.json',reason:'Historical assertion failure'},
+    {stage:'review',status:'pass',route:{provider:'claude',model:'review-only'},receipt:'/tmp/review.json'},
+    {stage:'implement',status:'pass',receipt:'/tmp/passed.json'}
+  ],completed:{implement:{receipt:'/tmp/passed.json'}}}};
+  const rows = [
+    {ticket:'fixture-b',gate:'implement',source:'gate',provider:'foreign-provider',links:[{label:'foreign',href:'file:///tmp/foreign'}]},
+    {ticket:'fixture-a',source:'artifacts',links:[{label:'SPEC.md',href:'file:///tmp/SPEC.md'}]},
+    {ticket:'fixture-a',gate:'implement',source:'gate',state:'failed',links:[{label:'tests',href:'file:///tmp/tests.json'}]}
+  ];
+  const result=model.stageEvidence(rows,ticket,'implement');
+  assert.equal(result.task,'fixture-a');assert.equal(result.stage,'implement');
+  assert.equal(result.attempts.length,2);assert.equal(result.attempts[0].route.model,'recorded-old');
+  assert.match(JSON.stringify(result),/Historical assertion failure/);
+  assert(!JSON.stringify(result).includes('foreign'));assert(!JSON.stringify(result).includes('review-only'));
+  assert(!JSON.stringify(result).includes('configured-only'));
+  assert.equal(result.provider,null);assert.equal(result.model,null,'latest attempt must not borrow an older route');
+  assert(result.taskEvidence.some(link=>link.label==='SPEC.md'));
+  const missing=model.stageEvidence(rows,ticket,'qa');
+  assert.equal(missing.provider,null);assert.equal(missing.model,null);assert.equal(missing.attempts.length,0);
+  assert.equal(model.stageEvidence(rows,{...ticket,pipeline:{...ticket.pipeline,status:'stale'}},'implement').stale,true);
 });

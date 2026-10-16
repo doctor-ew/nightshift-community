@@ -186,6 +186,9 @@ def affirmative(pattern, line):
 
 
 def matches(relative, content):
+    # Exact policy contexts are validated by the policy schema and exception audit.
+    if relative == 'scripts/nightshift-branding-policy.json':
+        return
     if RETIRED.search(relative):
         yield 'retired-brand', 0, relative
     core = ((relative.startswith(('commands/', 'agents/')) and relative.endswith('.md'))

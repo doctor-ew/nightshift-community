@@ -54,6 +54,9 @@ try {
   await panel.getByLabel('Operator identity').fill('synthetic-browser-operator');
   await panel.getByRole('button',{name:'Select factory recipe',exact:true}).click();
   let result=await execute();assert.equal(result.view.status,'pending_manual_acceptance');assert.equal(calls(),4);
+  // AC-3 AC-5: execution success preserves pending manual acceptance.
+  assert.equal(result.view.status,'pending_manual_acceptance');
+  assert.notEqual(result.view.status,'complete');
   const typed=result.view.operations.find(r=>r.operation==='verify').result.observations;
   assert(typed.every(r=>r.adapter==='python-unittest-v1'&&r.status==='passed'&&r.complete&&r.counts.passed>0));
   await panel.getByText('Typed verification observations',{exact:true}).click();

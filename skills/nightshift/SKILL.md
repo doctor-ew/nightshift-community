@@ -49,9 +49,11 @@ the stage argument. `--branch auto` is the default: create or reuse an isolated
 ticket branch/worktree. It must never use the repository default branch.
 
 Branch-enabled factory runs need writable Git metadata to create refs and
-worktrees. The launcher uses Codex's `danger-full-access` sandbox only for
-those runs; use `--branch none` for a workspace-write-only run that cannot
-create branches, commits, or pushes.
+worktrees. Validated controller stages also need Git metadata writes for retained
+dispatch accounting and checkpoints. The launcher uses Codex's
+`danger-full-access` sandbox for these managed runs; direct branch-less sessions
+retain `workspace-write`. `--branch none` disables worktree preparation and does
+not authorize remote publication.
 
 `--push` means that, after implementation, review, drift, and QA pass, commit
 only the ticket's verified source changes and Nightshift artifacts and push that

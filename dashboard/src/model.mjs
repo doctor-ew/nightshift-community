@@ -1,4 +1,28 @@
 export const active = new Set(['running', 'in_progress']);
+// Presentation projection; provenance never comes from filenames or defaults.
+export function stageEvidence(rows, ticket, stage) {
+  const related = rows.filter(row => row.ticket === ticket.task);
+  const scoped = related.filter(row => row.gate === stage);
+  const attempts = (ticket.pipeline?.attempts || []).filter(attempt => attempt.stage === stage);
+  const latest = attempts.at(-1);
+  return {
+    task: ticket.task,
+    stage,
+    state: ticketTimeline(rows, ticket).find(step => step.stage === stage)?.state || 'not recorded',
+    provider: latest?.route?.provider || null,
+    model: latest?.route?.model || null,
+    attempts: attempts.slice(),
+    artifacts: scoped.flatMap(row => row.links || []).filter(Boolean),
+    tests: scoped.map(row => ({
+      state: row.state,
+      reason: row.reason,
+      links: (row.links || []).filter(Boolean),
+    })),
+    receipts: [...new Set([...attempts.map(attempt => attempt.receipt), ticket.pipeline?.completed?.[stage]?.receipt].filter(Boolean))],
+    taskEvidence: related.filter(row => !row.gate).flatMap(row => row.links || []).filter(Boolean),
+    stale: ticket.pipeline?.status === 'stale',
+  };
+}
 export const attention = new Set(['blocked', 'failed', 'needs-decision']);
 export const modified = row => Math.max(0, ...(row.links || []).filter(Boolean).map(link => link.modified_at || 0));
 export function ticketFailures(rows, task) {
@@ -45,7 +69,7 @@ export function ticketProgress(rows, ticket) {
   const blocker = failures.length > 0 || !!stopped || dependencyBlocked;
   const controlled=ticket.pipeline;
   const recoveryView = recoveryProgress(ticket);
-  const status = recoveryView ? recoveryView.status : controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : 'Ready to resume';
+  const status = recoveryView ? recoveryView.status : controlled && !ticket.running ? ({complete:'Complete',pending_manual_acceptance:'Manual acceptance pending',blocked:'Blocked',stale:'Changed evidence · revalidation required',pending:'Ready to resume','needs-decision':'Waiting for your decision'}[controlled.status] || controlled.status) : ticket.running ? (dependencyBlocked ? 'Active · dependency blocked' : 'Running') : ticket.review && !ticket.review.approved ? 'Awaiting spec approval' : blocker && complete ? 'Conflicting outcomes' : blocker ? 'Blocked' : complete ? 'Complete' : ticket.finished ? 'Run ended · outcome unconfirmed' : ticket.owned === false ? 'Ready to start' : 'Ready to resume';
   const stage = running || stopped || passed;
   const recovery = controlled?.recovery_status;
   const controlledStage = recovery ? recovery.next_action : controlled?.attempts?.at(-1)?.stage;
@@ -117,13 +141,14 @@ export function ticketUsage(reports, ticket) {
 export function continuationControl(ticket) {
   const budget = ticket.budget;
   let reason = '';
-  if (!budget || budget.error || !budget.revision) reason = 'Budget accounting is unavailable.';
+  if (ticket.settings?.branch === 'none') reason = 'Read-only controller run. Resume from the terminal with the recorded policy.';
+  else if (!budget || budget.error || !budget.revision) reason = 'Budget accounting is unavailable.';
   else if (ticket.running || budget.unfinished > 0) reason = 'Wait for active work to finish.';
   else if (ticket.finished || ['complete', 'pending_manual_acceptance'].includes(ticket.pipeline?.status) || ticket.recovery?.next_action === 'operator_verify_manual_acceptance') reason = 'Review the recorded outcome; more runtime is not needed.';
   else if (ticket.decisions?.pending?.length) reason = 'Answer the pending decision first.';
   else if (stageRetriesExhausted(ticket)) reason = 'Stage retry limit reached. More time cannot add retries; explicit recovery is needed.';
   else if (budget.calls_reserved >= budget.max_calls) reason = 'Launch limit reached. More time cannot add launches.';
-  else if (!budget.exhausted && budget.wall_seconds_remaining != null) reason = 'Time remains. Use Resume without granting a new allowance.';
+  else if (!budget.exhausted && (budget.wall_seconds_remaining != null || budget.wall_clock === 'none')) reason = 'Time remains. Use Resume without granting a new allowance.';
   return {disabled: !!reason, reason};
 }
 

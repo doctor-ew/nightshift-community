@@ -18,7 +18,7 @@ REASONS = {'normal command inside assigned worktree is unattended',
            'fresh production confirmation token accepted',
            'permanent-removal is denied by factory policy',
            'history-rewrite is denied by factory policy', 'unknown action'}
-MODELS = {'gpt-5.4', 'haiku', 'sonnet', 'opus'}
+MODELS = {'gpt-5.4', 'gpt-6.1-sol', 'haiku', 'sonnet', 'opus'}
 NEXT = {'continue to the next gate': 'continue',
         'inspect the final gate output and repair the smallest in-scope cause': 'inspect-and-repair',
         'Configure NIGHTSHIFT_WORKER_IMAGE; host execution is disabled.': 'configure-isolation'}
@@ -145,7 +145,7 @@ def record(scenario, root=ROOT):
         for name in ('controller.sh', 'policy.sh', 'isolate.sh', 'credentials.sh', 'agent.sh', 'contract.jq',
                      'project-context.py', 'routing-path.py', 'behavior-proof.py', 'source-evaluation.py', 'codex-evaluator.py',
                      'retry-budget.py', 'review-reuse.py', 'provider-policy.py', 'checkout-identity.py', 'ticket-budget.py',
-                     'state-dir.sh', 'lock-field.sh', 'tdd-spec-lock.sh', 'scope-activate.sh'):
+                     'state-dir.sh', 'lock-field.sh', 'tdd-spec-lock.sh', 'scope-activate.sh', 'spec-repair-brief.py'):
             shutil.copyfile(Path(root) / 'scripts' / ('nightshift-' + name), scripts / ('nightshift-' + name))
         # Copy only dispatcher assets, never repository tests or user configuration.
         for directory, name in (('contracts', 'nightshift-engineer.schema.json'),

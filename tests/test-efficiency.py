@@ -304,9 +304,11 @@ class Efficiency(unittest.TestCase):
         home=self.base/'home';home.mkdir()
         self.stub('codex',"import sys,os\nif sys.argv[1:3]==['login','status']: print('Logged in using ChatGPT')\nelse: sys.exit(int(os.environ.get('FIXTURE_PROVIDER_STATUS','0')))")
         # Exercise one factory worker and its efficiency hook, not controller admission.
-        handoff=self.base/'handoff.json';handoff.write_text('{}')
+        handoff=project/'.git/nightshift/pipeline/fixture/product-1.handoff.json';handoff.parent.mkdir(parents=True,exist_ok=True)
+        handoff.write_text(json.dumps(dict(version=1,task='fixture',stage='product')))
+        (project/'docs/fixture').mkdir(parents=True,exist_ok=True)
         env=dict(self.env,NIGHTSHIFT_PIPELINE_STAGE='product',NIGHTSHIFT_PIPELINE_TASK='fixture',
-                 NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(self.base/'stage-receipt.json'),
+                 NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_STAGE_RECEIPT=str(project/'docs/fixture/stage-receipt.json'),
                  HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_OUTPUT_CHILD='1',
                  NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',
                  NIGHTSHIFT_JEV_INPUT=str(evidence),NIGHTSHIFT_JEV_ALLOW_LOOPBACK='true')

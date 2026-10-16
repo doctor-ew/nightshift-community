@@ -1,7 +1,11 @@
 # Bounded continuation
 
-New instrumented tickets receive a persisted 600-second wall-clock deadline from
-first reservation. Waiting and restarts do not reset it. Existing ledgers retain
+New instrumented tickets have no wall-clock deadline unless
+`NIGHTSHIFT_TICKET_MAX_WALL_SECONDS` is set before the first reservation. The
+explicit wall-clock limit is persisted and cannot be changed by resume or later
+environment changes. Without that limit, idle time does not expire a ticket.
+The default 64-call and 3600 aggregate active-second limits remain enforced.
+Existing ledgers retain
 their original accounting; they are not retroactively rewritten to imply coverage.
 Factory and role dispatchers check the shared deadline and stop provider processes
 when it expires. Enforcement polls approximately every two seconds; process cleanup
@@ -10,8 +14,11 @@ New-ticket setup before first reservation is outside this deadline.
 
 An operator can explicitly grant a continuation using
 `scripts/nightshift-continue.sh jira:TICKET` from the application checkout. The
-helper grants at most 600 more aggregate active seconds and sets a new wall-clock
-deadline immediately, including subsequent factory preflight time. It preserves
+helper grants at most 600 more aggregate active seconds. Tickets created without
+a wall-clock deadline retain that policy; continuation requires active-time
+exhaustion. Tickets with retained wall-clock limits receive a new deadline
+immediately, including subsequent factory preflight time. Legacy ledgers without
+a deadline or policy marker retain their explicit continuation upgrade path. It preserves
 all reservations, prior limits in an audit entry, usage and the original call cap.
 It refuses unfinished reservations, an exhausted call cap, or more than 600 seconds.
 It does not itself launch a model. Ordinary resume cannot renew the allowance.
@@ -42,3 +49,13 @@ and historical activity outside instrumentation remain separately unknown.
 - External model launches and retries for verification: zero. Model tokens: zero;
   assistant-session usage is outside harness accounting. Full ticket delivery within
   ten minutes has not been demonstrated. No publication or successful gates claimed.
+
+## Explicit wall-clock policy regression
+
+New ledgers record `wall_clock` as `none` or `bounded`. Older ledgers are not
+migrated or released automatically. An expired historical rehearsal remains
+expired, and reservations and recorded failures remain charged. Continuation
+cannot add calls, permit unfinished reservations, or exceed 600 seconds.
+The console rejects unnecessary continuation for a no-wall ticket with active
+time remaining. `tests/test-ticket-budget.py` and
+`tests/test-console-continuation.py` cover these boundaries without provider calls.

@@ -708,3 +708,25 @@ Re-running `/nightshift-eng <task-key>` mid-pipeline is safe:
   appends a new trend log entry; re-running nightshift-adversarial offers resume-or-fresh.
 - Scope activation is atomic and checkout-local. Matching finish retires ownership;
   interruption retains it. Never clear another ticket's lease or scope on resume.
+
+## Evidence-driven execution
+
+For non-trivial work, write checkable steps in the existing task tracker before
+implementation. Include scope, acceptance criteria and verification steps; use
+the specification to resolve ambiguity before coding. Track completed steps and
+record commands, results and relevant evidence as work proceeds.
+
+If evidence invalidates the plan, pause the affected work, revise the plan and
+continue within scope. Delegate independent analysis with one focused task per
+worker and integrate its evidence. Review relevant recorded lessons when resuming;
+after a user correction, capture a reusable prevention rule in the same tracker.
+
+Before completion, inspect the diff, prove changed behavior through appropriate
+checks and assess the evidence against acceptance criteria. Prefer root-cause
+repairs and minimal changes; reconsider complex fixes before presenting them.
+Resolve actionable failures autonomously within the existing repair limits.
+
+Elapsed time is telemetry, not a completion gate. Model work has no default
+elapsed-time deadline; explicit operator limits, bounded availability probes,
+output limits and retained repair accounting remain applicable. Plans and lessons
+do not introduce approval gates or a second task ledger.

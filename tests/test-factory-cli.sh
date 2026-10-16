@@ -15,7 +15,7 @@ import tempfile
 
 root = Path(sys.argv[1])
 with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
-    base = Path(temp)
+    base = Path(temp).resolve()
     project = base / 'project'
     project.mkdir()
     home = base / 'home'
@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
     installed = base / 'installed'
     shutil.copytree(root / 'scripts', installed / 'scripts')
     shutil.copytree(root / 'commands', installed / 'commands')
-    for name in ('nightshift.toml', 'VERSION'):
+    for name in ('nightshift.toml', 'VERSION', 'routing.json'):
         shutil.copy(root / name, installed / name)
     (binary / 'nightshift').symlink_to(installed / 'scripts/nightshift-factory.sh')
     calls = base / 'calls.jsonl'
@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-cli-') as temp:
 import json, os, pathlib, sys
 name = pathlib.Path(sys.argv[0]).name
 with open(os.environ['CLI_CALLS'], 'a') as f:
-    f.write(json.dumps({'name': name, 'args': sys.argv[1:]}) + '\\n')
+    f.write(json.dumps({'name': name, 'args': sys.argv[1:], 'background_disabled': os.environ.get('CLAUDE_CODE_DISABLE_BACKGROUND_TASKS')}) + '\\n')
 if sys.argv[1:3] == ['login', 'status']:
     print('Logged in using ChatGPT')
 elif name == 'claude' and sys.argv[1:2] == ['auth']:
@@ -75,9 +75,11 @@ elif name in ('codex', 'claude'):
         # and persistent accounting are covered by test-pipeline.py.
         stage_env = {}
         if not set(args).intersection(('batch','help','explain','architect','dev','pm','ux-designer','architecture','ux','bmad')) and any(a.endswith('.md') or a.startswith(('gh:', 'bd:', 'spec:')) for a in args):
-            handoff=base/'cli-handoff.json';handoff.write_text('{}')
+            handoff=project/'.git/nightshift/pipeline/cli-fixture'/('product-'+str(invocation)+'.handoff.json');handoff.parent.mkdir(parents=True,exist_ok=True)
+            handoff.write_text(json.dumps(dict(version=1,task='cli-fixture',stage='product')))
+            (project/'docs/cli-fixture').mkdir(parents=True,exist_ok=True)
             stage_env=dict(NIGHTSHIFT_PIPELINE_STAGE='product', NIGHTSHIFT_PIPELINE_TASK='cli-fixture',
-                NIGHTSHIFT_STAGE_HANDOFF=str(handoff), NIGHTSHIFT_STAGE_RECEIPT=str(base/'cli-receipt.json'),
+                NIGHTSHIFT_STAGE_HANDOFF=str(handoff), NIGHTSHIFT_STAGE_RECEIPT=str(project/'docs/cli-fixture/cli-receipt.json'),
                 NIGHTSHIFT_BUDGET_TASK='budget-fixture' if 'budget-test.md' in args else 'cli-'+str(invocation))
         calls.write_text('')
         result = subprocess.run([str(binary / 'nightshift'),
@@ -94,6 +96,12 @@ elif name in ('codex', 'claude'):
         return selected[0]
 
     config()
+    args = worker(run('codex', 'prompt.md'))
+    assert args[args.index('--sandbox') + 1] == 'danger-full-access'
+    assert 'deferred_findings are retained context owned by other stages' in args[-1]
+    assert 'artifact repairs explicitly assigned by the controller from a reviewer stage' in args[-1]
+    assert 'no unresolved findings owned by this stage' in args[-1]
+    assert 'Other-stage failures remain for the controller to sequence' in args[-1]
     for mode in ('help', 'explain', 'architect', 'dev', 'pm', 'ux-designer',
                  'architecture', 'ux', 'bmad'):
         args = worker(run('codex', mode, 'Explain', 'this change'))
@@ -133,7 +141,9 @@ elif name in ('codex', 'claude'):
            '[runtime.models]\ncodex="configured-codex"\n')
     args = worker(run('codex', 'gh:123'))
     assert args[args.index('--model') + 1] == 'configured-codex'
-    args = worker(run('prompt.md'), 'claude')
+    records = run('prompt.md')
+    args = worker(records, 'claude')
+    assert [r for r in records if r['args'][:1] != ['auth'] and r['name'] == 'claude'][0]['background_disabled'] == '1'
     assert args[args.index('--model') + 1] == 'configured-claude'
     config('[runtime]\nprovider="claude"\nmodel="configured-claude"\n')
     assert '--model' not in worker(run('codex', 'prompt.md'))
@@ -154,6 +164,10 @@ elif name in ('codex', 'claude'):
     config()
     worker(run('codex', 'bd:bead-123'))
     args = worker(run('codex', 'batch', 'gh:12,gh:13'))
+    assert 'New tickets have no wall-clock deadline unless NIGHTSHIFT_TICKET_MAX_WALL_SECONDS' in args[-1]
+    assert 'Honor every historical or explicit deadline' in args[-1]
+    assert 'persisted call and aggregate active-time limits' in args[-1]
+    assert '10 minutes by default' not in args[-1]
     assert '$nightshift batch gh:12,gh:13 --branch none' in args[-1]
     assert run('codex', status=64) == []
     assert run('codex', 'prompt.md', 'extra.md', status=64) == []
@@ -215,5 +229,23 @@ elif name in ('codex', 'claude'):
     # Restart retains exhausted allowance and never invokes another worker.
     records = run('codex', 'budget-test.md', status=75, extra_env=budget_env)
     assert not [r for r in records if r['name'] == 'codex' and r['args'][:2] != ['login', 'status']]
+
+    subprocess.run(['git','-C',str(project),'add','.'], check=True)
+    subprocess.run(['git','-C',str(project),'-c','user.name=fixture','-c','user.email=fixture@local','commit','-qm','baseline'],check=True)
+    calls.write_text('')
+    gate = subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                           '--provider-policy','claude-only','--review-spec'],
+                          cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert gate.returncode == 0, gate.stderr
+    assert 'awaiting spec approval' in gate.stderr
+    records=[json.loads(line) for line in calls.read_text().splitlines()]
+    assert not any(r['name'] in ('claude','codex') and r['args'][:1] not in (['auth'],['login']) for r in records), records
+    # A plain retry cannot bypass the retained review requirement.
+    again=subprocess.run([str(binary/'nightshift'),'spec:prompt.md','--project',str(project),
+                          '--provider-policy','claude-only'],cwd=project,env=env,capture_output=True,text=True,timeout=30)
+    assert again.returncode == 0 and 'awaiting spec approval' in again.stderr, again.stderr
+    records=[json.loads(line) for line in calls.read_text().splitlines()]
+    assert not any(r['name'] in ('claude','codex') and r['args'][:1] not in (['auth'],['login']) for r in records), records
+    assert len(subprocess.check_output(['git','-C',str(project),'worktree','list','--porcelain'],text=True).split('worktree ')) == 2
 print('PASS: factory shorthand, runtime defaults, argv preservation, and failure boundaries')
 PY

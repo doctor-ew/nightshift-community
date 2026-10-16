@@ -57,6 +57,32 @@ If missing, ask: `"No spec found. Run /nightshift-product <ref> first to generat
 
 ---
 
+## Retained draft review
+
+When the controller imports an existing draft, its product receipt establishes
+schema validity only. Preserve the draft and its actual author provenance.
+Before source review, complete any missing independent classification/design
+review using `commands/nightshift-spec.md` Step 4 and its behavior-proof protocol.
+Do not dispatch a writer merely because classification review is missing. Retain
+failed review evidence and all existing budgets; never treat import as approval.
+
+Review the scenario classifications and required acceptance-criterion coverage as
+part of this independent stage. When classification attestations are missing,
+stale, rejected, or not independent,
+retain `docs/<task-key>/classification-review-<stage-attempt>.json` with exactly `version` (1),
+`task`, `decision` (`approve` or `repair`), `reviewed_input_sha256` (the current
+semantic digest from scenario validation), and `case_ids` (every reviewed case).
+Include this immutable artifact in the passing stage receipt's evidence. Do not
+overwrite a previous attempt's artifact; derive the attempt from the controller
+stage receipt filename. Do not
+also hash the mutable scenario file into that receipt: the controller records the
+attestations only after validating the independent decision, digest and coverage.
+Keep prototype design challenges and safety-sensitive evidence requirements intact.
+
+The development proof is not an input to this stage. `/nightshift-implement`
+Step 6.5 seals it after adversarial passes. Do not fail this stage for
+`proof_state_unavailable` or `proof_unsealed`; these are expected before sealing.
+
 ## Step 3 — Resume detection
 
 ```bash

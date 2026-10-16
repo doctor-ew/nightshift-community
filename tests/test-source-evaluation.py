@@ -202,13 +202,16 @@ class CodexEvaluator(unittest.TestCase):
             {'type':'thread.started','thread_id':'fixture'}, {'type':'turn.started'},
             {'type':'item.completed','item':{'type':'agent_message','id':'i1','text':json.dumps(value)}},
             {'type':'turn.completed','usage':{'input_tokens':17,'output_tokens':9,'cached_input_tokens':3}}])
-        self.calls=[];self.launches=[];self.tool_probe=False;self.version='codex-cli 0.155.1';self.execution_error=None
+        self.calls=[];self.timeouts=[];self.launches=[];self.tool_probe=False;self.version='codex-cli 0.155.1';self.execution_error=None
     def process(self,argv,cwd,env,timeout,limit,launched=None):
-        self.calls.append(argv)
+        self.calls.append(argv);self.timeouts.append((timeout,launched is not None))
         self.assertNotIn('OPENAI_API_KEY',env);self.assertNotIn('CODEX_API_KEY',env)
         self.assertNotIn('OPENAI_BASE_URL',env)
         self.assertEqual(env['HOME'],env['CODEX_HOME']);self.assertNotEqual(env['HOME'],str(Path.home()))
-        self.assertGreater(timeout,0);self.assertLessEqual(timeout,120)
+        if timeout is None:
+            self.assertIsNotNone(launched, 'Only generation may omit its deadline')
+        else:
+            self.assertGreater(timeout,0);self.assertLessEqual(timeout,120)
         result={'reason':None,'returncode':0,'stdout':b'','stderr':b'','duration_seconds':0.01}
         if argv[1:]==['--version']:return dict(result,stdout=self.version.encode())
         if argv[1:]==['features','list']:
@@ -240,15 +243,25 @@ class CodexEvaluator(unittest.TestCase):
         if launched:launched()
         if self.execution_error:return dict(result,returncode=1,stderr=self.execution_error,stdout=b'')
         return dict(result,stdout=self.raw.encode())
-    def judge(self):
+    def judge(self,timeout=0):
         with patch.dict(os.environ,{'OPENAI_API_KEY':'synthetic-denied','CODEX_API_KEY':'synthetic-denied','OPENAI_BASE_URL':'http://invalid'}),patch.object(p,'resolved_runtime',return_value=str(self.binary)),patch.object(p,'bounded_process',side_effect=self.process):
-            return e.judge(self.contract,self.payload,self.routing,dict(p.DEFAULTS),lambda:self.launches.append(True),p)
+            return e.judge(self.contract,self.payload,self.routing,dict(p.DEFAULTS,timeout_seconds=timeout),lambda:self.launches.append(True),p)
     def test_subscription_isolation_empty_tool_probe_usage_and_replay(self):
         result=self.judge();self.assertEqual(result['outcome'],'pass',result)
         self.assertEqual(self.launches,[True]);self.assertEqual(result['usage'],{'input_tokens':17,'output_tokens':9})
         self.assertEqual(e.parse_transport_verdict(result['raw'],'codex',self.routing,p),result['transport_verdict'])
         self.assertTrue(result['capability']['empty_tool_surface_verified']);self.assertEqual(result['capability']['billing'],'subscription')
         self.assertEqual(json.loads(self.auth.read_text())['tokens']['access_token'],'synthetic-fixture-token')
+    def test_unset_generation_deadline_keeps_probes_bounded_and_explicit_limit_applies(self):
+        result=self.judge()
+        self.assertEqual(result['outcome'],'pass',result)
+        self.assertTrue(all(timeout is not None and timeout <= 15 for timeout,generation in self.timeouts if not generation))
+        self.assertEqual([timeout for timeout,generation in self.timeouts if generation],[None])
+        self.timeouts=[]
+        result=self.judge(timeout=10)
+        self.assertEqual(result['outcome'],'pass',result)
+        self.assertTrue(all(timeout is not None and 0 < timeout <= 10 for timeout,_ in self.timeouts))
+
     def test_unverified_cli_and_nonempty_tool_surface_never_launch(self):
         self.version='codex-cli 0.155.2';result=self.judge()
         self.assertEqual(result['outcome'],'unknown');self.assertEqual(result['reason'],'evaluation_codex_version');self.assertEqual(self.launches,[])

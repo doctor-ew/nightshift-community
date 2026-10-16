@@ -237,6 +237,12 @@ invocation for unchanged requirements. Continue with missing validation and revi
 in `/nightshift-spec` Step 4; existence is not approval and must not skip directly
 to the approved tracker in Step 8.
 
+If no spec exists, execute initial spec production from the retained source request.
+A prior provider, transport, or missing-receipt failure does not restrict this to
+repairing a nonexistent draft. Preserve those failed attempts and their counters;
+create the missing artifacts and run the normal validation and independent review.
+Do not report missing initial artifacts as a product decision requiring approval.
+
 Only concrete unresolved findings or changed upstream requirements justify a writer
 repair. Write `spec-repair.json` beside the draft with `spec_sha256` matching the
 current file and a nonempty `findings` array of `{id, target, problem}` objects.

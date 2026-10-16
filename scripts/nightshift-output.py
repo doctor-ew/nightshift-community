@@ -1,5 +1,6 @@
 """Display launcher output without changing provider status or investigation scope."""
 import collections
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,10 @@ import tempfile
 import threading
 import time
 import tomllib
+
+_context_spec = importlib.util.spec_from_file_location('manifest_context', Path(__file__).with_name('nightshift-project-context.py'))
+_context = importlib.util.module_from_spec(_context_spec)
+_context_spec.loader.exec_module(_context)
 
 
 def options(argv, env):
@@ -33,9 +38,7 @@ def options(argv, env):
     mode = 'concise'
     home = Path(env.get('NIGHTSHIFT_HOME', str(Path.home() / '.nightshift')))
     for directory in (home, project):
-        path = directory / '.nightshift.toml'
-        if not path.exists():
-            path = directory / 'nightshift.toml'
+        path = _context.manifest_path(directory)
         if path.exists():
             data = tomllib.loads(path.read_text())
             output = data.get('output', {})
@@ -145,6 +148,8 @@ def run(launcher, argv):
             continue
         if name == 'stderr':
             diagnostics.append(line.rstrip())
+            if line.startswith('nightshift: awaiting spec approval;'):
+                final = line.strip()
             if any(word in line.lower() for word in ('warning', ' error ', 'authrequired')):
                 warnings += 1
             # Billing mode should remain explicit even with reduced output.

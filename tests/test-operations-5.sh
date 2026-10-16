@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONDONTWRITEBYTECODE=1
 python3 "$ROOT/tests/test-operation-review-regressions.py"
+python3 "$ROOT/tests/test-operation-transport-retry.py"
 python3 "$ROOT/tests/test-operation-integrated-acceptance.py"
 python3 "$ROOT/tests/test-semantic-transport-review.py"
 python3 "$ROOT/tests/test-delivery-handoff-review.py"
