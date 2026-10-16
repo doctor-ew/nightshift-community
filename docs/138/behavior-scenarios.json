@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "task": "138",
+  "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+  ],
+  "author": {
+    "provider": "codex",
+    "author_id": "task-138-product-writer-1"
+  },
+  "applicability": {
+    "kind": "deterministic",
+    "rationale": "React presentation and existing controller admission are ordinary deterministic behavior. C-6 requires actual manual visual evidence; C-7 is a later controller delivery obligation. Neither is a model prototype or an automatic approval.",
+    "risks": [
+      "deterministic_logic"
+    ],
+    "review": {
+      "reviewer_provider": "claude",
+      "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+      "decision": "approve",
+      "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+      "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+    }
+  },
+  "runtime": null,
+  "prototype_files": [],
+  "cases": [
+    {
+      "id": "C-1",
+      "ac_ids": [
+        "AC-1"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Retained task first. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "An actual controller task in the checkout-local runtime; fixture variants include running, blocked and pending acceptance.",
+      "when": "Open the dashboard before entering a request.",
+      "then": "Current recorded task status and all six stages precede request setup; empty/error states make no invented task.",
+      "forbidden": "A fixture screenshot alone is not retained-task acceptance.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Fixture-only demo labeled as a real retained run; six green stages inferred from process exit."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-2",
+      "ac_ids": [
+        "AC-2",
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Stage evidence isolation. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Two tasks, different stage routes, a failed attempt followed by success, stale recovery and a stage without receipts. Include a recognized current stage, an unrecognized current-stage value, configured routing defaults without recorded routes, and task-wide links without stage provenance.",
+      "when": "Select each stage by pointer, Tab and Enter/Space; refresh the snapshot and switch tasks.",
+      "then": "Only selected task/stage evidence is shown under UI-E1; history remains available and missing fields are explicit; selection persists per task on refresh. Initially select the recognized recorded current stage, otherwise the first stage. UI-E1 sections appear in this exact order: task/stage identity and recorded state; recorded provider/model; artifacts; tests and proof/receipts; attempt history. Task-wide links without stage provenance appear only in the separately labeled task-evidence subsection. A missing recorded route remains not recorded even with configured defaults. A receipt path or recorded pass is labeled as recorded evidence, never verified contents or a newly executed check. Assert the captured mutation-request list stays empty for all stage selections.",
+      "forbidden": "No route fallback from another stage or task; no selection-triggered dispatch.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Review route shown for QA; missing tests shown as passed; old failure erased.",
+        "Unrecognized current stage preselects QA instead of the first stage.",
+        "Task-wide link assigned to selected stage; configured default substituted for absent recorded model.",
+        "A recorded pass or receipt path rendered as newly run or verified evidence; selection sends mutation.",
+        "Attempt history precedes identity or stage sections omit the UI-E1 order."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-3",
+      "ac_ids": [
+        "AC-3",
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Admission boundaries. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Completed, branchless, running, pending-question, stale and exhausted task fixtures with captured network requests. Include an unknown or unsupported recorded next-action value.",
+      "when": "Inspect and attempt available existing controls; answer an admitted pending question.",
+      "then": "Existing authorization bindings and disabled rules remain; stage selection sends no mutation; denied work has no dispatch; questions use existing controls. Unknown or unsupported next actions render explanatory read-only text, no invented execution control, and no captured mutation request.",
+      "forbidden": "No grant, completion, budget reset or worker start implied by display or question answer.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Completed task Resume enabled; branchless task repair; answer recorded as gate pass.",
+        "An unrecognized next-action token becomes an enabled button or dispatches a mutation."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-4",
+      "ac_ids": [
+        "AC-4"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Intake journeys. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Disposable Markdown and qualified GitHub fixtures with missing choices and held requests.",
+      "when": "Preview, reveal and answer missing choices, prepare, and explicitly execute; hold intake and operations requests in each direction.",
+      "then": "Details start collapsed and disclose missing choices; preview identity and zero provider calls until explicit execution persist; each side locks the other.",
+      "forbidden": "No preview/preparation execution or request switching during a busy operation.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Prepare dispatches workers; operation runs while intake source remains editable."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-5",
+      "ac_ids": [
+        "AC-2",
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Responsive keyboard and build. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Representative long-path, missing, failed, running, completed, read-only and question states in the rebuilt distribution.",
+      "when": "Run model and browser assertions at 1440x1000 and 390x844, keyboard every stage and disclosure, and build production assets.",
+      "then": "Stage buttons expose aria-pressed with one selected; Tab order and Enter/Space work; focus remains visible and stable on refresh; no horizontal page overflow or console errors; committed generated assets match build. At both viewport sizes, measure stage/action control bounding boxes and assert height >=44 CSS pixels. Calculate foreground/background contrast from resolved computed colors, including composed backgrounds: normal text >=4.5:1, large text and control boundaries >=3:1. Assert visible status text expresses each state without depending on color.",
+      "forbidden": "No clipped essential evidence or hidden focus; no new framework.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Mobile long model name expands page; focus disappears on polling; committed bundle renders old stage list.",
+        "A 36px stage or action button fails size checks.",
+        "Normal text at 3:1 or a control boundary at 2:1 fails contrast checks.",
+        "A status badge with color and no state text fails."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-6",
+      "ac_ids": [
+        "AC-1",
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "manual",
+        "rationale": "Upstream AC-5 explicitly requires visual inspection; layout quality and real retained-task acceptance require operator observation, pending until actual testimony.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Rebuilt candidate, real retained controller task and representative fixture states with provenance separated.",
+      "when": "Operator visually inspects desktop/mobile layout, contrast, focus, evidence hierarchy and retained task before setup.",
+      "then": "Operator records exact revision, widths, observed result and evidence for upstream instruction: Rebuild committed distribution assets and visually inspect representative states. Acceptance remains pending until actual testimony.",
+      "forbidden": "Screenshots or author assertions cannot replace operator acceptance; no fabricated attestation.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Synthetic manual testimony copied into real task; visual approval inferred from successful build."
+      ],
+      "visibility": "public",
+      "manual_acceptance": {
+        "owner": "Task operator",
+        "authorization": "Authoritative issue 138 AC-5: Rebuild committed distribution assets and visually inspect representative states.",
+        "procedure": "Inspect rebuilt candidate at 1440x1000 and 390x844 with a real retained controller task before request setup; inspect running, failed/historical, missing, completed, read-only and pending-question states, keyboard focus, contrast and overflow. Record revision, evidence references and actual observations through existing manual acceptance; do not invent an attestation."
+      }
+    },
+    {
+      "id": "C-7",
+      "ac_ids": [
+        "AC-6"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Controller delivery obligations. Ordinary UI/controller assertions or bounded later-stage/manual evidence obligations; no model behavior is being prototyped.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "task-138-product-classification-review-2:b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83",
+          "decision": "approve",
+          "reviewed_input_sha256": "10d8f66ac2a30ed9714b9e45f600b400603d31a6ea3b442fbf506ab00dd4058a",
+          "evidence_sha256": "b5e1b467c7c0ca727e11f74dd1fad80b78859c9a7f815ab7210beccdcde5eb83"
+        }
+      },
+      "given": "Controller-owned retained stage ledger for this task; all required gates and publication initially pending.",
+      "when": "Later controller runs canonical Product, Adversarial, Implementation, Review, Drift and QA, then prepares reviewed branch/PR.",
+      "then": "Actual stage receipts, relevant RED/final proof, failed attempts, limitations and reviewable branch/PR are retained; failed/unknown gates block completion; maximum three in-scope repairs per failing gate.",
+      "forbidden": "Product cannot execute later stages, recursively invoke factory, merge, deploy, reset budgets or attest pending acceptance.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Six synthetic receipts relabeled live; QA skipped; fourth repair after exhausted allowance."
+      ],
+      "visibility": "public"
+    }
+  ],
+  "heldout": null
+}

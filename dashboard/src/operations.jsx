@@ -93,7 +93,7 @@ export function OperationsPanel() {
   }
   return <><IntakePanel blocked={operationBusy} onBusy={setIntakeBusy} onPrepared={value=>{setTask(value);setData(null);setSelected(null);setPackages(null);}} /><section className="workspace operations-panel" aria-label="Engineering operations">
     <h2>Engineering operations</h2>
-    <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Existing ticket history remains below.</p>
+    <p>Inspect retained artifacts, then authorize one operation or a bounded recipe. Current tickets and their stage history appear above.</p>
     <label>Task key<input disabled={busy} value={task} onChange={e=>{setTask(e.target.value);setData(null);setSelected(null);setPackages(null);}} /></label>
     <button disabled={busy||!task.trim()} onClick={async()=>{setBusy(true);try{await inspect();}finally{setBusy(false);}}}>Assess operations</button>
     {error && <p role="alert">{error}</p>}
