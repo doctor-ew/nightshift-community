@@ -1,4 +1,28 @@
 export const active = new Set(['running', 'in_progress']);
+// Presentation projection; provenance never comes from filenames or defaults.
+export function stageEvidence(rows, ticket, stage) {
+  const related = rows.filter(row => row.ticket === ticket.task);
+  const scoped = related.filter(row => row.gate === stage);
+  const attempts = (ticket.pipeline?.attempts || []).filter(attempt => attempt.stage === stage);
+  const latest = attempts.at(-1);
+  return {
+    task: ticket.task,
+    stage,
+    state: ticketTimeline(rows, ticket).find(step => step.stage === stage)?.state || 'not recorded',
+    provider: latest?.route?.provider || null,
+    model: latest?.route?.model || null,
+    attempts: attempts.slice(),
+    artifacts: scoped.flatMap(row => row.links || []).filter(Boolean),
+    tests: scoped.map(row => ({
+      state: row.state,
+      reason: row.reason,
+      links: (row.links || []).filter(Boolean),
+    })),
+    receipts: [...new Set([...attempts.map(attempt => attempt.receipt), ticket.pipeline?.completed?.[stage]?.receipt].filter(Boolean))],
+    taskEvidence: related.filter(row => !row.gate).flatMap(row => row.links || []).filter(Boolean),
+    stale: ticket.pipeline?.status === 'stale',
+  };
+}
 export const attention = new Set(['blocked', 'failed', 'needs-decision']);
 export const modified = row => Math.max(0, ...(row.links || []).filter(Boolean).map(link => link.modified_at || 0));
 export function ticketFailures(rows, task) {
