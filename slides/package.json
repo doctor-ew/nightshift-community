@@ -14,7 +14,7 @@
     "export:tuesday": "slidev export tuesday.md --output tuesday-nightshift.pdf --per-slide"
   },
   "dependencies": {
-    "@slidev/cli": "52.19.1",
+    "@slidev/cli": "53.0.0",
     "@slidev/theme-default": "0.25.0",
     "vue": "^3.5.0"
   },
