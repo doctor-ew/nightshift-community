@@ -1,0 +1,6 @@
+import{A as e,H as t,S as n,St as r,nt as i,wt as a,x as o}from"./modules/shiki-DTaLjGtL.js";import{et as s,tt as c}from"./index-C2hEQ0mP.js";import{t as l}from"./slidev/default-D9e9QMtq.js";var u={__name:`saturday.md__slidev_35`,setup(u){let{$slidev:d,$nav:f,$clicksContext:p,$clicks:m,$page:h,$renderContext:g,$frontmatter:_}=c();return p.setup(),(c,u)=>(t(),n(l,a(e(r(s)(r(_),34))),{default:i(()=>[...u[0]||=[o(`div`,{class:`slide-number`},`SKILLS · ROLE DISPATCH`,-1),o(`h1`,null,`Follow one Product-stage handoff`,-1),o(`div`,{class:`terminal detail-code`},[o(`div`,{class:`terminal-label`},`REPOSITORY FILES IN THE DISPATCH PATH`),o(`pre`,null,`skills/nightshift/SKILL.md
+  → commands/nightshift-product.md
+  → agents/nightshift-code-fact-extractor.md
+  → agents/nightshift-spec-writer.md
+scripts/nightshift-agent.sh + routing.json
+  → provider invocation + validated role output`)],-1),o(`p`,null,`The extractor grounds identifiers. The writer cites sources and records unknowns.`,-1),o(`div`,{class:`source`},`commands/nightshift-product.md; agents/nightshift-spec-writer.md; scripts/nightshift-agent.sh`,-1)]]),_:1},16))}};export{u as default};
