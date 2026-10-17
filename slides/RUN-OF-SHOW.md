@@ -1,6 +1,6 @@
 # Suggested talk paths
 
-Both event decks have 43 slides. Approximate 20–40 minute slots remain unconfirmed.
+Both event decks have 44 slides. Approximate 20–40 minute slots remain unconfirmed.
 
 ## Module map
 
@@ -15,13 +15,13 @@ Both event decks have 43 slides. Approximate 20–40 minute slots remain unconfi
 | 25–28 | Retrieval, MEX, Jev and cost measurement |
 | 29–33 | Actual control room/Review, illustrative HITL and actual allowance |
 | 34–37 | Skill source, role dispatch, actual proof and decision continuation |
-| 38–40 | MEX retrieval, Jev shadow rubric and proposed evaluation |
-| 41 | Closing and questions |
-| 42–43 | Rehearsal checker and SOLID/ACID appendices |
+| 38–41 | MEX retrieval, actual MEX setup, Jev shadow rubric and proposed evaluation |
+| 42 | Closing and questions |
+| 43–44 | Rehearsal checker and SOLID/ACID appendices |
 
 ## Approximately 20 minutes
 
-Use 1, 2, 3, 4, 6, 8, 9, 10, 11, 14, 18, 21, 22, 29, 31, 32, 34, 38, 39, 41. Keep the retained demonstration to two minutes; use screenshots to avoid excessive window switching.
+Use 1, 2, 3, 4, 6, 8, 9, 10, 11, 14, 18, 21, 22, 29, 31, 32, 34, 38, 39, 40, 42. Keep the retained demonstration to two minutes; use screenshots to avoid excessive window switching.
 
 ## Approximately 30 minutes
 
@@ -29,7 +29,7 @@ Add 15, 23, 24, 26, 27, 30, 33, 35 and 36 as useful. Explain retained failure hi
 
 ## Approximately 40 minutes
 
-Add 7, 12, 16, 17, 20, 25, 28, 37 and 40. Open the source and architecture map; keep 42–43 for questions. Jev remains offline in this demonstration.
+Add 7, 12, 16, 17, 20, 25, 28, 37 and 41. Open the source and architecture map; keep 43–44 for questions. Jev remains offline in this demonstration.
 
 ## Presenter setup
 

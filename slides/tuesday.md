@@ -600,6 +600,19 @@ The command is the actual argument shape used by the optional helper, with a pla
 
 ---
 
+<div class="slide-number">MEX · ACTUAL SETUP CAPTURE</div>
+
+# Building memory for Counsel of Ricks
+
+<div class="mex-setup-layout"><figure><img src="/assets/mex-setup-in-progress.png" alt="Presenter capture of the local MEX Project Hub, showing Running setup for counsel-of-ricks and a background Claude Code session building project memory."/><figcaption>Actual presenter capture · setup in progress</figcaption></figure><section><h3>Prepare the checkout</h3><p>Create the local scaffold and link AI-tool instructions.</p><h3>Build project context</h3><p>A background Claude Code session writes and checks project memory.</p><h3>Inspect before reuse</h3><p>Review the resulting context before using it in Nightshift.</p><small>This capture does not establish completed setup or a fresh graph.</small></section></div>
+<div class="source">MEX Project Hub · counsel-of-ricks · presenter-supplied local screenshot</div>
+
+<!--
+This is the actual presenter-supplied screenshot from http://127.0.0.1:59715/setup, preserved unchanged. The page says Running setup, names counsel-of-ricks, and says Claude Code is building your project memory. Visible completed steps include Detect project state and Create .mex/ scaffold; the page describes linking AI tools and opening Graph, Wiki and team memory. The screenshot is historical captured state, not a live feed or a completion receipt. A fresh read-only browser session reported an expired Hub session; no active tab, background Claude process, setup action or session was changed. Do not imply the repository graph is now current, that this is the Nightshift dashboard, or that setup itself authorizes a worker. The previous slide describes the separately bounded optional Nightshift handoff integration. Local Hub URLs are laptop-only and the session expiry must not be bypassed for the presentation.
+-->
+
+---
+
 <div class="slide-number">JEV · THE IMPLEMENTED SHADOW RUBRIC</div>
 
 # What we would ask Jev

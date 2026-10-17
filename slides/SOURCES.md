@@ -57,3 +57,8 @@ Slides 9–11 explain task fit and total work cost, independent author/reviewer 
 ## Architecture diagrams
 
 Slides 21–22 translate `docs/ARCHITECTURE.md` into editable SVG/HTML diagrams. Component/file identifiers link to that document's verified implementation map. Control is local; provider CLIs can use remote services. Optional MEX source retrieval and optional Jev shadow evaluation remain distinct from proposed wider Jev routing. Human checkpoints can occur before publication; production authorization remains separate.
+
+## MEX Project Hub setup capture
+
+- `public/assets/mex-setup-in-progress.png`: user-supplied screenshot preserved unchanged from `/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T/codex-clipboard-8mbOHf.png`, showing `http://127.0.0.1:59715/setup` for Counsel of Ricks. Background Claude Code setup is visibly running; completed setup and graph freshness are not established.
+- Slide 39 uses only visible setup labels and explicitly distinguishes this MEX Hub page from Nightshift's UI and its optional bounded retrieval integration. A fresh read-only browser session returned an expired-session page; no active session was changed.
