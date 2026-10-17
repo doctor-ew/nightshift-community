@@ -32,3 +32,24 @@ The event decks replace the generic PR-stack appendix with SOLID/ACID review len
 ## Nightshift builds Nightshift
 
 Slide 15: [issue #138 result](https://github.com/doctor-ew/nightshift-community/issues/138#issuecomment-6201648902) records the real review regression, repair, passing re-review/Drift, QA automated checks and pending visual acceptance/active-time exhaustion. [Issue #139](https://github.com/doctor-ew/nightshift-community/issues/139) tracks the human-acceptance sequencing defect. PR #140 subsequently merged the candidate into its prerequisite branch under explicit operator direction, preserving the incomplete factory history. Source merge, stable release and local installation are distinct. This run is distinct from the completed duration formatter.
+
+## 17 October additions
+
+- First-talk source: `/Users/drew.schillinger/shuttlebay/doctorews-laboratory/in-pursuit-of-memory`, especially `pages/10c-security.md`, `pages/08b-hitl.md`, `pages/10b-token-efficiency.md` and `public/fafnir-cert-none.png`. Artwork copied unchanged; original talk is untouched. Public repository: https://github.com/doctor-ew/in-pursuit-of-memory .
+- MEX: https://github.com/mex-memory/mex ; source-backed capability description, not a Nightshift savings benchmark. Verified Drew Schillinger contribution: https://github.com/mex-memory/mex/commit/7bc7e7f1f692a4d9053792dd61129e47bfb89049 .
+- Jev community: https://www.jevai.org/ and https://www.jevai.org/docs . Distinguish community workflows, core vendor service, local shadow adapter, and proposed Nightshift use. No service payload sent.
+- Runtime and integration sources are linked in `docs/ARCHITECTURE.md`. Source lookups performed 17 October 2026.
+
+## Detailed walkthrough captures
+
+Captured 17 October 2026 from the local consoles using the actual dashboard UI. `control-room-actual.png`, `stage-review-actual.png` and `allowance-actual.png` show retained public task 138. Its current stale evidence and exhausted allowance remain visible; the screenshots do not assert factory completion. `demo-header.png` and `demo-stages.png` show the distinct completed public formatter in its pinned older runtime.
+
+`hitl-question-illustrative.png` and `hitl-spec-illustrative.png` render the actual unmodified question/approval components with browser-only public illustrative GET data. They are interaction examples, not recorded operator answers or real run receipts. Capture made zero POST requests. No question was submitted, spec approved, time granted or worker started. Source: `dashboard/src/ticket-live.jsx`, `dashboard/src/app.jsx`, `scripts/nightshift-console-decisions.py`, `scripts/nightshift-console-actions.py`.
+
+The detailed skill and role slides use `skills/nightshift/SKILL.md`, `commands/nightshift-product.md`, `agents/nightshift-code-fact-extractor.md`, `agents/nightshift-spec-writer.md`, `scripts/nightshift-agent.sh` and `routing.json`. The proof trail names actual artifacts in the retained public formatter worktree; `docs/133/IMPLEMENTATION.md` records its 26 inputs and accepted proof boundary.
+
+The MEX command reproduces the argument shape in `scripts/nightshift-handoff.py`; it is not a successful graph result. The Jev rubric paraphrases the two questions in `scripts/nightshift-efficiency.py`. `scripts/nightshift-jev-evaluation.py` retains the optional shadow-only measurement boundary and zero avoided reviewer calls. The combined optimization experiment is proposed.
+
+## Why route models
+
+Slides 9–11 explain task fit and total work cost, independent author/reviewer challenge, and unchanged admission/evidence gates. These are design rationale, not benchmark results or claims of statistical independence. Actual demonstrated Codex/Claude routes are recorded in `docs/133/IMPLEMENTATION.md`; `routing.json`, `scripts/nightshift-agent.sh`, `scripts/nightshift-provider-policy.py` and `scripts/nightshift-pipeline.py` implement dispatch policy and validation.

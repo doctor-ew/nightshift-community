@@ -140,6 +140,48 @@ Open routing.json and then the dashboard's Controller routing and receipts panel
 
 ---
 
+<div class="slide-number">WHY ROUTE · COST</div>
+
+# Spend for the work being done
+
+<div class="two"><section><h3>Different tasks</h3><p>Source lookup, implementation and adversarial review ask for different capabilities.</p></section><section><h3>Total work cost</h3><p>Compare context, tool support, retries, latency and acceptance—not just one response.</p></section></div>
+<div class="takeaway">The cheapest useful route is the one that produces accepted work with less total effort.</div>
+<div class="source">routing.json; scripts/nightshift-handoff.py; scripts/nightshift-ticket-budget.py</div>
+
+<!--
+Cost is a reason to route, not a measured claim that one named model is always cheaper. A lookup can need strong source tools but less design judgment; implementation and independent review have different responsibilities. A cheap response that creates more repair work can cost more overall. Subscription charges, token-priced estimates, active seconds and elapsed latency are different measures. Local execution also uses hardware and time. In this demo author/reviewer independence, available inventory and subscription policy determined the actual routes; no universal price ranking or measured model-routing savings is claimed. Existing evidence reuse is separately demonstrated by the zero-generation cached repeat.
+-->
+
+---
+
+<div class="slide-number">WHY ROUTE · BIAS</div>
+
+# Challenge the author's assumptions
+
+<div class="two"><section><h3>Author</h3><p>Builds from the spec and can become attached to its own interpretation.</p><p>Recorded author: Codex.</p></section><section><h3>Independent reviewer</h3><p>Checks the source, tests and contract instead of accepting the author's summary.</p><p>Recorded reviewer: Claude.</p></section></div>
+<div class="takeaway">A second provider adds a different perspective. Shared blind spots can still survive.</div>
+<div class="source">routing.json; scripts/nightshift-agent.sh; docs/133/IMPLEMENTATION.md</div>
+
+<!--
+Separate author and reviewer provenance reduces direct self-approval; it does not prove statistical independence, remove bias or guarantee defect detection. Models can share training patterns and make the same wrong assumption. Separate role instructions, direct source inspection, adversarial questions and independently executed tests matter alongside provider diversity. Show the actual routes from the retained public rehearsal rather than ranking vendors. The review must challenge the test oracle and requirements, not merely agree that tests are green. Do not claim that two models agreeing is proof.
+-->
+
+---
+
+<div class="slide-number">WHY ROUTE · TRUST</div>
+
+# Trust the checks around each worker
+
+<div class="three"><section><h3>Before dispatch</h3><p>Explicit policy, available runtime, scope and retained allowance.</p></section><section><h3>At the boundary</h3><p>Role contract, structured output and locally checked evidence.</p></section><section><h3>Before delivery</h3><p>Review, drift and QA; explicit human decisions where required.</p></section></div>
+<div class="takeaway">Switching models changes the worker. It does not relax the gate.</div>
+<div class="source">scripts/nightshift-provider-policy.py; contracts/; scripts/nightshift-pipeline.py; AGENTS.md</div>
+
+<!--
+Trust means knowing which claims were checked and which authority the worker actually has. A schema-valid response is necessary at a provider boundary but insufficient to establish correct behavior. The controller must validate receipts and input/evidence bindings, and applicable checks must pass. An unavailable local model is not an excuse to silently change billing authority. A confidence score from Jev or any worker cannot approve a production deployment or manufacture manual acceptance. Different provider capabilities and sandbox implementations still need their own verification; runtime-neutral instructions are not a claim that every provider has identical security properties. This is defense in depth, not a formal guarantee of agent containment.
+-->
+
+---
+
 <div class="slide-number">ROUTING</div>
 
 # Admission happens before dispatch
@@ -264,6 +306,308 @@ This happened while preparing these talks. We asked Nightshift to improve Nights
 
 <!--
 Optional expansion for a 30–40 minute slot. Distinguish the repository policy from what an LLM says it may do. The supervised and autonomous plan paths are explicit in the implementation command. Production deployment and permanent deletion require operator confirmation. Do not claim prompt text alone enforces a security boundary. Source: AGENTS.md Autonomy and confirmation policy; commands/nightshift-implement.md Step 3.
+-->
+
+---
+
+<div class="slide-number">FROM MY FIRST TALK</div>
+
+# From memory to accountable work
+
+<div class="two"><section><h3>In Pursuit of Memory</h3><p>Carry useful context between sessions.</p><p>Keep sources, identity and trust visible.</p></section><section><h3>Nightshift</h3><p>Turn context into a verifiable change.</p><p>Reduce repeated discovery and unnecessary work.</p></section></div>
+<div class="takeaway">Optimization goal: less rework per accepted change.</div>
+
+<div class="source"><a href="https://github.com/doctor-ew/in-pursuit-of-memory">My first presentation ↗</a> · Optimization goals, not a measured savings claim</div>
+
+<!--
+The user identifies In Pursuit of Memory as their first presentation. Its security, human-in-the-loop and lean-memory material supplies this bridge; the original repository is unchanged. Context is useful only when relevant and appropriately trusted. Nightshift adds staged execution, independently checked evidence and persistent accounting. Savings are a research goal; no percentage reduction is established for MEX or Jev in these runs.
+-->
+
+---
+
+<div class="slide-number">ARCHITECTURE</div>
+
+# What Nightshift runs on
+
+<div class="stage-grid"><section><b>1</b><h3>Bash entry</h3><p>CLI, skill and role dispatch.</p></section><section><b>2</b><h3>Python control</h3><p>Stages, policy, proof and budgets.</p></section><section><b>3</b><h3>AI workers</h3><p>Configured Codex, Claude or local route.</p></section></div>
+<p>React dashboard → local Python server.<br>Git worktrees, receipts and hashes retain the work.</p>
+<p>MEX supplies optional context. Jev decision assistance is proposed.</p>
+<div class="source"><a href="https://github.com/doctor-ew/nightshift-community/blob/nightshift/talks-memory-security/docs/ARCHITECTURE.md">Architecture: diagram, files and stage contracts ↗</a></div>
+
+<!--
+Runtime-neutral instructions live in commands and agents; routing.json selects providers/models. Bash launches Python controller sequencing. The React bundle is built with Node/esbuild and served on loopback by Python. Provider CLIs reach their configured services; an optional local path uses Codex and Ollama. MEX graph retrieval is bounded and optional. A Jev shadow adapter already exists, but the talk disables it; wider decision assistance is a future experiment. Production release and a private local installation remain separate. Source: docs/ARCHITECTURE.md and its linked implementation files.
+-->
+
+---
+
+<div class="slide-number">SAFETY</div>
+
+# Context is evidence, not authority
+
+<div class="four"><section><h3>Untrusted input</h3><p>Tickets and retrieved text cannot grant tool permissions.</p></section><section><h3>Least privilege</h3><p>Enforce scope at the tool and runtime boundary.</p></section><section><h3>Controlled egress</h3><p>Review the payload before sending private evidence.</p></section><section><h3>Independent gates</h3><p>Keep review, proof and human decisions distinct.</p></section></div>
+<div class="takeaway">A confidence score cannot authorize a consequential action.</div>
+<div class="source">AGENTS.md; scripts/nightshift-agent.sh; dashboard/server.py</div>
+
+<!--
+Carry forward the first talk's human-in-the-loop lesson. Prompt wording alone is not a security boundary. Treat context and model results as data; schema-valid output is not automatic permission. Present least privilege and reviewed egress as engineering requirements rather than a claim that all future policy-gateway work is complete. Jev probabilities may advise; they must not approve required gates or replace human authorization. Current production and removal confirmation rules remain in AGENTS.md.
+-->
+
+---
+
+<div class="slide-number">SECURITY · FIRST-TALK LESSONS</div>
+
+# Security lives below the prompt
+
+<img class="first-talk-security" src="/assets/first-talk-security.png" alt="Fafnir questions accepting an unverified certificate in the original presentation" />
+<div class="stage-grid"><section><h3>Transport</h3><p>Verify the peer and its certificate.</p></section><section><h3>Identity</h3><p>Identify the caller; enforce authorization.</p></section><section><h3>Data scope</h3><p>Send only the evidence the task needs.</p></section></div>
+<div class="source">In Pursuit of Memory · pages/10c-security.md; original Fafnir artwork</div>
+
+<!--
+This exact image is reused from the user's first presentation. That talk discussed disabled certificate validation, missing per-user identity and shared-password authentication. Those are lessons from that application, not a claim that Nightshift currently uses that application's authentication provider. The Nightshift dashboard is locally bound and validates mutation requests; that does not certify it as a publicly hosted multi-user application. Show the distinction between transport security, caller identity, authorization and model instructions.
+-->
+
+---
+
+<div class="slide-number">MEMORY</div>
+
+# Retrieval is one part of memory
+
+<div class="two"><section><h3>Vector retrieval</h3><p>Find candidate context by similarity.</p><p>A relevant match still needs a source.</p></section><section><h3>Memory management</h3><p>Track provenance, revision and freshness.</p><p>Decide what to retain, share and retire.</p></section></div>
+<div class="takeaway">Remember the reason—and the evidence it depends on.</div>
+<div class="source">Memory design distinction · MEX grounding documentation; first-talk memory material</div>
+
+<!--
+Vector search and governed memory solve different parts of the problem. Similarity is a retrieval signal, not proof that a fact remains true or that the caller may see it. MEX's upstream design uses repository knowledge plus a code graph; do not describe it simply as a vector database. Keep private data scope and stale-context handling visible. This is an architectural explanation, not a benchmark result.
+-->
+
+---
+
+<div class="slide-number">MEX</div>
+
+# MEX: carry the team's context
+
+<div class="two"><section><h3>Repository memory</h3><p>Architecture, decisions and handoffs through Git.</p><p>Code-linked grounding and a local graph.</p></section><section><h3>My contribution</h3><p>I contributed the C# code-graph extractor.</p><p>A concrete open-source entry point for .NET engineers.</p></section></div>
+<p>Nightshift can retrieve bounded source context when the graph is available.</p>
+<div class="source"><a href="https://github.com/mex-memory/mex">MEX ↗</a> · <a href="https://github.com/mex-memory/mex/commit/7bc7e7f1f692a4d9053792dd61129e47bfb89049">My C# contribution ↗</a> · scripts/nightshift-handoff.py</div>
+
+<!--
+Contribution attribution is verified by upstream commit7bc7e7f1, author Drew Schillinger. Current upstream documents partial C# coverage; this is not complete .NET semantic analysis. Local Nightshift retrieval rejects missing, stale or partial graph evidence. No measured MEX token saving is claimed here.
+-->
+
+---
+
+<div class="slide-number">JEV · COMING NEXT</div>
+
+# Ask a smaller decision
+
+<div class="two"><section><h3>Candidate uses</h3><p>Classify a narrow claim.</p><p>Suggest a route or relevant context.</p><p>Return typed choices and confidence.</p></section><section><h3>Nightshift boundary</h3><p>Optional shadow adapter exists.</p><p>Disabled in this demonstration.</p><p>Required independent review stays.</p></section></div>
+<div class="takeaway">First measure decisions. Then decide what to delegate.</div>
+<div class="source"><a href="https://www.jevai.org/docs">Jev community decision workflows ↗</a> · scripts/nightshift-jev-evaluation.py</div>
+
+<!--
+The supplied Jev site is a community hub, distinct from TypeSafe AI's core model service. Its docs describe typed decision workflows and treat probabilities as signals, not authorization. Wider Nightshift use is proposed. The current local evaluation adapter requires explicit evidence, reports zero avoided Claude calls, and does not replace a required reviewer. No external payload is sent for this presentation update; no Jev accuracy, latency or savings benchmark is established. Evaluate on labeled public cases, record false positives/negatives and abstention, and retain required independent gates.
+-->
+
+---
+
+<div class="slide-number">COST AND OPTIMIZATION</div>
+
+# Measure cost per accepted change
+
+<div class="four"><section><h3>Context</h3><p>Retrieve and hand off the relevant evidence.</p></section><section><h3>Routing</h3><p>Match the worker to the actual task.</p></section><section><h3>Reuse</h3><p>Reuse accepted work while bindings match.</p></section><section><h3>Quality</h3><p>Count rework and missed defects too.</p></section></div>
+<p>Track tokens, calls, elapsed time, retries and acceptance.<br>Reported estimates and actual billed cost are different measures.</p>
+<div class="source">scripts/nightshift-handoff.py; scripts/nightshift-ticket-budget.py; docs/talks/TESTING.md</div>
+
+<!--
+The completed formatter repeat demonstrated zero additional generation calls with unchanged receipts/reservations; it did not measure general cost savings from MEX or Jev. Evaluate alternatives against the same accepted outcome and include failed attempts, retries, decision overhead and quality. Active-time accounting sums overlapping invocations; it is not elapsed wall time or billed cost. Provider subscription use and token-priced estimates do not establish actual incremental charges. The goal is useful, verified work with less unnecessary processing.
+-->
+
+---
+
+<div class="slide-number">CONTROL ROOM · ACTUAL LOCAL CAPTURE</div>
+
+# The current control room
+
+<img class="walkthrough-shot" src="/assets/control-room-actual.png" alt="Actual task 138 control room with six selectable stages and retained attempt evidence" />
+<p class="walkthrough-caption">Select a stage → inspect its worker, evidence and history. This retained run needs revalidation.</p>
+<div class="source">Actual local dashboard · task 138 · 17 October 2026 · dashboard/src/app.jsx</div>
+
+<!--
+This is the current local control room, not a mockup. The task is the dashboard change itself. The recorded state is stale because evidence changed; it is not an active successful run. Point out the stage selector, provider/model and retained attempts. Switching stages is inspection and does not dispatch work. The older completed formatter at port 8878 uses its pinned runtime and therefore has an older front end. This screenshot comes from port 8880. Source: dashboard/src/app.jsx; docs/138/OPERATOR-DELIVERY.md.
+-->
+
+---
+
+<div class="slide-number">STAGE EVIDENCE · ACTUAL LOCAL CAPTURE</div>
+
+# Review keeps the failed attempt
+
+<img class="walkthrough-shot" src="/assets/stage-review-actual.png" alt="Actual Review stage showing its recorded route, receipts and retained attempts" />
+<p class="walkthrough-caption">The first review found a hidden control. The repair passed the next review; earlier evidence remains.</p>
+<div class="source">Actual task 138 Review panel; docs/138/IMPLEMENTATION.md; docs/138/REVIEW.md</div>
+
+<!--
+The first integrated browser check found a hidden continuation control below long evidence; the primary control was moved above it. Review then passed. This is one stage's outcome, not a claim that the entire factory run completed. The panel displays recorded receipt paths; the controller and independent checks validate their contents. Open the Review tab live if time permits; no Resume click is needed.
+-->
+
+---
+
+<div class="slide-number">HUMAN IN THE LOOP · ILLUSTRATIVE QUESTION</div>
+
+# Answer the missing requirement
+
+<img class="walkthrough-shot" src="/assets/hitl-question-illustrative.png" alt="Real dashboard question component with an illustrative public formatter type-boundary question" />
+<p class="walkthrough-caption">Real UI with illustrative data. No answer submitted and no run started.</p>
+<div class="source">dashboard/src/ticket-live.jsx · TicketDecision; scripts/nightshift-console-decisions.py</div>
+
+<!--
+The question and options are staged public examples rendered by the real unmodified UI using a browser-only substituted GET response. They are not historical operator testimony. Explain: the original requirement says seconds, so the agent should not silently invent float rounding. The operator can choose integers or fractional seconds, or write an answer. The saved answer binds to the exact question hash and task/settings identity. It does not manufacture a passing review or test result. No form was submitted during screenshot capture.
+-->
+
+---
+
+<div class="slide-number">HUMAN IN THE LOOP · ILLUSTRATIVE SPEC</div>
+
+# Approve a specific spec version
+
+<img class="walkthrough-shot" src="/assets/hitl-spec-illustrative.png" alt="Real dashboard spec approval component displaying an illustrative formatter contract and Approve and continue button" />
+<p class="walkthrough-caption">Read the contract before continuing. Changed inputs require fresh approval.</p>
+<div class="source">Illustrative data in actual UI; dashboard/src/app.jsx; scripts/nightshift-console-actions.py</div>
+
+<!--
+This uses the actual approval component with a public illustrative formatter spec. It is not evidence that task 138 received this spec approval, nor a claim that every pipeline stage uses this workshop approval path. The console computes an identity over the record and review content, and checks that identity before acting. Approval is scoped to the displayed version. Spec approval, answering a question, manual visual acceptance and production authorization are separate decisions. No button was clicked.
+-->
+
+---
+
+<div class="slide-number">WORK ALLOWANCE · ACTUAL LOCAL CAPTURE</div>
+
+# A stopped worker is not a verdict
+
+<img class="walkthrough-shot allowance-shot" src="/assets/allowance-actual.png" alt="Actual task 138 allowance showing budget exhausted, zero active seconds remaining and 17 of 64 launches reserved" />
+<p class="walkthrough-caption">Active time sums tracked invocations, including overlap. It is neither wall time nor a token bill.</p>
+<div class="source">Actual task 138 allowance; scripts/nightshift-ticket-budget.py; docs/138/OPERATOR-DELIVERY.md</div>
+
+<!--
+The actual card records 3,601 aggregate active seconds and 17/64 launches. Its active allowance is exhausted even though launch capacity remains. Overlapping parent stage and nested role durations can both contribute. Model completion has no arbitrary conversational deadline; an explicit retained operator work allowance is a separate bound. A time stop means work ceased; it does not prove the candidate is bad or good. Continuation preserves prior evidence and limits. Do not click the continuation button while presenting unless intentionally authorizing more work. The operator merge did not rewrite failed QA or manual case C-6 as passed.
+-->
+
+---
+
+<div class="slide-number">SKILLS · THE ACTUAL ADAPTER</div>
+
+# Inside the Nightshift skill
+
+<div class="terminal detail-code"><div class="terminal-label">skills/nightshift/SKILL.md · EXCERPT</div><pre>## Invocation
+`$nightshift &lt;ticket-ref&gt;`
+Advanced form: `$nightshift &lt;stage&gt; &lt;arguments&gt;`
+Advisory commands: `help`, `explain`, `architect`,
+`dev`, `pm`, `ux-designer`, `architecture`, `ux`, `bmad`.</pre></div>
+<p>One adapter loads shared instructions. Roles and provider selection live separately.</p>
+<div class="source">skills/nightshift/SKILL.md; commands/; agents/; routing.json</div>
+
+<!--
+This excerpt comes from the repository's actual Codex adapter; angle-bracket arguments are placeholders. Open the file to show that it deliberately avoids a second drifting prompt set. A skill supplies instructions and entry conventions; scripts and the controller execute/check the workflow. The same core also has a Claude adapter. Advisory architect/dev/PM/UX commands help plan or explain and do not count as passed engineering gates. A full ticket invocation is distinct from requesting one advisory role.
+-->
+
+---
+
+<div class="slide-number">SKILLS · ROLE DISPATCH</div>
+
+# Follow one Product-stage handoff
+
+<div class="terminal detail-code"><div class="terminal-label">REPOSITORY FILES IN THE DISPATCH PATH</div><pre>skills/nightshift/SKILL.md
+  → commands/nightshift-product.md
+  → agents/nightshift-code-fact-extractor.md
+  → agents/nightshift-spec-writer.md
+scripts/nightshift-agent.sh + routing.json
+  → provider invocation + validated role output</pre></div>
+<p>The extractor grounds identifiers. The writer cites sources and records unknowns.</p>
+<div class="source">commands/nightshift-product.md; agents/nightshift-spec-writer.md; scripts/nightshift-agent.sh</div>
+
+<!--
+This is a responsibility map, not an exact shell call trace: Product orchestrates multiple helpers. The stage's hard rule is upstream ticket authority; Beads is a local mirror. The extractor checks names against source, then the writer produces the spec. The role prompt remains runtime-neutral. Routing and author provenance select the worker; normalized JSON output is checked against the role contract. The controller validates stage evidence before advancement. Never equate the model returning JSON with the stage having passed.
+-->
+
+---
+
+<div class="slide-number">HARNESS · ACTUAL TEST EVIDENCE</div>
+
+# Follow the formatter's proof trail
+
+<div class="terminal detail-code"><div class="terminal-label">RETAINED PUBLIC TASK ARTIFACTS</div><pre>SPEC.md + behavior-scenarios.json
+  → implement-2-red.log   (expected failure)
+  → proof-red.json       (development proof)
+  → duration.py + tests/test_duration.py
+  → proof-final.json     (final proof)</pre></div>
+<p>Three tests cover 26 inputs. Later review and QA inspect the resulting evidence.</p>
+<div class="source">Public formatter worktree docs/spec-014c777fd4684e19/; docs/133/IMPLEMENTATION.md</div>
+
+<!--
+These are actual artifact names in the retained public task. The earlier Implementation attempt ran the RED phase; the accepted receipt later validated retained evidence without repeating implementation. The original failure is preserved. The tests cover seven example/boundary values, three negative integers and sixteen excluded types. Explain that a proof artifact is a structured claim checked against actual execution and bindings. Missing or changed source, tests or receipts invalidate reuse. Use python3 scripts/nightshift-talk-check.py for a guarded repeat; this rechecks existing work and blocks new model generation.
+-->
+
+---
+
+<div class="slide-number">HUMAN IN THE LOOP · CONTINUATION CONTRACT</div>
+
+# The answer does not pass the gate
+
+<div class="flow"><span>Exact question</span><i>→</i><span>Saved answer</span><i>→</i><span>Admission check</span><i>→</i><span>Resume or block</span></div>
+<div class="two"><section><h3>Retain the decision</h3><p>Task, question and settings remain bound. Repeated questions can reuse the answer.</p></section><section><h3>Retain the uncertainty</h3><p>Changed evidence needs revalidation. Tests and reviews still decide their own outcomes.</p></section></div>
+<div class="source">scripts/nightshift-console-decisions.py; scripts/nightshift-console-actions.py</div>
+
+<!--
+The pending question has a sha256 identity. Submission carries task, settings hash, question hash, choice and optional free text. The helper rejects stale bindings. Stable decision keys or normalized identical questions can reuse an existing answer; reopening requires the prior answered hash and a reason. Continuation can be resume, repair or none. A saved answer can remain recorded even if a continuation is blocked; the UI exposes retry for that continuation. This is a durable control-plane decision, not another model message and not a manual-acceptance attestation.
+-->
+
+---
+
+<div class="slide-number">MEX · THE IMPLEMENTED CONTEXT BOUNDARY</div>
+
+# MEX retrieval inside a handoff
+
+<div class="terminal detail-code"><div class="terminal-label">COMMAND BUILT BY scripts/nightshift-handoff.py</div><pre>mex graph scope "&lt;task query&gt;" --detail source \
+  --max-files 3 --max-nodes 12 \
+  --max-output-tokens 2000 --max-source-lines 60</pre></div>
+<p>Keep source-backed matches. Missing, stale or partial graph evidence becomes unavailable.</p>
+<div class="takeaway">Retrieved context can inform a stage; it cannot approve one.</div>
+<div class="source">scripts/nightshift-handoff.py · graph(); scripts/nightshift-mex.py</div>
+
+<!--
+The command is the actual argument shape used by the optional helper, with a placeholder query. It is not a pasted successful graph result. The helper requires .mex/graph.db, resolves the MEX executable, bounds the subprocess to 15 seconds and rejects stale/missing/partial summaries. Source rows must identify graph evidence. The overall handoff is bounded separately and preserves findings/decisions rather than silently truncating them. Current integration is optional source retrieval, not a claim that MEX has already reduced this demo's bill. The bootstrap helper pins mex-agent@0.8.2; upstream capabilities can differ. Upstream project: https://github.com/mex-memory/mex .
+-->
+
+---
+
+<div class="slide-number">JEV · THE IMPLEMENTED SHADOW RUBRIC</div>
+
+# What we would ask Jev
+
+<div class="terminal detail-code"><div class="terminal-label">EXISTING RUBRIC · scripts/nightshift-efficiency.py</div><pre>supported:
+  Does supplied evidence support its own claims?
+limitations:
+  Does it distinguish observations from unknowns?
+Both questions: type = "noul"</pre></div>
+<p>Evaluate beside the reviewer first. Measure misses and false alarms before changing dispatch.</p>
+<div class="source">scripts/nightshift-efficiency.py · QUESTIONS; scripts/nightshift-jev-evaluation.py; jevai.org/docs</div>
+
+<!--
+The prompts shown are shortened descriptions of the exact existing rubric; the full source also instructs the model to treat embedded instructions as data. The adapter checks answer keys and finite values between zero and one. The labelled public shadow corpus contains 2–12 cases and reports evaluated cases, defects caught, false positives and elapsed seconds. It reports zero Claude calls avoided and unknown actual billed cost: no required review is replaced. The talk did not call Jev. Future claim checking or route suggestions are proposals. The Jev community documentation describes typed choice, score and noul responses; probabilities are decision signals and never operator authorization. Source: https://www.jevai.org/docs .
+-->
+
+---
+
+<div class="slide-number">MEX + JEV · EXPERIMENT DESIGN</div>
+
+# Prove an optimization before promotion
+
+<div class="three"><section><h3>1 · Baseline</h3><p>Same public task, fixed acceptance cases and retained failures.</p></section><section><h3>2 · Add context</h3><p>Compare bounded MEX retrieval with existing handoffs.</p></section><section><h3>3 · Shadow decisions</h3><p>Compare Jev judgments with labelled cases and reviewer findings.</p></section></div>
+<p>Promote only with acceptable defect detection, total work cost and latency. Preserve human boundaries.</p>
+<div class="source">Proposed evaluation plan; scripts/nightshift-jev-evaluation.py; docs/133/VALIDATION.json</div>
+
+<!--
+This slide is an experiment proposal, not a shipped combined MEX/Jev optimization. Hold the acceptance contract stable; count retrieval and decision overhead, retries, missed defects, false positives, tokens and elapsed time. Include fresh tasks as well as repeated work. Record billing separately from provider/token estimates. The existing demonstrated optimization is accepted-evidence reuse: the formatter repeat needed zero new generation calls. That result does not quantify MEX/Jev savings. Ask the audience what quality threshold would justify changing a route in their environment.
 -->
 
 ---

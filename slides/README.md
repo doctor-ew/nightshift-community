@@ -1,6 +1,6 @@
 # Nightshift talk deck
 
-Editable Slidev core deck for the upcoming talks. The 19 slides contain 17 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
+Editable Slidev core deck for the upcoming talks. The 42 slides contain 40 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
 
 Two event-specific versions share the theme and engineering core:
 
@@ -18,7 +18,7 @@ cd slides
 npm run dev -- --port 3040
 ```
 
-The current development server is already running at http://127.0.0.1:3040/. Presenter notes are at http://127.0.0.1:3040/presenter/. Use arrow keys or the clickable section rail. On a new checkout, run `npm ci` before starting the deck.
+After starting the server, use its advertised local URL; add `/presenter/` for notes. Use arrow keys or the clickable section rail. On a new checkout, run `npm ci` before starting the deck.
 
 ## Build and export
 
@@ -33,7 +33,7 @@ The PDF is `nightshift-final.pdf`. The static build is `dist/` and uses hash rou
 python3 -m http.server 3042 --bind 127.0.0.1 --directory dist
 ```
 
-Then open http://127.0.0.1:3042/#/1. A browser normally needs the local HTTP server for the static site; the PDF works as a standalone file. No slide site has been published. Generated PDFs, builds and dependencies are ignored by Git.
+Then open http://127.0.0.1:3042/#/1. A browser normally needs the local HTTP server for the static site; the PDF works as a standalone file. Public event decks are linked below. Generated PDFs, builds and dependencies are ignored by Git.
 
 ## Demo rehearsal
 
@@ -85,6 +85,18 @@ The landing page links both PDFs and offline ZIP downloads. `web-index.html` is 
 
 ### On-stage demonstration
 
-Slide 11 in both event decks contains `python3 scripts/nightshift-talk-check.py`, a link to the presenter laptop dashboard, and a public setup guide. Run it from the community checkout with the retained fixture and existing subscription login. It verifies the actual tests and proof gates and repeats the accepted controller invocation; it deliberately blocks new model generation. Audience laptops need their own installation and task to run a fresh workflow.
+Slide 14 in both event decks contains `python3 scripts/nightshift-talk-check.py`, a link to the presenter laptop dashboard, and a public setup guide. Run it from the community checkout with the retained fixture and existing subscription login. It verifies the actual tests and proof gates and repeats the accepted controller invocation; it deliberately blocks new model generation. Audience laptops need their own installation and task to run a fresh workflow.
 
-Slide 15 tells the real self-hosted dashboard story from issues #138/#139, including its unfinished acceptance and budget stop. It is distinct from the completed formatter demo.
+Slide 18 tells the real self-hosted dashboard story from issues #138/#139, including pending manual acceptance, its budget stop and the subsequent operator-authorized merge. It is distinct from the completed formatter demo.
+
+## Memory, safety and architecture module
+
+Slides 20–27 bridge the first presentation to Nightshift, describe the runtime, add safety/security lessons, distinguish vector retrieval from memory governance, cover MEX and the verified C# contribution, position Jev as optional/proposed, and explain cost measurement. [Architecture](../docs/ARCHITECTURE.md) maps files, stages, providers, state and trust boundaries. Current demonstration does not send Jev evidence or claim measured MEX/Jev savings.
+
+## Detailed walkthrough
+
+Slides 28–39 show the current control room, Review attempt history, operator questions, spec approval, retained work allowance, the skill adapter and role dispatch, actual formatter proof artifacts, decision continuation, bounded MEX retrieval, Jev shadow questions and a proposed evaluation. Slides 30–31 use illustrative public data in the actual UI; their captions and notes label this explicitly. No screenshot capture submitted an answer, granted time or started a worker.
+
+Screenshot provenance and source references are in [SOURCES.md](SOURCES.md). Select Walkthrough in the section rail for this module. Use the run-of-show paths to fit the available slot rather than presenting all 42 slides in 20 minutes.
+
+Slides 9–11 explain why routing exists: total work cost, independent challenge of author assumptions, and enforcement around every worker. Provider diversity is useful but does not eliminate correlated errors; no universal model price ranking or measured routing savings is asserted.

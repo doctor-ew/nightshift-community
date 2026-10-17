@@ -149,7 +149,7 @@
 .slidev-layout .interface-image span{display:block;font-size:13px;color:#e7a58d;margin-top:8px;}
 .slidev-layout .interface-caption{font-size:18px;line-height:1.4;margin-top:14px;}
 .slidev-layout.spec-prompt .terminal pre{font-size:20px!important;line-height:1.5!important;}
-.module-nav button{padding-top:10px;padding-bottom:10px;}
+.module-nav button{padding-top:8px!important;padding-bottom:8px!important;}
 
 .slidev-layout .workflow-screenshots{font-size:14px;line-height:1.65;margin:12px 0 0;}
 
@@ -174,3 +174,12 @@
 .slidev-layout .event-cover-title{max-width:810px;}
 .slidev-layout .event-mark{position:absolute;right:48px;top:52px;width:190px;height:auto;border:1px solid #766685;border-radius:5px;}
 .slidev-layout .event-takeaway{font-size:25px;color:#e7a58d;line-height:1.5;margin-top:30px;}
+
+.slidev-layout .first-talk-security{display:block;width:100%;max-height:170px;object-fit:contain;object-position:left;margin:14px 0 24px;}
+
+/* Detailed walkthroughs use one readable screenshot per slide. */
+.slidev-layout .walkthrough-shot{display:block;width:auto;max-width:100%;height:auto;max-height:405px;object-fit:contain;object-position:left top;border:1px solid #59524b;border-radius:5px;background:#0d1117;}
+.slidev-layout .walkthrough-caption{font-size:17px;line-height:1.45;margin:15px 0 0;}
+.slidev-layout .detail-code pre{font-size:19px!important;line-height:1.55!important;}
+.module-nav{top:110px;}
+.module-nav button{padding-top:8px!important;padding-bottom:8px!important;}
