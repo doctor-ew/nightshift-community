@@ -73,3 +73,5 @@ Slides 42–46 paraphrase the following primary sources, with presentation/work 
 - Big O: https://www.ocw.mit.edu/courses/6-0001-introduction-to-computer-science-and-programming-in-python-fall-2016/bb953fb81d4afa3bc837c16eba613955_MIT6_0001F16_Lec11.pdf .
 - CoC: https://rubyonrails.org/doctrine#convention-over-configuration .
 - Slide 48: locally generated QR encodes exactly the presenter-supplied https://www.linkedin.com/in/andrew-schillinger/ ; no tracking redirect.
+
+MEX slide26 includes a real grounding example: `.mex/context/architecture.md:51–52` cites `AGENTS.md`; the claims are directly supported at `AGENTS.md:3–6,53–54`. Links pin snapshota740872. This is a checked source-citation example, not a fresh graph validation; the memory file has `grounds_to: []`.

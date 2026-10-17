@@ -335,11 +335,11 @@ Vector search and governed memory solve different parts of the problem. Similari
 # MEX: carry the team's context
 
 <div class="two"><section><h3>Repository memory</h3><p>Architecture, decisions and handoffs through Git.</p><p>Code-linked grounding and a local graph.</p></section><section><h3>My contribution</h3><p>I contributed the C# code-graph extractor.</p><p>A concrete open-source entry point for .NET engineers.</p></section></div>
-<p>Nightshift can retrieve bounded source context when the graph is available.</p>
+<div class="grounding-example"><h3>Grounding = works cited</h3><p><strong>Claim:</strong> stage instructions are canonical; roles are runtime-neutral.</p><p><strong>Memory:</strong> <a href="https://github.com/doctor-ew/nightshift-community/blob/a740872/.mex/context/architecture.md#L51">.mex/context/architecture.md:51–52</a> → <strong>Source:</strong> <a href="https://github.com/doctor-ew/nightshift-community/blob/a740872/AGENTS.md#L3">AGENTS.md:3–6</a>, <a href="https://github.com/doctor-ew/nightshift-community/blob/a740872/AGENTS.md#L53">53–54</a></p></div>
 <div class="source"><a href="https://github.com/mex-memory/mex">MEX ↗</a> · <a href="https://github.com/mex-memory/mex/commit/7bc7e7f1f692a4d9053792dd61129e47bfb89049">My C# contribution ↗</a> · scripts/nightshift-handoff.py</div>
 
 <!--
-Contribution attribution is verified by upstream commit7bc7e7f1, author Drew Schillinger. Current upstream documents partial C# coverage; this is not complete .NET semantic analysis. Local Nightshift retrieval rejects missing, stale or partial graph evidence. No measured MEX token saving is claimed here.
+Contribution attribution is verified by upstream commit7bc7e7f1, author Drew Schillinger. Current upstream documents partial C# coverage; this is not complete .NET semantic analysis. Local Nightshift retrieval rejects missing, stale or partial graph evidence. No measured MEX token saving is claimed here. The visible grounding example is a real claim in .mex/context/architecture.md lines51–52, checked against AGENTS.md lines3–6 and53–54 at the linked snapshot. This is human-readable source provenance, not a fresh graph validation or proof that every memory claim is current. The memory file has an empty grounds_to array; do not imply a verified graph grounding status. Open the source links for the works cited.
 -->
 ---
 
