@@ -1,30 +1,30 @@
 # Suggested talk paths
 
-Both event decks have 49 slides; choose depth for a 20–40 minute slot.
+Both event decks have 51 slides; choose depth for a 20–40 minute slot.
 
 | Slides | Topic |
 |---|---|
 | 1–19 | Framing, skills, harness, routing, retained demo and human boundaries |
 | 20–24 | Memory bridge, architecture and security |
-| 25–28 | Retrieval and MEX: explanation, actual setup, bounded handoff |
-| 29–31 | Jev: purpose, shadow rubric and proposed evaluation |
-| 32 | Cost measurement |
-| 33–41 | Actual UI, illustrative HITL, skills, proof and continuation |
-| 42–46 | DRY, SOLID, ACID, Big O and Convention over Configuration |
-| 47–48 | Discussion and LinkedIn QR |
-| 49 | Retained-demo checker appendix |
+| 25–30 | Retrieval and MEX: explanation, actual setup, bounded handoff, actual spec Sources and adversarial role |
+| 31–33 | Jev: purpose, shadow rubric and proposed evaluation |
+| 34 | Cost measurement |
+| 35–43 | Actual UI, illustrative HITL, skills, proof and continuation |
+| 44–48 | DRY, SOLID, ACID, Big O and Convention over Configuration |
+| 49–50 | Discussion and slide/LinkedIn QRs |
+| 51 | Retained-demo checker appendix |
 
 ## Approximately 20 minutes
 
-Use 1–4, 6, 8–11, 14, 18, 21–22, 26–27, 29–30, 33, 35–36, 42 and 47–48. Treat optional screenshots as brief evidence rather than reading each slide.
+Use 1–4, 6, 8–11, 14, 18, 21–22, 26–27, 29–31, 35, 37–38, 44 and 49–50. Treat optional screenshots as brief evidence rather than reading each slide.
 
 ## Approximately 30 minutes
 
-Add 15, 23–25, 28, 31–32, 38 and 43–46. Keep principles grounded in one example each.
+Add 15, 23–25, 28, 33–34, 40 and 45–48. Keep principles grounded in one example each.
 
 ## Approximately 40 minutes
 
-Expand the remaining walkthrough and proof slides. Keep 49 available for questions. Jev remains offline in this demonstration.
+Expand the remaining walkthrough and proof slides. Keep 51 available for questions. Jev remains offline in this demonstration.
 
 ## Presenter setup
 

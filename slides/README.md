@@ -1,6 +1,6 @@
 # Nightshift talk deck
 
-Editable Slidev core deck for the upcoming talks. The 49 slides contain 48 talk slides and one presenter appendix. Speaker notes include source references, live-demo cues and fallback instructions.
+Editable Slidev core deck for the upcoming talks. The 51 slides contain 50 talk slides and one presenter appendix. Speaker notes include source references, live-demo cues and fallback instructions.
 
 Two event-specific versions share the theme and engineering core:
 
@@ -91,13 +91,13 @@ Slide 18 tells the real self-hosted dashboard story from issues #138/#139, inclu
 
 ## Memory, safety and architecture module
 
-Slides 20–32 bridge the first presentation to Nightshift, describe the runtime, add safety/security lessons, distinguish vector retrieval from memory governance, cover MEX and the verified C# contribution, position Jev as optional/proposed, and explain cost measurement. [Architecture](../docs/ARCHITECTURE.md) maps files, stages, providers, state and trust boundaries. Current demonstration does not send Jev evidence or claim measured MEX/Jev savings.
+Slides 20–34 bridge the first presentation to Nightshift, describe the runtime, add safety/security lessons, distinguish vector retrieval from memory governance, cover MEX and the verified C# contribution, position Jev as optional/proposed, and explain cost measurement. [Architecture](../docs/ARCHITECTURE.md) maps files, stages, providers, state and trust boundaries. Current demonstration does not send Jev evidence or claim measured MEX/Jev savings.
 
 ## Detailed walkthrough
 
-Slides 33–41 show the current control room, Review attempt history, operator questions, spec approval, retained work allowance, the skill adapter and role dispatch, actual formatter proof artifacts, decision continuation, bounded MEX retrieval, Jev shadow questions and a proposed evaluation. Slides 35–36 use illustrative public data in the actual UI; their captions and notes label this explicitly. No screenshot capture submitted an answer, granted time or started a worker.
+Slides 35–43 show the current control room, Review attempt history, operator questions, spec approval, retained work allowance, the skill adapter and role dispatch, actual formatter proof artifacts, decision continuation. Slides 37–38 use illustrative public data in the actual UI; their captions and notes label this explicitly. No screenshot capture submitted an answer, granted time or started a worker.
 
-Screenshot provenance and source references are in [SOURCES.md](SOURCES.md). Select Walkthrough in the section rail for this module. Use the run-of-show paths to fit the available slot rather than presenting all 49 slides in 20 minutes.
+Screenshot provenance and source references are in [SOURCES.md](SOURCES.md). Select Walkthrough in the section rail for this module. Use the run-of-show paths to fit the available slot rather than presenting all 51 slides in 20 minutes.
 
 Slides 9–11 explain why routing exists: total work cost, independent challenge of author assumptions, and enforcement around every worker. Provider diversity is useful but does not eliminate correlated errors; no universal model price ranking or measured routing savings is asserted.
 
@@ -107,4 +107,4 @@ Slide 27 shows the actual MEX Project Hub setup capture for Counsel of Ricks, wi
 
 ## Shared content and principles
 
-`shared-core.md` is the canonical shared content imported by all three entry decks. Event covers, framing and closing remain in the entry files. `shared-connect.md` provides the LinkedIn QR slide; `shared-appendix.md` provides the retained-demo checker. MEX occupies 26–28, Jev and its evaluation 29–31, the five engineering lenses 42–46, closing 47 and LinkedIn 48. The principles include clearly labelled applications beyond software; they do not certify the harness as ACID or assign model inference a Big O bound.
+`shared-core.md` is the canonical shared content imported by all three entry decks. Event covers, framing and closing remain in the entry files. `shared-connect.md` provides the slide-deck and LinkedIn QR pair; `shared-appendix.md` provides the retained-demo checker. MEX occupies 26–28; actual spec citations and adversarial review instructions are29–30; Jev and its evaluation 31–33, the five engineering lenses 44–48, closing 49 and two QR codes 50. The principles include clearly labelled applications beyond software; they do not certify the harness as ACID or assign model inference a Big O bound.

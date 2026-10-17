@@ -4,12 +4,14 @@ All technical claims use the source checkout and retained public acceptance evid
 
 | Slides | Sources |
 |---|---|
-| 1–5 | `AGENTS.md`, `README.md`, `skills/nightshift/SKILL.md`, `commands/nightshift-product.md`, `agents/nightshift-spec-writer.md` |
-| 6 | The canonical Product, Adversarial, Implement, Review, Drift and QA command files |
-| 7–9 | `routing.json`, `scripts/nightshift-capability.sh`, `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-handoff.py`, public formatter source/tests and accepted controller routes |
-| 10–12 | Actual completed dashboard, `dashboard/src/app.jsx`, `commands/nightshift-implement.md`, `docs/133/DEMO.md`, `docs/133/IMPLEMENTATION.md` |
-| 13–15 | `docs/133/VALIDATION.json`, retained repeat evidence, CI run 38600812302, `docs/talks/TESTING.md` |
-| 16–18 | Verified repository URL, `scripts/nightshift-talk-check.py`, `docs/talks/open-pr-audit.md` |
+| 1–8 | `AGENTS.md`, skill/stage/role instructions, routing and retained formatter task |
+| 9–19 | Routing policy, admission/controller, actual dashboard, `docs/133/VALIDATION.json`, task138 history |
+| 20–24 | `docs/ARCHITECTURE.md`, first-talk security sources and current controller boundaries |
+| 25–30 | MEX project, verified contribution, actual setup capture, `.mex/context/architecture.md`, `docs/8/SPEC.md`, canonical adversarial stage and extractor role |
+| 31–34 | Jev documentation, existing shadow adapter/evaluation and proposed cost experiment |
+| 35–43 | Actual/labelled illustrative UI captures, skill/role sources, proof artifacts and decision continuation |
+| 44–48 | Canonical review lenses and primary principles sources below |
+| 49–51 | Repository/profile/deck URLs and retained-demo checker |
 
 ## Theme provenance
 
@@ -31,7 +33,7 @@ The event decks replace the generic PR-stack appendix with SOLID/ACID review len
 
 ## Nightshift builds Nightshift
 
-Slide 15: [issue #138 result](https://github.com/doctor-ew/nightshift-community/issues/138#issuecomment-6201648902) records the real review regression, repair, passing re-review/Drift, QA automated checks and pending visual acceptance/active-time exhaustion. [Issue #139](https://github.com/doctor-ew/nightshift-community/issues/139) tracks the human-acceptance sequencing defect. PR #140 subsequently merged the candidate into its prerequisite branch under explicit operator direction, preserving the incomplete factory history. Source merge, stable release and local installation are distinct. This run is distinct from the completed duration formatter.
+Slide 18: [issue #138 result](https://github.com/doctor-ew/nightshift-community/issues/138#issuecomment-6201648902) records the real review regression, repair, passing re-review/Drift, QA automated checks and pending visual acceptance/active-time exhaustion. [Issue #139](https://github.com/doctor-ew/nightshift-community/issues/139) tracks the human-acceptance sequencing defect. PR #140 subsequently merged the candidate into its prerequisite branch under explicit operator direction, preserving the incomplete factory history. Source merge, stable release and local installation are distinct. This run is distinct from the completed duration formatter.
 
 ## 17 October additions
 
@@ -65,13 +67,15 @@ Slides 21–22 translate `docs/ARCHITECTURE.md` into editable SVG/HTML diagrams.
 
 ## Engineering principles and connection slide
 
-Slides 42–46 paraphrase the following primary sources, with presentation/work applications explicitly labelled as analogies. The repository review lens is `commands/nightshift-review.md`, including CoC as Convention over Configuration.
+Slides 44–48 paraphrase the following primary sources, with presentation/work applications explicitly labelled as analogies. The repository review lens is `commands/nightshift-review.md`, including CoC as Convention over Configuration.
 
 - DRY: https://pragprog.com/tips/ (tips 11 and 15).
 - SOLID: https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html .
 - ACID: https://www.postgresql.org/docs/current/tutorial-transactions.html and https://www.postgresql.org/docs/current/glossary.html .
 - Big O: https://www.ocw.mit.edu/courses/6-0001-introduction-to-computer-science-and-programming-in-python-fall-2016/bb953fb81d4afa3bc837c16eba613955_MIT6_0001F16_Lec11.pdf .
 - CoC: https://rubyonrails.org/doctrine#convention-over-configuration .
-- Slide 48: locally generated QR encodes exactly the presenter-supplied https://www.linkedin.com/in/andrew-schillinger/ ; no tracking redirect.
+- Slide 50: locally generated QR encodes exactly the presenter-supplied https://www.linkedin.com/in/andrew-schillinger/ ; no tracking redirect.
 
 MEX slide26 includes a real grounding example: `.mex/context/architecture.md:51–52` cites `AGENTS.md`; the claims are directly supported at `AGENTS.md:3–6,53–54`. Links pin snapshota740872. This is a checked source-citation example, not a fresh graph validation; the memory file has `grounds_to: []`.
+
+Slides29–30 show real repository artifacts: `docs/8/SPEC.md:268–278` (shortened Sources excerpt, repaired draft NOT approved), `commands/nightshift-adversarial.md` Step4 and the read-only `agents/nightshift-code-fact-extractor.md` prompt. This is provenance and a review contract, not a new execution result. Slide50 adds a second locally generated QR for https://doctor-ew.github.io/nightshift-community/ .

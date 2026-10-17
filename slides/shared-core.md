@@ -371,6 +371,39 @@ The command is the actual argument shape used by the optional helper, with a pla
 -->
 ---
 
+<div class="slide-number">MEX → SPEC · ACTUAL REPOSITORY ARTIFACT</div>
+
+# The spec carries its works cited
+
+<p class="walkthrough-caption">Actual excerpt · docs/8/SPEC.md · repaired draft, NOT approved</p>
+<div class="terminal detail-code"><div class="terminal-label">## Sources · lines 268–278</div><pre>Works Cited — each repository entry below was read at
+branch nightshift/8, commit bea0b3935f03a10e3c50b9db391039e1d85d76ad.
+[T1] github.com/doctor-ew/nightshift-community/issues/8
+     upstream task and all six acceptance criteria
+[S1] scripts/nightshift-factory.sh:129–151
+     baseline, manifest/setup and model resolution</pre></div>
+<p>A claim has a path, location and revision. A citation still needs checking.</p>
+<div class="source"><a href="https://github.com/doctor-ew/nightshift-community/blob/4f9f8e7/docs/8/SPEC.md#L268">Open the actual spec Sources ↗</a> · excerpt shortened; original status retained</div>
+
+<!--
+This is a shortened transcription of the actual Sources section, not a new generated spec or a successful receipt. Original lines270–272 explicitly say these are manually regrounded citations, not prior-extractor approval. The spec is a repaired draft NOT approved, stated at its top. The displayed line numbers belong to its recorded baseline, not a claim that current source lines have identical meaning. Open the full source for all citations. MEX memory is supplemental context; the spec writer owns its Sources section and each factual claim still needs independent checking. The words-cited artifact demonstrates the engineering practice without claiming MEX generated this historical spec.
+-->
+---
+
+<div class="slide-number">ADVERSARIAL · ACTUAL STAGE AND AGENT INSTRUCTIONS</div>
+
+# The reviewer checks the citations
+
+<div class="two"><section><h3>Stage: nightshift-adversarial</h3><p>Read the spec's Sources.</p><p>Dispatch independent claim verification.</p><p>Unresolved claims block the gate.</p></section><section><h3>Role: code-fact-extractor</h3><p>Search the repository for each cited identifier.</p><p>Return VERIFIED with source location, or NOT FOUND.</p><p>Read-only role; routing selects its worker.</p></section></div>
+<div class="terminal detail-code"><div class="terminal-label">agents/nightshift-code-fact-extractor.md · actual instruction</div><pre>You never guess. You never infer.
+You only report what you find.</pre></div>
+<div class="source"><a href="https://github.com/doctor-ew/nightshift-community/blob/4f9f8e7/commands/nightshift-adversarial.md#L105">Stage and independence policy ↗</a> · <a href="https://github.com/doctor-ew/nightshift-community/blob/4f9f8e7/agents/nightshift-code-fact-extractor.md">Actual role prompt ↗</a></div>
+
+<!--
+These are real canonical instruction artifacts, not proof that a new reviewer ran during slide preparation. commands/nightshift-adversarial.md Step4 requires Sources, independent dispatcher provenance and mapped evidence before approval; process exit zero only means a report is available. Default policy distinguishes author/reviewer providers; explicit claude-only policy requires a fresh independent session. Findings and operator overrides retain evidence. The role's full installed name is nightshift-code-fact-extractor. A source location establishes what was found; it does not establish every behavioral acceptance criterion or authorize production. The quoted role sentence is exact apart from line wrapping and removal of Markdown emphasis.
+-->
+---
+
 <div class="slide-number">JEV · COMING NEXT</div>
 
 # Ask a smaller decision
