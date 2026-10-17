@@ -1,6 +1,6 @@
 # Nightshift talk deck
 
-Editable Slidev core deck for the upcoming talks. The 42 slides contain 40 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
+Editable Slidev core deck for the upcoming talks. The 43 slides contain 41 core slides and two presenter appendices. Speaker notes include source references, live-demo cues and fallback instructions.
 
 Two event-specific versions share the theme and engineering core:
 
@@ -91,12 +91,14 @@ Slide 18 tells the real self-hosted dashboard story from issues #138/#139, inclu
 
 ## Memory, safety and architecture module
 
-Slides 20–27 bridge the first presentation to Nightshift, describe the runtime, add safety/security lessons, distinguish vector retrieval from memory governance, cover MEX and the verified C# contribution, position Jev as optional/proposed, and explain cost measurement. [Architecture](../docs/ARCHITECTURE.md) maps files, stages, providers, state and trust boundaries. Current demonstration does not send Jev evidence or claim measured MEX/Jev savings.
+Slides 20–28 bridge the first presentation to Nightshift, describe the runtime, add safety/security lessons, distinguish vector retrieval from memory governance, cover MEX and the verified C# contribution, position Jev as optional/proposed, and explain cost measurement. [Architecture](../docs/ARCHITECTURE.md) maps files, stages, providers, state and trust boundaries. Current demonstration does not send Jev evidence or claim measured MEX/Jev savings.
 
 ## Detailed walkthrough
 
-Slides 28–39 show the current control room, Review attempt history, operator questions, spec approval, retained work allowance, the skill adapter and role dispatch, actual formatter proof artifacts, decision continuation, bounded MEX retrieval, Jev shadow questions and a proposed evaluation. Slides 30–31 use illustrative public data in the actual UI; their captions and notes label this explicitly. No screenshot capture submitted an answer, granted time or started a worker.
+Slides 29–40 show the current control room, Review attempt history, operator questions, spec approval, retained work allowance, the skill adapter and role dispatch, actual formatter proof artifacts, decision continuation, bounded MEX retrieval, Jev shadow questions and a proposed evaluation. Slides 31–32 use illustrative public data in the actual UI; their captions and notes label this explicitly. No screenshot capture submitted an answer, granted time or started a worker.
 
-Screenshot provenance and source references are in [SOURCES.md](SOURCES.md). Select Walkthrough in the section rail for this module. Use the run-of-show paths to fit the available slot rather than presenting all 42 slides in 20 minutes.
+Screenshot provenance and source references are in [SOURCES.md](SOURCES.md). Select Walkthrough in the section rail for this module. Use the run-of-show paths to fit the available slot rather than presenting all 43 slides in 20 minutes.
 
 Slides 9–11 explain why routing exists: total work cost, independent challenge of author assumptions, and enforcement around every worker. Provider diversity is useful but does not eliminate correlated errors; no universal model price ranking or measured routing savings is asserted.
+
+Slides 21–22 are editable architecture diagrams: local runtime/components, then stages/evidence with optional MEX and Jev boundaries.

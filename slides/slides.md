@@ -323,17 +323,37 @@ The user identifies In Pursuit of Memory as their first presentation. Its securi
 
 ---
 
-<div class="slide-number">ARCHITECTURE</div>
+<div class="slide-number">ARCHITECTURE · RUNTIME</div>
 
-# What Nightshift runs on
+# What runs where
 
-<div class="stage-grid"><section><b>1</b><h3>Bash entry</h3><p>CLI, skill and role dispatch.</p></section><section><b>2</b><h3>Python control</h3><p>Stages, policy, proof and budgets.</p></section><section><b>3</b><h3>AI workers</h3><p>Configured Codex, Claude or local route.</p></section></div>
-<p>React dashboard → local Python server.<br>Git worktrees, receipts and hashes retain the work.</p>
-<p>MEX supplies optional context. Jev decision assistance is proposed.</p>
-<div class="source"><a href="https://github.com/doctor-ew/nightshift-community/blob/nightshift/talks-memory-security/docs/ARCHITECTURE.md">Architecture: diagram, files and stage contracts ↗</a></div>
+<svg class="architecture-map" viewBox="0 0 1024 390" role="img" aria-label="Local CLI and React dashboard reach a Python controller, which dispatches configured AI workers and retains state in Git">
+<defs><marker id="runtime-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#e7a58d" /></marker></defs>
+<g class="architecture-boxes"><rect x="2" y="15" width="210" height="90" rx="6"/><rect x="262" y="15" width="230" height="90" rx="6"/><rect x="2" y="145" width="210" height="90" rx="6"/><rect x="262" y="145" width="230" height="90" rx="6"/><rect x="552" y="15" width="470" height="220" rx="6"/><rect x="2" y="295" width="490" height="90" rx="6"/><rect x="552" y="295" width="470" height="90" rx="6"/></g>
+<g class="architecture-arrows" marker-end="url(#runtime-arrow)"><path d="M212 60 H256"/><path d="M492 60 H546"/><path d="M212 190 H256"/><path d="M492 190 H546"/><path d="M670 235 V289"/><path d="M552 218 H523 V340 H498"/></g>
+<g class="architecture-text"><text x="20" y="50">CLI / host skill</text><text class="architecture-file" x="20" y="80">skills/nightshift/</text><text x="280" y="50">Bash launcher</text><text class="architecture-file" x="280" y="80">nightshift-factory.sh</text><text x="20" y="180">React dashboard</text><text class="architecture-file" x="20" y="210">dashboard/src/</text><text x="280" y="180">Python HTTP server</text><text class="architecture-file" x="280" y="210">dashboard/server.py</text><text x="576" y="58">Python controller</text><text class="architecture-file" x="576" y="90">nightshift-pipeline.py</text><text x="576" y="132">Stage admission · evidence · budgets</text><text x="576" y="175">Role dispatcher + routing.json</text><text class="architecture-file" x="576" y="207">nightshift-agent.sh</text><text x="20" y="330">Local Git worktrees and durable state</text><text class="architecture-file" x="20" y="362">Receipts · hashes · proof · retained allowance</text><text x="576" y="330">Configured worker CLIs</text><text class="architecture-file" x="576" y="362">Codex · Claude · optional Codex/Ollama</text></g>
+</svg>
+<p class="architecture-caption">Control runs locally. Provider CLIs can reach remote models; the local-model route is optional.</p>
+<div class="source">docs/ARCHITECTURE.md · scripts/ filenames shown without their directory prefix</div>
 
 <!--
-Runtime-neutral instructions live in commands and agents; routing.json selects providers/models. Bash launches Python controller sequencing. The React bundle is built with Node/esbuild and served on loopback by Python. Provider CLIs reach their configured services; an optional local path uses Codex and Ollama. MEX graph retrieval is bounded and optional. A Jev shadow adapter already exists, but the talk disables it; wider decision assistance is a future experiment. Production release and a private local installation remain separate. Source: docs/ARCHITECTURE.md and its linked implementation files.
+This is an editable component diagram, not a screenshot or a deployment claim. Both entry paths reach the same Python control plane: the Bash factory and the dashboard's local Python server/action helpers. The controller invokes canonical stage machinery and role dispatch, which uses routing.json. Git state records results and input/evidence bindings; worker output still needs validation. The controller retains checked results in local Git state; workers do not approve their own stages. Node/esbuild build the React bundle; Python serves the committed assets on loopback. Optional Codex/Ollama is local model inference, while configured provider CLIs can use remote services. Source: docs/ARCHITECTURE.md and its linked launcher, controller, dispatcher, routing, dashboard and worktree implementations.
+-->
+
+---
+
+<div class="slide-number">ARCHITECTURE · TICKET AND EVIDENCE FLOW</div>
+
+# A ticket becomes a verified change
+
+<div class="architecture-stage-row"><span>Product</span><i>→</i><span>Adversarial</span><i>→</i><span>Implement</span><i>→</i><span>Review</span><i>→</i><span>Drift</span><i>→</i><span>QA</span></div>
+<div class="architecture-evidence"><b>Every stage → checked evidence → advance, repair or wait</b><p>Spec and scenarios · source and tests · receipts and hashes · persistent allowance</p></div>
+<div class="architecture-integrations"><section><h3>MEX · optional today</h3><p>Bounded source context enters the stage handoff.</p><small>Missing or stale evidence stays unavailable.</small></section><section><h3>Jev · shadow adapter</h3><p>Advisory judgments beside required review.</p><small>Off in this demo; wider routing use is proposed.</small></section></div>
+<div class="architecture-delivery">Human checkpoints can pause a stage. Delivery: verified branch / optional PR; production approval is separate.</div>
+<div class="source">commands/ · agents/ · contracts/ · scripts/nightshift-{pipeline,handoff,jev-evaluation}.py</div>
+
+<!--
+Follow one ticket: source requirements become SPEC.md and behavior-scenarios.json, adversarial challenge verifies claims, implementation retains RED/GREEN proof, then review, drift and QA assess different aspects. This diagram compresses retries and waits; each transition depends on required current evidence, not merely the model's exit status. Repairs retain failed attempts and budgets. Human questions can occur earlier in the workflow, and pending manual acceptance can prevent final completion before any branch is published; the delivery line does not imply that human checkpoints happen only after a PR exists. MEX context is supplemental, not task authority. The existing optional Jev adapter evaluates bounded supplied evidence in shadow mode; it replaces no required reviewer and is disabled in the talk. Proposed future route assistance is not shown as an active dispatch dependency. Production remains a separate explicit authorization. Sources: docs/ARCHITECTURE.md; scripts/nightshift-handoff.py; scripts/nightshift-jev-evaluation.py; AGENTS.md.
 -->
 
 ---

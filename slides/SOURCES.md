@@ -53,3 +53,7 @@ The MEX command reproduces the argument shape in `scripts/nightshift-handoff.py`
 ## Why route models
 
 Slides 9–11 explain task fit and total work cost, independent author/reviewer challenge, and unchanged admission/evidence gates. These are design rationale, not benchmark results or claims of statistical independence. Actual demonstrated Codex/Claude routes are recorded in `docs/133/IMPLEMENTATION.md`; `routing.json`, `scripts/nightshift-agent.sh`, `scripts/nightshift-provider-policy.py` and `scripts/nightshift-pipeline.py` implement dispatch policy and validation.
+
+## Architecture diagrams
+
+Slides 21–22 translate `docs/ARCHITECTURE.md` into editable SVG/HTML diagrams. Component/file identifiers link to that document's verified implementation map. Control is local; provider CLIs can use remote services. Optional MEX source retrieval and optional Jev shadow evaluation remain distinct from proposed wider Jev routing. Human checkpoints can occur before publication; production authorization remains separate.
