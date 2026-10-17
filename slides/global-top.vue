@@ -7,7 +7,7 @@ const sections = [
   {label:'Harness',start:6},{label:'Routing',start:8},
   {label:'Demonstration',start:13},{label:'Evidence',start:16},
   {label:'Architecture',start:21},{label:'Safety',start:23},{label:'Memory',start:25},
-  {label:'Walkthrough',start:29},{label:'Discussion',start:42},{label:'Appendix',start:43},
+  {label:'Jev',start:29},{label:'Walkthrough',start:33},{label:'Principles',start:42},{label:'Discussion',start:47},{label:'Appendix',start:49},
 ]
 const active = computed(() => sections.reduce((found,s,i) => nav.currentPage.value >= s.start ? i : found, 0))
 </script>
@@ -23,7 +23,7 @@ const active = computed(() => sections.reduce((found,s,i) => nav.currentPage.val
   </nav>
 </template>
 <style>
-.module-nav{position:absolute;left:24px;top:140px;width:150px;font-family:'Source Code Pro',monospace;z-index:30;}
+.module-nav{position:absolute;left:24px;top:90px;width:150px;font-family:'Source Code Pro',monospace;z-index:30;}
 .module-nav .nav-caption{font-size:10px;letter-spacing:2px;color:#c2b5a7;margin-bottom:22px;}
 .module-nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;border-left:2px solid transparent;padding:13px 7px;font:inherit;font-size:13px;line-height:1.4;cursor:pointer;}
 .module-nav button.past{color:#a8a39b;}.module-nav button.future{color:#747b80;}

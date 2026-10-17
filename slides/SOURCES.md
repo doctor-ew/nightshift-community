@@ -61,4 +61,15 @@ Slides 21–22 translate `docs/ARCHITECTURE.md` into editable SVG/HTML diagrams.
 ## MEX Project Hub setup capture
 
 - `public/assets/mex-setup-in-progress.png`: user-supplied screenshot preserved unchanged from `/var/folders/sj/l3892d294592y7f6gb91mdzr0000gp/T/codex-clipboard-8mbOHf.png`, showing `http://127.0.0.1:59715/setup` for Counsel of Ricks. Background Claude Code setup is visibly running; completed setup and graph freshness are not established.
-- Slide 39 uses only visible setup labels and explicitly distinguishes this MEX Hub page from Nightshift's UI and its optional bounded retrieval integration. A fresh read-only browser session returned an expired-session page; no active session was changed.
+- Slide 27 uses only visible setup labels and explicitly distinguishes this MEX Hub page from Nightshift's UI and its optional bounded retrieval integration. A fresh read-only browser session returned an expired-session page; no active session was changed.
+
+## Engineering principles and connection slide
+
+Slides 42–46 paraphrase the following primary sources, with presentation/work applications explicitly labelled as analogies. The repository review lens is `commands/nightshift-review.md`, including CoC as Convention over Configuration.
+
+- DRY: https://pragprog.com/tips/ (tips 11 and 15).
+- SOLID: https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html .
+- ACID: https://www.postgresql.org/docs/current/tutorial-transactions.html and https://www.postgresql.org/docs/current/glossary.html .
+- Big O: https://www.ocw.mit.edu/courses/6-0001-introduction-to-computer-science-and-programming-in-python-fall-2016/bb953fb81d4afa3bc837c16eba613955_MIT6_0001F16_Lec11.pdf .
+- CoC: https://rubyonrails.org/doctrine#convention-over-configuration .
+- Slide 48: locally generated QR encodes exactly the presenter-supplied https://www.linkedin.com/in/andrew-schillinger/ ; no tracking redirect.

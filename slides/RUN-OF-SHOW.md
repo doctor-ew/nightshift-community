@@ -1,35 +1,30 @@
 # Suggested talk paths
 
-Both event decks have 44 slides. Approximate 20–40 minute slots remain unconfirmed.
-
-## Module map
+Both event decks have 49 slides; choose depth for a 20–40 minute slot.
 
 | Slides | Topic |
 |---|---|
-| 1–3 | Event framing and harness overview |
-| 4–8 | Skills, six stages, acceptance example and recorded routing |
-| 9–11 | Why route: cost, bias and trust |
-| 12–15 | Admission, front end, copyable command and RED/GREEN |
-| 16–19 | Evidence, self-hosted run and human checkpoints |
-| 20–24 | First-talk bridge, two architecture diagrams and security |
-| 25–28 | Retrieval, MEX, Jev and cost measurement |
-| 29–33 | Actual control room/Review, illustrative HITL and actual allowance |
-| 34–37 | Skill source, role dispatch, actual proof and decision continuation |
-| 38–41 | MEX retrieval, actual MEX setup, Jev shadow rubric and proposed evaluation |
-| 42 | Closing and questions |
-| 43–44 | Rehearsal checker and SOLID/ACID appendices |
+| 1–19 | Framing, skills, harness, routing, retained demo and human boundaries |
+| 20–24 | Memory bridge, architecture and security |
+| 25–28 | Retrieval and MEX: explanation, actual setup, bounded handoff |
+| 29–31 | Jev: purpose, shadow rubric and proposed evaluation |
+| 32 | Cost measurement |
+| 33–41 | Actual UI, illustrative HITL, skills, proof and continuation |
+| 42–46 | DRY, SOLID, ACID, Big O and Convention over Configuration |
+| 47–48 | Discussion and LinkedIn QR |
+| 49 | Retained-demo checker appendix |
 
 ## Approximately 20 minutes
 
-Use 1, 2, 3, 4, 6, 8, 9, 10, 11, 14, 18, 21, 22, 29, 31, 32, 34, 38, 39, 40, 42. Keep the retained demonstration to two minutes; use screenshots to avoid excessive window switching.
+Use 1–4, 6, 8–11, 14, 18, 21–22, 26–27, 29–30, 33, 35–36, 42 and 47–48. Treat optional screenshots as brief evidence rather than reading each slide.
 
 ## Approximately 30 minutes
 
-Add 15, 23, 24, 26, 27, 30, 33, 35 and 36 as useful. Explain retained failure history and the difference between saved decisions and passed gates.
+Add 15, 23–25, 28, 31–32, 38 and 43–46. Keep principles grounded in one example each.
 
 ## Approximately 40 minutes
 
-Add 7, 12, 16, 17, 20, 25, 28, 37 and 41. Open the source and architecture map; keep 43–44 for questions. Jev remains offline in this demonstration.
+Expand the remaining walkthrough and proof slides. Keep 49 available for questions. Jev remains offline in this demonstration.
 
 ## Presenter setup
 

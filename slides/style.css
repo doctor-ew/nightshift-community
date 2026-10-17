@@ -211,3 +211,5 @@
 .slidev-layout .mex-setup-layout h3{font-size:22px;margin:8px 0;}
 .slidev-layout .mex-setup-layout p{font-size:19px;margin:8px 0 20px;}
 .mex-setup-layout small{font-size:14px;color:#e7a58d;}
+
+.connect-layout{display:flex;align-items:center;gap:44px;margin-top:24px}.connect-layout img{background:white;flex-shrink:0}.connect-layout section{min-width:0}.connect-layout a{font-size:18px;overflow-wrap:anywhere}
