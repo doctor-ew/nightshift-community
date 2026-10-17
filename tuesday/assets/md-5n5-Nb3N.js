@@ -1,0 +1,5 @@
+import{A as e,H as t,S as n,St as r,nt as i,wt as a,x as o}from"./modules/shiki-DTaLjGtL.js";import{et as s,tt as c}from"./index-CaWBCc9x.js";import{t as l}from"./slidev/default-Nm5-DuEb.js";var u={__name:`shared-core.md__slidev_40`,setup(u){let{$slidev:d,$nav:f,$clicksContext:p,$clicks:m,$page:h,$renderContext:g,$frontmatter:_}=c();return p.setup(),(c,u)=>(t(),n(l,a(e(r(s)(r(_),39))),{default:i(()=>[...u[0]||=[o(`div`,{class:`slide-number`},`HARNESS · ACTUAL TEST EVIDENCE`,-1),o(`h1`,null,`Follow the formatter’s proof trail`,-1),o(`div`,{class:`terminal detail-code`},[o(`div`,{class:`terminal-label`},`RETAINED PUBLIC TASK ARTIFACTS`),o(`pre`,null,`SPEC.md + behavior-scenarios.json
+  → implement-2-red.log   (expected failure)
+  → proof-red.json       (development proof)
+  → duration.py + tests/test_duration.py
+  → proof-final.json     (final proof)`)],-1),o(`p`,null,`Three tests cover 26 inputs. Later review and QA inspect the resulting evidence.`,-1),o(`div`,{class:`source`},`Public formatter worktree docs/spec-014c777fd4684e19/; docs/133/IMPLEMENTATION.md`,-1)]]),_:1},16))}};export{u as default};

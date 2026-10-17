@@ -1,0 +1,5 @@
+import{A as e,H as t,S as n,St as r,nt as i,wt as a,x as o}from"./modules/shiki-DTaLjGtL.js";import{et as s,tt as c}from"./index-CaWBCc9x.js";import{t as l}from"./slidev/default-Nm5-DuEb.js";var u={__name:`shared-core.md__slidev_30`,setup(u){let{$slidev:d,$nav:f,$clicksContext:p,$clicks:m,$page:h,$renderContext:g,$frontmatter:_}=c();return p.setup(),(c,u)=>(t(),n(l,a(e(r(s)(r(_),29))),{default:i(()=>[...u[0]||=[o(`div`,{class:`slide-number`},`JEV · THE IMPLEMENTED SHADOW RUBRIC`,-1),o(`h1`,null,`What we would ask Jev`,-1),o(`div`,{class:`terminal detail-code`},[o(`div`,{class:`terminal-label`},`EXISTING RUBRIC · scripts/nightshift-efficiency.py`),o(`pre`,null,`supported:
+  Does supplied evidence support its own claims?
+limitations:
+  Does it distinguish observations from unknowns?
+Both questions: type = "noul"`)],-1),o(`p`,null,`Evaluate beside the reviewer first. Measure misses and false alarms before changing dispatch.`,-1),o(`div`,{class:`source`},`scripts/nightshift-efficiency.py · QUESTIONS; scripts/nightshift-jev-evaluation.py; jevai.org/docs`,-1)]]),_:1},16))}};export{u as default};
