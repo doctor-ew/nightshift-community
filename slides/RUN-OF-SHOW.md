@@ -1,50 +1,38 @@
 # Suggested talk paths
 
-The user expects approximately 20–40 minutes. These are adjustable rehearsal cuts, not confirmed session timings. Both event decks have 19 slides and the same navigation targets.
+Both event decks have 51 slides; choose depth for a 20–40 minute slot.
 
-## Events
+| Slides | Topic |
+|---|---|
+| 1–19 | Framing, skills, harness, routing, retained demo and human boundaries |
+| 20–24 | Memory bridge, architecture and security |
+| 25–30 | Retrieval and MEX: explanation, actual setup, bounded handoff, actual spec Sources and adversarial role |
+| 31–33 | Jev: purpose, shadow rubric and proposed evaluation |
+| 34 | Cost measurement |
+| 35–43 | Actual UI, illustrative HITL, skills, proof and continuation |
+| 44–48 | DRY, SOLID, ACID, Big O and Convention over Configuration |
+| 49–50 | Discussion and slide/LinkedIn QRs |
+| 51 | Retained-demo checker appendix |
 
-| | Saturday | Tuesday |
-|---|---|---|
-| Event | ATL Dev Con | Open Source Night, joint Atlanta developer-community meetup |
-| Date | 17 October 2026 | 20 October 2026 |
-| Talk | Trust doesn't rust | Nightshift: From Copilot to Autopilot (Engineering Guardrails for AI Coding Agents) |
-| Venue | FCS Innovation Academy, Alpharetta | Tech Square ATL |
-| Audience framing | Developers considering trust and engineering discipline for agents | Developers with varied open-source contribution experience |
-| Posted event window | 8 AM–5 PM | 6:30–8:30 PM |
+## Approximately 20 minutes
 
-Saturday begins with the scope of trust and the need for current evidence. Tuesday begins with an inspectable contribution and relates the same workflow to open source. Neither talk assumes that a successful provider process proves a change correct.
+Use 1–4, 6, 8–11, 14, 18, 21–22, 26–27, 29–31, 35, 37–38, 44 and 49–50. Treat optional screenshots as brief evidence rather than reading each slide.
 
-## About 20 minutes
+## Approximately 30 minutes
 
-Use slides **1, 2, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17**.
+Add 15, 23–25, 28, 33–34, 40 and 45–48. Keep principles grounded in one example each.
 
-| Segment | Suggested time | Action |
-|---|---|---|
-| Event opening and engineering problem, slides 1–3 | 4 minutes | Explain the event-specific motivation and harness responsibilities |
-| Skill, stages, small task and routing, slides 4/6/7/8 | 5 minutes | Show the skill file and configured versus recorded routes |
-| Front end and retained demo, slides 10–11 | 5 minutes | Show six passing stages, source/tests and cached repeat |
-| Evidence, self-hosted run and checkpoints, slides 13–16 | 3 minutes | Separate generation calls from login probes and policy from authority |
-| Closing and questions, slide 17 | 3 minutes | Saturday: current evidence. Tuesday: a reviewable contribution |
+## Approximately 40 minutes
 
-Keep the demo to the preserved public task. The repeat shows current receipt reuse, not fresh model generation. Do not promise a new six-stage run within the slot.
+Expand the remaining walkthrough and proof slides. Keep 51 available for questions. Jev remains offline in this demonstration.
 
-## About 30 minutes
+## Presenter setup
 
-Add slide **5** for the repository instruction layout, slide **9** for admission and bounded context, and slide **12** for the retained RED/GREEN evidence. Budget roughly two minutes each. Use slide **18** before the closing for a four-minute explanation or execution of the guarded checker.
+- Completed rehearsal: http://127.0.0.1:8878 . New control-room candidate: http://127.0.0.1:8880 . Local addresses refer to the presenter laptop.
+- From the community checkout, run `python3 scripts/nightshift-talk-check.py`. It checks the retained fixture and real tests and blocks new generation during the repeat.
+- Open `skills/nightshift/SKILL.md`, `routing.json` and `docs/ARCHITECTURE.md` in the editor.
+- Keep `.nightshift/133-fallback/completed-demo.webm` and `.nightshift/133-fallback/recorded-dashboard.html` available. Missing temporary fixture paths can be restored only from the verified backup into absent original paths; preserve all receipts and avoid archive metadata appearing as source.
 
-## About 40 minutes
+Saturday: ATL Dev Con, Trust doesn't rust, 17 October 2026, FCS Innovation Academy, Alpharetta. Tuesday: Open Source Night, From Copilot to Autopilot, 20 October 2026, Tech Square ATL. Event windows are not confirmed speaking slots.
 
-Use the 30-minute path, then add slide **19** for SOLID/ACID review lenses and spend the remaining time walking an actual stage receipt and taking questions. Explain that ACID is a review lens for state-mutating code, not a certification of arbitrary generated applications.
-
-## Demo preparation
-
-1. From the community checkout, run `python3 scripts/nightshift-talk-check.py`.
-2. Open the dashboard at http://127.0.0.1:8878 and the event deck's presenter view.
-3. Keep `skills/nightshift/SKILL.md`, `commands/nightshift-product.md` and `routing.json` open in the editor.
-4. Keep the formatter, real tests and accepted receipt links available through the dashboard and [testing guide](../docs/talks/TESTING.md).
-5. Keep `.nightshift/133-fallback/completed-demo.webm` and `.nightshift/133-fallback/recorded-dashboard.html` available locally. Use the recorded passing dashboard if the live surface is unavailable.
-
-The event decks' appendix replaces the obsolete PR-stack discussion. Check current merge status separately if someone asks about installation. The pinned demonstration remains distinct from whichever runtime an audience member has installed.
-
-Slide 15 is a one-minute self-hosted run story. Link issues #138/#139; distinguish passing automation from pending human acceptance and the exhausted active-time allowance. Trim another evidence explanation if needed to keep the short cut within its slot.
+Measured result: the completed formatter cached repeat used zero additional generation calls. MEX/Jev savings are optimization hypotheses; the original self-hosted run has retained failures and an operator-directed merge. Do not claim an automatically completed six-green-stage run or an already published production release.

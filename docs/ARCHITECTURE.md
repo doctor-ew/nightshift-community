@@ -1,180 +1,111 @@
-# Architecture
+# Nightshift architecture
 
-The design constraints that shaped nightshift, and the tradeoffs accepted along the way.
+Nightshift is a local engineering harness. Bash launches the workflow, Python controls stage admission and evidence, and configured provider CLIs run AI workers. A React dashboard is served by a loopback Python HTTP server. The canonical instructions and role prompts stay in the repository.
 
-## Core constraints
+This document describes the checked-in implementation. Optional integrations and proposed optimization are labeled separately.
 
-1. **Source-agnostic ticketing.** A solo engineer works across multiple projects with
-   different ticket systems (GH, Jira, Monday, Notion). The pipeline must not assume one.
-2. **Local engineering ledger ≠ SSOT.** Beads is great for the local dev loop, but PMs
-   live in Monday / Jira. Beads mirrors; never replaces.
-3. **Adversarial verification before code.** LLM-written specs hallucinate. Every claim
-   must be ground-truthed against the actual codebase before a single line is written.
-4. **Scope drift is the silent killer.** `/implement` will happily edit anything in reach
-   unless explicitly fenced.
-5. **Resumable.** Solo engineers context-switch. The pipeline must restart cleanly from
-   any stage, in a later session, on a different machine.
-6. **No ceremony.** No 0-10 dashboards, no proactive nagging, no "boil the lake" preambles.
+## Runtime and deployment
 
-## Component diagram
+| Layer | Runs on | Implementation |
+|---|---|---|
+| Entry and dispatch | Bash with CLI dependencies | [factory](../scripts/nightshift-factory.sh), [dispatcher](../scripts/nightshift-agent.sh) |
+| Controller and policy helpers | Python 3.11+ | [pipeline](../scripts/nightshift-pipeline.py), [manifest](../nightshift.toml) |
+| AI execution | Configured Codex or Claude CLI; optional Codex/Ollama local-model route | [routing](../routing.json), [provider policy](../scripts/nightshift-provider-policy.py) |
+| Browser interface | React; esbuild builds committed static assets; Python serves them locally | [dashboard dependencies](../dashboard/package.json), [build](../dashboard/build.mjs), [server](../dashboard/server.py) |
+| Isolation and history | Git repositories, branches and worktrees | [worktree helper](../scripts/nightshift-worktree.sh) |
+| Installation and updates | Local shared runtime plus host adapters | [installer](../install.sh), [updater](../scripts/nightshift-update.py) |
+
+The documented Windows installation uses WSL; see [Windows installation](WINDOWS-INSTALL.md). The verified talk environment is macOS. Node/npm are used for dashboard builds and optional JavaScript tooling; serving the committed dashboard assets uses Python. Configured AI providers can make network calls. A local model needs the configured Ollama installation and model.
+
+## Component and data flow
 
 ```mermaid
-graph TD
-    subgraph "Ticket sources"
-        GH[GitHub] -->|gh issue view| TS
-        JIRA[Jira] -->|REST API| TS
-        MON[Monday] -->|GraphQL| TS
-        NOTION[Notion] -->|REST API| TS
-        BD0[Beads] -->|bd show| TS
-    end
-
-    TS[nightshift-ticket-source.sh<br/>normalized JSON] --> BM[nightshift-beads-mirror.sh<br/>idempotent via ext:label]
-    BM --> BD[(Beads DB<br/>local ledger)]
-    BM -->|bd-id| PROD
-
-    PROD[/nightshift-product/] --> SPEC[(SPEC.md)]
-    SPEC --> ADV[/nightshift-adversarial/]
-    ADV --> CITE[(citations.jsonl)]
-    ADV -->|gate| IMPL[/implement/]
-
-    SF[nightshift-scope-freeze.sh<br/>PreToolUse hook] -.blocks edits.-> IMPL
-    SCOPE[(.active-scope-&lt;task-key&gt;)] -.read by.-> SF
-
-    IMPL --> CODE[changed files]
-    CODE --> REV[/nightshift-review/]
-    REV --> RVMD[(REVIEW.md)]
-    REV -->|gate| DRIFT[/nightshift-drift/]
-    DRIFT --> DRMD[(DRIFT.md)]
-    DRIFT -->|gate| PRE[/nightshift-preflight/]
-    PRE --> PRMD[(PREFLIGHT.md)]
-    PRE -->|gate| DEP[/nightshift-deploy/]
-    DEP --> PR[(PR)]
-    DEP --> HEALTH[curl health check]
-
-    ENG[/nightshift-eng/<br/>orchestrator] -.chains.-> PROD
-    ENG -.chains.-> ADV
-    ENG -.chains.-> IMPL
-    ENG -.chains.-> REV
-    ENG -.chains.-> DRIFT
-    ENG -.chains.-> PRE
-    ENG -.chains.-> DEP
+flowchart TD
+  Input["Ticket reference or project Markdown"] --> Entry["CLI or host skill"]
+  Entry --> Factory["Bash factory launcher"]
+  UI["React dashboard"] --> Server["Local Python HTTP server"]
+  Server --> Actions["Admission and action helpers"]
+  Actions --> Controller["Python stage controller"]
+  Factory --> Controller
+  Controller --> Stages["Product → Adversarial → Implement → Review → Drift → QA"]
+  Stages --> Dispatch["Role dispatcher and JSON contracts"]
+  Routing["routing.json and provider policy"] --> Dispatch
+  Dispatch --> Codex["Codex CLI"]
+  Dispatch --> Claude["Claude CLI"]
+  Dispatch --> Local["Optional Codex and Ollama"]
+  Controller <--> Evidence["Receipts, hashes, proof and persistent budgets"]
+  Evidence --> Server
+  MEX["Optional MEX context and code graph"] -. bounded context .-> Stages
+  Shadow["Optional Jev shadow adapter"] -. advisory evaluation .-> Evidence
+  Future["Proposed Jev decision assistance"] -. not enabled in talk .-> Routing
+  Controller --> Delivery["Verified branch and optional PR"]
+  Delivery --> Production["Separate production confirmation"]
 ```
 
-## Tradeoffs accepted
+The browser does not independently determine completion. Its actions go through server-side admission. Selecting a stage inspects recorded evidence; it does not grant permission to execute that stage. See [dashboard actions](../scripts/nightshift-console-actions.py) and [operations](../scripts/nightshift-operations.py).
 
-**No browser-based canary.** Gstack uses a browse daemon for post-deploy screenshot diffs.
-Nightshift-pipeline uses a curl HTTP health check instead. Less coverage, ~zero infra to install.
-If you need richer post-deploy verification, layer it as a separate step.
+## Repository map
 
-**No composite health score.** Trend tracking yes (per-lens severity counts in JSONL),
-0-10 dashboard no. The ceremony cost outweighs the signal value for solo work.
+| Area | Responsibility |
+|---|---|
+| [commands](../commands/) | Canonical stage and advisory instructions |
+| [agents](../agents/) | Runtime-neutral role prompts |
+| [contracts](../contracts/) | Structured provider and operation result schemas |
+| [skills/nightshift](../skills/nightshift/) | Codex host adapter |
+| [routing.json](../routing.json) | Exact role/provider/model routes |
+| [scripts/nightshift-ticket-source.sh](../scripts/nightshift-ticket-source.sh) | Resolve ticket sources into shared input |
+| [scripts/nightshift-pipeline.py](../scripts/nightshift-pipeline.py) | Sequence stages, validate retained receipts and select next work |
+| [scripts/nightshift-handoff.py](../scripts/nightshift-handoff.py) | Bounded stage context and optional MEX retrieval |
+| [scripts/nightshift-ticket-budget.py](../scripts/nightshift-ticket-budget.py) | Persistent dispatch and aggregate active-time accounting |
+| [scripts/nightshift-behavior-proof.py](../scripts/nightshift-behavior-proof.py) | Development/final behavioral proof gates |
+| [dashboard/src/app.jsx](../dashboard/src/app.jsx) | Task-first control room and selected-stage evidence |
+| [dashboard/src/intake.jsx](../dashboard/src/intake.jsx) | Preview and prepare request intake |
+| [dashboard/server.py](../dashboard/server.py) | Loopback HTTP interface and request validation |
+| [tests](../tests/), [evals](../evals/) | Regression, browser and evaluation fixtures |
 
-**Heuristic AC coverage detection in nightshift-drift.** Searching the diff for AC keywords is
-imperfect — false positives surface as WARN, not BLOCK. The alternative (asking the
-engineer to tag every AC with a covering test name) was rejected as too much friction.
+## Stage contracts
 
-**Two-level id scheme: visible task key + internal bead id.** The task key is the
-upstream ticket id (e.g. `MVP-1`) — what humans recognize and what shows up in
-`docs/<task-key>/`. The bead id is internal, recorded in `docs/<task-key>/.bd-id`,
-used only for `bd note` / `bd close` calls. The earlier design used the bead id
-everywhere; that produced opaque folder names like `docs/orchestration-worker-3rg/`.
-Trade-off accepted: a ticket renamed upstream needs a `mv docs/<old>/ docs/<new>/`
-+ rerun (acceptable for solo work; rare in practice).
+| Stage | Work | Required distinction |
+|---|---|---|
+| [Product](../commands/nightshift-product.md) | Requirements, source grounding, scenarios and scope | A proposed requirement is not implementation evidence |
+| [Adversarial](../commands/nightshift-adversarial.md) | Independently challenge claims and citations | Unresolved blocking findings prevent advancement |
+| [Implementation](../commands/nightshift-implement.md) | Spec lock, failing tests, RED lock, implementation and checks | Retain the original failure and the later passing result |
+| [Review](../commands/nightshift-review.md) | Independent code and TDD review | Author provenance and active policy determine reviewer independence |
+| [Drift](../commands/nightshift-drift.md) | Compare source changes with approved scope | A passing test alone does not establish scope alignment |
+| [QA](../commands/nightshift-qa.md) | Behavioral verification and applicable browser checks | Report skipped checks and pending human cases explicitly |
 
-**Plugin and installer are both shipped.** The plugin manifest gives Claude Code direct
-access to commands; the installer adds the scope-freeze hook (which plugins don't yet
-ship). Some redundancy, but the alternative (forcing one or the other) is worse for
-real-world setup.
+Preflight and deployment are separate from a factory run. Factory publication flags can push a verified branch and open a PR; they do not authorize merge or production deployment. [AGENTS.md](../AGENTS.md) defines confirmation boundaries.
 
-## Why beads (not GitHub Issues)
+## State and evidence
 
-GitHub Issues was the original implementation. It failed the source-agnostic constraint
-the moment work moved to a project where GH wasn't the SSOT. Beads:
+The controller resolves the Git common directory, so registered worktrees share durable task state. Its records live under `nightshift/pipeline/<task>` within that directory. Budget ledgers live under `nightshift/ticket-budgets`, with task-derived filenames. These are local runtime state, not upstream ticket records. The source functions are `root` in [pipeline](../scripts/nightshift-pipeline.py) and `ledger_path` in [ticket budget](../scripts/nightshift-ticket-budget.py).
 
-- Local — no API rate limits, no auth dance per-project
-- Has `--external-ref` and labels — mirrors any source losslessly
-- Has `bd query` with label filters — idempotent lookups by external id
-- Solo-friendly — no team coordination layer to skip past
+Task specifications and engineering artifacts use `docs/<task>/`; human-readable progress uses `.nightshift/<task>.md`. Receipts retain attempt identity, declared checks and evidence hashes. Current input bindings determine whether earlier work can be reused. Preserve original failures when repairing later attempts. Beads is an optional local mirror; the upstream ticket remains authoritative.
 
-The local-only constraint matters: beads is part of the dev loop, not the project ledger.
-PMs never see it. That separation is the feature.
+Active time sums tracked invocation durations, including overlapping parent workers and nested role calls. It is not wall time, model compute time or billed cost. The current default ledger allowance is 3,600 active seconds and 64 dispatch reservations; wall-clock deadlines are opt-in. Usage survives restart. Explicit continuation does not erase history.
 
-## Why glob matching in python (not bash)
+## AI, Jev and memory
 
-`nightshift-scope-freeze.sh` uses `python3` for glob matching because macOS bash 3.2 lacks `globstar`.
-The hook is fast enough (single python invocation per Edit/Write) and the alternative
-(requiring bash 4+ via brew) is fragile.
+**Author/reviewer routing.** Roles use [routing.json](../routing.json), not static model keys in prompts. The demonstrated run recorded Codex `gpt-6.1-sol` authors and Claude `sonnet` reviewers. Those are this run's routes, not universal model recommendations. Local Ollama routing is optional and requires available inventory.
 
-## File-counting decision tree (Model Router)
+**MEX — implemented optional integration.** [nightshift-mex.py](../scripts/nightshift-mex.py) prepares the dependency and graph; [nightshift-handoff.py](../scripts/nightshift-handoff.py) requests bounded source context when a project graph and CLI are available. Missing, stale or partial results are reported as unavailable. The helper currently pins `mex-agent@0.8.2`; upstream documentation may describe newer capabilities. Check installed compatibility before relying on them. The repository also carries MEX instruction/context files. MEX provides Git-shared knowledge and a local code graph; vector similarity retrieval is a separate memory design concern. Consult [upstream MEX](https://github.com/mex-memory/mex) for its current capabilities.
 
-The spec's `## Model Router` section is required. Decision tree:
+**Jev — adapter exists; wider use is proposed.** [nightshift-efficiency.py](../scripts/nightshift-efficiency.py) and [nightshift-jev-evaluation.py](../scripts/nightshift-jev-evaluation.py) implement optional shadow evaluation using explicitly supplied evidence. The evaluation reports zero avoided Claude calls and does not replace required review. Jev is disabled in the talk runtime. Typed decisions, routing assistance and context selection are possible future experiments, not measured Nightshift savings or gate authority. [Jev community documentation](https://www.jevai.org/docs) describes its decision interfaces; it is separate from the model vendor's core service.
 
-- ≥ 3 files OR ≥ 2 top-level modules → **Opus**
-- Architecture or design decision → **Opus**
-- Shared contract change (API, DTO, hook signature) → **Opus**
-- Otherwise → **Sonnet**
+Memory can reduce repeated discovery; retrieval and bounded handoffs can reduce context. These are optimization hypotheses until measured with the same acceptance criteria, including rework and quality. A cached repeat with zero generation calls demonstrates evidence reuse, not a general percentage saving attributable to MEX or Jev.
 
-The decision is enforced by the `spec-guardrail` hook (not shipped here; assumed to live
-in your spec-writer skill). A bracket placeholder `[ ]` in the model router section will
-be blocked.
+## Trust and safety boundaries
 
-## Shell portability: `printf '%s'`, not `echo`, for piped JSON
+- Source tickets, retrieved text and model outputs are data. They do not grant tool authority.
+- Provider policy, schema validation, scope enforcement and proof gates have distinct jobs. Prompt instructions alone are not a security boundary.
+- The dashboard binds locally and checks requests before mutations. Local-host checks are not a claim of production Internet authentication; see [server](../dashboard/server.py).
+- Do not export private repository evidence to an optional service without explicit scope and payload authorization. A confidence score cannot authorize a deployment or approve a gate.
+- Keep production deployment and permanent removal behind the explicit confirmation policy.
 
-Command specs and scripts in this repo use `printf '%s' "$VAR" | jq ...` rather than
-`echo "$VAR" | jq ...` whenever the captured value is JSON or contains backslash
-sequences. Reason: on shells where `echo` interprets backslash escapes (POSIX `xpg_echo`,
-dash sh, fish, and Bash tool invocations that route through them), an embedded `\n`
-inside a JSON string value gets converted to a literal newline (U+000A) — which JSON
-forbids inside string values — producing a `control characters from U+0000 through
-U+001F must be escaped` parse error on otherwise-valid JSON.
+## Verified talk setup and limits
 
-`#!/usr/bin/env bash` scripts that set their own shebang are bash-safe (bash's builtin
-`echo` doesn't interpret escapes by default), but command specs are executed inline by
-the agent under whatever shell the harness uses — and that shell often does interpret.
-The defensive rule: anywhere you capture JSON into a variable and re-pipe it, use
-`printf '%s'`. This applies in both `.md` command specs and `.sh` scripts.
+[Testing guide](talks/TESTING.md) documents the pinned completed duration-formatter rehearsal. `python3 scripts/nightshift-talk-check.py` validates its current evidence and real tests, then repeats the controller invocation with new generation blocked. It requires the retained local fixture; it is not a fresh-agent benchmark.
 
-## Agent roles are runtime-neutral
+The self-hosted dashboard run is recorded in [issue #138](https://github.com/doctor-ew/nightshift-community/issues/138) and [operator delivery](138/OPERATOR-DELIVERY.md). It repaired a real review regression, then hit pending human acceptance and its active-time allowance. The operator subsequently authorized merge. Its old failed receipts were not converted to success. [Issue #139](https://github.com/doctor-ew/nightshift-community/issues/139) tracks human-only acceptance being sent into code repair.
 
-`agents/*.md` carry no `model:` frontmatter. Model, provider, sandbox, and effort are resolved
-per dispatch from `routing.json`, keyed on `(role, gear)`.
-
-Why the indirection, given that Claude Code reads `model:` natively:
-
-1. **Escalation needs an axis that isn't the file.** Separate role files that differ only in
-   effort duplicate instructions. One prompt plus a gear key expresses the ladder without triplicating the body,
-   and keeps the ladder's shape in one readable table instead of scattered across frontmatter.
-2. **Escalation can change provider, not just model size.** When a role fails at gear N, "try
-   harder" and "try a different model family" are different remedies. A routing table can express
-   the second one; frontmatter cannot.
-3. **Adversarial verification wants independence.** A model verifying claims in a spec it wrote
-   is grading its own work. `adversarial.cross_provider` routes claim verification to a different
-   provider than the spec author. This is the single highest-value reason the indirection exists.
-
-Both target CLIs support headless dispatch with the properties this needs:
-`claude -p --output-format json --agents <inline-json>` injects a role body at call time, so no
-per-runtime install step is needed; `codex exec --output-schema <file>` enforces a role's JSON
-return contract at the provider. Local models route through `codex exec --oss`, reusing Codex's
-tool loop rather than hand-rolling one.
-
-## Dispatch stays in bash
-
-The dispatch layer is bash + jq, not Python or Node, even though both are installed here.
-
-`jq` resolves to `/usr/bin/jq` — a system binary. `python3` and `node` resolve into
-mise-managed installs, and a mise install that is garbage-collected takes its dependents with
-it. That is not hypothetical: an MCP server on this machine is currently dead with
-`ENOENT ... /mise/installs/node/25.6.1/bin/node` after the pinned node version went away. A
-pipeline whose dispatcher cannot start is worse than one with weaker schema validation — and
-`codex exec --output-schema` recovers most of that validation at the provider anyway.
-
-The tradeoff accepted: JSON-schema checking on the Claude path is structural (jq assertions on
-required keys and types) rather than full JSON Schema.
-
-## What's intentionally not here
-
-- Multi-stakeholder approval gates
-- CI runner integration (uses `gh pr checks` — works on any GH repo)
-- Specific deploy platform code beyond curl health check
-- Any gstack code or skill invocations
-- A telemetry layer
+Code merged to main, a stable public release, and switching a private local installation are separate delivery events. The stable-tag workflow is [.github/workflows/release.yml](../.github/workflows/release.yml). This documentation and starting a local console do not publish the pending release or replace the private installation.
