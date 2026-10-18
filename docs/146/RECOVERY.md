@@ -72,3 +72,27 @@ is intentionally constrained by the operator boundary: terminal invocation
 without the option is required to resume Implementation. No independent overall
 approval is claimed. During a rerun, older stage failures need a historical
 label while the current ticket remains running.
+
+
+## Live preparation result
+
+Product attempt9 and Adversarial attempt5 passed with controller-validated
+receipts. The controller is paused with next_action `implement` and
+pause_reason `operator_stage_boundary`. There are zero Implementation attempts.
+Repeating `./scripts/nightshift-demo.sh saturday --prepare` preserved the exact
+completed receipt records and attempt count; no additional stage was dispatched.
+The running candidate dashboard is http://127.0.0.1:8765/.
+Screenshot: `/tmp/nightshift-12-ready-for-demo.png`.
+
+For the live demonstration, run from the prepared baseline checkout:
+
+```bash
+./scripts/nightshift-demo.sh saturday
+```
+
+Omit `--prepare` to explicitly resume Implementation. Console Resume preserves
+the operator boundary. Retained active usage and launch limits still apply.
+No merge, deployment, feature implementation or visual acceptance is claimed.
+The concise launcher currently prints “runtime returned no final answer” for
+this successful deterministic pause; the persisted controller state, not that
+message, establishes the accepted pause. This message remains a UX follow-up.
