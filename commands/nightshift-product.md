@@ -570,3 +570,16 @@ if [ -n "$ACTIVE" ]; then
 fi
 echo "Run /nightshift-product <REF> to start a new session."
 ```
+
+
+## Shared author and adversarial review contract
+
+Separate statements about existing code from requirements and planned additions.
+Cite evidence for existing-code claims; label new behavior explicitly and give
+observable acceptance criteria. The adversarial reviewer applies the same
+boundary: absent implementation of planned behavior is not a planning defect.
+A changed commit requires inspection of cited content, not an automatic claim
+of contradiction. Block on concrete contradictions, missing required evidence,
+or ambiguity that prevents implementation. Record optional improvements as
+non-blocking notes without expanding the agreed scope. A worker termination or
+missing receipt is an infrastructure failure, not a substantive review verdict.

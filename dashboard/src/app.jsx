@@ -255,8 +255,8 @@ function TicketActions({ rows, reports = [] }) {
       {blocked && <div className="failure-summary" role="status"><h4>Latest recorded gate failure</h4><p>This receipt may be from an earlier attempt. It does not establish why the latest run ended.</p><p>{blocker.reason}</p><h4>Next action</h4><p>{blocker.next}</p>{blocker.reason !== failures[0].reason && <details><summary>Full blocker receipt</summary><p className="receipt-text">{failures[0].reason}</p></details>}{failures[0].links?.filter(Boolean).map((link, i) => <EvidenceLink key={i} link={link} />)}</div>}
       {diagnostic && <section className="failure-summary" aria-label="Unvalidated worker diagnostic">
         <h4>Worker diagnostic · not validated</h4>
-        <p>The worker reported the following explanation. Its receipt was not accepted as stage evidence.</p>
-        {diagnostic.validationError && <p>Receipt error: {diagnostic.validationError}</p>}
+        <p>The controller could not accept a stage receipt. A recorded path identifies where evidence was expected; it does not prove that the file exists.</p>
+        {diagnostic.validationError && <p>Receipt error: {diagnostic.validationError === 'stage_receipt.file:missing' ? 'The worker stopped without a receipt at the expected path. This is missing evidence, not a reviewer verdict.' : diagnostic.validationError}</p>}
         {diagnostic.findings.map((finding, index) => <p key={index}>{finding.target && <strong>{finding.target}: </strong>}{finding.problem}</p>)}
         <details><summary>Retained diagnostic identity</summary><p className="path">{diagnostic.path}</p><p className="path">{diagnostic.sha256}</p></details>
       </section>}

@@ -262,8 +262,10 @@ def record_classification_review(project, task, route, receipt, policy='standard
 
 def receipt_object(path):
     path=Path(path)
-    if path.resolve()!=path.absolute() or not path.is_file() or path.stat().st_size>2000000:
-        raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    if path.resolve()!=path.absolute():raise ValueError('stage_receipt.file:unsafe')
+    if not path.exists():raise ValueError('stage_receipt.file:missing')
+    if not path.is_file():raise ValueError('stage_receipt.file:unsafe')
+    if path.stat().st_size>2000000:raise ValueError('stage_receipt.file:oversized')
     def unique(pairs):
         value={}
         for key,item in pairs:
@@ -271,7 +273,7 @@ def receipt_object(path):
             value[key]=item
         return value
     with path.open('rb') as stream:raw=stream.read(2000001)
-    if len(raw)>2000000:raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    if len(raw)>2000000:raise ValueError('stage_receipt.file:oversized')
     try:value=json.loads(raw,object_pairs_hook=unique)
     except (json.JSONDecodeError,UnicodeError,RecursionError):raise ValueError('stage_receipt.json:invalid_json') from None
     if not isinstance(value,dict):raise ValueError('stage_receipt.root:expected_object')
@@ -329,12 +331,14 @@ def retain_diagnostic(receipt, task, stage, project, reason):
             raise ValueError('invalid_diagnostic_record')
     else:
         worker=Path(project)/'docs'/task/('.nightshift-'+receipt.name)
-        source=worker if worker.exists() else receipt
+        source=worker if worker.exists() or worker.is_symlink() else receipt
         record=dict(version=1,label='UNVALIDATED_WORKER_DIAGNOSTIC',reason=reason[:512],source_path=str(source),source_bytes=None,source_sha256=None,preview='',preview_truncated=False,reported_findings=[])
-        if source.resolve()!=source.absolute() or not source.is_file():record['validation_error']='stage_receipt.file:missing_or_unsafe'
+        if source.resolve()!=source.absolute():record['validation_error']='stage_receipt.file:unsafe'
+        elif not source.exists():record['validation_error']='stage_receipt.file:missing'
+        elif not source.is_file():record['validation_error']='stage_receipt.file:unsafe'
         else:
             record['source_bytes']=source.stat().st_size
-            if record['source_bytes']>2000000:record['validation_error']='stage_receipt.file:unsafe_or_oversized';record['preview_truncated']=True
+            if record['source_bytes']>2000000:record['validation_error']='stage_receipt.file:oversized';record['preview_truncated']=True
             else:
                 with source.open('rb') as stream:raw=stream.read(2000001)
                 if len(raw)>2000000:raise ValueError('stage_receipt.file:changed_during_diagnostic')

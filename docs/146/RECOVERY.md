@@ -36,3 +36,23 @@ same tests, including repeated pause, preserved planning and implementation as
 the first resumed stage. Existing retry, reuse, pipeline, console and CLI suites
 remain required. Test providers are synthetic; real ticket preparation is a
 separate acceptance step.
+
+## Receipt clarity follow-up plan
+
+- [x] Distinguish missing, unsafe and oversized receipt files without reading unsafe paths.
+- [x] Remove persistent stage counters from role routing examples; preserve escalation limits.
+- [x] Clarify that review challenges existing facts and agreed requirements, not unimplemented planned behavior. Snapshot differences require content inspection.
+- [x] Describe diagnostics as controller observations rather than worker findings; preserve retained history.
+- [ ] Verify diagnostic regressions, pipeline behavior and dashboard build before updating the candidate.
+
+Acceptance: a terminated worker with no receipt is reported as missing evidence,
+not a substantive rejection; unsafe paths remain rejected. Ticket12 must still
+pause before Implementation, and external model review remains pending approval.
+
+Follow-up verification: diagnostic regression suite passes 14 tests (the new
+missing-file and routing-example cases failed before the repair). Dashboard
+model tests pass 24 tests; dashboard production bundle builds using the existing
+checkout dependencies. Python compilation and diff whitespace checks pass.
+Retained diagnostic records are immutable and are not rewritten by this repair.
+Live provider verification and ticket12 preparation remain pending the requested
+external-source review approval. No implementation or deployment was performed.

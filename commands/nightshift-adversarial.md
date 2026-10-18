@@ -189,7 +189,7 @@ actual author receipt.
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
-  nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
+  nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-sources.in.md" \
   --out "docs/$TASK/adversarial-sources.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-sources.out.json"
@@ -209,7 +209,7 @@ Map per-entry result:
 |--------|--------|
 | File + lines + content match description | Silent `SOURCES_VERIFIED` |
 | Lines off by > 5 | Surface as `SOURCES_CONFLICT` (line drift) |
-| HEAD commit ≠ cited commit | Surface as `SOURCES_CONFLICT` (code changed) |
+| HEAD commit ≠ cited commit | Inspect the cited content at both snapshots. Record snapshot drift as a note when the claim still holds; use `SOURCES_CONFLICT` only for a material content contradiction. |
 | File path missing | Surface as `SOURCES_CONFLICT` (path not found) |
 | Entry missing line/branch/commit | Surface as `SOURCES_INVALID` |
 
@@ -260,7 +260,7 @@ Build a numbered list. One verifiable assertion per claim. Skip requirements ("s
 - `[EXISTING]` — should currently exist in the codebase
 - `[NEW]` — spec is creating it ("create", "add", "implement")
 
-When in doubt, tag `[EXISTING]` — over-challenging is safer than accepting a fabrication.
+Classify from the specification wording and cited evidence. Requirements and explicitly planned additions are `[NEW]`; absence of their implementation is not a defect in the existing code. If classification is ambiguous, state the ambiguity and its effect on an acceptance criterion rather than inventing an existing-code claim. Block only on a concrete contradiction, missing required evidence, or an unresolved ambiguity that prevents implementation; keep optional improvements as non-blocking notes. Do not expand the agreed scope.
 
 If resuming, skip claims whose text already appears in the citation file.
 
@@ -326,7 +326,7 @@ and evidence requirements. Dispatch once with the same actual author provenance:
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
-  nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
+  nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-claims.in.md" \
   --out "docs/$TASK/adversarial-claims.out.json"; then
   jq '.results.claims' "docs/$TASK/adversarial-claims.out.json"

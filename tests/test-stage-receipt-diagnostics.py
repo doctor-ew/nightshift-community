@@ -65,7 +65,19 @@ class Diagnostics(unittest.TestCase):
   self.assertIsNone(value['source_sha256']);self.assertEqual(value['preview'],'');self.assertTrue(value['preview_truncated'])
   other=self.root/'link.json';other.symlink_to(self.path)
   result=m.retain_diagnostic(other,'123','product',self.root,'unsafe');value=json.loads(Path(result['path']).read_text())
-  self.assertIsNone(value['source_sha256']);self.assertEqual(value['validation_error'],'stage_receipt.file:missing_or_unsafe')
+  self.assertIsNone(value['source_sha256']);self.assertEqual(value['validation_error'],'stage_receipt.file:unsafe')
+ def test_missing_receipt_is_not_an_unsafe_path_or_reviewer_verdict(self):
+  result=m.retain_diagnostic(self.path,'123','adversarial',self.root,'worker_exit_143')
+  value=json.loads(Path(result['path']).read_text())
+  self.assertEqual(value['validation_error'],'stage_receipt.file:missing')
+  self.assertEqual(value['reason'],'worker_exit_143')
+  self.assertEqual(value['reported_findings'],[])
+  self.assertIsNone(value['source_sha256'])
+  with self.assertRaisesRegex(ValueError,'stage_receipt.file:missing'):
+   m.receipt_object(self.path)
+ def test_stage_counter_is_not_a_routing_attempt(self):
+  command=(ROOT/'commands/nightshift-adversarial.md').read_text()
+  self.assertNotIn('--attempt "${GATE_ATTEMPT:-1}"',command)
  def pipeline_case(self,code,raw_worker=False):
   project=self.root/'project';f.prepare(ROOT,project,task='123',manual=True,final=True)
   settings=dict(ref='gh:123',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
