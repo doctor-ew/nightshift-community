@@ -43,7 +43,7 @@ separate acceptance step.
 - [x] Remove persistent stage counters from role routing examples; preserve escalation limits.
 - [x] Clarify that review challenges existing facts and agreed requirements, not unimplemented planned behavior. Snapshot differences require content inspection.
 - [x] Describe diagnostics as controller observations rather than worker findings; preserve retained history.
-- [ ] Verify diagnostic regressions, pipeline behavior and dashboard build before updating the candidate.
+- [x] Verify diagnostic regressions, pipeline behavior and dashboard build before updating the candidate.
 
 Acceptance: a terminated worker with no receipt is reported as missing evidence,
 not a substantive rejection; unsafe paths remain rejected. Ticket12 must still
@@ -56,3 +56,7 @@ checkout dependencies. Python compilation and diff whitespace checks pass.
 Retained diagnostic records are immutable and are not rewritten by this repair.
 Live provider verification and ticket12 preparation remain pending the requested
 external-source review approval. No implementation or deployment was performed.
+
+Pipeline follow-up: all 12 synthetic pipeline tests pass with shell process
+substitution permitted. The sandboxed run failed on denied `/dev/fd` access;
+that failure is retained in `/tmp/ns146-pipeline-followup.log`.
