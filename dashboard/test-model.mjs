@@ -252,3 +252,12 @@ test('UI-E1 stage projection retains failures and rejects cross-task/stage fallb
   assert.equal(missing.provider,null);assert.equal(missing.model,null);assert.equal(missing.attempts.length,0);
   assert.equal(model.stageEvidence(rows,{...ticket,pipeline:{...ticket.pipeline,status:'stale'}},'implement').stale,true);
 });
+
+test('earlier stage failure is historical while another stage is running', async () => {
+ const {ticketTimeline}=await import('./src/model.mjs');
+ const ticket={task:'12',pipeline:{status:'running',attempts:[{stage:'adversarial',status:'fail'},{stage:'product',status:'running'}],completed:{}}};
+ assert.equal(ticketTimeline([],ticket).find(s=>s.stage==='adversarial').state,'previous attempt failed');
+ assert.equal(ticketTimeline([],ticket).find(s=>s.stage==='product').state,'running');
+ ticket.pipeline.status='blocked';
+ assert.equal(ticketTimeline([],ticket).find(s=>s.stage==='adversarial').state,'failed');
+});

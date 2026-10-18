@@ -279,7 +279,7 @@ existing repair policy. A manual gear override uses one dispatcher invocation.
 
 ```bash
 DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh"
-EXTRACT_ARGS=(--gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --attempt "${GATE_ATTEMPT:-1}")
+EXTRACT_ARGS=(--gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}")
 if [ "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" = auto ]; then
   DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh"
   EXTRACT_ARGS=()
@@ -346,7 +346,7 @@ Prepare `docs/$TASK_KEY/spec-writer.in.md` with all the items below and invoke
 
 ```bash
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
-  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK_KEY/spec-writer.in.md" \
+  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --in "docs/$TASK_KEY/spec-writer.in.md" \
   --out "docs/$TASK_KEY/spec-writer.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK_KEY/spec-writer.out.json"
 else
@@ -583,3 +583,14 @@ of contradiction. Block on concrete contradictions, missing required evidence,
 or ambiguity that prevents implementation. Record optional improvements as
 non-blocking notes without expanding the agreed scope. A worker termination or
 missing receipt is an infrastructure failure, not a substantive review verdict.
+
+
+### Controller receipt checks
+
+The passing stage receipt's `checks` array contains the final required check
+commands and their actual successful exit codes. Preserve failed exploratory
+commands, rejected output filenames, and earlier attempts in separate retained
+evidence and reference that evidence by hash. Do not list a failed exploratory
+command as a successful required check, and do not return pass with any nonzero
+required check. A red/green regression is represented by a successful checker
+that proves both expectations, with the underlying failures retained as data.

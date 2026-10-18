@@ -15,13 +15,16 @@
       "tests/test-review-reuse.py": "5 passed",
       "tests/test-retry-budget.sh": "passed",
       "tests/test-factory-cli.sh": "passed",
-      "tests/test-console-actions.sh": "passed"
+      "tests/test-console-actions.sh": "passed",
+      "tests/test-stage-receipt-diagnostics.py": "14 passed",
+      "dashboard/test-model.mjs": "25 passed; historical-status regression failed before fix"
     },
-    "syntax": "Python compilation and bash syntax passed"
+    "syntax": "Python compilation and bash syntax passed",
+    "dashboard_build": "passed"
   },
   "limits": {
-    "external_patch_review": "blocked by automatic approval review pending specific source-disclosure approval",
-    "live_ticket_preparation": "pending",
+    "external_patch_review": "Claude static report retained; no overall independent approval claimed; intentional console boundary finding adjudicated in RECOVERY.md",
+    "live_ticket_preparation": "running; Product receipt repair before Adversarial; stop-before implement",
     "live_feature_acceptance": "not performed; operator requested pause before Implementation",
     "production": "no merge or deployment"
   }

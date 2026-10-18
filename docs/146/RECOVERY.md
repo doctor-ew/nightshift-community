@@ -60,3 +60,15 @@ external-source review approval. No implementation or deployment was performed.
 Pipeline follow-up: all 12 synthetic pipeline tests pass with shell process
 substitution permitted. The sandboxed run failed on denied `/dev/fd` access;
 that failure is retained in `/tmp/ns146-pipeline-followup.log`.
+
+
+Live preparation follow-up: Product attempt8 returned pass while including a
+failed exploratory command in its required checks. The controller correctly
+rejected it. Preserve that receipt; the next Product repair must rerun required
+checks and retain exploratory failures as evidence, not passing checks. Product
+and Spec routing examples also no longer use persistent gate counters.
+Independent Claude static review retained locally; its console Resume concern
+is intentionally constrained by the operator boundary: terminal invocation
+without the option is required to resume Implementation. No independent overall
+approval is claimed. During a rerun, older stage failures need a historical
+label while the current ticket remains running.
