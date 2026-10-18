@@ -78,6 +78,7 @@ BATCH_ARGS=()
 PROFILE=""
 APPROVE_SPEC=""
 REVIEW_SPEC=false
+STOP_BEFORE=""
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
@@ -117,6 +118,7 @@ Options:
   --profile standard|workshop  Bounded prompt workshop or full engineering workflow
   --retry-review             Retry one malformed workshop final review
   --review-spec             Review a local input spec in the console before starting
+  --stop-before STAGE        Pause before a stage; omit this option to resume later
   --approve-spec SHA256      Continue workshop after reviewing its spec
   --output concise|verbose|quiet  Display mode (default: configured, then concise)
   --project DIR              Consumer repository (default: current directory)
@@ -141,6 +143,7 @@ while [ "$#" -gt 0 ]; do
     --profile) shift; PROFILE="${1:-}" ;;
     --retry-review) RETRY_REVIEW=true ;;
     --review-spec) REVIEW_SPEC=true ;;
+    --stop-before) shift; STOP_BEFORE="${1:?--stop-before requires a stage}" ;;
     --approve-spec) shift; APPROVE_SPEC="${1:-}" ;;
     --project) shift; PROJECT="${1:-}" ;;
     --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
@@ -216,6 +219,10 @@ fi
 [ -d "$PROJECT" ] || { echo "Project directory not found: $PROJECT" >&2; exit 66; }
 case "${NIGHTSHIFT_GEAR:-auto}" in auto|0|1|2|3|4) ;; *) echo 'invalid --gear' >&2; exit 64 ;; esac
 case "${NIGHTSHIFT_RISK:-standard}" in low|standard|high) ;; *) echo 'invalid --risk' >&2; exit 64 ;; esac
+case "$STOP_BEFORE" in ''|product|adversarial|implement|review|drift|qa) ;; *) echo 'invalid --stop-before stage' >&2; exit 64 ;; esac
+if [ -n "$STOP_BEFORE" ] && [ "$MODE" != eng ]; then
+  echo '--stop-before requires an individual ticket.' >&2; exit 64
+fi
 
 # Explicit launcher project retains its cwd default; translate adapter context once.
 PROJECT_CONTEXT=$(python3 "$SCRIPT_DIR/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
@@ -514,6 +521,7 @@ fi
 [ -n "$PROFILE" ] || PROFILE="$(jq -r '.workflow.profile // "standard"' <<< "$SETTINGS_JSON")"
 case "$PROFILE" in standard|workshop) ;; *) echo 'Unknown workflow profile.' >&2; exit 64 ;; esac
 if [ "$PROFILE" = workshop ]; then
+  [ -z "$STOP_BEFORE" ] || { echo '--stop-before requires the standard profile.' >&2; exit 64; }
   [ "$REVIEW_SPEC" = false ] || { echo "Workshop already has its own spec approval flow." >&2; exit 64; }
   [ "$MODE" = eng ] || { echo 'Workshop accepts a single Markdown brief.' >&2; exit 64; }
   echo "nightshift: authentication: $AUTH_MODE; workshop reported costs are usage estimates." >&2
@@ -538,8 +546,9 @@ if [ "$MODE" = eng ] && [ -z "${NIGHTSHIFT_PIPELINE_STAGE:-}" ]; then
   PIPELINE_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
   PIPELINE_SETTINGS=$(jq -cn --arg ref "$REF" --arg provider "$PROVIDER" --arg model "$MODEL" \
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
-    --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
-    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
+    --argjson push "$PUSH" --argjson pr "$OPEN_PR" --arg stop_before "$STOP_BEFORE" \
+    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr} +
+     (if $stop_before == "" then {} else {stop_before:$stop_before} end)')
   PIPELINE_ARGS=(--project "$PROJECT" --task "$PIPELINE_TASK" --settings "$PIPELINE_SETTINGS")
   [ "$REVIEW_SPEC" = false ] || PIPELINE_ARGS+=(--review-spec)
   exec python3 "$SCRIPT_DIR/nightshift-pipeline.py" "${PIPELINE_ARGS[@]}"

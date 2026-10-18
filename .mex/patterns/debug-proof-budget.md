@@ -3,7 +3,7 @@ name: "debug-proof-budget"
 description: "Diagnose proof admission and counter failures"
 triggers: ["proof calls exhausted", "pending proof attempt", "proof counter mismatch"]
 edges: [{"target": "context/conventions.md", "condition": "when implementing and verifying this change"}, {"target": "context/proof-accounting.md", "condition": "when understanding the relevant subsystem"}]
-last_updated: "2026-09-23"
+last_updated: "2026-10-18"
 mex:
   id: mx_01M21Z3AXS7SE70JP7YXVEKTBJ
   type: pattern
@@ -67,3 +67,18 @@ reused only while inputs and retained receipts match. Changed inputs invalidate
 results without clearing attempts or extending the deadline. Configuration must
 resolve before any console attempt is charged. Sources:
 `scripts/nightshift-recovery-state.py`, `tests/test-recovery-state.py`.
+
+## Stage numbers and routing attempts
+
+Persistent receipt numbers are not route-escalation attempt values. The bounded
+source dispatcher validates explicit controls before reserving work; invalid
+values must not consume allowance. Source-repair contract changes must bind the
+Adversarial input identity without requiring an unrelated spec rewrite. Generated
+repair receipts are outputs, not new authority. Sources:
+`scripts/nightshift-retry-budget.py` (`validate_dispatch_options`),
+`scripts/nightshift-pipeline.py` (`inputs`).
+
+For show-and-tell preparation, use `--stop-before implement`. A deliberate pause
+is distinct from a failed gate. Resume with an explicit invocation that omits the
+boundary; never reset counters or relabel a failed review. Source:
+`scripts/nightshift-pipeline.py` (`Pipeline.run`), `docs/146/RECOVERY.md`.

@@ -49,6 +49,9 @@ def atomic(path, value):
 def validate(task, settings):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', task):
         raise ValueError('Invalid task')
+    if settings.get('stop_before') is not None and settings['stop_before'] not in (
+            'product', 'adversarial', 'implement', 'review', 'drift', 'qa'):
+        raise ValueError('Invalid saved stage boundary')
     if (settings.get('provider') not in ('claude', 'codex', 'local')
             or settings.get('policy') not in ('standard', 'claude-only')
             or settings.get('auth') not in ('subscription', 'api')
@@ -456,6 +459,8 @@ def action(project, task, expected, operation, provider="auto", budget_revision=
         argv = ['bash', str(FACTORY), settings['ref'], '--project', str(project),
                 '--provider', settings['provider'], '--provider-policy', settings['policy'],
                 '--auth', settings['auth'], '--branch', settings['branch']]
+        if settings.get('stop_before'):
+            argv += ['--stop-before', settings['stop_before']]
         for key in ('model', 'base'):
             if settings[key]: argv += ['--' + key, settings[key]]
         for key in ('push', 'pr'):

@@ -101,6 +101,13 @@ If **B**: `rm "$CITATION"`.
 
 ## Step 4 — Verify the spec's ## Sources section
 
+Persistent stage receipt numbers are not routing attempts. Do not copy the stage
+attempt number into `--attempt`: the role dispatcher accepts only 1–3 for route
+escalation. Omit `--attempt` normally; the durable retry ledger accounts for every
+actual call independently. Invalid route controls are rejected before reservation.
+Use the explicit installed `NIGHTSHIFT_HOME` scripts, not a different global
+installation, when preparing or evaluating these calls.
+
 Dispatch all extractor calls through `scripts/nightshift-dispatch-bounded.sh` (which invokes the shared role dispatcher) with
 `--author-provider` copied from the spec-writing result's `_provenance.provider`.
 Do not infer authorship from the current runtime. If prior author provenance is
