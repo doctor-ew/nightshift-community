@@ -1,6 +1,6 @@
 {
   "issue": 146,
-  "scope": "Harness repair and stop-before-Implementation preparation; no feature implementation",
+  "scope": "Harness repairs and operator-authorized ticket12 implementation, verification and PR publication",
   "original": {
     "targeted_tests": 3,
     "failures": 11,
@@ -17,7 +17,8 @@
       "tests/test-factory-cli.sh": "passed",
       "tests/test-console-actions.sh": "passed",
       "tests/test-stage-receipt-diagnostics.py": "14 passed",
-      "dashboard/test-model.mjs": "25 passed; historical-status regression failed before fix"
+      "dashboard/test-model.mjs": "25 passed; historical-status regression failed before fix",
+      "tests/test-controller-parity.py": "13 passed; transport-plus-typed classification regression failed before fix"
     },
     "syntax": "Python compilation and bash syntax passed",
     "dashboard_build": "passed"
@@ -25,7 +26,15 @@
   "limits": {
     "external_patch_review": "Claude static report retained; no overall independent approval claimed; intentional console boundary finding adjudicated in RECOVERY.md",
     "live_ticket_preparation": "accepted: Product9 and Adversarial5 passed; paused before implement; zero implementation attempts; repeat preparation preserved receipts and attempt count",
-    "live_feature_acceptance": "not performed; operator requested pause before Implementation",
+    "live_feature_acceptance": "all six stages and final C01-C09 proof passed; actual independent RED and GREEN observations retained",
     "production": "no merge or deployment"
+  },
+  "publication": {
+    "controller_status": "complete",
+    "next_action": "none",
+    "pr": "https://github.com/doctor-ew/counsel-of-ricks/pull/17",
+    "head": "ba9ccb56a1121dab5aa32d4f456f7e929631e4cd",
+    "merged": false,
+    "deployed": false
   }
 }

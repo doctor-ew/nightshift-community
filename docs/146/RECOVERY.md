@@ -101,7 +101,7 @@ message, establishes the accepted pause. This message remains a UX follow-up.
 
 - [x] Reproduce multiple classification-prefix artifacts blocking valid typed approval.
 - [x] Select only exact typed classification records from validated receipt evidence; preserve independence, semantic digest, coverage and ambiguity rejection.
-- [ ] Run controller parity regression checks, preserve failed Implementation1 and resume the actual controller through implementation/review/QA.
+- [x] Run controller parity regression checks, preserve failed Implementation1 and resume the actual controller through implementation/review/QA.
 
 The user has now authorized running Implementation; the earlier presentation
 pause is intentionally lifted. Do not forge attestations or remove prior evidence.
@@ -128,3 +128,35 @@ and resealing; never relabel old approvals. Product review must pass actual
 scenario author provenance to the dispatcher. Candidate filter focus styling now
 passes the full browser suite; exact polling target and browser keyboard mapping
 were strengthened after independent review. No factory completion is claimed yet.
+
+
+## Completed direct run
+
+The operator subsequently authorized Implementation. All six stages and final
+behavioral proof C01–C09 passed. The controller status is `complete`, next action
+`none`. Publication: https://github.com/doctor-ew/counsel-of-ricks/pull/17,
+branch `nightshift/12`, pushed head `ba9ccb56a1121dab5aa32d4f456f7e929631e4cd`.
+No merge or deployment occurred.
+
+Actual independent observations: original application produced10 relevant missing
+filter failures and4 passing tests/calibrations; candidate produced14 frontend
+passes, one Chromium pass and a successful production build. The final observer
+used an isolated exact-HEAD checkout to preserve artifacts under active review.
+Original tests, failed reviews, seals and budgets remain retained. Corrected test
+setup and stronger required style/polling assertions received fresh independent
+Claude approval. Observer execution used the same authorized unattended mode as
+factory test workers.
+
+The final Git SSH push stalled; only its verified Git/SSH/pack processes were
+terminated. Retrying with ConnectTimeout10, ServerAliveInterval10 and
+ServerAliveCountMax2 succeeded. An idempotent direct Nightshift rerun reused all
+passed stages, opened PR17 and completed with exit0. The concise-output formatter
+still prints “runtime returned no final answer”; persisted controller completion
+and PR publication are authoritative. Historical state.error text also remains
+retained after successful publication. Bound Git publication calls and clear
+obsolete current-error display in a later candidate; changing runtime source now
+would invalidate accepted evidence.
+
+Screenshot: `/tmp/nightshift-12-complete.png`. Before UI: port5174. Candidate UI:
+port5175. Both are labelled synthetic, read-only API demonstrations independent of
+the rebuilt application database; no live production-backend certification.
