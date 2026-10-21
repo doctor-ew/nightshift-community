@@ -96,3 +96,14 @@ No merge, deployment, feature implementation or visual acceptance is claimed.
 The concise launcher currently prints “runtime returned no final answer” for
 this successful deterministic pause; the persisted controller state, not that
 message, establishes the accepted pause. This message remains a UX follow-up.
+
+## Live Implementation admission repair plan
+
+- [x] Reproduce multiple classification-prefix artifacts blocking valid typed approval.
+- [x] Select only exact typed classification records from validated receipt evidence; preserve independence, semantic digest, coverage and ambiguity rejection.
+- [ ] Run controller parity regression checks, preserve failed Implementation1 and resume the actual controller through implementation/review/QA.
+
+The user has now authorized running Implementation; the earlier presentation
+pause is intentionally lifted. Do not forge attestations or remove prior evidence.
+
+Classification regression: original fails the retained transport-plus-typed-record case; changed source passes all13 controller parity tests and the two focused classification cases. Syntax and diff checks pass. Actual direct CLI rerun is active.

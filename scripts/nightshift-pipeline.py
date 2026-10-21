@@ -220,6 +220,12 @@ def record_classification_review(project, task, route, receipt, policy='standard
                            if (Path(row['path']).parent == path.relative_to(project).parent
                                and Path(row['path']).name.startswith('classification-review-')
                                and Path(row['path']).suffix == '.json')]
+        # Transport reports share the filename prefix but are not typed
+        # classification decisions. Only schema-shaped records are candidates;
+        # their receipt hashes, provenance and exact semantics remain required.
+        fields = {'version', 'task', 'decision', 'reviewed_input_sha256', 'case_ids'}
+        classifications = [candidate for candidate in classifications
+                           if isinstance(read(candidate), dict) and set(read(candidate)) == fields]
         if len(classifications) != 1:
             return False
         classification = classifications[0]
