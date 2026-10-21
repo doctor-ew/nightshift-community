@@ -116,7 +116,7 @@ RUNTIME_SCRIPTS = ('nightshift-pipeline.py', 'nightshift-agent.sh', 'nightshift-
                    'nightshift-contract.jq', 'nightshift-provider-policy.py',
                    'nightshift-route.sh', 'nightshift-capability.sh',
                    'nightshift-dispatch-bounded.sh', 'nightshift-handoff.py',
-                   'nightshift-behavior-proof.py', 'nightshift-retry-budget.py',
+                   'nightshift-behavior-proof.py', 'nightshift-retry-budget.py', 'nightshift-repair-check.py',
                    'nightshift-routing-path.py', 'nightshift-source-evaluation.py',
                    'nightshift-spec-repair-brief.py', 'nightshift-review-reuse.py',
                    'nightshift-recovery-state.py', 'nightshift-ticket-budget.py')
@@ -159,6 +159,26 @@ def inputs(project, task, stage, state):
     value['architecture']=load('architecture').resolve(project)
     value['architecture_checker']=sha(HERE/'nightshift-architecture.py')
     value['nested_routing'] = recovery.digest(nested_routing(state['plan'], stage))
+    if stage == 'adversarial':
+        # A source-repair contract is an input; its generated receipt is not.
+        # Bind registered evidence as well as the manifest so content repairs
+        # can resume without rewriting an otherwise accepted specification.
+        manifest = docs / 'repair-checks.json'
+        value['repair_contract'] = None
+        if manifest.exists() or manifest.is_symlink():
+            checker = load('repair-check')
+            manifest = checker.confined(Path(project).resolve(), 'docs/' + task + '/repair-checks.json')
+            contract, identity = checker.read_json(manifest)
+            findings = contract.get('findings') if isinstance(contract, dict) else None
+            if not isinstance(findings, list) or not 1 <= len(findings) <= 256:
+                raise ValueError('invalid repair contract findings')
+            artifacts = {}
+            for finding in findings:
+                for key in ('artifact', 'prior_artifact'):
+                    name = finding[key]
+                    path = checker.confined(Path(project).resolve(), name)
+                    _, artifacts[name] = checker.read_json(path)
+            value['repair_contract'] = dict(manifest=identity, artifacts=artifacts)
     value['spec']={n:sha(docs/n) if (docs/n).is_file() else None for n in ('SPEC.md','behavior-scenarios.json')}
     if (docs/'behavior-scenarios.json').is_file():
         # Classification attestations are review output, not authored requirements.
@@ -200,6 +220,12 @@ def record_classification_review(project, task, route, receipt, policy='standard
                            if (Path(row['path']).parent == path.relative_to(project).parent
                                and Path(row['path']).name.startswith('classification-review-')
                                and Path(row['path']).suffix == '.json')]
+        # Transport reports share the filename prefix but are not typed
+        # classification decisions. Only schema-shaped records are candidates;
+        # their receipt hashes, provenance and exact semantics remain required.
+        fields = {'version', 'task', 'decision', 'reviewed_input_sha256', 'case_ids'}
+        classifications = [candidate for candidate in classifications
+                           if isinstance(read(candidate), dict) and set(read(candidate)) == fields]
         if len(classifications) != 1:
             return False
         classification = classifications[0]
@@ -242,8 +268,10 @@ def record_classification_review(project, task, route, receipt, policy='standard
 
 def receipt_object(path):
     path=Path(path)
-    if path.resolve()!=path.absolute() or not path.is_file() or path.stat().st_size>2000000:
-        raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    if path.resolve()!=path.absolute():raise ValueError('stage_receipt.file:unsafe')
+    if not path.exists():raise ValueError('stage_receipt.file:missing')
+    if not path.is_file():raise ValueError('stage_receipt.file:unsafe')
+    if path.stat().st_size>2000000:raise ValueError('stage_receipt.file:oversized')
     def unique(pairs):
         value={}
         for key,item in pairs:
@@ -251,7 +279,7 @@ def receipt_object(path):
             value[key]=item
         return value
     with path.open('rb') as stream:raw=stream.read(2000001)
-    if len(raw)>2000000:raise ValueError('stage_receipt.file:unsafe_or_oversized')
+    if len(raw)>2000000:raise ValueError('stage_receipt.file:oversized')
     try:value=json.loads(raw,object_pairs_hook=unique)
     except (json.JSONDecodeError,UnicodeError,RecursionError):raise ValueError('stage_receipt.json:invalid_json') from None
     if not isinstance(value,dict):raise ValueError('stage_receipt.root:expected_object')
@@ -309,12 +337,14 @@ def retain_diagnostic(receipt, task, stage, project, reason):
             raise ValueError('invalid_diagnostic_record')
     else:
         worker=Path(project)/'docs'/task/('.nightshift-'+receipt.name)
-        source=worker if worker.exists() else receipt
+        source=worker if worker.exists() or worker.is_symlink() else receipt
         record=dict(version=1,label='UNVALIDATED_WORKER_DIAGNOSTIC',reason=reason[:512],source_path=str(source),source_bytes=None,source_sha256=None,preview='',preview_truncated=False,reported_findings=[])
-        if source.resolve()!=source.absolute() or not source.is_file():record['validation_error']='stage_receipt.file:missing_or_unsafe'
+        if source.resolve()!=source.absolute():record['validation_error']='stage_receipt.file:unsafe'
+        elif not source.exists():record['validation_error']='stage_receipt.file:missing'
+        elif not source.is_file():record['validation_error']='stage_receipt.file:unsafe'
         else:
             record['source_bytes']=source.stat().st_size
-            if record['source_bytes']>2000000:record['validation_error']='stage_receipt.file:unsafe_or_oversized';record['preview_truncated']=True
+            if record['source_bytes']>2000000:record['validation_error']='stage_receipt.file:oversized';record['preview_truncated']=True
             else:
                 with source.open('rb') as stream:raw=stream.read(2000001)
                 if len(raw)>2000000:raise ValueError('stage_receipt.file:changed_during_diagnostic')
@@ -537,6 +567,9 @@ class Pipeline:
             self.save()
 
     def run(self):
+        stop_before = self.settings.get('stop_before')
+        if stop_before is not None and stop_before not in STAGES:
+            raise ValueError('stop_before must name a canonical stage')
         fd=os.open(self.directory/'controller.lock',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o600)
         with os.fdopen(fd,'w') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -546,6 +579,12 @@ class Pipeline:
             if not self.refresh():return 1
             while self.state['next_action'] in STAGES:
                 stage=self.state['next_action']
+                if stop_before is not None and STAGES.index(stage) >= STAGES.index(stop_before):
+                    self.state.update(status='paused', next_action=stage,
+                                      pause_reason='operator_stage_boundary')
+                    self.save()
+                    return 0
+                self.state.pop('pause_reason', None)
                 budget=load('ticket-budget').snapshot(self.project,self.task)
                 if budget and budget['exhausted']:raise ValueError('ticket_budget_exhausted')
                 count=sum(a['stage']==stage for a in self.state['attempts'])
@@ -619,6 +658,11 @@ class Pipeline:
                     return 1
                 # Recompute dependencies; a writer cannot approve its changed inputs.
                 if not self.refresh():return 1
+            if stop_before is not None:
+                # Preparation must not publish an already implemented ticket.
+                self.state.update(status='paused', pause_reason='operator_stage_boundary')
+                self.save()
+                return 0
             outcome=proof(self.project,self.task,'final')
             self.state['final_evidence']=outcome
             if outcome.get('reason')=='manual_acceptance_pending':

@@ -279,7 +279,7 @@ existing repair policy. A manual gear override uses one dispatcher invocation.
 
 ```bash
 DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh"
-EXTRACT_ARGS=(--gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --attempt "${GATE_ATTEMPT:-1}")
+EXTRACT_ARGS=(--gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}")
 if [ "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" = auto ]; then
   DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh"
   EXTRACT_ARGS=()
@@ -346,7 +346,7 @@ Prepare `docs/$TASK_KEY/spec-writer.in.md` with all the items below and invoke
 
 ```bash
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
-  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK_KEY/spec-writer.in.md" \
+  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --in "docs/$TASK_KEY/spec-writer.in.md" \
   --out "docs/$TASK_KEY/spec-writer.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK_KEY/spec-writer.out.json"
 else
@@ -570,3 +570,43 @@ if [ -n "$ACTIVE" ]; then
 fi
 echo "Run /nightshift-product <REF> to start a new session."
 ```
+
+
+## Shared author and adversarial review contract
+
+Separate statements about existing code from requirements and planned additions.
+Cite evidence for existing-code claims; label new behavior explicitly and give
+observable acceptance criteria. The adversarial reviewer applies the same
+boundary: absent implementation of planned behavior is not a planning defect.
+A changed commit requires inspection of cited content, not an automatic claim
+of contradiction. Block on concrete contradictions, missing required evidence,
+or ambiguity that prevents implementation. Record optional improvements as
+non-blocking notes without expanding the agreed scope. A worker termination or
+missing receipt is an infrastructure failure, not a substantive review verdict.
+
+
+### Controller receipt checks
+
+The passing stage receipt's `checks` array contains the final required check
+commands and their actual successful exit codes. Preserve failed exploratory
+commands, rejected output filenames, and earlier attempts in separate retained
+evidence and reference that evidence by hash. Do not list a failed exploratory
+command as a successful required check, and do not return pass with any nonzero
+required check. A red/green regression is represented by a successful checker
+that proves both expectations, with the underlying failures retained as data.
+
+### Independent classification repair handoff
+
+For an existing draft, obtain author provenance from the current scenarios and
+`spec-author-provider.txt`. A new behavior-reviewer call must use the shared
+dispatcher with `--adversarial --author-provider <actual-author-provider>` and
+subscription authentication. A same-provider report under standard policy
+cannot approve the author's classification.
+
+Reuse a retained independent report only when its actual provider differs from
+the author, status is SUCCESS, decision is approve, findings are empty, and its
+reviewed input digest and complete public case IDs match the current scenarios.
+Validate its retained bytes and provenance. Such a report approves design only;
+execute this stage's own required checks and return its actual stage receipt.
+Do not repeat settled review merely because older reports requested repair, and
+do not relabel a model response as a stage pass.

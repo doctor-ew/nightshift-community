@@ -380,10 +380,30 @@ review_reuse = importlib.util.module_from_spec(_reuse_spec)
 _reuse_spec.loader.exec_module(review_reuse)
 
 
+def validate_dispatch_options(arguments):
+    """Reject invalid route controls before creating or charging a reservation."""
+    allowed = {'--attempt': {'1', '2', '3'},
+               '--gear': {'auto', '0', '1', '2', '3', '4'},
+               '--risk': {'low', 'standard', 'high'},
+               '--auth': {'subscription', 'api'}}
+    seen = set()
+    for index, option in enumerate(arguments):
+        if option not in allowed:
+            continue
+        if option in seen:
+            raise ValueError('duplicate option: ' + option)
+        seen.add(option)
+        if index + 1 == len(arguments) or arguments[index + 1] not in allowed[option]:
+            detail = ('1..3 (route escalation, not the persistent stage attempt number)'
+                      if option == '--attempt' else ', '.join(sorted(allowed[option])))
+            raise ValueError(option + ' requires ' + detail + '; no reservation or provider launch')
+
+
 def run_dispatch(arguments):
     # Only the existing extractor dispatcher is exposed; never execute an input command.
     if not arguments or arguments[0] != 'nightshift-code-fact-extractor':
         raise ValueError('extractor role required')
+    validate_dispatch_options(arguments)
     output = Path(arguments[arguments.index('--out') + 1]).resolve()
     directory = output.parent
     state_path = directory / '.adversarial-budget.json'

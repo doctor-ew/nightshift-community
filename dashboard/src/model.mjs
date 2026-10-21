@@ -127,7 +127,7 @@ export function ticketTimeline(rows, ticket) {
     const attempt = ticket.pipeline?.attempts?.filter(a => a.stage === stage).at(-1);
     if (completed?.recovery_binding && ticket.pipeline?.status !== 'stale') return {stage,state:'passed',detail:'Independently verified recovery receipt; historical failures retained'};
     if (completed?.recovery_binding && ticket.pipeline?.status === 'stale') return {stage,state:'pending',detail:'Recovery evidence changed; revalidation required'};
-    if (attempt && attempt.status !== 'pass') return {stage, state: attempt.status === 'fail' ? 'failed' : 'running', detail: attempt.reason || 'Controller attempt in progress'};
+    if (attempt && attempt.status !== 'pass') return {stage, state: attempt.status === 'fail' ? (ticket.pipeline?.status === 'running' ? 'previous attempt failed' : 'failed') : 'running', detail: attempt.reason || 'Controller attempt in progress'};
     if (completed) return {stage, state: 'passed', detail: 'Controller retained completed-stage receipt'};
     if (ticket.pipeline) return {stage, state:'pending', detail:'No controller stage evidence recorded yet'};
     return recorded.find(step => step.stage === stage) || {stage, state:'pending', detail:'No stage evidence recorded yet'};

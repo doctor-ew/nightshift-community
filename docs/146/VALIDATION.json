@@ -1,0 +1,40 @@
+{
+  "issue": 146,
+  "scope": "Harness repairs and operator-authorized ticket12 implementation, verification and PR publication",
+  "original": {
+    "targeted_tests": 3,
+    "failures": 11,
+    "evidence": "Original invalid controls reached reservation; repair dependency and stage-boundary regressions failed"
+  },
+  "current": {
+    "targeted_tests": 3,
+    "status": "passed",
+    "suites": {
+      "tests/test-pipeline.py": "12 passed",
+      "tests/test-repair-dispatch.py": "2 passed",
+      "tests/test-review-reuse.py": "5 passed",
+      "tests/test-retry-budget.sh": "passed",
+      "tests/test-factory-cli.sh": "passed",
+      "tests/test-console-actions.sh": "passed",
+      "tests/test-stage-receipt-diagnostics.py": "14 passed",
+      "dashboard/test-model.mjs": "25 passed; historical-status regression failed before fix",
+      "tests/test-controller-parity.py": "13 passed; transport-plus-typed classification regression failed before fix"
+    },
+    "syntax": "Python compilation and bash syntax passed",
+    "dashboard_build": "passed"
+  },
+  "limits": {
+    "external_patch_review": "Claude static report retained; no overall independent approval claimed; intentional console boundary finding adjudicated in RECOVERY.md",
+    "live_ticket_preparation": "accepted: Product9 and Adversarial5 passed; paused before implement; zero implementation attempts; repeat preparation preserved receipts and attempt count",
+    "live_feature_acceptance": "all six stages and final C01-C09 proof passed; actual independent RED and GREEN observations retained",
+    "production": "no merge or deployment"
+  },
+  "publication": {
+    "controller_status": "complete",
+    "next_action": "none",
+    "pr": "https://github.com/doctor-ew/counsel-of-ricks/pull/17",
+    "head": "ba9ccb56a1121dab5aa32d4f456f7e929631e4cd",
+    "merged": false,
+    "deployed": false
+  }
+}

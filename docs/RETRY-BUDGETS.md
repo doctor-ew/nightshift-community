@@ -71,3 +71,19 @@ call deadline. An explicit value from 1 through 120 opts into a per-call timeout
 Availability probes remain bounded to 15 seconds, and output limits and process
 cleanup still apply. Existing pinned policies retain their explicit timeouts;
 changing policy requires the existing reconciliation flow.
+
+## Invalid invocation and stage preparation
+
+Explicit routing controls are validated before the bounded source dispatcher
+reserves a retry. `--attempt` accepts1–3 for route escalation; it is not the
+persistent stage receipt number. Omit it for an ordinary invocation. Invalid or
+duplicate controls leave the budget and prior report unchanged.
+
+The controller fingerprints the registered repair manifest and its confined
+current/prior artifacts for Adversarial admission. A generated checker receipt
+is an output, not a new authorization or an input that invalidates itself.
+
+For a presentation, `nightshift <ticket-ref> --stop-before implement` records an
+intentional pause after prior gates pass. Omit `--stop-before` on a later explicit
+invocation to resume. Saved console resumption preserves the boundary. Prior
+failure history, provider independence and allowances remain enforced.

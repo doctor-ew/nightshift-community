@@ -123,7 +123,7 @@ stage's prepared brief when present). Dispatch once through the shared boundary:
 
 ```bash
 if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
-  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK/spec-writer.in.md" \
+  nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --in "docs/$TASK/spec-writer.in.md" \
   --out "docs/$TASK/spec-writer.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK/spec-writer.out.json"
 else
