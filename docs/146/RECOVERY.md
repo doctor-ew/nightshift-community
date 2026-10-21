@@ -107,3 +107,24 @@ The user has now authorized running Implementation; the earlier presentation
 pause is intentionally lifted. Do not forge attestations or remove prior evidence.
 
 Classification regression: original fails the retained transport-plus-typed-record case; changed source passes all13 controller parity tests and the two focused classification cases. Syntax and diff checks pass. Actual direct CLI rerun is active.
+
+Live browser repair: original browser setup selected a disabled predecessor.
+Preserved original locked test and candidate under docs/12; corrected only the
+predecessor setup, retaining all assertions. Diagnostic run now reaches a real
+focus-indicator failure. Re-run corrected tests against original application to
+retain missing-feature RED, create a new bot RED lock, and amend C07 setup with
+explicit enabled/tabbable predecessor semantics. Record current Codex authorship
+and clear old classification approvals; Product/Adversarial must review the new
+digest independently before any acceptance. No old seal or failed attempt is
+rewritten. Browser repair is not a gate pass.
+
+Lessons from live retry: `--prepare` stopping before Implementation does not prove
+Implementation admission. Verify current classification attestations and the
+development proof gate before saying the first Implementation dispatch will work.
+Keep before-demo listeners off the fixed test ports. A green component suite and
+build do not replace browser evidence. Test corrections require retained original
+failures, fresh RED, bot locks, actual author provenance, fresh independent review
+and resealing; never relabel old approvals. Product review must pass actual
+scenario author provenance to the dispatcher. Candidate filter focus styling now
+passes the full browser suite; exact polling target and browser keyboard mapping
+were strengthened after independent review. No factory completion is claimed yet.

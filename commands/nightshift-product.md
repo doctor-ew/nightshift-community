@@ -594,3 +594,19 @@ evidence and reference that evidence by hash. Do not list a failed exploratory
 command as a successful required check, and do not return pass with any nonzero
 required check. A red/green regression is represented by a successful checker
 that proves both expectations, with the underlying failures retained as data.
+
+### Independent classification repair handoff
+
+For an existing draft, obtain author provenance from the current scenarios and
+`spec-author-provider.txt`. A new behavior-reviewer call must use the shared
+dispatcher with `--adversarial --author-provider <actual-author-provider>` and
+subscription authentication. A same-provider report under standard policy
+cannot approve the author's classification.
+
+Reuse a retained independent report only when its actual provider differs from
+the author, status is SUCCESS, decision is approve, findings are empty, and its
+reviewed input digest and complete public case IDs match the current scenarios.
+Validate its retained bytes and provenance. Such a report approves design only;
+execute this stage's own required checks and return its actual stage receipt.
+Do not repeat settled review merely because older reports requested repair, and
+do not relabel a model response as a stage pass.

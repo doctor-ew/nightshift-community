@@ -82,3 +82,12 @@ For show-and-tell preparation, use `--stop-before implement`. A deliberate pause
 is distinct from a failed gate. Resume with an explicit invocation that omits the
 boundary; never reset counters or relabel a failed review. Source:
 `scripts/nightshift-pipeline.py` (`Pipeline.run`), `docs/146/RECOVERY.md`.
+
+Live gate handoff lesson: a paused controller with passed Product/Adversarial
+receipts does not establish Implementation admission. Validate typed classification
+attestations and the development gate before promising a live resume. Transport
+reports can share a classification filename prefix; select exact typed records,
+then preserve provenance, digest and case coverage checks. Keep the baseline demo
+on alternate ports while fixed-port browser tests run. Source:
+`scripts/nightshift-pipeline.py` (`record_classification_review`),
+`docs/146/RECOVERY.md`, `tests/test-controller-parity.py`.
