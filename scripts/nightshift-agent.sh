@@ -304,7 +304,16 @@ case "$PROVIDER" in
       # Public review input is complete; no filesystem tools or customization are needed.
       CMD=(claude -p --safe-mode --tools "" --no-session-persistence --output-format json --model "$MODEL" --system-prompt "$(cat "$TMP/role")" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
     else
-      CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")" "$PROMPT")
+      CMD=(claude -p --no-session-persistence --output-format json --model "$MODEL" --agents "$AGENTS" --agent "$ROLE" --json-schema "$(cat "$TMP/provider.schema.json")")
+      # Authorized unattended write/test workers cannot answer CLI prompts.
+      # Match the factory's execution mode; proof and scope gates still apply.
+      if [ "${AUTONOMOUS:-false}" = true ] || [ "${NIGHTSHIFT_FACTORY_MODE:-false}" = true ]; then
+        case "$ROLE" in
+          nightshift-engineer|nightshift-architect|nightshift-spec-writer|nightshift-run-all-tests)
+            CMD+=(--dangerously-skip-permissions) ;;
+        esac
+      fi
+      CMD+=("$PROMPT")
     fi;;
   codex|local)
     # OpenAI strict Structured Outputs excludes allOf/if/then. Supply its
