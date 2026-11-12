@@ -6,7 +6,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/nightshift-runtime.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/older/scripts"
 printf 'raise SystemExit("older helper was invoked")\n' > "$TMP/older/scripts/nightshift-stage-args.py"
-line=$(rg '^STAGE_ARGS=' "$ROOT/commands/nightshift-eng.md")
+line=$(grep '^STAGE_ARGS=' "$ROOT/commands/nightshift-eng.md")
 result=$(NIGHTSHIFT_RUNTIME_HOME="$ROOT" NIGHTSHIFT_HOME="$TMP/older" ARGUMENTS='gh:154' bash -c "$line; printf '%s' \"\$STAGE_ARGS\"")
 jq -e '.auth=="subscription" and .arguments=="gh:154"' <<< "$result" >/dev/null
 # Without an explicit source runtime, ordinary installed operation still works.
