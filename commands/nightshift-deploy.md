@@ -160,13 +160,13 @@ PR_URL=$(gh pr view --json url -q .url 2>/dev/null)
 echo "PR: $PR_URL"
 echo "Polling CI..."
 
-# Poll every 30s up to 30 min
-for i in $(seq 1 60); do
+# Poll until the actual CI result is available; honor an explicit operator deadline.
+while true; do
   STATE=$(gh pr checks --json bucket -q '[.[].bucket] | unique | sort | .[]' 2>/dev/null || echo "unknown")
   case "$STATE" in
     *failure*|*error*|*cancelled*)
-      echo "CI_FAILED: $STATE"
-      exit 1
+      echo "CI_FAILED: $STATE — repair the concrete failing check, retain its evidence, then retry."
+      break
       ;;
     "pass"|"success")
       echo "CI_PASSED"
@@ -177,7 +177,7 @@ for i in $(seq 1 60); do
 done
 ```
 
-If timeout: `"CI_TIMEOUT — surface to engineer, do not auto-merge."` and stop.
+There is no default polling deadline. An explicit operator deadline or a concrete external failure is recorded with the unfinished result. A failed CI gate remains repair work; do not merge until all required checks pass.
 
 ---
 

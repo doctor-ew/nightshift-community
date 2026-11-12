@@ -4,7 +4,7 @@
   "status": "complete",
   "branch": "nightshift/154",
   "installed_candidate_revision": "7b9a03ff74e6d277f173dd6f92cf4dc7e1bc7e27",
-  "runtime_unchanged_after_installed_acceptance": true,
+  "runtime_unchanged_after_installed_acceptance": false,
   "stages": {
     "product": {
       "status": "pass",
@@ -57,7 +57,8 @@
   "publication": {
     "default_installation_replaced": false,
     "pushed": false,
-    "production_deployed": false
+    "production_deployed": false,
+    "scope": "recorded engineering checkpoint before release preparation"
   },
   "main_repeat": {
     "exit_code": 0,
@@ -69,5 +70,11 @@
     "passed": 13,
     "live_case_skipped": 1,
     "certification_claimed": false
-  }
+  },
+  "recorded_engineering_checkpoint": "b694f33",
+  "engineering_runtime_unchanged_after_installed_acceptance": true,
+  "release_preparation_changes": [
+    "Align canonical .nightshift.toml with unlimited packaged defaults.",
+    "Remove the deploy instructions fixed CI-poll deadline."
+  ]
 }
