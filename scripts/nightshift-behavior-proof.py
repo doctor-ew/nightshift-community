@@ -465,6 +465,50 @@ def evaluations_current(proof, observation, attempts, case):
     return True
 
 
+def manual_authorization(authorization, project, task):
+    """Resolve a manual obligation against an actual retained operator response."""
+    if isinstance(authorization, str):
+        raise Invalid('manual_authorization_reconciliation_required')
+    exact(authorization, ('kind', 'decision_sha256', 'response_sha256', 'quote'))
+    if authorization['kind'] != 'operator_decision':
+        raise Invalid('manual_authorization_kind')
+    hash_string(authorization['decision_sha256']); hash_string(authorization['response_sha256'])
+    text(authorization['quote'])
+    if project is None:
+        raise Invalid('manual_authorization_project_required')
+    try:
+        common = subprocess.check_output(['git', '-C', str(project), 'rev-parse', '--git-common-dir'],
+                                         text=True, stderr=subprocess.PIPE).strip()
+        common = (Path(project) / common).resolve()
+        record = common / 'nightshift' / 'console' / (task + '.decisions.json')
+        if record.resolve() != record.absolute():
+            raise Invalid('manual_authorization_unsafe_record')
+        decisions = parse_json(bounded(record))
+        if (not isinstance(decisions, dict) or decisions.get('version') != 1
+                or not isinstance(decisions.get('requests'), list)
+                or not all(isinstance(item, dict) for item in decisions['requests'])):
+            raise Invalid('manual_authorization_record')
+        requests = decisions['requests']
+        matches = [item for item in requests if item.get('sha256') == authorization['decision_sha256']]
+        if len(matches) != 1 or matches[0].get('task') != task:
+            raise Invalid('manual_authorization_decision_missing')
+        if any(item.get('supersedes') == authorization['decision_sha256'] for item in requests):
+            raise Invalid('manual_authorization_superseded')
+        response = matches[0].get('response')
+        if (not isinstance(response, dict) or response.get('source') != 'authenticated-local-portal'
+                or digest(response) != authorization['response_sha256']):
+            raise Invalid('manual_authorization_response_mismatch')
+        # A selected option is authority only after the operator actually selects it.
+        sources = [response.get('answer', '')]
+        selected = response.get('selected')
+        if isinstance(selected, dict) and response.get('choice') == selected.get('id'):
+            sources += [selected.get('label', ''), selected.get('description', '')]
+        if not any(isinstance(value, str) and authorization['quote'] in value for value in sources):
+            raise Invalid('manual_authorization_quote_mismatch')
+    except (OSError, subprocess.SubprocessError):
+        raise Invalid('manual_authorization_record_unavailable') from None
+
+
 def validate_doc(doc, project=None, task=None, private=False):
     exact(doc, ('version', 'task', 'ac_ids', 'author', 'applicability', 'runtime', 'prototype_files', 'cases', 'heldout'))
     if type(doc['version']) is not int or doc['version'] != 1:
@@ -506,8 +550,8 @@ def validate_doc(doc, project=None, task=None, private=False):
         if kind == 'manual':
             acceptance = case.get('manual_acceptance')
             exact(acceptance, ('owner', 'authorization', 'procedure'))
-            for value in acceptance.values():
-                text(value)
+            text(acceptance['owner']); text(acceptance['procedure'])
+            manual_authorization(acceptance['authorization'], project, doc['task'])
             if not case['required'] or case['expected'] or case['prohibited']:
                 raise Invalid('manual_acceptance_contract')
         elif 'manual_acceptance' in case:

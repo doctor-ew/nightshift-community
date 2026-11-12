@@ -191,6 +191,7 @@ class PipelineTest(unittest.TestCase):
    settings=dict(ref='gh:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
    decisions=m.load('console-decisions');q=decisions.request(p,'sample',dict(question='Reviewer?',reason='Policy',options=[],decision_key='reviewer'))
    decisions.respond(p,'sample',q['sha256'],'','Separate Claude; retain existing draft.')
+   question_count=len(decisions.read(decisions.location(p,'sample'))['requests'])
    ledger=m.load('ticket-budget');ledger.update(p,'sample','reserve','existing',max_calls=10);ledger.update(p,'sample','finish','existing',outcome='failed')
    before=ledger.ledger_path(p,'sample').read_bytes();calls=[]
    def run(stage,handoff,receipt):
@@ -216,7 +217,7 @@ class PipelineTest(unittest.TestCase):
     self.assertEqual(ledger.ledger_path(p,'sample').read_bytes(),before)
     repeated=m.Pipeline(p,'sample',settings,run);self.assertEqual(repeated.run(),1)
     self.assertEqual(len(calls),6)
-    self.assertEqual(len(decisions.read(decisions.location(p,'sample'))['requests']),1)
+    self.assertEqual(len(decisions.read(decisions.location(p,'sample'))['requests']),question_count)
     self.assertTrue(all(a['route']['provider']=='claude' for a in repeated.state['attempts']))
     # A changed implementation invalidates relevant reviews, not the existing draft.
     (p/'fixture_source_sample.py').write_text('answer = 43\n')
