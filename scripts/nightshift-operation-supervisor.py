@@ -50,7 +50,7 @@ def run(controller, grant, trigger=None):
                 if allowed!=list(c.recipes_factory()):raise ValueError('ci_repair_requires_factory_authority')
             record = c.state.setdefault('supervisors', {}).setdefault(record_key, dict(version=1, grant=grant, trigger=trigger, steps=[], decisions=[], queue=['implement','verify','review'] if trigger else list(allowed), status='running'))
             c.save()
-        # The original grant, operation caps and transition ceiling survive restart.
+        # The original grant and explicit operation allowances survive restart.
         while True:
             with c.lease():
                 g = c.state['authorizations'][grant]
@@ -66,10 +66,6 @@ def run(controller, grant, trigger=None):
                         record['reason'] = 'changed_evidence_requires_assessment'
                     c.save()
                     return dict(status=record['status'], supervisor=record, view=c.view())
-                if sum(len(row['steps']) for key,row in c.state['supervisors'].items() if key==grant or row.get('grant')==grant) >= 64:
-                    record.update(status='blocked', reason='supervisor_transition_limit')
-                    c.save()
-                    continue
                 if not record['steps'] or record['steps'][-1].get('completed'):
                     operation = record['queue'][0]
                     request = 'supervise-' + c.load_digest([record_key, len(record['steps']), operation])[:48]

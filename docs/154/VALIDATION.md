@@ -4,7 +4,7 @@ All six controller stages and both behavioral proof gates passed. The required v
 
 ## Installed boundary
 
-The isolated installed runtime candidate `7b9a03ff74e6d277f173dd6f92cf4dc7e1bc7e27` completed a fresh real-provider six-stage workflow. Its identical repeat returned success with unchanged receipts and call reservations. The engine and six engineering-stage commands have not changed since that candidate. Release preparation aligns the canonical manifest with the packaged unlimited defaults and removes the deploy instructions fixed CI-poll deadline. Subsequent changes clarify the test execution modes and source citations. The default installation was not replaced. This is certification of the retained local fixture and candidate, not a claim about every consumer or platform.
+The isolated installed runtime candidate `7b9a03ff74e6d277f173dd6f92cf4dc7e1bc7e27` completed a fresh real-provider six-stage workflow. Its identical repeat returned success with unchanged receipts and call reservations. Release preparation subsequently removed a separate 64-transition cutoff from the operation supervisor. A regression resumes after 65 retained executor results and verifies explicit operator call limits. The earlier installed run certifies its recorded candidate; it is not a new installed certification of this release revision. Release preparation aligns the canonical manifest with the packaged unlimited defaults and removes the deploy instructions fixed CI-poll deadline. Subsequent changes clarify the test execution modes and source citations. The default installation was not replaced. This is certification of the retained local fixture and candidate, not a claim about every consumer or platform.
 
 ## Required certification versus ordinary source checks
 

@@ -35,3 +35,5 @@ The target is the community repository stable release tag, not the placeholder a
 ## Verdict
 
 Ready for branch push and PR validation. Production promotion remains blocked until remote CI passes and the exact promotion receives explicit confirmation.
+
+Release follow-up: PR #156 is pushed. The first CI run exposed fixtures that still assumed implicit repair limits; those cases now either prove continued default repair or explicitly declare operator limits. The operation supervisor also contained a 64-transition cutoff, now removed and covered by a restart regression after 65 retained results. Updated CI must pass before production promotion.

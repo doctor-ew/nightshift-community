@@ -30,6 +30,10 @@ class AdmissionReview(unittest.TestCase):
     def test_exhausted_retained_ledger_blocks_before_dispatch(self):
         grant = self.grant()
         path = self.c.directory / 'groom-spec.retry.json'
+        # Exhaustion is explicitly operator-configured; new ledgers have no cutoff.
+        path.write_text(json.dumps(dict(version=1,infrastructure_failures=0,
+            substantive_failures=0,total=0,limits=dict(infrastructure=3,substantive=3,total=3),
+            limit_origin='operator',attempts={},next_action='continue')))
         retry = f.m.load('retry-budget')
         for index in range(3):
             retry.account(path, 'retained-transport-' + str(index), 'transport')

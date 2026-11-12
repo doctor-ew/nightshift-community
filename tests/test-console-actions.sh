@@ -24,18 +24,25 @@ with tempfile.TemporaryDirectory(prefix='nightshift-actions-') as temp:
     assert budget['attempts']==3 and budget['proof_gate_bug_reconciliation']['credited_attempts']==3
     module.atomic(bp,budget)
     budget['attempts']=6;module.atomic(bp,budget)
-    try:module.repair_budget(budget_dir,'broken');raise AssertionError('repeated credits allowed')
-    except ValueError:pass
+    _,continued=module.repair_budget(budget_dir,'broken')
+    assert continued['attempts']==6 and continued['proof_gate_bug_reconciliation']['credited_attempts']==3, 'credits must not be repeated'
     module.atomic(budget_dir/'real.repair-budget.json',dict(attempts=3,limit=3))
-    try:module.repair_budget(budget_dir,'real');raise AssertionError('unproven failures credited')
+    _,real=module.repair_budget(budget_dir,'real')
+    assert real['attempts']==3 and real['proof_gate_bug_reconciliation']['credited_attempts']==0, 'unproven failures must not be credited'
+    module.atomic(budget_dir/'explicit.repair-budget.json',dict(attempts=3,limit=3,limit_origin='operator'))
+    try:module.repair_budget(budget_dir,'explicit');raise AssertionError('explicit repair limit ignored')
     except ValueError:pass
+    _,unlimited=module.repair_budget(budget_dir,'unlimited')
+    assert unlimited['limit'] is None
     original_base=subprocess.check_output(['git','-C',str(project),'rev-parse','HEAD'],text=True).strip()
     (project/'advance.txt').write_text('caller moves after ticket was prepared')
     git('add','advance.txt');git('commit','-qm','advance caller HEAD')
     assert module.resume_settings(project,'42',dict(settings,base='HEAD'))['base']==original_base
     state=module.state(project,'42');assert not state['running']
-    assert state['repair_remaining']==3
+    assert state['repair_remaining'] is None
     module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=3,limit=3))
+    assert module.state(project,'42')['repair_remaining'] is None
+    module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=3,limit=3,limit_origin='operator'))
     assert module.state(project,'42')['repair_remaining']==0
     module.atomic(budget_dir/'42.repair-budget.json',dict(attempts=0,limit=3))
     module.save(project,'fresh',dict(settings,ref='spec:docs/fresh.md'))

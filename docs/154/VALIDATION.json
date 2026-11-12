@@ -72,9 +72,15 @@
     "certification_claimed": false
   },
   "recorded_engineering_checkpoint": "b694f33",
-  "engineering_runtime_unchanged_after_installed_acceptance": true,
+  "engineering_runtime_unchanged_after_installed_acceptance": false,
   "release_preparation_changes": [
     "Align canonical .nightshift.toml with unlimited packaged defaults.",
     "Remove the deploy instructions fixed CI-poll deadline."
-  ]
+  ],
+  "release_followup_validation": {
+    "supervisor_default_transition_cutoff_removed": 64,
+    "retained_executor_results_before_resume": 65,
+    "explicit_operator_call_limits_verified": true,
+    "installed_acceptance_scope": "Recorded candidate only; release follow-up changes have separate regression coverage."
+  }
 }

@@ -73,6 +73,7 @@ class SupervisorReview(unittest.TestCase):
 
     def test_stopped_retry_ledger_produces_durable_blocker(self):
         grant = self.grant()
+        self.explicit_retry_limit('groom-spec', 3)
         path = self.c.directory/'groom-spec.retry.json'
         retry = f.m.load('retry-budget')
         for index in range(3):

@@ -275,6 +275,9 @@ class Multiturn(unittest.TestCase):
     def test_policy_amendment_extends_cumulative_budget_without_reset(self):
         spec = importlib.util.spec_from_file_location('policy_amendment', ROOT/'scripts/nightshift-behavior-proof.py')
         proof = importlib.util.module_from_spec(spec); spec.loader.exec_module(proof)
+        policy_path = self.fx.project/'.nightshift.toml'
+        with policy_path.open('a') as stream:
+            stream.write('repairs = 2\ndevelopment_calls = 64\nfinal_calls = 64\n')
         self.fx.seal(); self.fx.response.write_text('{"choice":"deny"}')
         for index in range(3):
             if index:
@@ -283,8 +286,10 @@ class Multiturn(unittest.TestCase):
         ledger = self.fx.project/'.git/nightshift/behavior-proof/prototype/state.json'
         before = json.loads(ledger.read_text())
         self.assertEqual(before['budget']['repairs'], 2)
-        with (self.fx.project/'.nightshift.toml').open('a') as stream:
-            stream.write('repairs = 5\ndevelopment_calls = 128\nfinal_calls = 128\n')
+        self.assertEqual(before['budget']['policy']['repairs'], 2)
+        self.assertEqual(before['budget']['policy']['development_calls'], 64)
+        self.assertEqual(before['budget']['policy']['final_calls'], 64)
+        policy_path.write_text(policy_path.read_text().replace('repairs = 2', 'repairs = 5').replace('development_calls = 64', 'development_calls = 128').replace('final_calls = 64', 'final_calls = 128'))
         self.assertEqual(json.loads(self.fx.call('run', '--gate', 'development').stdout)['reason'], 'policy_changed')
         self.assertEqual(json.loads(self.fx.call('challenge', '--scenarios', self.fx.scenarios, '--out', self.fx.challenge).stdout)['reason'], 'policy_changed')
         authorization = self.fx.project/'docs/prototype/authorization.md'

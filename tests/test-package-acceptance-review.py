@@ -19,6 +19,14 @@ class PackageAcceptanceReview(unittest.TestCase):
         plan=self.root/'docs/right/operations.json';value=json.loads(plan.read_text());value['aggregate']['calls']=12;plan.write_text(json.dumps(value))
         (self.root/'graph.json').write_text(json.dumps(self.graph))
         grant=self.prepare()['id'];base=self.worker;repair=[0];reject=[True]
+        # This case exercises an explicit operator limit, not a default repair ceiling.
+        with self.c.lease():
+            right=self.c.materialize(self.c.state['authorizations'][grant]['graph']['children'][1],grant)
+        right.directory.mkdir(parents=True,exist_ok=True)
+        (right.directory/'review.retry.json').write_text(json.dumps(dict(
+            version=1,infrastructure_failures=0,substantive_failures=0,total=0,
+            limits=dict(infrastructure=3,substantive=3,total=3),limit_origin='operator',
+            attempts={},next_action='continue')))
         def worker(operation,packet,*args):
             right='docs/right/SPEC.md' in packet['artifacts']
             base.fail=right and operation=='review' and reject[0]

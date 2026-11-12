@@ -98,7 +98,7 @@ try {
   assert.equal(view.operations.find(r=>r.operation==='verify').status,'blocked');
   assert(view.attempts.some(r=>r.operation==='verify' && r.status==='failed'));
   assert(view.operations.find(r=>r.operation==='verify').findings.length>0);
-  // Exhaust a separate ticket through bounded repair, then adopt external work.
+  // Exhaust this story's explicit three-review grant, then adopt external work.
   mkdirSync(resolve(root,'docs/exhausted'),{recursive:true});
   writeFileSync(resolve(root,'docs/exhausted/operations.json'),readFileSync(resolve(root,'docs/demo/operations.json')));
   writeFileSync(resolve(root,'app.py'),'def answer():\n    return 2\n');
@@ -110,7 +110,10 @@ try {
   await panel.getByLabel('Repair eligible failures within this allowance').check();
   const beforeExhaustion=calls();result=await execute('supervise');
   assert.equal(result.status,'blocked');assert.equal(result.supervisor.reason,'repair_limit_exhausted');assert.equal(calls()-beforeExhaustion,8);
-  assert(await panel.getByText(/Automatic repair is exhausted/).first().isVisible());
+  const exhaustedReview=result.supervisor.decisions.at(-1).accounting;
+  assert.equal(exhaustedReview.limit_origin,'operator');assert.equal(exhaustedReview.limits.substantive,3);
+  assert.equal(await panel.getByRole('alert').innerText(),'repair_limit_exhausted');
+  assert(await panel.getByRole('button',{name:'Select external recipe',exact:true}).isEnabled());
   const implementationCount=()=>readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse).filter(r=>r.operation==='implement').length;
   const implemented=implementationCount();
   renameSync(resolve(root,'.synthetic-review-failure'),resolve(root,'.synthetic-review-failure-retained'));
@@ -124,7 +127,7 @@ try {
   await panel.screenshot({path:resolve(artifacts,'operations-mobile.png')});
   assert(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'Operation panel overflows mobile viewport');
   assert.deepEqual(errors,[]);
-  const report={synthetic:true,browser:browser.version(),revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),provider_calls:calls(),requests:readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse),usage:view.usage,provider_tokens:null,billed_cost:null,provider_cache_usage:null,checks:['typed Python observation through shared browser/CLI API','normalized settled clarification reuses answer despite rationale changes','evidence-bound clarification with no dispatch','reload-retained answer','per-case observation and evidence','UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','three failed reviews exhaust bounded repair','external adoption after exhaustion without Implement','desktop/mobile rendering without script errors'],live_certification:false};
+  const report={synthetic:true,browser:browser.version(),revision:execFileSync('git',['-C',repo,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),provider_calls:calls(),requests:readFileSync(resolve(root,'.synthetic-calls.jsonl'),'utf8').trim().split('\n').map(JSON.parse),usage:view.usage,provider_tokens:null,billed_cost:null,provider_cache_usage:null,checks:['typed Python observation through shared browser/CLI API','normalized settled clarification reuses answer despite rationale changes','evidence-bound clarification with no dispatch','reload-retained answer','per-case observation and evidence','UI/CLI admission parity','factory recipe','explicit bounded supervisor without redispatch','manual acceptance required','duplicate resume without dispatch','explicit acceptance','source drift','external adoption without implementation','failed verification remains failed','blocked review','reload persistence','explicit operator three-review limit exhausts only its bounded repair story','external adoption after exhaustion without Implement','desktop/mobile rendering without script errors'],live_certification:false};
   writeFileSync(resolve(artifacts,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report));
 } catch(error) {

@@ -50,15 +50,30 @@ class TransportRetry(unittest.TestCase):
         self.assertEqual(self.retry('groom-adversarial')['status'], 'passed')
         self.assertEqual(self.controller.state['attempts'][-2], retained)
 
-    def test_transport_failures_still_exhaust_three_failure_cap(self):
+    def test_transport_retries_continue_beyond_removed_default_failure_cap(self):
+        self.case.plan['limits']['groom-adversarial']['calls'] = 6
+        self.case.modify_plan()
+        self.controller.worker = self.fail_transport
+        for _ in range(4):
+            self.assertEqual(self.retry('groom-adversarial')['reason'], 'provider_exit:75')
+        assessed = self.controller.assess('groom-adversarial')
+        self.assertNotIn('repair_limit_exhausted', assessed['blockers'])
+        self.assertNotIn('unchanged_failure_requires_repair', assessed['blockers'])
+        attempts = [a.copy() for a in self.controller.state['attempts'] if a['operation'] == 'groom-adversarial']
+        self.assertEqual(len(attempts), 4)
+        self.controller.worker = self.case.worker
+        self.assertEqual(self.retry('groom-adversarial')['status'], 'passed')
+        self.assertEqual([a for a in self.controller.state['attempts'] if a['operation'] == 'groom-adversarial'][:4], attempts)
+        self.assertEqual(len([c for c in self.controller.state['calls'].values() if c['operation'] == 'groom-adversarial']), 5)
+
+    def test_transport_retries_honor_explicit_operator_call_allowance(self):
+        self.case.plan['limits']['groom-adversarial']['calls'] = 3
+        self.case.modify_plan()
         self.controller.worker = self.fail_transport
         for _ in range(3):
             self.assertEqual(self.retry('groom-adversarial')['reason'], 'provider_exit:75')
-        assessed = self.controller.assess('groom-adversarial')
-        self.assertIn('repair_limit_exhausted', assessed['blockers'])
-        self.assertNotIn('unchanged_failure_requires_repair', assessed['blockers'])
-        attempts = [a for a in self.controller.state['attempts'] if a['operation'] == 'groom-adversarial']
-        self.assertEqual(len(attempts), 3)
+        denied = self.retry('groom-adversarial')
+        self.assertEqual(denied['reason'], 'provider_call_limit_exhausted')
         self.assertEqual(len([c for c in self.controller.state['calls'].values() if c['operation'] == 'groom-adversarial']), 3)
 
     def test_transport_review_preserves_external_adoption_and_implementation_binding(self):
