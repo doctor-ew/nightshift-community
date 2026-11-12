@@ -3,7 +3,7 @@ name: "updates"
 description: "Release selection, checkout preservation, and installer retry receipts."
 triggers: ["update", "release", "repair installation"]
 edges: [{"target": "context/architecture.md", "condition": "when placing the change in the pipeline"}, {"target": "context/conventions.md", "condition": "when implementing or verifying changes"}, {"target": "patterns/change-release-update.md", "condition": "when changing update behavior"}, {"target": "context/setup.md", "condition": "when diagnosing initial installation"}]
-last_updated: "2026-11-11"
+last_updated: "2026-11-12"
 mex:
   id: mx_01M21Z3AW1PMP70S4G96GA2Q1P
   type: architecture
@@ -50,3 +50,9 @@ mex:
 
 ## Active-run guard
 Updater [`main()`](mex://function:cb32152a6879bdf14abfe72df192d72e) uses a nonblocking exclusive lock for updates, returns 75 for a standalone operation blocked by an active run, and passes a shared lock to its factory child. Source: `scripts/nightshift-update.py` (line 163).
+
+## Validated candidate inventory
+
+On branch `nightshift/154`, the read-only inventory operation distinguishes the selected executable/source revision from the PATH executable and resolves retained task overrides against the actual target. Recovery inspection verifies physical stage receipts and both proof gates before accepting completion. Explicit gear/risk choices survive terminal and console resume and bind input fingerprints. Sources on that branch: `scripts/nightshift-update.py`, `scripts/nightshift-pipeline.py`, `docs/154/VALIDATION.md`.
+
+The isolated installed runtime revision is `7b9a03f`; subsequent test-mode and citation changes do not alter runtime scripts, commands or roles. Certification and default installation activation remain separate. Private records and transcripts remain local.

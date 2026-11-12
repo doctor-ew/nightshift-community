@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-11-11"
+last_updated: "2026-11-12"
 ---
 
 # Session Bootstrap
@@ -28,6 +28,8 @@ If you haven't already read `AGENTS.md`, read it now — it contains the project
 Then read this file fully before doing anything else in this session.
 
 ## Current Project State
+
+Issue 154 on branch `nightshift/154`: all six stages and both proof gates passed. Runtime candidate `7b9a03f` passed isolated installed real-provider acceptance and an identical repeat with unchanged receipts/reservations. The task driver requires actual non-skipped certification; ordinary source checks without private evidence do not certify. The default installation was not replaced. Source on that branch: `docs/154/VALIDATION.md`, `docs/154/FACTORY-RECOVERY.md`.
 
 Operator-directed limit removal candidate: optional adapter repair failure retains a cumulative receipt and no longer blocks source-checkout execution. No installed-runtime activation is claimed. Sources: `scripts/nightshift-update.py`, `tests/test-release-inputs.py`.
 Issue 135 talk preparation: both event decks now contain 51 editable slides, including actual public control-room/Review/allowance screenshots and clearly labelled illustrative HITL question/spec-approval screens. Slides 35–43 provide the detailed skills, proof, decision, MEX retrieval and Jev shadow-evaluation walkthrough. Screenshot capture made no POST requests. `slides/RUN-OF-SHOW.md` provides 20/30/40-minute paths; `slides/SOURCES.md` records provenance. Editable architecture diagrams are slides 21–22. MEX explanation, setup screenshot and retrieval are contiguous at 26–28; slide26 visibly links a checked memory claim to its source lines (not a fresh graph verification); actual spec Sources and adversarial review instructions occupy29–30; Jev and evaluation occupy31–33. Principles DRY/SOLID/ACID/Big O/CoC occupy44–48, with slide-deck and LinkedIn QR codes on50. Shared Slidev imports provide one canonical core for both events. `docs/ARCHITECTURE.md` maps the actual runtime, files, stages and optional/planned integrations. `scripts/nightshift-talk-check.py` checks the retained public fixture; it is not a fresh-provider benchmark. Source edits do not automatically publish GitHub Pages; generated PDFs/builds and private verification remain checkout-local until separately published. Sources: `slides/saturday.md`, `slides/tuesday.md`, `slides/SOURCES.md`, `docs/ARCHITECTURE.md`.
@@ -107,7 +109,7 @@ For every task, follow this loop:
 
 Manual external acceptance: required manual cases now preserve AC coverage while permitting development after automated evidence. Final completion stays blocked pending operator verification; manual attestation ingestion is not implemented. Historical portal failures are labelled as recorded evidence. Sources: `scripts/nightshift-behavior-proof.py`, `tests/test-manual-acceptance.py`, `docs/manual-acceptance-verification-20260923.md`. Local verification only; IF-325 has not been migrated or resumed.
 
-Bounded continuation: new instrumented tickets have a persisted 600-second wall deadline. Explicit operator continuation retains history and call limits while granting at most 600 additional seconds; ordinary resume does not renew time. Portal exposes read-only remaining budget. Sources: `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-continue.sh`, `docs/ten-minute-continuation-20260923.md`. Stub termination verified; ten-minute live completion unproven.
+Continuation policy: new instrumented tickets have no default call-count, active-time or wall-clock ceiling. Explicit operator limits remain pinned; ordinary resume cannot reset usage or expand them. Explicit continuation preserves history and has no fixed numeric upper ceiling. Known hardcoded legacy retry defaults are reconciled with prior counters retained; ambiguous historical ticket limits are preserved. Sources: `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-continue.sh`, `scripts/nightshift-retry-budget.py`, `docs/154/LIMIT-REMOVAL.md`.
 
 Issue 49 convergence: existing drafts go to missing validation; writer repairs require a current finding brief. Source review reuses accepted unchanged positive reports, rejects unchanged failures, and records repeated explicit conflicts. Claude extraction uses isolated read-only context. Two bounded live synthetic samples passed fault/repair/reuse; isolated usage was 26,499 vs 83,763 tokens, not an end-to-end latency guarantee. Sources: `scripts/nightshift-review-reuse.py`, `scripts/nightshift-spec-repair-brief.py`, `docs/issue-49-convergence-verification.md`. Local implementation; issue 49 remains open for full workflow verification.
 

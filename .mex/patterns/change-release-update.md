@@ -3,7 +3,7 @@ name: "change-release-update"
 description: "Change release/update integration while preserving local work"
 triggers: ["release selection", "installer repair", "update deferral"]
 edges: [{"target": "context/conventions.md", "condition": "when implementing and verifying this change"}, {"target": "context/updates.md", "condition": "when understanding the relevant subsystem"}]
-last_updated: "2026-11-11"
+last_updated: "2026-11-12"
 mex:
   id: mx_01M21Z3AWXN7XYSBQCS0FHKMKW
   type: pattern
@@ -41,6 +41,8 @@ Load updates context; relevant implementation is [`select()`](mex://function:178
 4. Extend isolated release fixtures for the affected boundary. Source: `tests/test-release-inputs.py:19`.
 
 ## Gotchas
+Source fixes, temporary installation, activated default runtime and certified results are separate facts. Inspect the selected runtime and saved task routing; source revision alone is not certification. Ordinary source-suite skips never satisfy required installed acceptance. Branch `nightshift/154` retains the strict certification driver and its mode protocol checks in `docs/154/verify.sh` and `docs/154/certification-mode-check.py`.
+
 Stable versions sort numerically; branch channels are explicit. Pending installer repair runs before revision selection when applying. Sources: `scripts/nightshift-update.py:52`, `scripts/nightshift-update.py:70`.
 
 ## Verify
