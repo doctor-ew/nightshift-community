@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = [ROOT / (folder + '/nightshift-' + name + '.md') for folder, names in (
     ('commands', 'product adversarial implement review drift qa batch deploy eng preflight'),
     ('agents', 'architect code-fact-extractor engineer spec-writer')) for name in names.split()]
-PATTERN = re.compile(r'"\$\{NIGHTSHIFT_HOME:-\$HOME/\.nightshift\}/scripts/([A-Za-z0-9_.-]+)"')
+PATTERN = re.compile(r'"\$\{NIGHTSHIFT_RUNTIME_HOME:-\$\{NIGHTSHIFT_HOME:-\$HOME/\.nightshift\}\}/scripts/([A-Za-z0-9_.-]+)"')
 
 
 class RuntimeHome(unittest.TestCase):
@@ -22,11 +22,13 @@ class RuntimeHome(unittest.TestCase):
         self.base = Path(temporary.name).resolve()
         self.home = self.base / 'operator home with spaces'; self.home.mkdir()
         self.configured = self.base / 'isolated community ; $(not-executed)'
+        self.runtime = self.base / 'selected runtime ; $(not-executed)'
         self.default = self.home / '.nightshift'
         self.log = self.base / 'sentinel.jsonl'
         self.env = dict(os.environ, HOME=str(self.home), NIGHTSHIFT_HOME=str(self.configured), NIGHTSHIFT_FORBID_DEFAULT='1', NIGHTSHIFT_SENTINEL_LOG=str(self.log), PROJECT=str(self.base / 'project with spaces'), TASK='gh-1', TASK_KEY='gh-1', REF='gh:1')
+        self.env.pop('NIGHTSHIFT_RUNTIME_HOME', None)
         self.expressions = sorted({match.group(0) for path in FILES for match in PATTERN.finditer(path.read_text())})
-        for directory, label in ((self.configured, 'configured'), (self.default, 'default')):
+        for directory, label in ((self.configured, 'configured'), (self.runtime, 'runtime'), (self.default, 'default')):
             scripts = directory / 'scripts'; scripts.mkdir(parents=True)
             for expression in self.expressions:
                 name = PATTERN.fullmatch(expression).group(1)
@@ -51,6 +53,16 @@ class RuntimeHome(unittest.TestCase):
             subprocess.run(['bash', '-c', interpreter + expression + ' "argument with spaces"'], env=self.env, check=True, capture_output=True, timeout=10)
         rows = self.rows(); self.assertEqual(len(rows), len(self.expressions))
         self.assertTrue(all(row['origin'] == 'configured' and row['args'] == ['argument with spaces'] for row in rows))
+
+    def test_selected_runtime_overrides_configured_state_home(self):
+        env = dict(self.env, NIGHTSHIFT_RUNTIME_HOME=str(self.runtime))
+        self.assertTrue(self.expressions)
+        for expression in self.expressions:
+            name = PATTERN.fullmatch(expression).group(1)
+            interpreter = 'python3 ' if name.endswith('.py') else 'bash '
+            subprocess.run(['bash', '-c', interpreter + expression + ' "argument with spaces"'], env=env, check=True, capture_output=True, timeout=10)
+        self.assertEqual(len(self.rows()), len(self.expressions))
+        self.assertTrue(all(row['origin'] == 'runtime' and row['args'] == ['argument with spaces'] for row in self.rows()))
 
     def test_unset_and_empty_runtime_home_preserve_default_with_spaces(self):
         expression = next(value for value in self.expressions if value.endswith('/nightshift-ticket-source.sh"'))
