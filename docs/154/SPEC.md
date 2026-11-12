@@ -81,8 +81,8 @@ Ordinary source regression runs may explicitly skip live certification when no c
 
 - `commands/nightshift-product.md:229-247` (branch: nightshift/154, commit: 77b34f7) — existing-draft reuse and missing-draft initial authoring rules.
 - `scripts/nightshift-pipeline.py:243-300` (branch: nightshift/154, commit: 77b34f7) — stage receipt parsing and validation area.
-- `scripts/nightshift-pipeline.py:440-475` (branch: nightshift/154, commit: 77b34f7) — existing-draft import and Product dispatch identity.
-- `scripts/nightshift-factory.sh:635-654` (branch: nightshift/154, commit: 77b34f7) — controller stage handoff and worker sandbox selection.
+- `scripts/nightshift-pipeline.py:465-500` (branch: nightshift/154, commit: 92a2797) — existing-draft import and Product dispatch identity.
+- `scripts/nightshift-factory.sh:642-663` (branch: nightshift/154, commit: 92a2797) — controller stage handoff and worker sandbox selection.
 - `scripts/nightshift-preflight-check.sh:159-200` (branch: nightshift/154, commit: 77b34f7) — input-resolution failure and recovery.
 - `scripts/nightshift-behavior-proof.py:512-630` (branch: nightshift/154, commit: 77b34f7) — public scenario schema and coverage.
 - `docs/154/LIMIT-REMOVAL.md:1-17` (branch: nightshift/154, commit: 77b34f7) — local limit-removal candidate, explicitly not live certification.
