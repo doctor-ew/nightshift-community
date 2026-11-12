@@ -1,0 +1,343 @@
+{
+  "version": 1,
+  "task": "154",
+  "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+  ],
+  "author": {
+    "provider": "codex",
+    "author_id": "product-154-initial-author"
+  },
+  "applicability": {
+    "kind": "deterministic",
+    "rationale": "All nine criteria have automated command, receipt, fixture or actual live-run checks. Source-only fixtures never certify the live run.",
+    "risks": [
+      "deterministic_logic"
+    ],
+    "review": {
+      "reviewer_provider": "claude",
+      "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+      "decision": "approve",
+      "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+      "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+    }
+  },
+  "runtime": null,
+  "prototype_files": [],
+  "cases": [
+    {
+      "id": "C-1",
+      "ac_ids": [
+        "AC-1"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "candidate provenance",
+      "when": "Run inventory with different source-checkout and PATH-launcher revisions",
+      "then": "Inventory separately identifies PATH executable, physical source checkout, both revisions, install channel and effective provider/model. Reject an installed-revision claim inferred only from source HEAD.",
+      "forbidden": "Source revision alone is labeled installed",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "PATH points to an older checkout: both revisions are reported distinctly.",
+        "Source-only HEAD is offered as installed revision: acceptance rejects it."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-2",
+      "ac_ids": [
+        "AC-2"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "fresh qualified GitHub request",
+      "when": "Start with no spec or ticket snapshot and launch gh:doctor-ew/nightshift-community#154 through the real child launcher",
+      "then": "Assert pipeline state request and Product handoff request both equal gh:doctor-ew/nightshift-community#154 exactly; assert handoff stage equals product and task equals string 154. Capture the child argv and verify it receives the qualified reference; verify the workspace had no seeded source/spec before launch.",
+      "forbidden": "Numeric task key replaces source reference",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Numeric-only 154 replaces qualified request: reject.",
+        "Reference is dropped, repository changed or number rewritten between child argv, state request and handoff request: reject.",
+        "A pre-seeded ticket snapshot or spec is present before the fresh-input test: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-3",
+      "ac_ids": [
+        "AC-3"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "validated controller worker",
+      "when": "Run declared evidence-write, HTTP, database and browser checks from a validated worker; run direct-session and out-of-scope negative controls",
+      "then": "Retained checks contain successful exit codes for declared worker checks. Direct-session restricted operations, undeclared/out-of-scope checks and host-boundary actions remain refused; the refusal is recorded rather than auto-approved. Inspect stage receipt checks entries using command and exit_code, status and findings: refused negative controls must retain nonzero check results and unresolved findings and cannot produce a passing stage.",
+      "forbidden": "Direct-session privileges are widened, undeclared/out-of-scope worker checks execute, or host-boundary actions are auto-approved.",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "A direct session gains controller permissions: reject.",
+        "A validated worker executes an undeclared/out-of-scope check: reject.",
+        "A host approval rejection is converted to approval: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-4",
+      "ac_ids": [
+        "AC-4"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "malformed and valid receipts",
+      "when": "Validate a matching string-task receipt; then numeric-task, stale-hash, mismatched-hash and oversized-diagnostic fixtures",
+      "then": "Only the matching string identity with current evidence hashes is accepted. Invalid fixtures remain failed stages. Original diagnostics are retained with truncation indicated within the existing bounded diagnostic contract; no diagnostic text becomes accepted evidence.",
+      "forbidden": "Numeric identity is coerced into pass",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Numeric task is admitted: reject.",
+        "String task with stale or mismatched evidence hash is admitted: reject.",
+        "Oversized original diagnostics escape the bound or the stage becomes pass: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-5",
+      "ac_ids": [
+        "AC-5"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "recorded scoped authorization",
+      "when": "Resume/nest the same authorized provider-purpose-source scope, then exercise broader-scope and host-rejection controls seeded with a private-data sentinel",
+      "then": "Supported scoped authorization is reused. Broader or unsupported scope is refused. The recorded failure reports exact rejected action, host reason and eligible resume command, and never claims review approval. Public artifacts contain none of the seeded private sentinel.",
+      "forbidden": "Private payload is published or rejection bypassed",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Broader scope inherits approval: reject.",
+        "Host rejection appears as a Nightshift approval: reject.",
+        "Private sentinel appears in a public artifact: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-6",
+      "ac_ids": [
+        "AC-6"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "failed review and interrupted repair",
+      "when": "Interrupt after retained failure/completed review, resume unchanged, then repair the specific defect and continue",
+      "then": "Compare retained provider invocation IDs/counts, failed attempts, reviewer/author provenance and budget reservations before and after resume. Completed unchanged review adds no provider invocation; failed attempts and cumulative counters remain monotonic; interrupted repair never returns pass without successful checks.",
+      "forbidden": "Duplicate provider call or reset allowance",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Resume duplicates a completed provider invocation or unchanged review: reject.",
+        "Failed attempts disappear or cumulative reservations decrease: reject.",
+        "Author approves own work: reject.",
+        "Interrupted repair returns success without evidence: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-7",
+      "ac_ids": [
+        "AC-7"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Actual isolated live command and exact candidate-bound receipt validation; synthetic fixture evidence alone cannot pass.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "isolated installed candidate",
+      "when": "Install an exact candidate in a disposable runtime and run a fresh ticket through the six-stage factory with real configured providers",
+      "then": "Retain candidate executable/revision inventory and matching Product, Adversarial, RED/GREEN Implementation, Review, Drift and QA receipts plus required proof. Verify the live records are bound to that inventory. No operator-owned manual case is manufactured.",
+      "forbidden": "Source tests stand in for installed acceptance",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "A required stage is missing: reject.",
+        "A receipt is bound to another candidate revision: reject.",
+        "Synthetic providers or source-only test output are offered as live acceptance: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-8",
+      "ac_ids": [
+        "AC-8"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "public documentation candidate",
+      "when": "Audit README.md, slides/saturday.md and slides/tuesday.md against retained certification evidence, then run mislabeled-install and seeded-private-data controls",
+      "then": "Each affected public claim distinguishes source fixes, temporary installation, activated runtime and certified results. The audit rejects a temporary installation described as activated production and rejects any seeded private consumer sentinel in public text.",
+      "forbidden": "Temporary install described as activated production",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Temporary installation is labeled activated production: reject.",
+        "Seeded private consumer transcript or credential sentinel appears in public text: reject."
+      ],
+      "visibility": "public"
+    },
+    {
+      "id": "C-9",
+      "ac_ids": [
+        "AC-9"
+      ],
+      "required": true,
+      "applicability": {
+        "kind": "deterministic",
+        "rationale": "Observable by ordinary fixture, command and retained receipt checks.",
+        "risks": [
+          "deterministic_logic"
+        ],
+        "review": {
+          "reviewer_provider": "claude",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "decision": "approve",
+          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
+          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+        }
+      },
+      "given": "Three retained fixtures: draft spec only; failed independent review; host-rejected action. A separate completed-build fixture has actual passing stage and final proof receipts.",
+      "when": "Inspect canonical pipeline state status and next_action, console action_required, and captured operator recovery output for each fixture",
+      "then": "Draft-only, failed-review and host-rejection fixtures are never reported complete. Their next_action and action_required select the actual eligible review, repair or authorization action. Captured recovery output gives an exact resume command with the qualified task and correct project; its preflight resolves the retained task without redispatching completed work. The completed fixture reports complete only with passed receipts and final proof.",
+      "forbidden": "Draft spec described as completed build",
+      "input": null,
+      "expected": [],
+      "prohibited": [],
+      "counterexamples": [
+        "Draft-only or failed-review state reports completed build: reject.",
+        "Recovery output has empty/generic resume text, wrong project/task, or an action ineligible for the retained state: reject.",
+        "A host rejection is displayed as successful independent review: reject."
+      ],
+      "visibility": "public"
+    }
+  ],
+  "heldout": null
+}
