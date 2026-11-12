@@ -39,6 +39,24 @@ entrypoints are no longer installed. Historical run evidence remains readable.
 
 ---
 
+## Runtime identity and evidence
+
+Before a live run, use `nightshift inventory --project DIR` to record local
+launcher identity, checkout revision, saved install channel and effective stage
+routing. Add `--task KEY` to inspect retained recovery state and its resume command.
+Inventory does not fetch updates, admit a ticket, invoke a provider or certify a run.
+Missing PATH runtime identity or saved channel is unknown. Keep inventory output
+private when it contains consumer paths or source references.
+
+A source fix changes a checkout. A temporary installation isolates a pinned
+candidate without replacing the default installation. An activated runtime is the
+launcher selected for execution; a checkout revision alone does not prove
+activation. Certified results require current, exact-revision live stage receipts,
+development and final proof, and independent gates. Source checks, draft specs and
+incomplete or mismatched live receipts do not establish completion. Historical
+receipts retain their original evidence boundary. Inventory always reports
+`certification="not-established"`; the controller owns live acceptance.
+
 ## Why
 
 Spec-driven workflows fall apart for two reasons: ticket sources that don't match the spec

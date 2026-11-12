@@ -129,9 +129,56 @@ def needs_repair():
     return False
 
 
+def inventory(project, invoked, task=None):
+    """Read local identity without update selection, locks or worker admission."""
+    import importlib.util
+    import shutil
+    source = Path(__file__).resolve().parent.parent
+    def identity(checkout):
+        try:
+            root = Path(git(checkout, "rev-parse", "--show-toplevel")).resolve()
+            return dict(source_checkout=str(root), revision=git(root, "rev-parse", "HEAD"),
+                        dirty=bool(git(root, "status", "--porcelain")))
+        except (OSError, subprocess.SubprocessError):
+            return dict(source_checkout=None, revision=None, dirty=None)
+    selected = identity(source)
+    path_launcher = shutil.which("nightshift")
+    path_identity = dict(source_checkout=None, revision=None, dirty=None)
+    if path_launcher:
+        resolved = Path(path_launcher).resolve()
+        # An arbitrary wrapper is not evidence of its runtime.
+        if resolved.name == "nightshift-factory.sh" and resolved.parent.name == "scripts":
+            path_identity = identity(resolved.parent.parent)
+    saved = json.loads(config_path().read_text()) if config_path().exists() else {}
+    result = dict(invoked_executable=os.path.abspath(invoked), path_executable=path_launcher,
+                  resolved_source_checkout=selected['source_checkout'],
+                  revision=selected['revision'], source_dirty=selected['dirty'],
+                  path_runtime=path_identity, install_channel=saved.get('channel'),
+                  certification="not-established", effective_stage_runtime=None)
+    spec = importlib.util.spec_from_file_location("nightshift_inventory_pipeline",
+                                                 source / "scripts/nightshift-pipeline.py")
+    pipeline = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pipeline)
+    project = project.resolve(strict=True)
+    try:
+        configured = pipeline.continuation_routes(project, project)
+        result['effective_stage_runtime'] = configured['stages']
+        result['provider_policy'] = configured['policy']
+        result['routing_path'] = configured['routing_path']
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        result['runtime_error'] = type(error).__name__
+    if task is not None:
+        result['recovery'] = pipeline.inspect_recovery(project, task, result['invoked_executable'])
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=Path, required=True)
+    parser.add_argument("--inventory", action="store_true")
+    parser.add_argument("--invoked-executable")
+    parser.add_argument("--task")
     parser.add_argument("--configure", action="store_true")
     parser.add_argument("--source")
     parser.add_argument("--channel")
@@ -141,6 +188,10 @@ def main():
     parser.add_argument("--run", nargs=argparse.REMAINDER)
     parser.add_argument("--install-args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.inventory:
+        if not args.invoked_executable:
+            parser.error("--inventory requires --invoked-executable")
+        return inventory(args.project, args.invoked_executable, args.task)
     data = settings()
     for key in ("source", "channel"):
         if getattr(args, key) is not None:

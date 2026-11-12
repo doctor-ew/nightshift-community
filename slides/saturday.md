@@ -28,6 +28,8 @@ mdc: true
 
 <!--
 The supplied ATL Dev Con speaker poster names this talk “Trust doesn't rust”. The 8 AM to 5 PM poster time is the event window, not the speaking slot. Use the 20-minute core or expand toward 40 minutes. Open with the real distinction between a model finishing and engineering evidence establishing completion. Nightshift makes that distinction inspectable. Source: supplied speaker poster; AGENTS.md; docs/133/IMPLEMENTATION.md.
+
+Source status note: a source fix changes a checkout; a temporary installation isolates a pinned candidate; an activated runtime is the executable actually selected for work. Certified results require current exact-revision live receipts and independent gates. Read-only inventory is not certification. Keep consumer paths and private source references out of public evidence; do not relabel historical receipts as a fresh result.
 -->
 ---
 

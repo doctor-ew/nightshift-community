@@ -697,7 +697,78 @@ def continuation_routes(project, target):
             break
     settings = dict(provider=provider, model=model, policy=mode)
     routes(project, settings)
-    routes(target, settings)
+    return routes(target, settings)
+
+
+def inspect_recovery(project, task, launcher):
+    """Inspect retained authority and evidence without preparing or dispatching."""
+    import shlex
+    root(project, task)
+    result = dict(task=task, status='unknown', next_action='recover_saved_invocation',
+                  resume_command=None)
+    console = load('console-actions')
+    invocation = console.directory(project)/(task+'.json')
+    record = None
+    if invocation.exists():
+        record = console.read(invocation)
+        if record.get('task') != task:raise ValueError('pipeline_identity_changed')
+        settings = record['settings']
+        console.validate(task, settings)
+        home = Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home()/'.nightshift'))).resolve()
+        argv = ['env', 'NIGHTSHIFT_SYNC_CHECK=off', 'NIGHTSHIFT_HOME='+str(home),
+                launcher, settings['ref'], '--project', str(project),
+                '--branch', settings['branch'], '--provider', settings['provider'],
+                '--provider-policy', settings['policy'], '--auth', 'subscription']
+        for key in ('model', 'base'):
+            if settings[key]:argv += ['--'+key, settings[key]]
+        for key in ('push', 'pr'):
+            if settings[key]:argv += ['--'+key]
+        if record.get('review_spec'):argv += ['--review-spec']
+        result['resume_command'] = shlex.join(argv)
+        if settings['auth'] == 'api':
+            result['api_opt_in_required'] = True
+    state = snapshot(project, task)
+    if state is None:
+        if record is not None:
+            draft = (Path(project)/'docs'/task/'SPEC.md').is_file()
+            result.update(status='draft' if draft else 'pending',
+                          next_action='validate_existing_draft' if draft else 'product')
+        return result
+    if result['resume_command'] is None and isinstance(state.get('request'), str) and state['request']:
+        # A retained source can survive a missing legacy console record. No saved
+        # API-billing or publication authority is inferred from that source.
+        result['resume_command'] = shlex.join([launcher, state['request'], '--project', str(project), '--auth', 'subscription'])
+        result['invocation_provenance'] = 'retained-source-only'
+    target = Path(state['worktree']).resolve(strict=True)
+    if state.get('task') != task or root(target, task) != root(project, task):
+        raise ValueError('pipeline_identity_changed')
+    result.update(status=state['status'], next_action=state['next_action'])
+    completed = state['completed']
+    for stage in STAGES:
+        row = completed.get(stage)
+        if row is None:
+            if state['status'] == 'complete':
+                result.update(status='stale', next_action=stage)
+                return result
+            continue
+        try:
+            if sha(row['receipt']) != row['sha256'] or inputs(target, task, stage, state) != row['input_sha256']:
+                raise ValueError('stale_stage_evidence')
+            if validate_receipt(row['receipt'], task, stage, target)['status'] != 'pass':
+                raise ValueError('stage_not_passed')
+            if row.get('recovery_binding'):
+                load('controller-recovery').validate_adopted(project, task, state, row)
+        except (OSError, ValueError, KeyError):
+            result.update(status='stale', next_action=stage)
+            return result
+    if result['status'] == 'complete':
+        for gate in ('development', 'final'):
+            outcome = proof(target, task, gate)  # Canonical gate is read-only.
+            if outcome.get('outcome') != 'pass':
+                result.update(status='blocked',
+                              next_action=outcome.get('next_action') or 'repair_'+gate+'_evidence')
+                break
+    return result
 
 
 def continuation_preflight(project, task):

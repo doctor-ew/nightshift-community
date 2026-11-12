@@ -30,6 +30,8 @@ mdc: true
 
 <!--
 Published title: Nightshift: From Copilot to Autopilot (Engineering Guardrails for AI Coding Agents). The supplied event listing welcomes experienced contributors and people who have never opened a PR. The event runs 6:30 to 8:30 PM, not a two-hour speaking slot. Introduce the shared problem without assuming prior agent experience. Event details and artwork: user-supplied listing and AVIF files.
+
+Source status note: a source fix changes a checkout; a temporary installation isolates a pinned candidate; an activated runtime is the executable actually selected for work. Certified results require current exact-revision live receipts and independent gates. Read-only inventory is not certification. Keep consumer paths and private source references out of public evidence; do not relabel historical receipts as a fresh result.
 -->
 ---
 

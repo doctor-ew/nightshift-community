@@ -16,7 +16,8 @@ if [ "${NIGHTSHIFT_ROLE_CHILD:-0}" = 1 ]; then
   exit 64
 fi
 
-SCRIPT_PATH="${BASH_SOURCE[0]}"
+INVOKED_EXECUTABLE="${BASH_SOURCE[0]}"
+SCRIPT_PATH="$INVOKED_EXECUTABLE"
 while [ -L "$SCRIPT_PATH" ]; do
   LINK_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
   SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
@@ -27,6 +28,7 @@ SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Bind executable discovery to this candidate; saved configuration/state keeps its own home.
 export NIGHTSHIFT_RUNTIME_HOME="$SOURCE_DIR"
 case "${1:-}" in
+  inventory) shift; exec python3 "$SCRIPT_DIR/nightshift-update.py" --inventory --invoked-executable "$INVOKED_EXECUTABLE" "$@" ;;
   packages) shift; exec python3 "$SCRIPT_DIR/nightshift-work-packages.py" "$@" ;;
   intake) shift; exec python3 "$SCRIPT_DIR/nightshift-intake.py" "$@" ;;
   delivery) shift; exec python3 "$SCRIPT_DIR/nightshift-delivery.py" "$@" ;;
@@ -100,6 +102,7 @@ Usage: nightshift <ticket-ref> [options]
        nightshift init [runtime/model] [DIR] [--include FILE]
        nightshift cleanup TASK [--project DIR]
        nightshift continue jira:TICKET [--project DIR]
+       nightshift inventory --project DIR [--task KEY]
        nightshift setup [--project DIR]
        nightshift dashboard [--project DIR] [--port PORT]
 
