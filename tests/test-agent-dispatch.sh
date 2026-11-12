@@ -129,7 +129,9 @@ check 'API-backed login rejected in default subscription mode' test "$RC" -ne 0
 normal --auth api
 check 'explicit API mode accepted' test "$RC" -eq 0
 unset MOCK_AUTH
-run nightshift-engineer --gear auto --risk high --attempt 3 --in "$INPUT" --out "$OUTPUT"
+run nightshift-engineer --gear auto --risk high --attempt 4 --in "$INPUT" --out "$OUTPUT"
+check 'fourth diagnosed repair dispatch admitted' test "$RC" -eq 0
+check 'fourth attempt recorded' json '.attempts == 4'
 export MOCK_EXPECTED_MODEL=$(jq -r '.roles["nightshift-engineer"].gears["4"].model' "$TMP/runtime/routing.json")
 check 'automatic high-risk bounded gear dispatch' args '.[index("--model")+1] == env.MOCK_EXPECTED_MODEL'
 run nightshift-engineer --gear 0 --risk low --in "$INPUT" --out "$OUTPUT"
@@ -330,6 +332,12 @@ for mode in copy symlink; do
   if bash "$ROOT/install.sh" "--$mode" --runtime local --nightshift-target "$destination/runtime" --codex-target "$destination/codex" --target "$destination/claude" --bin-target "$destination/bin" > "$TMP/install.log" 2>&1; then
     check "$mode contracts installed" test -f "$destination/runtime/contracts/nightshift-spec-writer.schema.json"
     check "$mode validator installed" test -f "$destination/runtime/scripts/nightshift-contract.jq"
+    # Proof admission binds the installed runtime, including its configuration.
+    # Give each installation an independently sealed project rather than reusing
+    # a receipt issued by a different runtime root.
+    export NIGHTSHIFT_PROJECT_DIR="$TMP/project-$mode"
+    export NIGHTSHIFT_BUDGET_PROJECT="$NIGHTSHIFT_PROJECT_DIR"
+    python3 "$ROOT/tests/nightshift-behavior-fixture.py" --root "$destination/runtime" --project "$NIGHTSHIFT_PROJECT_DIR" --task fixture > "$TMP/admission-$mode.json"
     RC=0
     (cd "$TMP" && bash "$destination/runtime/scripts/nightshift-agent.sh" nightshift-engineer --task fixture --gear 1 --in "$INPUT" --out "$OUTPUT") > "$TMP/stdout" 2> "$TMP/stderr" || RC=$?
     check "$mode installed dispatch" test "$RC" -eq 0
@@ -343,6 +351,7 @@ for mode in copy symlink; do
     check "$mode installation" false
   fi
 done
+export NIGHTSHIFT_PROJECT_DIR="$TMP/project" NIGHTSHIFT_BUDGET_PROJECT="$TMP/project"
 # Repair diagnosis must work before proof, while implementation still fails closed.
 export MOCK_RESPONSE="$BASE_RESPONSE" MOCK_MODE=structured MOCK_EXIT=0
 jq '.roles["nightshift-repair-analyst"].gears["1"]={provider:"claude",model:"fixture"}' "$TMP/runtime/routing.json" > "$TMP/repair-route.json"

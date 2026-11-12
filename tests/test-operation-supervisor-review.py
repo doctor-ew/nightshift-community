@@ -30,6 +30,15 @@ class SupervisorReview(unittest.TestCase):
         assessed = self.c.assess(operations[0])
         return self.c.authorize(operations, assessed['binding'], 'synthetic-reviewer', 'review-grant', {'bounded_repair': True})['id']
 
+    def explicit_retry_limit(self, operation, attempts):
+        # These scenarios exercise a deliberately operator-bounded recovery.
+        path=self.c.directory/(operation+'.retry.json')
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_text(json.dumps(dict(version=1,infrastructure_failures=0,
+            substantive_failures=0,total=0,limits=dict(infrastructure=attempts,
+            substantive=attempts,total=attempts),limit_origin='operator',
+            attempts={},next_action='continue')))
+
     def test_source_change_after_final_operation_never_reports_passed(self):
         execute = self.c.execute
         def change_after_review(grant, operation, request, supervised=False):
@@ -155,6 +164,7 @@ class SupervisorReview(unittest.TestCase):
         self.assertEqual(self.c.usage(grant)['calls'], 4)
 
     def test_verification_exhaustion_allows_changed_external_verification(self):
+        self.explicit_retry_limit('verify',3)
         (self.root/'app.py').write_text('def answer(): return 1\n')
         original = self.worker
         def ineffective_repair(operation, packet, route, output, seconds):
@@ -180,6 +190,7 @@ class SupervisorReview(unittest.TestCase):
         self.assertEqual(sum(op == 'implement' for op, _ in original.calls), sum(op == 'implement' for op, _ in calls))
 
     def test_repeated_findings_exhaust_then_external_adoption(self):
+        self.explicit_retry_limit('review',3)
         original = self.worker
         def fail_review(operation, packet, route, output, seconds):
             original.fail = operation == 'review'

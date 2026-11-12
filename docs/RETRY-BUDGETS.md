@@ -2,9 +2,9 @@
 
 The adversarial stage uses the bounded dispatcher, which invokes the existing
 role dispatcher and atomically records a shared budget in the task output directory.
-Infrastructure failures have a cap of three. Substantive failed evaluations have
-a cap of four (initial evaluation plus three repairs). All calls, including success,
-share a twelve-invocation ceiling across source and claim batches. A successful
+New accounting has no default infrastructure, substantive failure, or total-call
+ceiling. Explicit operator limits remain enforced. Known legacy fixed-code defaults
+are reconciled with prior limits and counters retained. A successful
 transport with conflicting claims is a substantive failure, not gate approval.
 
 The dispatcher returns zero for a valid report, leaving its reservation pending.
@@ -34,7 +34,7 @@ require diagnosis rather than automatic fallback. Final independent review remai
 This accounting is scoped to adversarial calls using the documented bounded entry.
 It is not a hostile-process sandbox, a global controller migration, or a transport
 timeout/output quota implementation. Those separate #15 limits remain outstanding.
-The existing stricter malformed-response reissue cap still applies.
+Malformed responses remain failed evidence and require diagnosis before reissue.
 
 ## Repeated registered repair inputs
 
@@ -67,7 +67,7 @@ re-admission of the same registered targets; they are not proof of correctness.
 Model work has no default elapsed-time deadline. Duration is observational;
 completion depends on verification gates and retained repair attempts.
 For behavior proof, `timeout_seconds = 0` is the default and disables the model
-call deadline. An explicit value from 1 through 120 opts into a per-call timeout.
+call deadline. An explicit positive value opts into a per-call timeout without a fixed upper ceiling.
 Availability probes remain bounded to 15 seconds, and output limits and process
 cleanup still apply. Existing pinned policies retain their explicit timeouts;
 changing policy requires the existing reconciliation flow.

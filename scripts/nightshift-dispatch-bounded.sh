@@ -24,7 +24,9 @@ publish_history() {
   JOURNAL_TMP=''
 }
 publish_history
-for attempt in 1 2 3; do
+attempt=0
+while true; do
+  attempt=$((attempt + 1))
   result=0
   bash "$ROOT/scripts/nightshift-agent.sh" "$ROLE" --gear auto --attempt "$attempt" "$@" || result=$?
   # Consume the actual selected route, rather than probing inventory again after launch.
@@ -52,5 +54,7 @@ for attempt in 1 2 3; do
     *'category=capacity)'*|*'category=local_unavailable)'*|*'exit=127 category=unknown)'*) ;;
     *) exit "$result";;
   esac
+  # Availability fallback ends when the configured gear space has been exhausted,
+  # rather than after an arbitrary number of launches. Never repeat the final route.
+  [ "$gear" != null ] && [ "$gear" -lt 4 ] || exit "$result"
 done
-exit 1
