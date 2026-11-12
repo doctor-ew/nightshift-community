@@ -58,5 +58,16 @@
     "default_installation_replaced": false,
     "pushed": false,
     "production_deployed": false
+  },
+  "main_repeat": {
+    "exit_code": 0,
+    "receipt_hashes_unchanged": true,
+    "reservations_unchanged": true
+  },
+  "fresh_offline_suite": {
+    "tests_run": 14,
+    "passed": 13,
+    "live_case_skipped": 1,
+    "certification_claimed": false
   }
 }
