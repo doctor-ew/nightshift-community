@@ -158,6 +158,24 @@ class Efficiency(unittest.TestCase):
         self.assertEqual(result.stdout, b'x' * 1024)
         self.assertEqual(record['raw_stdout_bytes'], 1024)
 
+    def test_command_timeout_defaults_to_none_and_preserves_long_explicit_timeout(self):
+        from types import SimpleNamespace
+        args=SimpleNamespace(project=str(self.base),action='exec')
+        with mock.patch.dict(os.environ,self.env,clear=True):
+            self.assertIsNone(EFFICIENCY.config(args)['exec']['timeout_seconds'])
+            with mock.patch.dict(os.environ,{'NIGHTSHIFT_EXEC_TIMEOUT_SECONDS':'7200'}):
+                self.assertEqual(EFFICIENCY.config(args)['exec']['timeout_seconds'],7200)
+        # A long observed duration must not terminate an otherwise successful command.
+        ticks=iter([0.0])
+        def clock():return next(ticks,1000.0)
+        with mock.patch.object(EFFICIENCY.time,'monotonic',clock):
+            out,err=io.BytesIO(),io.BytesIO()
+            code,reason,duration,_=EFFICIENCY.capture([sys.executable,'-c','print("finished")'],(out,err),None,1024)
+        self.assertEqual(code,0)
+        self.assertIsNone(reason)
+        self.assertEqual(out.read(),b'finished\n')
+        self.assertGreater(duration,900)
+
     def test_launcher_and_guard(self):
         result,record=self.run_helper('exec','--',sys.executable,'-c',"print('literal $()')",launcher=True)
         self.assertEqual(result.stdout,b'literal $()\n')

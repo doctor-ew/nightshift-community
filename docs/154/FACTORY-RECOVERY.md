@@ -19,3 +19,9 @@ The launcher now distinguishes explicitly human-owned checks from automated live
 The controller now schedules scoped ordinary substantive repairs for author stages as well as reviewer stages, retaining findings, previous receipts and input identities. Failed unchanged repair inputs remain a diagnosis signal; the controlling agent must resolve the cause rather than declare the work complete.
 
 Sources: `scripts/nightshift-factory.sh`, `scripts/nightshift-pipeline.py`, `scripts/nightshift-behavior-proof.py`, `commands/nightshift-spec.md`, `tests/test-factory-auth.sh`, `tests/test-pipeline.py`; retained Product attempt and handoff for task 154.
+
+## Nested helper provenance
+
+A subsequent source-review dispatch expanded the default installation home to an older ticket-budget helper from a different checkout. That helper rejected the candidate's unlimited (`null`) limits. The failure was retained; selecting the candidate helper produced a report.
+
+The launcher now sets `NIGHTSHIFT_RUNTIME_HOME` to its physical source checkout. Canonical stage and role helper examples prefer that runtime source while preserving `NIGHTSHIFT_HOME` for saved configuration and state. `tests/test-runtime-binding.sh` executes the canonical argument-parser template with a deliberately unusable older helper home and checks the installed fallback independently. The factory authentication fixture checks that runtime and saved-state homes remain distinct.

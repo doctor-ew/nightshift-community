@@ -21,11 +21,11 @@ below are run by the active runtime using file reads and repository searches ove
 ## Step 1 — Parse argument and resolve scope
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK="$ARGUMENTS"
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 DIGEST="${PROJECT}/docs/${TASK}/SPEC-DIGEST.md"
 REVIEW="${PROJECT}/docs/${TASK}/REVIEW.md"
@@ -34,7 +34,7 @@ HISTORY="${TASK_DIR}/review-history.jsonl"
 mkdir -p "$TASK_DIR" "${PROJECT}/docs/${TASK}"
 
 # Context budget check — bail to a resume hint if the wall is near.
-CTX_RC=0; bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-context-check.sh" "review" "$TASK" || CTX_RC=$?
+CTX_RC=0; bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-context-check.sh" "review" "$TASK" || CTX_RC=$?
 if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 
 # The lens pass reads the digest (ACs + guardrails only) when present, so it judges the
@@ -124,7 +124,7 @@ Before judging the diff on quality, verify the TDD contract held: no non-`nights
 touched a locked path (the sealed spec, or the sealed RED-phase tests) after the lock point.
 
 ```bash
-INTEGRITY=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-tdd-integrity-check.sh" "$TASK")
+INTEGRITY=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-tdd-integrity-check.sh" "$TASK")
 echo "$INTEGRITY"
 ```
 
@@ -170,7 +170,7 @@ type predicates written multiple times for the same shape.
 ### CoC — Convention over Configuration
 Names, file placement and patterns against resolved project conventions
 (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)) and adjacent code.
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`)) and adjacent code.
 
 ### Big O
 - **BLOCK**: O(n²)+ in hot path, N+1 query, unbounded DB fetches

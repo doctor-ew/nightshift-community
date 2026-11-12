@@ -19,18 +19,18 @@ evaluation. Development RED or prompt pass alone cannot satisfy final approval.
 ## Step 1 — Parse and resolve
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK="$ARGUMENTS"
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 QA="${PROJECT}/docs/${TASK}/QA.md"
 mkdir -p "$TASK_DIR" "${PROJECT}/docs/${TASK}"
 
 [ -z "$TASK" ] && { echo "Usage: /nightshift-qa <task-key>"; exit 1; }
 
-CTX_RC=0; bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-context-check.sh" "qa" "$TASK" || CTX_RC=$?
+CTX_RC=0; bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-context-check.sh" "qa" "$TASK" || CTX_RC=$?
 if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 ```
 
@@ -42,7 +42,7 @@ If `$SPEC` missing: `"No spec at $SPEC — run /nightshift-product first."` and 
 
 ```bash
 OUTLOG="${PROJECT}/docs/${TASK}/QA-output.log"
-RESULT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --run --label qa --out "$OUTLOG")
+RESULT=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-pw.sh" "$TASK" --run --label qa --out "$OUTLOG")
 echo "$RESULT"
 VERDICT=$(echo "$RESULT" | grep -oE 'PW_(PASS|FAIL|SKIPPED)' | head -1)
 ```
@@ -57,7 +57,7 @@ project's `playwright.config` responsibility (CoC).
 ## Step 2.5 — Complete final behavioral proof
 
 Follow `docs/BEHAVIOR-PROOF.md` in source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`). Require
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-behavior-proof.md`). Require
 the adopted public scenario artifact and existing development admission.
 
 For required deterministic cases, retain actual passing ordinary test evidence
@@ -79,7 +79,7 @@ Every task, including not-applicable-only cases and no-Playwright projects, must
 satisfy the final read-only gate:
 
 ```bash
-python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-behavior-proof.py" \
   gate --project "$PROJECT" --task "$TASK" --gate final || exit $?
 ```
 

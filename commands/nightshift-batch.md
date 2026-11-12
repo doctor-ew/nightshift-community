@@ -40,11 +40,11 @@ the point. Review the **triage report** and the **retro**, not each ticket live.
 ## Step 1 — Parse arguments
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 CONTROLLER_PROJECT=$(cd "$PROJECT" && pwd -P)
-STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
+STAGE_ARGS=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 ARG=$(jq -r '.arguments' <<< "$STAGE_ARGS")
 BATCH_N=5; RESUME_FILE=""
@@ -90,7 +90,7 @@ query; any other non-zero exit is fatal.
 
 ```bash
 set +e
-TICKET_LIST=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-resolve.sh" --input "$INPUT")
+TICKET_LIST=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-resolve.sh" --input "$INPUT")
 RRC=$?
 set -e
 if [ "$RRC" -eq 0 ]; then
@@ -114,7 +114,7 @@ Write that to a temp file and triage it:
 TRIAGE_TMP=$(mktemp /tmp/nightshift-batch-triage.XXXXXX.json)
 # ... write normalized candidate JSON to $TRIAGE_TMP ...
 set +e
-TICKET_LIST=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-triage.sh" --n "$BATCH_N" --query "$INPUT" --input "$TRIAGE_TMP")
+TICKET_LIST=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-triage.sh" --n "$BATCH_N" --query "$INPUT" --input "$TRIAGE_TMP")
 TRC=$?
 set -e
 rm -f "$TRIAGE_TMP"
@@ -138,10 +138,10 @@ pipeline runs in another checkout. Never pass an absolute path as `--state`.
 
 ```bash
 if [ -n "$RESUME_FILE" ]; then
-  INIT=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-init.sh" --resume "$RESUME_FILE")
+  INIT=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-init.sh" --resume "$RESUME_FILE")
 else
   LIST_CSV=$(echo "$TICKET_LIST" | tr '\n' ',' | sed 's/,$//')
-  INIT=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-init.sh" \
+  INIT=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-init.sh" \
     --tickets "$LIST_CSV" --source "$SOURCE" --source-value "$INPUT" --batch-n "$BATCH_N")
 fi
 STATE_REL=$(echo "$INIT" | grep '^BATCH_STATE_PATH:' | awk '{print $2}')
@@ -187,19 +187,19 @@ if [ -f "$COMMON_DIR/nightshift/worktrees/$TASK_KEY.json" ]; then
 else
   [ -z "${TICKET_BASE_REF:-${BASE_REF:-}}" ] || BASE_ARGS=(--base "${TICKET_BASE_REF:-$BASE_REF}")
 fi
-if ! WORKTREE_RECEIPT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" prepare "$TASK_KEY" \
+if ! WORKTREE_RECEIPT=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-worktree.sh" prepare "$TASK_KEY" \
   --project "$CONTROLLER_PROJECT" "${BASE_ARGS[@]}"); then
-  env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-update.sh" \
+  env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-update.sh" \
     --state "$STATE_REL" --ticket "$TICKET" --status failed --reason "worktree isolation failed"
   continue
 fi
 PROJECT=$(printf '%s\n' "$WORKTREE_RECEIPT" | jq -er '.worktree') || exit 1
 cd "$PROJECT" || exit 1
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 export NIGHTSHIFT_PREPARED_TASK="$TASK_KEY"
 export NIGHTSHIFT_WORKTREE_RECEIPT="$WORKTREE_RECEIPT"
-env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-update.sh" \
+env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-update.sh" \
   --state "$STATE_REL" --ticket "$TICKET" --status in_progress
 ```
 
@@ -253,7 +253,7 @@ and `needs-decision` counts. Updating a ticket preserves other entries and clear
 current pointer only when it names that ticket.
 
 ```bash
-env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-update.sh" --state "$STATE_REL" --ticket "$TICKET" \
+env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-update.sh" --state "$STATE_REL" --ticket "$TICKET" \
   --status <complete|skipped|failed|blocked|needs-decision> [--pr-url <url>] [--reason "<reason>"] [--receipt "<receipt-path>"]
 echo "[batch] $TICKET: <status>"
 ```
@@ -265,7 +265,7 @@ scope/lease state. Restore the controller context before selecting the next tick
 ```bash
 cd "$CONTROLLER_PROJECT" || exit 1
 PROJECT="$CONTROLLER_PROJECT"
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --project "$CONTROLLER_PROJECT" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --project "$CONTROLLER_PROJECT" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 unset NIGHTSHIFT_PREPARED_TASK NIGHTSHIFT_WORKTREE_RECEIPT
 ```
@@ -278,7 +278,7 @@ the next ticket. Only a fatal harness error (e.g. `jq` missing) aborts the run.
 ## Step 5 — Aggregate retro
 
 ```bash
-RETRO=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-batch-retro.sh" --state "$STATE_REL" | grep '^BATCH_RETRO:' | awk '{print $2}')
+RETRO=$(env NIGHTSHIFT_PROJECT_DIR="$CONTROLLER_PROJECT" bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-batch-retro.sh" --state "$STATE_REL" | grep '^BATCH_RETRO:' | awk '{print $2}')
 ```
 
 ---

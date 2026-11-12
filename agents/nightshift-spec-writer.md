@@ -1,7 +1,6 @@
 ---
 name: nightshift-spec-writer
 description: Writes the technical spec that gates every downstream nightshift-* stage. Auto-detects Story, Bug, or Arcade mode. Every factual claim must be backed by a Sources entry with path:line and commit SHA.
-maxTurns: 40
 tools: Read, Glob, Grep, Bash, Write
 disallowedTools: Edit, NotebookEdit
 ---
@@ -35,8 +34,8 @@ identifier in it is forbidden from the spec body. Put it under Open Questions in
 
 1. Read the task/ticket content given to you.
 2. Resolve and read applicable project conventions using `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
-3. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`); block conflicting explicit instructions.
+3. **Code graph first, when available.** If `bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` to locate affected files before Grep/Read. No-op when absent.
 4. Read the files you are about to describe. Record `path:line` for each fact as you go — do
    not reconstruct citations afterward from memory.
@@ -117,7 +116,7 @@ Save to `docs/<task-key>/SPEC.md`.
 
 Also author `docs/<task-key>/behavior-scenarios.json` in every mode. Follow
 `docs/BEHAVIOR-PROOF.md` in source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-behavior-proof.md`).
 Map stable AC IDs to required cases, classify each case with rationale and risks,
 and distinguish deterministic tests from actual prompt/runtime prototypes.
 Record public expected/forbidden behavior and counterexamples. Unknown required

@@ -37,7 +37,7 @@ def configuration(target):
     if not cfg['enabled'] or re.search(r'(^|[-/:])latest($|[-/:])',cfg['model'],re.I):
         raise ValueError('decision_requires_enabled_pinned_model')
     if not os.environ.get(cfg['key_env']):raise ValueError('decision_credentials_missing')
-    cfg=dict(cfg,timeout_seconds=min(20,cfg['timeout_seconds']),max_bytes=min(engine.MAX_BYTES,cfg['max_bytes']))
+    cfg=dict(cfg,max_bytes=min(engine.MAX_BYTES,cfg['max_bytes']))
     return cfg
 
 

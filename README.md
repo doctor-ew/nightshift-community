@@ -1058,8 +1058,8 @@ without a model call, only for one JSON artifact still matching its pinned
 original snapshot. It refuses later edits and rechecks the repaired result.
 
 Resolved single-ticket factory runs and role dispatchers share a persistent
-common-Git budget (default 64 provider-process launches and 3600 aggregate active
-seconds). Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
+common-Git accounting ledger with no default provider-launch or aggregate active-time
+ceiling. Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
 `NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS` before the first instrumented launch to
 choose limits; later environment changes cannot expand them or reset usage.
 Child dispatches inherit `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`.

@@ -24,6 +24,8 @@ while [ -L "$SCRIPT_PATH" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Bind executable discovery to this candidate; saved configuration/state keeps its own home.
+export NIGHTSHIFT_RUNTIME_HOME="$SOURCE_DIR"
 case "${1:-}" in
   packages) shift; exec python3 "$SCRIPT_DIR/nightshift-work-packages.py" "$@" ;;
   intake) shift; exec python3 "$SCRIPT_DIR/nightshift-intake.py" "$@" ;;

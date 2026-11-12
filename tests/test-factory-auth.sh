@@ -60,6 +60,8 @@ printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY:+present}"
 printf 'ARGS=%s\n' "$*"
 printf 'EXECUTION_MODE=%s/%s\n' "${AUTONOMOUS:-}" "${NIGHTSHIFT_FACTORY_MODE:-}"
 printf 'ROUTING_FILE=%s\n' "${NIGHTSHIFT_ROUTING_FILE:-}"
+printf 'RUNTIME_HOME=%s\n' "${NIGHTSHIFT_RUNTIME_HOME:-}"
+printf 'STATE_HOME=%s\n' "${NIGHTSHIFT_HOME:-}"
 exit "${CODEX_EXIT_STATUS:-0}"
 EOF
 chmod +x "$TMP_ROOT/bin/codex"
@@ -72,6 +74,8 @@ if invalid=$(PATH="$TMP_ROOT/bin:$PATH" "$FACTORY" gh:1 --project "$TMP_ROOT/inv
 case "$invalid" in *'ARGS='*) fail 'invalid configuration invoked provider';; esac
 configured=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch none 2>&1)
 assert_contains "$configured" "ROUTING_FILE=$TMP_ROOT/routing.json"
+assert_contains "$configured" "RUNTIME_HOME=$REPO_DIR"
+assert_contains "$configured" "STATE_HOME=$TMP_ROOT/home/.nightshift"
 
 subscription=$(PATH="$TMP_ROOT/bin:$PATH" HOME="$TMP_ROOT/home" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" OPENAI_API_KEY=secret "$FACTORY" gh:1 --branch none 2>&1)
 assert_contains "$subscription" 'authentication: ChatGPT subscription'

@@ -39,7 +39,7 @@ are environment references only; no secret values belong in configuration.
 ```json
 {
   "rtk": {"enabled": true, "timeout_seconds": 10},
-  "exec": {"timeout_seconds": 900, "max_bytes": 67108864},
+  "exec": {"timeout_seconds": null, "max_bytes": 67108864},
   "jev": {
     "enabled": true,
     "endpoint": "https://api.typesafe.ai/v1/systemone",
@@ -82,8 +82,9 @@ filter failure, timeout, empty/invalid UTF-8/NUL output or larger output returns
 the already captured raw bytes. A filter does not prove semantic equivalence:
 review exact claims against raw artifacts.
 
-Command capture defaults to 900 seconds and 64 MiB total stdout+stderr. Hitting a
-bound retains the allowed byte prefix, kills the process group, returns 124 and
+Command capture has no default execution deadline and retains a 64 MiB total
+stdout+stderr bound. An explicit positive `exec.timeout_seconds` sets a deadline
+without an arbitrary upper ceiling. Hitting an explicit deadline or byte bound retains the allowed byte prefix, kills the process group, returns 124 and
 marks `raw_complete=false`; such
 receipts are partial evidence, never normal command completion. Otherwise the
 original exit code is preserved (signals use 128+signal). Output is buffered until
