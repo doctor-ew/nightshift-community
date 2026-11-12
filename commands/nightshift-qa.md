@@ -84,7 +84,8 @@ python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof
 ```
 
 Require its pass outcome before recording QA approval. Missing helper, unknown,
-stale source hashes, required case gaps or exhausted budgets stop this stage.
+stale source hashes, required case gaps or exhausted explicit operator budgets
+prevent approval. Repair missing or stale evidence within scope before retrying.
 Retain only sanitized proof status and evidence digests in the public QA report.
 
 ---

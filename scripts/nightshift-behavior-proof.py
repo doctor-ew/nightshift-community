@@ -33,8 +33,8 @@ MULTITURN_PROFILE = 'claude-subscription-multiturn-text-v1'
 RISKS = {'deterministic_logic', 'prompt_behavior', 'agent_behavior', 'runtime_interaction', 'safety_sensitive'}
 MODEL_RISKS = {'prompt_behavior', 'agent_behavior', 'runtime_interaction'}
 KINDS = {'prototype', 'deterministic', 'not_applicable', 'manual'}
-DEFAULTS = dict(version=1, development_calls=8, final_calls=2, repairs=2,
-                infrastructure_failures=2, timeout_seconds=0,
+DEFAULTS = dict(version=1, development_calls=None, final_calls=None, repairs=None,
+                infrastructure_failures=None, timeout_seconds=0,
                 output_bytes=1048576, force_prompt=False)
 ENGINE = Path(__file__).resolve(strict=True)
 HERE = ENGINE.parent
@@ -613,9 +613,13 @@ def config(project):
             raise Invalid('config_keys')
         values.update(section)
     integer(values['version'], 1, 1)
-    for key, low, high in (('development_calls', 1, 128), ('final_calls', 1, 128), ('repairs', 0, 64),
-                           ('infrastructure_failures', 0, 2), ('timeout_seconds', 0, 120), ('output_bytes', 1, MAX_JSON)):
-        integer(values[key], low, high)
+    for key, low in (('development_calls', 1), ('final_calls', 1), ('repairs', 0),
+                     ('infrastructure_failures', 0)):
+        if values[key] is not None and (type(values[key]) is not int or values[key] < low):
+            raise Invalid('config_' + key)
+    if type(values['timeout_seconds']) is not int or values['timeout_seconds'] < 0:
+        raise Invalid('config_timeout_seconds')
+    integer(values['output_bytes'], 1, MAX_JSON)
     if type(values['force_prompt']) is not bool:
         raise Invalid('config_force_prompt')
     return values
@@ -900,7 +904,7 @@ class Proof:
                 raise Blocked('policy_amendment_stale')
             changed = {key for key in previous if previous[key] != self.policy[key]}
             if (not changed or changed - {'repairs', 'development_calls', 'final_calls'}
-                    or any(self.policy[key] < previous[key] for key in changed)):
+                    or any(previous[key] is None or (self.policy[key] is not None and self.policy[key] < previous[key]) for key in changed)):
                 raise Blocked('policy_amendment_not_bounded_extension')
             record = {'evidence': value, 'evidence_sha256': digest(value), 'previous_policy': previous,
                       'counters': self.counters(state), 'timestamp': utc()}
@@ -1140,7 +1144,7 @@ class Proof:
             if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and failure_bound(obs, seal) for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             budget = retry.proof_budget(state, self.policy)
-            if budget['repairs'] >= self.policy['repairs']:
+            if self.policy['repairs'] is not None and budget['repairs'] >= self.policy['repairs']:
                 raise Blocked('prototype_repairs_exhausted')
             budget['repairs'] += 1
             seal['revisions'].append({'previous': seal['current_prompt'], 'current': current_prompt,

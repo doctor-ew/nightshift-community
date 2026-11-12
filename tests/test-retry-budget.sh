@@ -14,8 +14,36 @@ import hashlib
 spec = importlib.util.spec_from_file_location('budget', pathlib.Path(sys.argv[1])/'scripts/nightshift-retry-budget.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+def bounded(path):
+    path.write_text(json.dumps({'version': 1, 'infrastructure_failures': 0,
+        'substantive_failures': 0, 'total': 0,
+        'limits': {'infrastructure': 3, 'substantive': 4, 'total': 12}, 'limit_origin': 'operator',
+        'attempts': {}, 'next_action': 'continue'}))
+with tempfile.TemporaryDirectory() as tmp:
+    legacy = pathlib.Path(tmp)/'legacy.json'
+    bounded(legacy)
+    old = json.loads(legacy.read_text())
+    old.pop('limit_origin')
+    old.update(total=12, infrastructure_failures=3, next_action='stop')
+    legacy.write_text(json.dumps(old))
+    old['attempts']['prior'] = 'success'
+    legacy.write_text(json.dumps(old))
+    reconciled = module.account(legacy, 'prior', 'success')
+    assert json.loads(legacy.read_text()) == reconciled
+    assert reconciled['total'] == 12 and reconciled['next_action'] != 'stop'
+    migrated = module.account(legacy, 'new', 'success')
+    assert migrated['total'] == 13 and migrated['infrastructure_failures'] == 3
+    assert migrated['next_action'] != 'stop' and len(migrated['limit_history']) == 1
+    assert migrated['limit_history'][0]['previous_limits'] == old['limits']
+with tempfile.TemporaryDirectory() as tmp:
+    path = pathlib.Path(tmp)/'unlimited.json'
+    for index in range(30):
+        state = module.account(path, str(index), 'substantive')
+        assert state['next_action'] != 'stop'
+    assert state['total'] == 30 and all(value is None for value in state['limits'].values())
 with tempfile.TemporaryDirectory() as tmp:
     path = pathlib.Path(tmp)/'state.json'
+    bounded(path)
     module.account(path, '1', 'model_unavailable')
     module.account(path, '2', 'transport')
     state = module.account(path, '3', 'substantive')
@@ -28,9 +56,11 @@ with tempfile.TemporaryDirectory() as tmp:
     except ValueError: pass
     else: raise AssertionError('exhausted budget accepted another call')
     path = pathlib.Path(tmp)/'total.json'
+    bounded(path)
     for i in range(12): state = module.account(path, str(i), 'success')
     assert state['next_action'] == 'stop' and state['total'] == 12
     path = pathlib.Path(tmp)/'repairs.json'
+    bounded(path)
     for i in range(4): state = module.account(path, str(i), 'substantive')
     assert state['next_action'] == 'stop' and state['infrastructure_failures'] == 0
 with tempfile.TemporaryDirectory() as tmp:
@@ -107,10 +137,11 @@ with tempfile.TemporaryDirectory() as tmp:
     decision = root/'decision.md'
     decision.write_text('User requested a supervised corrective continuation. Preserve original counts.')
     path = root/'.adversarial-budget.json'
+    bounded(path)
     for i in range(4): module.account(path, str(i), 'substantive')
     before = json.loads(path.read_text())
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    for amount in (0, 4, True):
+    for amount in (0, -1, True):
         try: module.authorize_continuation(path, decision, digest, amount)
         except ValueError: pass
         else: raise AssertionError('unbounded continuation accepted')
@@ -132,9 +163,16 @@ with tempfile.TemporaryDirectory() as tmp:
     try: module.account(path, 'extra', 'pending')
     except ValueError: pass
     else: raise AssertionError('continuation exceeded three calls')
+    extended = root/'extended.json'
+    bounded(extended)
+    for i in range(4): module.account(extended, str(i), 'substantive')
+    extended_hash = hashlib.sha256(extended.read_bytes()).hexdigest()
+    grant = module.authorize_continuation(extended, decision, extended_hash, 20)
+    assert grant['continuations'][-1]['additional_attempts'] == 20
     # Pending calls, infrastructure exhaustion and proof ledgers cannot be opened.
     for name, categories in [('pending', ['pending']), ('infra', ['transport']*3)]:
         other = root/(name+'.json')
+        bounded(other)
         for i, category in enumerate(categories): module.account(other, str(i), category)
         snapshot = other.read_bytes()
         try: module.authorize_continuation(other, decision, hashlib.sha256(snapshot).hexdigest())
@@ -148,5 +186,5 @@ with tempfile.TemporaryDirectory() as tmp:
     except ValueError: pass
     else: raise AssertionError('proof budget modified')
     assert proof.read_bytes() == snapshot
-print('PASS: accounting, dispatcher admission, and bounded audited continuation')
+print('PASS: unlimited default accounting, explicit limits, dispatcher admission, and audited continuation')
 PY

@@ -236,9 +236,8 @@ case "$ROLE" in nightshift-engineer|nightshift-architect)
 esac
 case "$AUTH" in subscription|api) ;; *) fail 'auth must be subscription or api';; esac
 case "$RISK" in low|standard|high) ;; *) fail 'invalid risk';; esac
-case "$ATTEMPT" in 1|2|3) ;; *) fail 'attempt must be 1..3';; esac
+[[ "$ATTEMPT" =~ ^[1-9][0-9]*$ ]] || fail 'attempt must be a positive integer'
 if [ "$GEAR" = auto ] || [ "$GEAR" = 0 ]; then
-  if [ "$GEAR" = 0 ] && [ "$ATTEMPT" != 1 ]; then fail 'explicit gear 0 requires attempt 1; use auto for escalation'; fi
   if [ "$GEAR" = 0 ] && { [ "$RISK" != low ] || [ "$ADV" = true ] || [ "$ROLE" != nightshift-code-fact-extractor ]; }; then fail 'gear 0 requires low-risk non-adversarial fact extraction'; fi
   ROUTE_MODE=auto
   [ "$GEAR" != 0 ] || ROUTE_MODE=explicit

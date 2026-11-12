@@ -225,8 +225,9 @@ inclusion. Record the required prerequisite ref/SHA in the tracker alongside the
 base SHA; these may legitimately differ when integration already contains it.
 Apply `BRANCH`, `PUSH`, and `OPEN_PR` independently to that ticket; do not ask for a repository,
 base branch, or routine branch/PR confirmation. The factory skill defines the branch policy.
-Nightshift-eng's stages take their non-interactive paths; routine gate failures receive up to three
-small, in-scope repair attempts before the ticket receives a failure receipt. `/nightshift-implement`
+Nightshift-eng's stages take their non-interactive paths; routine gate failures receive
+small, in-scope repairs without a default attempt cutoff. Honor explicit operator limits
+and record a failure receipt only for a concrete unresolved blocker. `/nightshift-implement`
 returns the Step 9 JSON contract that tells you the outcome.
 
 > Context hygiene: each ticket is an independent pipeline. If the context budget is low between
@@ -243,7 +244,7 @@ returns the Step 9 JSON contract that tells you the outcome.
 | Controller receipt status `failed`, or an unexpected error | `--status failed --receipt "<receipt-path>" --reason "<reason>"` |
 | `PIPELINE_SKIPPED:` emitted (already-fixed-upstream or explicit skip) | `--status skipped --receipt "<receipt-path>" --reason "<reason>"` |
 
-Preserve the controller's explicit terminal status: retry exhaustion is `failed`, `blocked`,
+Preserve the controller's explicit terminal status: explicit-limit exhaustion is `failed`, `blocked`,
 or `needs-decision` as recorded in its receipt. A gate's `complete` status advances the
 pipeline; mark the ticket `complete` only after all required gates finish. Supply the
 terminal evidence artifact with `--receipt`; the helper stores a `receipt` field on every

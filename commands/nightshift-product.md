@@ -272,8 +272,9 @@ Before delegating to spec-writer, extract all technical identifiers from the tic
 grounding answers — function names, hook names, type names, file paths, API routes, component
 names, CSS tokens — and write the full list and grounding context to
 `docs/$TASK_KEY/product-extractor.in.md`. Use the bounded transport fallback below.
-It owns all three attempts for this extraction; do not wrap it in another retry
-loop. It escalates only missing local runtime/model, connection refusal, or capacity
+It owns transport fallback for this extraction; preserve its receipts rather than
+wrapping it in a duplicate retry loop. Subsequent diagnosed repairs have no default
+attempt cutoff. It escalates only missing local runtime/model, connection refusal, or capacity
 failures. Authentication, schema, policy, and semantic failures stop for the
 existing repair policy. A manual gear override uses one dispatcher invocation.
 

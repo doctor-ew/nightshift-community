@@ -26,7 +26,6 @@ def register(delivery,grant,attempt,result,observation,repair_grant,operations):
         c.delegate(child,delegation)
         attempt['repair']=dict(grant=repair_grant,trigger=trigger);c.save()
         return existing
-    if len(state['ci_failures'])>=3:raise ValueError('ci_repair_limit_exhausted')
     implementation=c.state['results'].get('implement',{})
     if implementation.get('source')!=context['source']:raise ValueError('external_changes_require_adoption')
     c.delegate(child,delegation)

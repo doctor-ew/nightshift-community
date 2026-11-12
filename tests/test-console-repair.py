@@ -18,6 +18,19 @@ class RepairTests(unittest.TestCase):
         self.patch='diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-before\n+after\n'
     def tearDown(self):self.temp.cleanup()
     def git(self,*args):return subprocess.check_output(['git','-C',str(self.p),*args],text=True)
+    def test_repair_counts_are_telemetry_unless_operator_sets_limit(self):
+        spec=importlib.util.spec_from_file_location('actions',ROOT/'scripts/nightshift-console-actions.py')
+        actions=importlib.util.module_from_spec(spec);spec.loader.exec_module(actions)
+        state=self.p/'repair-state';state.mkdir()
+        path=state/'42.repair-budget.json'
+        path.write_text(json.dumps(dict(attempts=12,limit=3)))
+        _,budget=actions.repair_budget(state,'42')
+        self.assertEqual(budget['attempts'],12)
+        budget.update(limit_origin='operator',limit=12)
+        path.write_text(json.dumps(budget))
+        with self.assertRaisesRegex(ValueError,'Explicit repair budget exhausted'):
+            actions.repair_budget(state,'42')
+
     def test_patch_is_checked_without_mutation(self):
         self.assertEqual(m.checked_patch(self.p,self.patch),['file.txt'])
         self.assertEqual((self.p/'file.txt').read_text(),'before\n')

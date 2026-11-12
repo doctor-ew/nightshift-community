@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Synthetic bounded repair over independently callable operations."""
 import importlib.util
+import difflib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -51,6 +53,33 @@ class Supervisor(unittest.TestCase):
         (self.root/'app.py').write_text('def answer(): return 3\n')
         self.assertEqual(s.run(restarted, g)['status'], 'blocked')
         self.assertEqual(original.calls, calls)
+
+    def test_four_failed_reviews_can_repair_within_explicit_authority(self):
+        plan_path=self.root/'docs/demo/operations.json'
+        plan=json.loads(plan_path.read_text())
+        plan['limits']['implement']['calls']=10
+        plan['limits']['review']['calls']=10
+        plan['aggregate']['calls']=40
+        plan_path.write_text(json.dumps(plan))
+        original=self.worker
+        reviews=0
+        def worker(operation,packet,route,output,seconds):
+            nonlocal reviews
+            original.fail=False
+            original.patch=''
+            if operation=='review':
+                reviews+=1
+                original.fail=reviews<=4
+            if operation=='implement' and packet['findings']:
+                before=packet['artifacts']['app.py']
+                after=before+'# diagnosed repair '+str(reviews)+'\n'
+                original.patch=''.join(difflib.unified_diff(before.splitlines(True),after.splitlines(True),fromfile='a/app.py',tofile='b/app.py'))
+            return original(operation,packet,route,output,seconds)
+        self.c.worker=worker
+        result=s.run(self.c,self.grant())
+        self.assertEqual(result['status'],'passed',result)
+        self.assertEqual(reviews,5)
+        self.assertEqual(sum(a['operation']=='review' and a['status']=='failed' for a in self.c.state['attempts']),4)
 
     def test_unchanged_repair_stops_before_repeated_judgment(self):
         (self.root/'app.py').write_text('def answer(): return 1\n')

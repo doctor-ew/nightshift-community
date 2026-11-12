@@ -146,11 +146,13 @@ class Framing(unittest.TestCase):
         self.assertIn('missing_roles',render.render(ROOT,raw,'claude','haiku')['prompt'])
 
 class Allowance(unittest.TestCase):
-    def test_plan_limits_bounded_but_fit_a_sequential_run(self):
+    def test_plan_limits_honor_operator_allowance_without_ceiling(self):
         ok=dict(wall_seconds=1800,active_seconds=1800,provider_calls=40)
         self.assertEqual(adapter.validate_limits(ok),ok)
         self.assertEqual(adapter.validate_limits(dict(wall_seconds=3600,active_seconds=3600,provider_calls=64))['provider_calls'],64)
-        for bad in (dict(ok,wall_seconds=3601),dict(ok,active_seconds=3601),dict(ok,provider_calls=65),dict(ok,wall_seconds=0),
+        large = dict(wall_seconds=7200,active_seconds=7200,provider_calls=128)
+        self.assertEqual(adapter.validate_limits(large),large)
+        for bad in (dict(ok,wall_seconds=0),
                     dict(ok,provider_calls=True),dict(ok,wall_seconds=1800.0),{k:v for k,v in ok.items() if k!='wall_seconds'},dict(ok,extra=1),None):
             with self.subTest(bad=bad),self.assertRaisesRegex(ValueError,'limits_invalid'):adapter.validate_limits(bad)
 

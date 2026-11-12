@@ -23,6 +23,10 @@ route nightshift-engineer low 1 false | jq -e '.gear == 1' >/dev/null
 route nightshift-engineer high 3 false | jq -e '.gear == 4' >/dev/null
 route nightshift-code-fact-extractor low 1 true | jq -e '.gear == 1' >/dev/null
 route nightshift-code-fact-extractor low 2 false | jq -e '.gear == 1' >/dev/null
-if route nightshift-engineer low 4 false; then exit 1; fi
+route nightshift-engineer low 4 false | jq -e '.gear == 4 and .attempt == 4' >/dev/null
+route nightshift-engineer low 12 false | jq -e '.gear == 4 and .attempt == 12' >/dev/null
+for attempt in 0 -1 1.5 nope; do
+  if route nightshift-engineer low "$attempt" false; then exit 1; fi
+done
 if route nightshift-engineer mystery 1 false; then exit 1; fi
-printf 'gear router: seven assertions passed\n'
+printf 'gear router: extended assertions passed\n'

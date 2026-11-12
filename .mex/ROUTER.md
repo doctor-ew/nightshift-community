@@ -18,7 +18,7 @@ edges:
     condition: when changing releases or repairing installations
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: "2026-10-17"
+last_updated: "2026-11-11"
 ---
 
 # Session Bootstrap
@@ -28,6 +28,8 @@ If you haven't already read `AGENTS.md`, read it now — it contains the project
 Then read this file fully before doing anything else in this session.
 
 ## Current Project State
+
+Operator-directed limit removal candidate: optional adapter repair failure retains a cumulative receipt and no longer blocks source-checkout execution. No installed-runtime activation is claimed. Sources: `scripts/nightshift-update.py`, `tests/test-release-inputs.py`.
 Issue 135 talk preparation: both event decks now contain 51 editable slides, including actual public control-room/Review/allowance screenshots and clearly labelled illustrative HITL question/spec-approval screens. Slides 35–43 provide the detailed skills, proof, decision, MEX retrieval and Jev shadow-evaluation walkthrough. Screenshot capture made no POST requests. `slides/RUN-OF-SHOW.md` provides 20/30/40-minute paths; `slides/SOURCES.md` records provenance. Editable architecture diagrams are slides 21–22. MEX explanation, setup screenshot and retrieval are contiguous at 26–28; slide26 visibly links a checked memory claim to its source lines (not a fresh graph verification); actual spec Sources and adversarial review instructions occupy29–30; Jev and evaluation occupy31–33. Principles DRY/SOLID/ACID/Big O/CoC occupy44–48, with slide-deck and LinkedIn QR codes on50. Shared Slidev imports provide one canonical core for both events. `docs/ARCHITECTURE.md` maps the actual runtime, files, stages and optional/planned integrations. `scripts/nightshift-talk-check.py` checks the retained public fixture; it is not a fresh-provider benchmark. Source edits do not automatically publish GitHub Pages; generated PDFs/builds and private verification remain checkout-local until separately published. Sources: `slides/saturday.md`, `slides/tuesday.md`, `slides/SOURCES.md`, `docs/ARCHITECTURE.md`.
 
 Issue 133 local candidate: development proof is sealed during Implementation, with immutable independent classification evidence and runtime-bound retry identity. Automatic routing checks local inventory before dispatch; bounded handoffs avoid repeated raw logs. New ticket wall clocks are opt-in, while existing budgets and explicit limits remain enforced. Branchless controller tickets are visible but read-only in the dashboard. Sources: `docs/133/SPEC.md`, `docs/133/IMPLEMENTATION.md`, `scripts/nightshift-pipeline.py`, `scripts/nightshift-ticket-budget.py`, `scripts/nightshift-handoff.py`, `scripts/nightshift-console-actions.py`. Architecture and focused regressions pass. Isolated public candidate `36e4abc` passed all six live stages and both proof gates; candidate `201970d` repeats the identical invocation with zero additional provider calls and unchanged receipts and budget reservations. Published implementation CI passed all ten harness shards, dashboard, lint and the required aggregate gate; evidence is recorded in `docs/133/VALIDATION.json`. Earlier failed talk receipts and the default private installation are preserved. Sources: `docs/133/VALIDATION.json`, `scripts/nightshift-cleanup.py`.

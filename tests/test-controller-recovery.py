@@ -163,6 +163,23 @@ class RecoveryTest(unittest.TestCase):
         self.assertEqual(m.p.view(self.project,'T-1')['status'],'stale')
         with self.assertRaisesRegex(ValueError,'committed_source|inputs_changed'):self.run_recovery(expected=a['sha256'])
 
+    def test_owned_execution_accepts_no_default_timeout(self):
+        output=self.project/'unlimited-execution.log'
+        code=m.bounded([__import__('sys').executable,'-c','print("complete")'],self.project,os.environ.copy(),None,output)
+        self.assertEqual(code,0)
+        self.assertIn('complete',output.read_text())
+
+    def test_default_recovery_has_accounting_without_work_ceilings(self):
+        a=self.assess()
+        self.assertEqual(a['evidence']['limits'],dict(wall_seconds=None,active_seconds=None,provider_calls=None))
+        result=self.run_recovery(expected=a['sha256'])
+        self.assertEqual(result['status'],'pending_manual_acceptance')
+        self.assertIsNone(result['allowance']['deadline_at'])
+        budget=dict(result['allowance'],calls_used=1000,active_used=100000)
+        self.assertIsNone(m.allowance_remaining(budget))
+        self.assertFalse(m.allowance_exhausted(budget,calls=True))
+
+    @patch.dict(m.LIMITS,dict(wall_seconds=600,active_seconds=600,provider_calls=4))
     def test_expired_resume_cannot_add_time(self):
         a=self.assess()
         def crash(*args):raise KeyboardInterrupt()

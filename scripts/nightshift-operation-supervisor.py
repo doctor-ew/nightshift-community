@@ -130,7 +130,7 @@ def run(controller, grant, trigger=None):
                     reason = 'explicit_repair_action_required'
                 elif c.clock() >= g['deadline'] or c.corpus() != g['baseline'] or c.modes() != g['baseline_modes'] or c.policy_binding(p) != g['policy_binding']:
                     reason = 'repair_authority_changed_or_expired'
-                elif accounting['next_action'] == 'stop' or sum(a['status'] == 'failed' and a['operation'] == step['operation'] for a in c.state['attempts']) >= 3:
+                elif accounting['next_action'] == 'stop':
                     reason = 'repair_limit_exhausted'
                 elif operation == 'implement' and c.state['results'].get('implement', {}).get('source') != context['source']:
                     reason = 'external_changes_require_adoption'

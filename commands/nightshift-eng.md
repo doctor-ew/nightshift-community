@@ -29,11 +29,11 @@ to correct metadata or repeat already verified source claims.
 On a recurring finding, change the repair author/provider and require a targeted
 regression before re-review. Keep reviewer independence. A check receipt proves
 only the stated regression, never product acceptance or behavioral proof.
-Do not interpret broad completion authorization as permission to keep extending
-exhausted repair allowances. Preserve the failure and publish a concrete recovery
-decision through the portal when the remaining action requires a user choice.
+Continue scoped repairs without an automatic attempt cutoff. Honor limits explicitly
+set by the operator, retain every failed attempt, and publish a concrete recovery
+decision through the portal only when the remaining action requires a user choice.
 Propagate the launcher's `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`
-unchanged to child dispatches; never change identity to evade a shared allowance.
+unchanged to child dispatches; never change identity to evade an explicit shared allowance.
 
 Local evidence checkpoints and TDD lock commits are authorized during the run.
 After verification, push only when push=true, and open a PR only when pr=true. Do not invoke the deploy
@@ -489,7 +489,7 @@ inherited by the stage, which takes its non-interactive path and returns the JSO
 contract; read `status` to decide the branch below instead of interpreting prose.
 
 If `/nightshift-implement` fails or is interrupted (`status:"FAIL"`, or a `## AGENT BLOCKED`): the
-lease and scope remain for safe reconciliation. Mark blocked and stop after the existing repair budget.
+lease and scope remain for safe reconciliation. Mark blocked only when a concrete unresolved dependency or explicit operator limit prevents repair.
 
 ```bash
 sed -i '' "s|^⏳ /nightshift-implement.*|❌ /nightshift-implement — build [FAILED]|" "$TRACKER"
@@ -724,7 +724,7 @@ after a user correction, capture a reusable prevention rule in the same tracker.
 Before completion, inspect the diff, prove changed behavior through appropriate
 checks and assess the evidence against acceptance criteria. Prefer root-cause
 repairs and minimal changes; reconsider complex fixes before presenting them.
-Resolve actionable failures autonomously within the existing repair limits.
+Resolve actionable failures autonomously, retaining evidence and honoring explicit operator limits.
 
 Elapsed time is telemetry, not a completion gate. Model work has no default
 elapsed-time deadline; explicit operator limits, bounded availability probes,

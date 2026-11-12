@@ -125,8 +125,8 @@ class Recovery:
         if self.state is None:
             budget = load('ticket-budget').snapshot(project, task)
             remaining = budget.get('wall_seconds_remaining') if budget else None
-            allowance = min(600, remaining) if remaining is not None else 600
-            self.state = dict(version=1, task=task, worktree=str(target), deadline_at=time.time()+allowance,
+            deadline = time.time() + remaining if remaining is not None else None
+            self.state = dict(version=1, task=task, worktree=str(target), deadline_at=deadline,
                               attempts=[], history=[], completed={}, next_action='proposal', findings=[])
         if self.state['worktree'] != str(target):
             raise ValueError('Recovery worktree identity changed')
@@ -151,10 +151,8 @@ class Recovery:
         return json.loads(path.read_text())
 
     def reserve(self, stage, output):
-        if time.time() >= self.state['deadline_at']:
+        if self.state.get('deadline_at') is not None and time.time() >= self.state['deadline_at']:
             raise ValueError('Recovery deadline exhausted; resume cannot renew it')
-        if sum(a['stage'] == stage for a in self.state['attempts']) >= 3:
-            raise ValueError('Recovery stage budget exhausted; history retained')
         self.state['attempts'].append(dict(stage=stage, output=str(output), outcome='pending'))
         self.state['next_action'] = stage
         self.save()

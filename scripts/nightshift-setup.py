@@ -43,7 +43,7 @@ defaults = {
     'ticket_source': {'provider': 'beads'},
     'providers': {'routing_file': 'routing.json'},
     'deployments.production': {'name': 'production', 'url': 'https://example.invalid', 'health_path': '/health'},
-    'repair_budgets': dict.fromkeys(('implement', 'review', 'drift', 'qa'), 3),
+    'repair_budgets': dict.fromkeys(('implement', 'review', 'drift', 'qa'), 0),
     'policy': {'require_production_confirmation': True, 'require_removal_confirmation': True, 'allow_heuristic_production_target': False},
 }
 def section(name):
@@ -126,7 +126,7 @@ if sys.stdin.isatty() and not args.migrate and not args.defaults:
     additions['runtime'] = {'provider': provider, 'model': model}
     if 'auth' not in runtime:
         additions['runtime']['auth'] = 'subscription'
-    print('Defaults for missing settings: routing.json; 3 repair attempts per gate; removal and production confirmation required; no production target configured. Existing settings are preserved.')
+    print('Defaults for missing settings: routing.json; no default repair attempt ceiling; removal and production confirmation required; no production target configured. Existing settings are preserved.')
     choice = input('Use defaults or customize? [defaults]: ').strip().lower() or 'defaults'
     if choice not in ('defaults', 'customize'):
         fail('CONFIG_INVALID', 'Choose defaults or customize')
@@ -141,8 +141,8 @@ for table, key, default in missing:
         value = (answer.lower() == 'true') if isinstance(default, bool) and answer in ('true', 'false') else (int(answer) if isinstance(default, int) and not isinstance(default, bool) and answer else answer or default)
     except ValueError:
         fail('CONFIG_INVALID', f'{table}.{key} requires an integer')
-    if table == 'repair_budgets' and value < 1:
-        fail('CONFIG_INVALID', f'{table}.{key} requires a positive integer')
+    if table == 'repair_budgets' and value < 0:
+        fail('CONFIG_INVALID', f'{table}.{key} requires a nonnegative integer (0 means unlimited)')
     additions.setdefault(table, {})[key] = value
 
 # Insert missing keys directly into existing tables, preserving every original line.

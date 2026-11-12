@@ -99,17 +99,23 @@ def refresh_install(root, args):
     args = [*args, "--repair"] if "--repair" not in args else args
     receipt = config_path().parent / "update-repair.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
-    for attempt in range(1, 4):
-        try:
-            subprocess.run(["bash", str(root / "install.sh"), *args],
-                           check=True, stdout=sys.stderr, timeout=120)
-            receipt.write_text(json.dumps({"status": "repaired", "attempts": attempt}))
-            return
-        except subprocess.SubprocessError:
-            receipt.parent.mkdir(parents=True, exist_ok=True)
-            receipt.write_text(json.dumps({"status": "failed", "attempts": attempt,
-                                          "next_action": "Inspect installer error; preserve custom files; retry nightshift --sync after reconciliation."}))
-    raise RuntimeError("adapter repair exhausted 3 attempts; see update-repair.json")
+    previous = json.loads(receipt.read_text()) if receipt.exists() else {}
+    attempt = previous.get("attempts", 0) + 1
+    history = previous.get("history", [])
+    if previous and not history:
+        history = [previous]
+    try:
+        subprocess.run(["bash", str(root / "install.sh"), *args],
+                       check=True, stdout=sys.stderr)
+        history.append({"status": "repaired", "attempt": attempt})
+        receipt.write_text(json.dumps({"status": "repaired", "attempts": attempt, "history": history}))
+    except subprocess.SubprocessError as error:
+        history.append({"status": "failed", "attempt": attempt,
+                        "returncode": getattr(error, "returncode", None)})
+        receipt.write_text(json.dumps({"status": "failed", "attempts": attempt,
+                                      "history": history,
+                                      "next_action": "Inspect installer error; preserve custom files; retry nightshift --sync after reconciliation."}))
+        raise RuntimeError("adapter reconciliation failed; see update-repair.json") from error
 
 
 def needs_repair():
@@ -177,7 +183,9 @@ def main():
                     return 75
         except RuntimeError as exc:
             print("nightshift: " + str(exc), file=sys.stderr)
-            return 1
+            if args.run is None:
+                return 1
+            print("nightshift: retaining installation failure; continuing requested source-checkout run", file=sys.stderr)
         except (subprocess.SubprocessError, ValueError) as exc:
             # Avoid echoing source URLs or credential-bearing command arguments.
             print("nightshift: update unavailable or unsafe; installed build retained (" + type(exc).__name__ + ")", file=sys.stderr)

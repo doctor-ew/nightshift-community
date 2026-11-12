@@ -127,16 +127,13 @@ class DeliveryRepairReview(unittest.TestCase):
         assessed=self.c.assess('verify');remaining=self.c.authorize(['verify','review'],assessed['binding'],'synthetic','external-ci-verify-review')
         result=self.c.chain(remaining['id']);self.assertTrue(all(row['status'] in ('passed','reused') for row in result['results']),result)
         self.assertEqual(self.impl_calls(),before);self.accept()
-    def test_three_ci_repairs_remain_ceiling_across_commits_and_grants(self):
+    def test_ci_repairs_continue_across_commits_and_grants(self):
         self.pr()
-        for index in range(1,4):
+        for index in range(1,5):
             self.failure(index);child,g,r,_=self.register(operator='synthetic-round-'+str(index));self.patch(index)
             self.assertEqual(self.delivery.resume_repair(g,r)['status'],'needs_acceptance');self.accept()
             head=self.prepared();self.run_action('branch');self.host.rows[0]['headRefOid']=head
             self.assertEqual(self.run_action('pr')['status'],'pr_open')
-        self.assertEqual(len(self.delivery.state()['ci_failures']),3)
-        self.failure(4);child=self.child_grant('synthetic-round-4');g,r=self.repair_authority('synthetic-round-4');before=self.impl_calls()
-        with self.assertRaisesRegex(ValueError,'ci_repair_limit_exhausted'):self.delivery.execute(g,r,repair_grant=child)
-        self.assertEqual(self.impl_calls(),before);self.assertEqual(len(self.delivery.state()['ci_failures']),3)
+        self.assertEqual(len(self.delivery.state()['ci_failures']),4)
 
 if __name__=='__main__':unittest.main()

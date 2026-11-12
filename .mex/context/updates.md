@@ -3,7 +3,7 @@ name: "updates"
 description: "Release selection, checkout preservation, and installer retry receipts."
 triggers: ["update", "release", "repair installation"]
 edges: [{"target": "context/architecture.md", "condition": "when placing the change in the pipeline"}, {"target": "context/conventions.md", "condition": "when implementing or verifying changes"}, {"target": "patterns/change-release-update.md", "condition": "when changing update behavior"}, {"target": "context/setup.md", "condition": "when diagnosing initial installation"}]
-last_updated: "2026-09-20"
+last_updated: "2026-11-11"
 mex:
   id: mx_01M21Z3AW1PMP70S4G96GA2Q1P
   type: architecture
@@ -46,7 +46,7 @@ mex:
 ## Checkout and adapter boundaries
 [`update()`](mex://function:a7f1960294d4505d616aeac277790de0) fast-forwards only a clean expected branch when applying a different revision. Other branches or dirty work defer the revision update. Pending installer work is retried before release selection when applying, so revision deferral is not a guarantee that no installer work occurred. Source: `scripts/nightshift-update.py` (line 68).
 
-[`refresh_install()`](mex://function:9351f411e2179b34ee9962426ee6bb3c) ensures repair mode, permits three attempts with a 120-second subprocess timeout, and records success/failure in update-repair.json. A pending installation receipt survives repair failure in the update path. Sources: `scripts/nightshift-update.py` (line 96), `scripts/nightshift-update.py` (line 89).
+[`refresh_install()`](mex://function:9351f411e2179b34ee9962426ee6bb3c) ensures repair mode and records cumulative repair attempts and success/failure in update-repair.json. It has no automatic attempt or execution-time ceiling. An installer conflict remains a failure for standalone synchronization; a requested source-checkout run continues with the failure retained. A pending installation receipt survives repair failure in the update path. Sources: `scripts/nightshift-update.py` (line 96), `scripts/nightshift-update.py` (line 89).
 
 ## Active-run guard
 Updater [`main()`](mex://function:cb32152a6879bdf14abfe72df192d72e) uses a nonblocking exclusive lock for updates, returns 75 for a standalone operation blocked by an active run, and passes a shared lock to its factory child. Source: `scripts/nightshift-update.py` (line 163).

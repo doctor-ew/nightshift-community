@@ -103,6 +103,30 @@ def transaction(path, initial, secure_root=None, readonly=False):
         yield state, save
 
 
+def limit_reached(count, limit):
+    return limit is not None and count >= limit
+
+
+def reconcile_retry_defaults(state):
+    previous = state.get('limits')
+    if (previous != {'infrastructure': 3, 'substantive': 4, 'total': 12}
+            or state.get('limit_origin') == 'operator'):
+        return False
+    state.setdefault('limit_history', []).append({
+        'reason': 'removed_implicit_retry_limits', 'previous_limits': dict(previous),
+        'counts': {key: state[key] for key in
+                   ('total', 'substantive_failures', 'infrastructure_failures')}})
+    state['limits'] = dict.fromkeys(previous)
+    state['limit_origin'] = 'unlimited-default'
+    if state.get('next_action') == 'stop':
+        limits = retry_limits(state)
+        if not any(limit_reached(state[counter], limits[limit]) for counter, limit in (
+                ('infrastructure_failures', 'infrastructure'),
+                ('substantive_failures', 'substantive'), ('total', 'total'))):
+            state['next_action'] = 'repair_spec_before_retry' if state['substantive_failures'] else 'diagnose_before_retry'
+    return True
+
+
 def retry_limits(state):
     limits = dict(state['limits'])
     if state.get('continuations'):
@@ -110,16 +134,16 @@ def retry_limits(state):
     return limits
 
 
-def authorize_continuation(path, decision, expected_sha256, attempts=3):
+def authorize_continuation(path, decision, expected_sha256, attempts=None):
     """Explicit operator action; never called automatically by a dispatcher.
 
-    Retains original limits/counters and grants at most three further dispatches.
+    Retains original limits/counters and grants the requested number of further dispatches.
     The decision file records user authorization; it is not an authentication
     boundary against a process which already has write access to this ledger.
     """
     path, decision = Path(path).absolute(), Path(decision).absolute()
-    if type(attempts) is not int or not 1 <= attempts <= 3:
-        raise ValueError('continuation requires one to three attempts')
+    if type(attempts) is not int or attempts <= 0:
+        raise ValueError('continuation requires a positive number of attempts')
     if path.resolve() != path or decision.resolve() != decision:
         raise ValueError('symlink continuation paths refused')
     decision_bytes = decision.read_bytes()
@@ -142,10 +166,10 @@ def authorize_continuation(path, decision, expected_sha256, attempts=3):
                     state.get('next_action') != 'stop' or
                     'pending' in state['attempts'].values()):
                 raise ValueError('only a stopped, finalized retry ledger is eligible')
-            if state['infrastructure_failures'] >= state['limits']['infrastructure']:
+            if limit_reached(state['infrastructure_failures'], state['limits']['infrastructure']):
                 raise ValueError('infrastructure exhaustion requires diagnosis, not additional reviews')
             prior = retry_limits(state)
-            if state['substantive_failures'] < prior['substantive'] and state['total'] < prior['total']:
+            if not (limit_reached(state['substantive_failures'], prior['substantive']) or limit_reached(state['total'], prior['total'])):
                 raise ValueError('ledger has no exhausted review allowance')
             state.setdefault('continuations', []).append({
                 'decision_path': str(decision), 'decision_sha256': decision_hash,
@@ -163,8 +187,11 @@ def authorize_continuation(path, decision, expected_sha256, attempts=3):
 def account(path, attempt, category, exclusive=False):
     with transaction(path, lambda: {
             'version': 1, 'infrastructure_failures': 0, 'substantive_failures': 0,
-            'total': 0, 'limits': {'infrastructure': 3, 'substantive': 4, 'total': 12},
+            'total': 0, 'limits': {'infrastructure': None, 'substantive': None, 'total': None},
             'attempts': {}, 'next_action': 'continue'}) as (state, save):
+        migrated = reconcile_retry_defaults(state)
+        if migrated:
+            save()
         if exclusive and category=='pending' and any(key!=attempt and value=='pending' for key,value in state['attempts'].items()):
             raise ValueError('retry_accounting_pending:reconcile_existing_request')
         finalizing = state['attempts'].get(attempt) == 'pending' and category != 'pending'
@@ -188,9 +215,9 @@ def account(path, attempt, category, exclusive=False):
                   'schema': 'repair_transport_before_retry',
                   'substantive': 'repair_spec_before_retry'}.get(category, 'continue')
         limits = retry_limits(state)
-        if (state['infrastructure_failures'] >= limits['infrastructure'] or
-                state['substantive_failures'] >= limits['substantive'] or
-                state['total'] >= limits['total']):
+        if (limit_reached(state['infrastructure_failures'], limits['infrastructure']) or
+                limit_reached(state['substantive_failures'], limits['substantive']) or
+                limit_reached(state['total'], limits['total'])):
             action = 'stop'
         recurring = review_reuse.recurring_findings(state) if category == 'substantive' else []
         if recurring:
@@ -245,24 +272,26 @@ def proof_validate(state):
     if not isinstance(budget, dict) or set(budget) != keys or type(budget['pinned']) is not bool:
         raise ValueError('invalid proof accounting state')
     policy = budget['policy']
-    bounds = {'version': (1, 1), 'development_calls': (1, 128), 'final_calls': (1, 128),
-              'repairs': (0, 64), 'infrastructure_failures': (0, 2),
-              'timeout_seconds': (0, 120), 'output_bytes': (1, 1048576)}
+    bounds = {'version': (1, 1), 'development_calls': (1, None), 'final_calls': (1, None),
+              'repairs': (0, None), 'infrastructure_failures': (0, None),
+              'timeout_seconds': (0, None), 'output_bytes': (1, 1048576)}
     if not isinstance(policy, dict) or set(policy) != set(bounds) | {'force_prompt'} or type(policy['force_prompt']) is not bool:
         raise ValueError('invalid pinned proof policy')
     for key, (low, high) in bounds.items():
-        if type(policy[key]) is not int or not low <= policy[key] <= high:
+        if key in ('development_calls', 'final_calls', 'repairs', 'infrastructure_failures') and policy[key] is None:
+            continue
+        if type(policy[key]) is not int or policy[key] < low or (high is not None and policy[key] > high):
             raise ValueError('invalid pinned proof policy')
     for key in ('infrastructure_failures', 'repairs'):
         if type(budget[key]) is not int or budget[key] < 0:
             raise ValueError('invalid proof counter')
-    if budget['repairs'] > policy['repairs']:
+    if policy['repairs'] is not None and budget['repairs'] > policy['repairs']:
         raise ValueError('invalid proof repair counter')
     for key in ('reservations', 'launches'):
         if not isinstance(budget[key], dict) or set(budget[key]) != {'development', 'final'}:
             raise ValueError('invalid proof gate counters')
         for gate, count in budget[key].items():
-            if type(count) is not int or not 0 <= count <= policy[gate + '_calls']:
+            if type(count) is not int or count < 0 or (policy[gate + '_calls'] is not None and count > policy[gate + '_calls']):
                 raise ValueError('invalid proof gate counter')
     if not isinstance(budget['attempts'], dict):
         raise ValueError('invalid proof attempts')
@@ -290,9 +319,9 @@ def proof_admit(state, policy, gate, minimum=1):
     if any(item['outcome'] == 'pending' for item in budget['attempts'].values()):
         raise ValueError('pending proof attempt')
     failures = budget['infrastructure_failures']
-    if failures > 0 and failures >= policy['infrastructure_failures']:
+    if failures > 0 and limit_reached(failures, policy['infrastructure_failures']):
         raise ValueError('proof infrastructure exhausted')
-    if budget['reservations'][gate] + minimum > policy[gate + '_calls']:
+    if policy[gate + '_calls'] is not None and budget['reservations'][gate] + minimum > policy[gate + '_calls']:
         raise ValueError('proof calls exhausted')
     return budget
 
@@ -407,7 +436,9 @@ def run_dispatch(arguments):
             repair_receipt = json.loads((directory / 'repair-check.receipt.json').read_text())
         state = {}
         if state_path.exists():
-            state = json.loads(state_path.read_text())
+            with transaction(state_path, dict) as (state, save):
+                if reconcile_retry_defaults(state):
+                    save()
             if 'pending' in state['attempts'].values():
                 raise ValueError('exhausted or interrupted budget; inspect retained evidence')
         repair_signature = repair_admission(directory, state, repair_receipt) if repair_receipt else None
@@ -517,7 +548,7 @@ if __name__ == '__main__':
         parser.add_argument('--state', required=True)
         parser.add_argument('--decision', required=True)
         parser.add_argument('--expected-sha256', required=True)
-        parser.add_argument('--attempts', type=int, default=3)
+        parser.add_argument('--attempts', type=int, required=True)
         args = parser.parse_args(sys.argv[2:])
         try:
             print(json.dumps(authorize_continuation(args.state, args.decision,

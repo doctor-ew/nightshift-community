@@ -154,7 +154,8 @@ def state(project, task):
     budget = read(budget_path) if budget_path.exists() else {}
     attempts = budget.get('attempts', 0)
     credits = budget.get('proof_gate_bug_reconciliation', {}).get('credited_attempts', 0)
-    remaining = max(0, 3 - (attempts - credits)) if type(attempts) is int and type(credits) is int else 0
+    limit = budget.get('limit') if budget.get('limit_origin') == 'operator' else None
+    remaining = max(0, limit - (attempts - credits)) if limit is not None and type(attempts) is int and type(credits) is int else None
     spec = importlib.util.spec_from_file_location('console_progress', HERE / 'nightshift-console-progress.py')
     progress_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(progress_module)
     live = progress_module.progress(project, task, job, running)
@@ -270,7 +271,7 @@ def repair_context(project, task, target, provider="auto"):
 def repair_budget(path, task):
     """One-time reconciliation of the prelaunch proof-gate bug; never reset attempts."""
     budget_path = path / (task + '.repair-budget.json')
-    budget = read(budget_path) if budget_path.exists() else dict(attempts=0, limit=3)
+    budget = read(budget_path) if budget_path.exists() else dict(attempts=0, limit=None)
     used = budget.get('attempts')
     if type(used) is not int or used < 0:
         raise ValueError('Invalid repair budget')
@@ -293,12 +294,15 @@ def repair_budget(path, task):
                 continue
         budget['proof_gate_bug_reconciliation'] = dict(
             reason='Pre-provider rejection caused by implementation-role diagnosis bug; fixed in fbb3300',
-            credited_attempts=min(used, len(evidence), 3), evidence=evidence)
+            credited_attempts=min(used, len(evidence)), evidence=evidence)
     credits = budget['proof_gate_bug_reconciliation'].get('credited_attempts', 0)
-    if type(credits) is not int or not 0 <= credits <= min(used, 3):
+    if type(credits) is not int or not 0 <= credits <= used:
         raise ValueError('Invalid repair budget reconciliation')
-    if used - credits >= 3:
-        raise ValueError('Repair budget exhausted (three charged attempts); inspect retained evidence')
+    limit = budget.get('limit') if budget.get('limit_origin') == 'operator' else None
+    if limit is not None and (type(limit) is not int or limit <= 0):
+        raise ValueError('Invalid explicit repair limit')
+    if limit is not None and used - credits >= limit:
+        raise ValueError('Explicit repair budget exhausted; inspect retained evidence')
     return budget_path, budget
 
 
@@ -358,7 +362,10 @@ def exhausted_stage(project, task, pipeline):
     recorded = (canonical.get('retry_budgets') or {}).get(stage) or {}
     path = module.root(project, task) / (stage + '-budget.json')
     ledger = module.read(path) if path.exists() else {}
-    return stage if recorded.get('next_action') == 'stop' or ledger.get('next_action') == 'stop' else ''
+    # Read-only previews must agree with dispatcher migration of implicit defaults.
+    migrated = _recovery.load('retry-budget').reconcile_retry_defaults(ledger) if ledger else False
+    stopped = ledger.get('next_action') == 'stop' if migrated else recorded.get('next_action') == 'stop' or ledger.get('next_action') == 'stop'
+    return stage if stopped else ''
 
 
 def reject_exhausted_stage(project, task, current):

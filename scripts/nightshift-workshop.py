@@ -20,8 +20,8 @@ _context = importlib.util.module_from_spec(_context_spec)
 _context_spec.loader.exec_module(_context)
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULTS = dict(calls=30, cost_usd=2.0, call_usd=0.25,
-                input_tokens=1000000, output_tokens=40000, input_bytes=32768,
+DEFAULTS = dict(calls=None, cost_usd=None, call_usd=None,
+                input_tokens=None, output_tokens=None, input_bytes=32768,
                 response_bytes=1048576)
 
 
@@ -144,6 +144,8 @@ class Run:
         if set(self.limits) != set(DEFAULTS):
             stop('unknown workshop budget setting')
         for name, value in self.limits.items():
+            if value is None and name in ('calls', 'cost_usd', 'call_usd', 'input_tokens', 'output_tokens'):
+                continue
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
                 stop(f'invalid budget {name}')
             if name not in ('cost_usd', 'call_usd') and not isinstance(value, int):
@@ -307,10 +309,8 @@ class Run:
                   f'Evidence: docs/{self.task}/RUN.json\n')
 
     def check_budget(self):
-        if (len(self.state['calls']) >= self.limits['calls'] or
-            self.state['cost_usd'] >= self.limits['cost_usd'] or
-            self.state['input_tokens'] >= self.limits['input_tokens'] or
-            self.state['output_tokens'] >= self.limits['output_tokens']):
+        if any(self.limits[name] is not None and usage >= self.limits[name] for name, usage in
+               [('calls', len(self.state['calls'])), *[(key, self.state[key]) for key in ('cost_usd', 'input_tokens', 'output_tokens')]]):
             self.state['status'] = 'budget_exhausted'
             stop('whole-run budget exhausted; all attempts retained')
 
@@ -350,7 +350,11 @@ class Run:
         if len((system + request).encode()) > self.limits['input_bytes']:
             stop(f'{name}: input context exceeds byte limit')
         self.state['status'] = name
-        reserve = min(self.limits['call_usd'], self.limits['cost_usd'] - self.state['cost_usd'])
+        call_limit = self.limits['call_usd']
+        if self.limits['cost_usd'] is not None:
+            remaining = self.limits['cost_usd'] - self.state['cost_usd']
+            call_limit = min(call_limit, remaining) if call_limit is not None else remaining
+        reserve = call_limit if call_limit is not None else 0
         prior_attempts = sum(c['name'] == name for c in self.state['calls'])
         receipt_name = name + (f'.retry-{prior_attempts}' if prior_attempts else '') + '.stdout.json'
         record = {'receipt': receipt_name, 'name': name, 'model': model, 'status': 'running', 'reserved_usd': reserve,
@@ -363,7 +367,9 @@ class Run:
         argv = [self.executable, '--print', '--output-format', 'json', '--model', model,
                 '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                 '--setting-sources', '', '--safe-mode', '--disable-slash-commands', '--no-session-persistence',
-                '--system-prompt', prompt, '--max-turns', '1', '--max-budget-usd', str(reserve)]
+                '--system-prompt', prompt, '--max-turns', '1']
+        if call_limit is not None:
+            argv += ['--max-budget-usd', str(call_limit)]
         if structured and ('review' in name or name.startswith('grade-')):
             schema = FINAL_SCHEMA if name.startswith('code-review-') else GRADE_SCHEMA if name.startswith('grade-') else REVIEW_SCHEMA
             argv += ['--json-schema', json.dumps(schema), '--effort', getattr(self, 'review_effort', 'medium')]
@@ -410,7 +416,8 @@ class Run:
             self.state['cache'][name] = value
             self.save()
             # Do not pass a stage if the last call crossed the whole-run threshold.
-            if self.state['cost_usd'] > self.limits['cost_usd'] or self.state['input_tokens'] > self.limits['input_tokens'] or self.state['output_tokens'] > self.limits['output_tokens']:
+            if any(self.limits[key] is not None and self.state[key] > self.limits[key]
+                   for key in ('cost_usd', 'input_tokens', 'output_tokens')):
                 self.state['status'] = 'budget_exhausted'; stop('whole-run budget exceeded by last call')
             return value
         except BaseException:
@@ -527,17 +534,20 @@ class Run:
             if {c['kind'] for c in cases if rid in c['criteria']} != {'positive','negative'}: stop('missing positive/negative coverage')
         write(self.artifacts / 'CASES.json', scenarios)
         if not self.reviewed('scenario-review', {'spec': spec, 'cases': cases}): stop('scenario review rejected')
-        for attempt in range(2):
-            repair = {} if attempt == 0 else {'previous_prompt': '\n'.join(self.state['cache']['implementation-0']['lines']),
-                       'feedback': self.state['cache'].get('grade-0'), 'review': self.state['cache'].get('code-review-0')}
+        attempt = 0
+        while True:
+            repair = {} if attempt == 0 else {'previous_prompt': '\n'.join(self.state['cache']['implementation-' + str(attempt - 1)]['lines']),
+                       'feedback': self.state['cache'].get('grade-' + str(attempt - 1)), 'review': self.state['cache'].get('code-review-' + str(attempt - 1))}
             built = self.call('implementation-' + str(attempt), self.writer,
                 'Implement only the approved standalone system prompt. Return {"lines":[strings]}. '
                 'Return exactly 20 nonempty strings, each a single line without newline characters. Honor each criterion without requiring magic phrases. '
-                'Feedback may inform one repair; never weaken evidence integrity to satisfy feedback. Do not change the specification or tests. ' + EVIDENCE_POLICY, {'spec': spec, 'repair': repair})
+                'Use the retained failure feedback to make a diagnosed repair; never weaken evidence integrity to satisfy feedback. Do not change the specification or tests. ' + EVIDENCE_POLICY, {'spec': spec, 'repair': repair})
             lines = built.get('lines')
             if set(built) != {'lines'} or not isinstance(lines, list) or len(lines) != 20 or any(not isinstance(line, str) or not line.strip() or len(line.splitlines()) != 1 for line in lines):
                 stop('implementation requires exactly 20 nonempty single-line strings')
             content = '\n'.join(lines) + '\n'
+            if attempt and content == repair['previous_prompt'] + '\n':
+                stop('repair did not change failed prompt; diagnosis required before repeated evaluation')
             prior_hash = self.state.get('prompt_sha256')
             if self.artifact.exists() and digest(self.artifact.read_bytes()) != prior_hash: stop('prompt changed outside this exercise')
             self.state['execution_status'] = 'running'
@@ -563,8 +573,8 @@ class Run:
             if approved and all(r['passed'] for r in results):
                 self.state['verification_status'] = 'passed'; break
             self.state['verification_status'] = 'failed'
-            if attempt == 1: stop('behavior/review failed after one repair; previous evidence retained')
             self.state['repairs'] += 1; self.save()
+            attempt += 1
         if digest(self.artifact.read_bytes()) != self.state['prompt_sha256'] or digest(spec_path.read_bytes()) != sha: stop('artifact drift')
         changed = git(self.worktree, 'status', '--porcelain', '--untracked-files=all').splitlines()
         allowed = ('prompts/workshop-agent.md', f'docs/{self.task}/', f'.nightshift/{self.task}.md', f'.nightshift/{self.task}.json', f'.nightshift/agents/{self.task}.json')

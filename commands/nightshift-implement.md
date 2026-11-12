@@ -36,8 +36,8 @@ not assertable:
 - **Supervised** (default — `AUTONOMOUS` unset/false): interactive gates at approach,
   and plan. Agents return prose.
 - **Autonomous** (`AUTONOMOUS=true`, set by `/nightshift-batch`): no interactive gates — pick the
-  conservative approach, proceed on the plan, and return the Step 9 JSON contract. Retry
-  budget applies.
+  conservative approach, proceed on the plan, and return the Step 9 JSON contract.
+  Honor explicit operator limits; automatic repair has no default attempt cutoff.
 
 ```bash
 PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
@@ -344,7 +344,7 @@ if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
   jq '{status,reason,results,artifacts}' "docs/$TASK/test-runner.out.json"
 else
   jq '{status,reason}' "docs/$TASK/test-runner.out.json"
-  # Enter the existing scoped repair budget below.
+  # Enter the scoped repair loop below.
 fi
 ```
 
@@ -360,23 +360,17 @@ raw observation outside GREEN context; later source changes require fresh eviden
 
 Initialize `GATE_ATTEMPT=1` separately for each gate. On a failed gate, record the
 attempt in its existing persisted retry ledger, increment `GATE_ATTEMPT`, and pass
-it on the next scoped repair dispatch. Resume from the recorded count, never reset
-an exhausted ledger. Attempt 4 must not be dispatched: the router rejects it.
-Automatic gear selection raises capacity on attempts 2 and 3 without an extra
-model call; it does not replace the gate or authorize bypassing review/security.
+it on the next scoped repair dispatch. Resume from the recorded count without
+resetting history. Routing capacity saturates at the highest configured gear;
+it does not impose an attempt cutoff or replace a correctness gate.
 
-On failure: inspect output in the orchestrator, dispatch a scoped repair using
-only permitted feedback, and re-run. After **3 failures on the same test**, stop.
-
-- **Supervised:** escalate to the engineer — do not attempt a 4th fix.
-- **Autonomous:** spend the retry budget, then exhaust:
-  ```bash
-  N=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-increment.sh" "$TASK" RETRY_IMPLEMENT | tail -1)
-  if [ "$N" -ge 3 ]; then
-    bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-exhaust.sh" "$TASK" implement "3 build failures on the same test"
-    # return Step 9 contract status:"FAIL"
-  fi
-  ```
+On failure, inspect output in the orchestrator, identify the root cause, dispatch
+a scoped repair using only permitted feedback, and re-run the affected gate.
+Continue while an in-scope repair can make progress. A recurring failure requires
+new diagnosis or a different repair approach, with targeted regression evidence
+before another review. Honor explicit operator limits. If an unresolved dependency
+or product decision prevents progress, return the Step 9 failure contract with
+concrete evidence and the required next action.
 
 ---
 
@@ -463,4 +457,4 @@ only commits this stage makes; the GREEN diff stays in the working tree for `/ni
   task-bound gate pass. Reviewed not-applicable cases do not fabricate tests.
 - Never let the GREEN agent see the test source (firewall).
 - Never commit the final diff / push / open a PR.
-- Three failures on the same test = escalate (supervised) or exhaust (autonomous) — not a 4th guess.
+- Retain every failed test attempt; continue evidence-driven repair without a default attempt cutoff.

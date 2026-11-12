@@ -252,3 +252,16 @@ test('UI-E1 stage projection retains failures and rejects cross-task/stage fallb
   assert.equal(missing.provider,null);assert.equal(missing.model,null);assert.equal(missing.attempts.length,0);
   assert.equal(model.stageEvidence(rows,{...ticket,pipeline:{...ticket.pipeline,status:'stale'}},'implement').stale,true);
 });
+
+
+test('unlimited accounting does not become an exhausted call allowance', async () => {
+  const {continuationControl, ticketAllowanceText} = await import('./src/model.mjs');
+  const budget = {revision:'current', calls_reserved:100, max_calls:null,
+    active_seconds_remaining:null, unfinished:0, exhausted:false, wall_clock:'none'};
+  assert.match(continuationControl({budget}).reason, /Use Resume/);
+  assert.equal(ticketAllowanceText(budget),
+    'No active-time limit · 100 instrumented launches reserved · no launch limit');
+  assert.equal(ticketAllowanceText({...budget, active_seconds_remaining:9.7,max_calls:200}),
+    '9 aggregate active seconds remaining · 100/200 instrumented launches reserved');
+  assert.equal(continuationControl({budget:{...budget,exhausted:true}}).disabled,false);
+});

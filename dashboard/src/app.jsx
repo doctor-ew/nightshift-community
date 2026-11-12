@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, continuationControl, workerDiagnostic, stageRetriesExhausted, stageEvidence } from './model.mjs';
+import { active, attention, currentRows, filterRows, modified, ticketProgress, blockerSummary, evidenceUrl, ticketSourceLink, ticketTimeline, ticketUsage, ticketAllowanceText, continuationControl, workerDiagnostic, stageRetriesExhausted, stageEvidence } from './model.mjs';
 import './app.css';
 import {OperationsPanel} from './operations.jsx';
 import {LiveProgress, TicketChat, TicketDecision} from './ticket-live.jsx';
@@ -227,8 +227,8 @@ function TicketActions({ rows, reports = [] }) {
       </details>}
       {ticket.budget && <details open><summary>Recorded allowance and continuation</summary><div className="outcome-summary" role="status">{ticket.budget.error || <>
         <strong>{ticket.budget.exhausted ? 'Budget exhausted' : 'Remaining allowance'}</strong>
-        <p>{Math.floor(ticket.budget.active_seconds_remaining)} aggregate active seconds remaining · {ticket.budget.calls_reserved}/{ticket.budget.max_calls} instrumented launches reserved</p>
-        <p>{ticket.budget.wall_seconds_remaining == null ? (ticket.budget.wall_clock === 'none' ? 'No wall-clock deadline. Active time and launch limits remain enforced.' : 'Historical run: no wall-clock deadline was recorded.') : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
+        <p>{ticketAllowanceText(ticket.budget)}</p>
+        <p>{ticket.budget.wall_seconds_remaining == null ? (ticket.budget.wall_clock === 'none' ? 'No wall-clock deadline. Any explicitly configured limits remain enforced.' : 'Historical run: no wall-clock deadline was recorded.') : `${Math.floor(ticket.budget.wall_seconds_remaining)} wall-clock seconds remaining. Resuming does not restart this clock.`}</p>
         <p>Used: {Math.floor(ticket.budget.active_seconds)} aggregate active seconds · {ticket.budget.continuations || 0} continuation grants.</p>
         <p>This action grants up to 10 minutes of wall time and 10 minutes of aggregate worker time. Unused time does not accumulate. Parallel workers share that allowance. Prior usage and launch limits stay recorded; these counters do not measure tokens or billing.</p>
         <button disabled={readOnly || !!busy || continuation.disabled} onClick={() => act(ticket, 'continue')}>{busy === ticket.task ? 'Checking and continuing…' : 'Grant 10 minutes & continue'}</button>

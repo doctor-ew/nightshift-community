@@ -23,23 +23,19 @@ provider = "local"
 model = "devstral-small-2:24b"
 
 [repair_budgets]
-implement = 3
-review = 3
-drift = 3
-qa = 3
+implement = 0
+review = 0
+drift = 0
+qa = 0
 
 [policy]
 require_production_confirmation = true
 require_removal_confirmation = true
 allow_heuristic_production_target = false
 
-# Optional: omitted fields use these same finite defaults.
+# Optional: omitted work/time/count limits have no ceiling.
 [behavior_proof]
 version = 1
-development_calls = 8
-final_calls = 2
-repairs = 2
-infrastructure_failures = 2
 timeout_seconds = 0
 output_bytes = 1048576
 force_prompt = false

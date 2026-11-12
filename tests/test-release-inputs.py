@@ -102,7 +102,7 @@ class ReleaseInputs(unittest.TestCase):
         data = json.loads((self.base / "home/updates.json").read_text())
         self.assertEqual(data, {"source": str(self.remote), "channel": "branch:main"})
 
-    def test_repair_manifest_and_three_attempt_receipt(self):
+    def test_repair_failure_has_no_exhaustion_ceiling(self):
         home = self.base / "runtime"
         home.mkdir()
         self.assertTrue(updater.needs_repair())
@@ -117,9 +117,13 @@ class ReleaseInputs(unittest.TestCase):
         with patch.object(updater.subprocess, "run", side_effect=subprocess.CalledProcessError(74, "installer")) as runner:
             with self.assertRaises(RuntimeError):
                 updater.refresh_install(self.local, ["--repair"])
-            self.assertEqual(runner.call_count, 3)
+            self.assertEqual(runner.call_count, 1)
+            for _ in range(4):
+                with self.assertRaises(RuntimeError):
+                    updater.refresh_install(self.local, ["--repair"])
+            self.assertEqual(runner.call_count, 5)
         receipt = json.loads((home / "update-repair.json").read_text())
-        self.assertEqual(receipt["attempts"], 3)
+        self.assertEqual(receipt["attempts"], 5)
         self.assertEqual(receipt["status"], "failed")
 
     def test_spec_no_external_cli_and_stable_identity(self):
@@ -140,6 +144,21 @@ class ReleaseInputs(unittest.TestCase):
         outside.write_text("# Outside")
         with self.assertRaises(subprocess.CalledProcessError):
             resolve("spec:" + str(outside))
+
+    def test_optional_healing_failure_does_not_block_source_run(self):
+        env = {"source": str(self.remote), "channel": "stable", "install_args": ["--repair"]}
+        child = unittest.mock.Mock()
+        child.wait.return_value = 0
+        with patch.object(updater, "settings", return_value=env), \
+                patch.object(updater, "update"), \
+                patch.object(updater, "git", return_value=str(self.local / ".git")), \
+                patch.object(updater, "needs_repair", return_value=True), \
+                patch.object(updater, "refresh_install", side_effect=RuntimeError("retained conflict")), \
+                patch.object(updater.subprocess, "Popen", return_value=child) as launch, \
+                patch.object(updater.signal, "signal"), \
+                patch.object(updater.sys, "argv", [str(SCRIPT), "--project", str(self.local), "--run", "gh:154"]):
+            self.assertEqual(updater.main(), 0)
+        self.assertEqual(launch.call_args.args[0][-1], "gh:154")
 
 
 if __name__ == "__main__":

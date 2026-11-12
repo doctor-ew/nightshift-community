@@ -3,7 +3,7 @@ name: "change-release-update"
 description: "Change release/update integration while preserving local work"
 triggers: ["release selection", "installer repair", "update deferral"]
 edges: [{"target": "context/conventions.md", "condition": "when implementing and verifying this change"}, {"target": "context/updates.md", "condition": "when understanding the relevant subsystem"}]
-last_updated: "2026-09-08"
+last_updated: "2026-11-11"
 mex:
   id: mx_01M21Z3AWXN7XYSBQCS0FHKMKW
   type: pattern
@@ -48,7 +48,7 @@ Stable versions sort numerically; branch channels are explicit. Pending installe
 - [ ] Retain coverage for dirty/feature branches, mismatched tags, active-run locks, and failed installer receipts. Source: `tests/test-release-inputs.py:48`, `tests/test-release-inputs.py:63`, `tests/test-release-inputs.py:77`, `tests/test-release-inputs.py:89`.
 
 ## Debug
-Inspect the returned status and installer receipt first. Exhaustion records attempts and a reconciliation hint; do not remove user files to force update success. Source: `scripts/nightshift-update.py:110`.
+Inspect the returned status and installer receipt first. Repair failure records attempts and a reconciliation hint. Source-checkout execution continues independently of optional adapter repair; do not remove user files to force update success. Source: `scripts/nightshift-update.py:110`.
 
 ## Update Scaffold
 - [ ] Update `.mex/ROUTER.md` if project state changed.
