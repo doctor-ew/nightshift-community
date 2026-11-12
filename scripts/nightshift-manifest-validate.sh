@@ -17,7 +17,7 @@ value() { awk -F= -v section="$1" -v key="$2" '
 ' "$MANIFEST"; }
 required_string() { local v; v="$(value "$1" "$2")"; [ -n "$v" ] || fail MANIFEST_INVALID "[$1].$2 must be a non-empty string"; printf '%s' "$v"; }
 required_bool() { local v; v="$(value "$1" "$2")"; [ "$v" = true ] || [ "$v" = false ] || fail MANIFEST_INVALID "[$1].$2 must be true or false"; }
-required_budget() { local v; v="$(value repair_budgets "$1")"; [[ "$v" =~ ^[1-9][0-9]*$ ]] || fail MANIFEST_INVALID "[repair_budgets].$1 must be a positive integer"; }
+required_budget() { local v; v="$(value repair_budgets "$1")"; [[ "$v" =~ ^(0|[1-9][0-9]*)$ ]] || fail MANIFEST_INVALID "[repair_budgets].$1 must be a nonnegative integer (0 means unlimited)"; }
 
 provider="$(required_string ticket_source provider)"
 ROUTING="$(value routing file)"

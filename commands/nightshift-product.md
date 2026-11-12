@@ -89,13 +89,13 @@ adapters and requested remote actions require their corresponding credentials.
 ## Step 2 — Resolve paths and fetch ticket
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
+STAGE_ARGS=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 REF=$(jq -r '.arguments' <<< "$STAGE_ARGS")
-TICKET_JSON=$("${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-ticket-source.sh" "$REF" 2>&1)
+TICKET_JSON=$("${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-ticket-source.sh" "$REF" 2>&1)
 # Use `printf '%s'` (not `echo`) when re-piping captured JSON — on shells
 # where echo interprets backslash escapes (the agent's calling shell does),
 # `\n` inside string values gets converted to a literal newline and breaks
@@ -124,9 +124,9 @@ A `bd:*` source still requires Beads and cannot be used with file-only mode.
 
 ```bash
 BD_ID=""
-LEDGER_MODE=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-setup.py" --read | jq -r '.ledger.mode // "auto"')
-if [ "$LEDGER_MODE" != files ] && bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has bd; then
-  BD_ID=$(printf '%s' "$TICKET_JSON" | "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-beads-mirror.sh")
+LEDGER_MODE=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-setup.py" --read | jq -r '.ledger.mode // "auto"')
+if [ "$LEDGER_MODE" != files ] && bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-capability.sh" --has bd; then
+  BD_ID=$(printf '%s' "$TICKET_JSON" | "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-beads-mirror.sh")
   if [ -z "$BD_ID" ]; then
     echo "BEADS_MIRROR_FAILED — see stderr above."
     exit 1
@@ -151,7 +151,7 @@ else
   TASK_KEY="$SOURCE_ID"
 fi
 
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
 SPEC_DIR="${PROJECT}/docs/${TASK_KEY}"
 SPEC="${SPEC_DIR}/SPEC.md"
@@ -205,7 +205,7 @@ Handle the response:
 - **Valid Confluence URL** (contains `atlassian.net` or `/wiki/`) — resolve the optional `document-read` capability through the runtime adapter using
   `scripts/nightshift-capability.sh --resolve document-read` with its mapping and
   available-tool inventory (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)). Validate the selected
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`)). Validate the selected
   tool schema and fetch the URL. If unavailable, warn and retain empty optional context. If successful, set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` from the result. If the fetch fails (auth, 404), warn and set `PRODUCT_SPEC_CONTENT=` (empty) with a note.
 - **Local file path** — if the file exists, read it and set `PRODUCT_SPEC_CONTENT` and `PRODUCT_SPEC_REF` to the path.
 - **`skip` or empty after one retry** — set `PRODUCT_SPEC_REF=OVERRIDE`. Print: `⚠  Proceeding without product spec.`
@@ -272,16 +272,17 @@ Before delegating to spec-writer, extract all technical identifiers from the tic
 grounding answers — function names, hook names, type names, file paths, API routes, component
 names, CSS tokens — and write the full list and grounding context to
 `docs/$TASK_KEY/product-extractor.in.md`. Use the bounded transport fallback below.
-It owns all three attempts for this extraction; do not wrap it in another retry
-loop. It escalates only missing local runtime/model, connection refusal, or capacity
+It owns transport fallback for this extraction; preserve its receipts rather than
+wrapping it in a duplicate retry loop. Subsequent diagnosed repairs have no default
+attempt cutoff. It escalates only missing local runtime/model, connection refusal, or capacity
 failures. Authentication, schema, policy, and semantic failures stop for the
 existing repair policy. A manual gear override uses one dispatcher invocation.
 
 ```bash
-DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh"
+DISPATCH="${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-agent.sh"
 EXTRACT_ARGS=(--gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --attempt "${GATE_ATTEMPT:-1}")
 if [ "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" = auto ]; then
-  DISPATCH="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh"
+  DISPATCH="${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-dispatch-bounded.sh"
   EXTRACT_ARGS=()
 fi
 if bash "$DISPATCH" nightshift-code-fact-extractor "${EXTRACT_ARGS[@]}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-low}" \
@@ -321,7 +322,7 @@ Skip silently if graphify is not installed — it's an enhancement, not a requir
 
 After the extractor returns, write each clean result (`FOUND_MATCH` or `NET_NEW` — no
 conflicts) to the shared cache `$TASK_DIR/.claim-cache.jsonl` via
-`"${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-claim-cache.sh"`. The cache key is computed from
+`"${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-claim-cache.sh"`. The cache key is computed from
 `(identifier_text, $HEAD_SHA, sorted(file_targets))` — for /nightshift-product, `file_targets`
 are the files the extractor inspected (the ticket has no `## Files to Change` table yet;
 the upcoming spec will). This pre-populates the cache so /nightshift-adversarial gets hits on
@@ -345,7 +346,7 @@ Prepare `docs/$TASK_KEY/spec-writer.in.md` with all the items below and invoke
 `/nightshift-spec $TASK_KEY`, whose Step 3 uses this exact file protocol:
 
 ```bash
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-agent.sh" \
   nightshift-spec-writer --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK_KEY/spec-writer.in.md" \
   --out "docs/$TASK_KEY/spec-writer.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK_KEY/spec-writer.out.json"
@@ -439,7 +440,7 @@ assertions without a universal model gate. Prompt/runtime and safety-sensitive
 cases require the typed independent challenge; unknown runtime/oracle blocks.
 Private held-out bodies and locators remain with the independent evaluator;
 only commitments appear in public scenarios. Use `docs/BEHAVIOR-PROOF.md` in
-source (installed at `${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+source (installed at `${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-behavior-proof.md`).
 Do not run prototypes or build surrounding implementation during this stage.
 
 ---
@@ -553,10 +554,10 @@ Read the answer. Treat empty input, `y`, `Y`, `yes`, `YES` as **Yes**. Treat `n`
 ## Stop Flow
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT")
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT")
 TRACKER=$(ls "${TASK_DIR}/"bd-*.md 2>/dev/null | head -1)
 ACTIVE=$(ls "${TASK_DIR}/ACTIVE-"* 2>/dev/null | head -1)
 

@@ -21,6 +21,16 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
         fixture = importlib.util.module_from_spec(package_spec);package_spec.loader.exec_module(fixture)
         fixture.fixture(root)
     env = f.isolated(root, initialize=not packages)
+    if not packages:
+        # This story deliberately grants three failed review attempts. Ordinary
+        # repair has no default count cap; the real-launcher interface regression
+        # separately proves four changed repairs followed by successful review.
+        directory = f.f.m.location(root, 'exhausted')
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory/'review.retry.json').write_text(json.dumps(dict(
+            version=1, infrastructure_failures=0, substantive_failures=0, total=0,
+            limits=dict(infrastructure=3, substantive=3, total=3),
+            limit_origin='operator', attempts={}, next_action='continue')))
     env['SYNTHETIC_FAILURE_CONTROL']=str(root/'.synthetic-review-failure')
     env["PLAYWRIGHT_BROWSERS_PATH"] = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", str(Path.home() / ("Library/Caches/ms-playwright" if __import__("sys").platform == "darwin" else ".cache/ms-playwright")))
     with tempfile.TemporaryFile(mode='w+') as errors:
@@ -30,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='nightshift-browser-synthetic-') as dire
             if not url.startswith('http://127.0.0.1:'):
                 raise RuntimeError('Synthetic dashboard did not start')
             env.update(NIGHTSHIFT_BROWSER_URL=url, NIGHTSHIFT_BROWSER_PROJECT=str(root))
-            # The complete default journey includes typed verification, repair exhaustion,
+            # The complete journey includes typed verification, explicit repair exhaustion,
             # and external adoption. Per-action waits and controller allowances stay bounded.
             journey_timeout = 360
             started = time.monotonic()

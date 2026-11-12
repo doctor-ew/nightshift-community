@@ -41,9 +41,11 @@ alone is not a security boundary.
 
 When `NIGHTSHIFT_FACTORY_MODE=true`, a failed test, review, drift, QA, or CI gate is
 not a reason to wait for an operator. Make the smallest in-scope repair and
-retry that gate, recording each attempt. Limit automatic repair to three
-attempts per gate. On exhaustion, leave a concrete failure receipt and stop
-only that ticket; a batch continues with its other tickets.
+retry that gate, recording each attempt. Automatic repair has no default attempt,
+call-count, or elapsed-time cutoff. Continue while an in-scope repair can make
+progress. Honor explicit operator limits. If a concrete unresolved dependency or
+product decision prevents progress, leave a failure receipt; a batch continues
+with its other tickets.
 
 ## Project conventions
 
@@ -70,7 +72,7 @@ only that ticket; a batch continues with its other tickets.
   tracker before implementation. Include scope, acceptance criteria and verification.
   Follow the canonical stage artifacts rather than introducing a second ledger.
 - When evidence invalidates the plan, pause the affected work, revise the plan and
-  continue within scope. Preserve failed attempts and apply the factory repair limit.
+  continue within scope. Preserve failed attempts and honor explicit operator limits.
 - Track completed steps and record results, commands and relevant evidence in the
   task tracker. Completion depends on passed gates, not an elapsed-time target.
 - Use focused delegation when independent research or analysis benefits from it;

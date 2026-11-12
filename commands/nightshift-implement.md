@@ -36,14 +36,14 @@ not assertable:
 - **Supervised** (default — `AUTONOMOUS` unset/false): interactive gates at approach,
   and plan. Agents return prose.
 - **Autonomous** (`AUTONOMOUS=true`, set by `/nightshift-batch`): no interactive gates — pick the
-  conservative approach, proceed on the plan, and return the Step 9 JSON contract. Retry
-  budget applies.
+  conservative approach, proceed on the plan, and return the Step 9 JSON contract.
+  Honor explicit operator limits; automatic repair has no default attempt cutoff.
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
+STAGE_ARGS=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
 [ -z "$TASK" ] && { echo "Usage: /nightshift-implement <task-key> [--base REF]"; exit 1; }
@@ -70,7 +70,7 @@ silently overwriting it.
 
 ```bash
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-scope-activate.sh" "$TASK" \
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-scope-activate.sh" "$TASK" \
   --project "$PROJECT" --spec "$SPEC" || exit 1
 ```
 
@@ -86,7 +86,7 @@ If `$SPEC` missing — hard stop: `"No spec at docs/${TASK}/SPEC.md. Run /nights
 ## Step -1 — Context budget check
 
 ```bash
-CTX_RC=0; bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-context-check.sh" "implement" "$TASK" || CTX_RC=$?
+CTX_RC=0; bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-context-check.sh" "implement" "$TASK" || CTX_RC=$?
 if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 ```
 
@@ -97,7 +97,7 @@ if [ "$CTX_RC" -eq 2 ]; then exit 1; fi
 Read `$SPEC` and the required `docs/$TASK/behavior-scenarios.json` fully. Missing
 scenarios block adoption; a task name or old spec is not proof. Follow
 `docs/BEHAVIOR-PROOF.md` in source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-behavior-proof.md`).
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-behavior-proof.md`).
 Validate scenarios and require recorded independent classification/design review
 before proceeding. Extract:
 - Acceptance-criteria count (numbered items under `## Acceptance Criteria`)
@@ -112,9 +112,9 @@ Seal the approved spec and public scenario artifact under the bot identity, then
 trimmed citations from the sealed spec.
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-tdd-spec-lock.sh" "$TASK"
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-spec-digest.sh" "$TASK"
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-citations-trim.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-tdd-spec-lock.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-spec-digest.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-citations-trim.sh" "$TASK"
 ```
 
 - `SPEC_LOCK_SKIPPED: SPEC.md not found` → block; approved inputs are required.
@@ -233,7 +233,7 @@ Already-fixed-upstream exit:
 When required deterministic cases exist, with the failing tests written and confirmed RED, seal them **before** writing fix code:
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-tdd-red-lock.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-tdd-red-lock.sh" "$TASK"
 ```
 
 - `RED_LOCK_SHA:` → tests sealed under `nightshift-bot@local`; SHA recorded in `.locks`.
@@ -262,7 +262,7 @@ failures, explicit scenario IDs, log/test hashes and recorded RED-lock identity.
 Missing imports or a model's SUCCESS are not relevant RED. Ingest the observation:
 
 ```bash
-python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-behavior-proof.py" \
   record-red --project "$PROJECT" --task "$TASK" --evidence "docs/$TASK/proof-red.json" || exit $?
 ```
 
@@ -277,7 +277,7 @@ a separate model-repair worker or implement surrounding artifacts before pass.
 Every path, including reviewed not-applicable cases, must pass the read-only gate:
 
 ```bash
-python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-behavior-proof.py" \
   gate --project "$PROJECT" --task "$TASK" --gate development || exit $?
 ```
 
@@ -301,7 +301,7 @@ digest, trimmed citations and source context to `docs/$TASK/implementation.in.md
 never include tests, RED output or hidden assertions. Invoke the shared dispatcher:
 
 ```bash
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-agent.sh" \
   "$ROLE" --task "$TASK" --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK/implementation.in.md" \
   --out "docs/$TASK/implementation.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK/implementation.out.json"
@@ -322,7 +322,7 @@ the implementation gate; do not silently expand sandbox authority.
 Apply the Step 5 firewall to the delegation prompt. Both agents:
 - follow the spec's ACs as the checklist — nothing more, nothing less
 - follow the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`)
 - **stop and flag** any file not in the Files-to-Change table before touching it
 - **stop and flag** an incomplete/wrong spec — never improvise
 
@@ -338,13 +338,13 @@ and report artifact path, and invoke **nightshift-run-all-tests** through the sa
 file protocol:
 
 ```bash
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-agent.sh" \
+if bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-agent.sh" \
   nightshift-run-all-tests --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --in "docs/$TASK/test-runner.in.md" \
   --out "docs/$TASK/test-runner.out.json"; then
   jq '{status,reason,results,artifacts}' "docs/$TASK/test-runner.out.json"
 else
   jq '{status,reason}' "docs/$TASK/test-runner.out.json"
-  # Enter the existing scoped repair budget below.
+  # Enter the scoped repair loop below.
 fi
 ```
 
@@ -360,23 +360,17 @@ raw observation outside GREEN context; later source changes require fresh eviden
 
 Initialize `GATE_ATTEMPT=1` separately for each gate. On a failed gate, record the
 attempt in its existing persisted retry ledger, increment `GATE_ATTEMPT`, and pass
-it on the next scoped repair dispatch. Resume from the recorded count, never reset
-an exhausted ledger. Attempt 4 must not be dispatched: the router rejects it.
-Automatic gear selection raises capacity on attempts 2 and 3 without an extra
-model call; it does not replace the gate or authorize bypassing review/security.
+it on the next scoped repair dispatch. Resume from the recorded count without
+resetting history. Routing capacity saturates at the highest configured gear;
+it does not impose an attempt cutoff or replace a correctness gate.
 
-On failure: inspect output in the orchestrator, dispatch a scoped repair using
-only permitted feedback, and re-run. After **3 failures on the same test**, stop.
-
-- **Supervised:** escalate to the engineer — do not attempt a 4th fix.
-- **Autonomous:** spend the retry budget, then exhaust:
-  ```bash
-  N=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-increment.sh" "$TASK" RETRY_IMPLEMENT | tail -1)
-  if [ "$N" -ge 3 ]; then
-    bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-exhaust.sh" "$TASK" implement "3 build failures on the same test"
-    # return Step 9 contract status:"FAIL"
-  fi
-  ```
+On failure, inspect output in the orchestrator, identify the root cause, dispatch
+a scoped repair using only permitted feedback, and re-run the affected gate.
+Continue while an in-scope repair can make progress. A recurring failure requires
+new diagnosis or a different repair approach, with targeted regression evidence
+before another review. Honor explicit operator limits. If an unresolved dependency
+or product decision prevents progress, return the Step 9 failure contract with
+concrete evidence and the required next action.
 
 ---
 
@@ -392,11 +386,11 @@ Playwright (`nightshift-pw.sh` returns `PW_SKIPPED` → treated as pass).
 PW_SPECS=$(grep -E '^\| `[^`]+`' "$SPEC" | sed -E 's/^\| `([^`]+)`.*/\1/' \
   | grep -E '\.spec\.(t|j)sx?$|/e2e/|/tests?/.*\.spec\.' || true)
 
-DETECT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --detect | grep -oE 'PW_PRESENT: (true|false)')
+DETECT=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-pw.sh" "$TASK" --detect | grep -oE 'PW_PRESENT: (true|false)')
 if [ "$DETECT" = "PW_PRESENT: true" ] && [ -n "$PW_SPECS" ]; then
   # Pass the ticket's spec paths as the run target (space-joined glob).
   ONLY=$(echo "$PW_SPECS" | tr '\n' ' ' | xargs)
-  E2E=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --run --only "$ONLY" --label impl-e2e)
+  E2E=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-pw.sh" "$TASK" --run --only "$ONLY" --label impl-e2e)
   echo "$E2E"
   # PW_FAIL here is a build failure: the feature's own E2E does not pass. Fix within scope and
   # re-run (supervised), or fold into the retry budget exactly like a unit-test failure (autonomous).
@@ -463,4 +457,4 @@ only commits this stage makes; the GREEN diff stays in the working tree for `/ni
   task-bound gate pass. Reviewed not-applicable cases do not fabricate tests.
 - Never let the GREEN agent see the test source (firewall).
 - Never commit the final diff / push / open a PR.
-- Three failures on the same test = escalate (supervised) or exhaust (autonomous) — not a 4th guess.
+- Retain every failed test attempt; continue evidence-driven repair without a default attempt cutoff.

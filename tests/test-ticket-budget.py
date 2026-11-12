@@ -25,6 +25,17 @@ class BudgetTests(unittest.TestCase):
     def call(self, operation, invocation='', **kw):
         return budget.update(self.project, 'test-ticket', operation, invocation, **kw)
 
+    def test_default_accounting_has_no_call_or_active_time_cutoff(self):
+        for index in range(70):
+            result = self.call('reserve', str(index), now=index * 10000)
+            self.assertTrue(result['allowed'])
+            self.call('finish', str(index), now=index * 10000 + 9000)
+        self.assertIsNone(result['max_calls'])
+        self.assertIsNone(result['max_active_seconds'])
+        snapshot = budget.snapshot(self.project, 'test-ticket', now=10**9)
+        self.assertIsNone(snapshot['active_seconds_remaining'])
+        self.assertFalse(snapshot['exhausted'])
+
     def test_reservations_are_idempotent_but_duplicate_launch_denied(self):
         self.assertTrue(self.call('reserve', 'a', now=10)['allowed'])
         duplicate = self.call('reserve', 'a', now=11)
@@ -62,7 +73,7 @@ class BudgetTests(unittest.TestCase):
         resumed=self.call('reserve','continued',max_wall_seconds=600,now=4001)
         self.assertTrue(resumed['allowed'])
         self.assertEqual(resumed['deadline_at'],4600)
-        self.assertEqual(resumed['max_calls'],64)
+        self.assertIsNone(resumed['max_calls'])
         state=json.loads(path.read_text())
         self.assertEqual(state['reservations']['old'],legacy['reservations']['old'])
         self.assertEqual(len(state['continuations']),1)
@@ -92,13 +103,13 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(len(state['continuations']), 1)
         self.assertEqual(len(state['reservations']), 2)
 
-    def test_oversized_continuation_and_changed_deadline_fail_closed(self):
+    def test_operator_continuation_has_no_arbitrary_ceiling_and_deadline_stays_pinned(self):
         self.call('reserve', 'a', max_wall_seconds=600, now=10)
         self.call('finish', 'a', now=11)
+        result = self.call('continue', continuation_seconds=601, now=611)
+        self.assertEqual(result['deadline_at'], 1212)
         with self.assertRaises(ValueError):
-            self.call('continue', continuation_seconds=601, now=12)
-        with self.assertRaises(ValueError):
-            self.call('reserve', 'b', max_wall_seconds=601, now=12)
+            self.call('reserve', 'b', max_wall_seconds=602, now=612)
 
     def test_unfinished_reservations_remain_charged(self):
         self.call('reserve', 'a', max_seconds=5, now=10)

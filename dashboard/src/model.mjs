@@ -147,7 +147,7 @@ export function continuationControl(ticket) {
   else if (ticket.finished || ['complete', 'pending_manual_acceptance'].includes(ticket.pipeline?.status) || ticket.recovery?.next_action === 'operator_verify_manual_acceptance') reason = 'Review the recorded outcome; more runtime is not needed.';
   else if (ticket.decisions?.pending?.length) reason = 'Answer the pending decision first.';
   else if (stageRetriesExhausted(ticket)) reason = 'Stage retry limit reached. More time cannot add retries; explicit recovery is needed.';
-  else if (budget.calls_reserved >= budget.max_calls) reason = 'Launch limit reached. More time cannot add launches.';
+  else if (budget.max_calls != null && budget.calls_reserved >= budget.max_calls) reason = 'Launch limit reached. More time cannot add launches.';
   else if (!budget.exhausted && (budget.wall_seconds_remaining != null || budget.wall_clock === 'none')) reason = 'Time remains. Use Resume without granting a new allowance.';
   return {disabled: !!reason, reason};
 }
@@ -166,4 +166,14 @@ export function workerDiagnostic(ticket) {
 
 export function stageRetriesExhausted(ticket) {
   return !!ticket.retry_exhausted_stage || ticket.pipeline?.retry_budgets?.[ticket.pipeline?.next_action]?.next_action === 'stop';
+}
+
+export function ticketAllowanceText(budget) {
+  const active = budget.active_seconds_remaining == null
+    ? 'No active-time limit'
+    : `${Math.floor(budget.active_seconds_remaining)} aggregate active seconds remaining`;
+  const launches = budget.max_calls == null
+    ? `${budget.calls_reserved} instrumented launches reserved · no launch limit`
+    : `${budget.calls_reserved}/${budget.max_calls} instrumented launches reserved`;
+  return `${active} · ${launches}`;
 }

@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "task": "154",
+  "status": "complete",
+  "branch": "nightshift/154",
+  "installed_candidate_revision": "7b9a03ff74e6d277f173dd6f92cf4dc7e1bc7e27",
+  "runtime_unchanged_after_installed_acceptance": false,
+  "stages": {
+    "product": {
+      "status": "pass",
+      "receipt_sha256": "9d52c3cdadf84355ed452a769e2ab4d68d69b67999be1fd0f014c85af5331b1e"
+    },
+    "adversarial": {
+      "status": "pass",
+      "receipt_sha256": "d1d839b693b50f0e09d035f80f596a14b447aea55af81e1d9c1750dd7f815647"
+    },
+    "implement": {
+      "status": "pass",
+      "receipt_sha256": "5f55069d26f80356c1451a7dbbd21b66f60bad8c1d00fbc56e3fb0007ef9964d"
+    },
+    "review": {
+      "status": "pass",
+      "receipt_sha256": "d4e8571bca6bd20f2ccea0114aa02593ff5d07ed28c86bec95a9996e4e2e0589"
+    },
+    "drift": {
+      "status": "pass",
+      "receipt_sha256": "2de5c75517ba08f1802bd4b4fe3a910fdb4c6f591573cba0cf0ff3280db4f497"
+    },
+    "qa": {
+      "status": "pass",
+      "receipt_sha256": "b79090d019547204927f4c9f58aa6825d384f1f1cf46d9fc13c68b7cbe2a8131"
+    }
+  },
+  "proof_gates": {
+    "development": "pass",
+    "final": "pass"
+  },
+  "required_python_tests": 50,
+  "certification_mode_protocol_probes": 7,
+  "worker_local_checks": {
+    "version": 1,
+    "sqlite": "pass",
+    "http": "pass",
+    "browser": "pass",
+    "worker_evidence_write": "pass"
+  },
+  "isolated_repeat": {
+    "exit_code": 0,
+    "receipt_hashes_unchanged": true,
+    "reservations_unchanged": true
+  },
+  "default_limits": {
+    "calls": null,
+    "active_seconds": null,
+    "wall_seconds": null
+  },
+  "publication": {
+    "default_installation_replaced": false,
+    "pushed": false,
+    "production_deployed": false,
+    "scope": "recorded engineering checkpoint before release preparation"
+  },
+  "main_repeat": {
+    "exit_code": 0,
+    "receipt_hashes_unchanged": true,
+    "reservations_unchanged": true
+  },
+  "fresh_offline_suite": {
+    "tests_run": 14,
+    "passed": 13,
+    "live_case_skipped": 1,
+    "certification_claimed": false
+  },
+  "recorded_engineering_checkpoint": "b694f33",
+  "engineering_runtime_unchanged_after_installed_acceptance": false,
+  "release_preparation_changes": [
+    "Align canonical .nightshift.toml with unlimited packaged defaults.",
+    "Remove the deploy instructions fixed CI-poll deadline."
+  ],
+  "release_followup_validation": {
+    "supervisor_default_transition_cutoff_removed": 64,
+    "retained_executor_results_before_resume": 65,
+    "explicit_operator_call_limits_verified": true,
+    "installed_acceptance_scope": "Recorded candidate only; release follow-up changes have separate regression coverage."
+  }
+}

@@ -3,7 +3,7 @@ name: "change-release-update"
 description: "Change release/update integration while preserving local work"
 triggers: ["release selection", "installer repair", "update deferral"]
 edges: [{"target": "context/conventions.md", "condition": "when implementing and verifying this change"}, {"target": "context/updates.md", "condition": "when understanding the relevant subsystem"}]
-last_updated: "2026-09-08"
+last_updated: "2026-11-12"
 mex:
   id: mx_01M21Z3AWXN7XYSBQCS0FHKMKW
   type: pattern
@@ -41,6 +41,8 @@ Load updates context; relevant implementation is [`select()`](mex://function:178
 4. Extend isolated release fixtures for the affected boundary. Source: `tests/test-release-inputs.py:19`.
 
 ## Gotchas
+Source fixes, temporary installation, activated default runtime and certified results are separate facts. Inspect the selected runtime and saved task routing; source revision alone is not certification. Ordinary source-suite skips never satisfy required installed acceptance. Branch `nightshift/154` retains the strict certification driver and its mode protocol checks in `docs/154/verify.sh` and `docs/154/certification-mode-check.py`.
+
 Stable versions sort numerically; branch channels are explicit. Pending installer repair runs before revision selection when applying. Sources: `scripts/nightshift-update.py:52`, `scripts/nightshift-update.py:70`.
 
 ## Verify
@@ -48,7 +50,7 @@ Stable versions sort numerically; branch channels are explicit. Pending installe
 - [ ] Retain coverage for dirty/feature branches, mismatched tags, active-run locks, and failed installer receipts. Source: `tests/test-release-inputs.py:48`, `tests/test-release-inputs.py:63`, `tests/test-release-inputs.py:77`, `tests/test-release-inputs.py:89`.
 
 ## Debug
-Inspect the returned status and installer receipt first. Exhaustion records attempts and a reconciliation hint; do not remove user files to force update success. Source: `scripts/nightshift-update.py:110`.
+Inspect the returned status and installer receipt first. Repair failure records attempts and a reconciliation hint. Source-checkout execution continues independently of optional adapter repair; do not remove user files to force update success. Source: `scripts/nightshift-update.py:110`.
 
 ## Update Scaffold
 - [ ] Update `.mex/ROUTER.md` if project state changed.

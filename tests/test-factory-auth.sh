@@ -60,6 +60,8 @@ printf 'ANTHROPIC_API_KEY=%s\n' "${ANTHROPIC_API_KEY:+present}"
 printf 'ARGS=%s\n' "$*"
 printf 'EXECUTION_MODE=%s/%s\n' "${AUTONOMOUS:-}" "${NIGHTSHIFT_FACTORY_MODE:-}"
 printf 'ROUTING_FILE=%s\n' "${NIGHTSHIFT_ROUTING_FILE:-}"
+printf 'RUNTIME_HOME=%s\n' "${NIGHTSHIFT_RUNTIME_HOME:-}"
+printf 'STATE_HOME=%s\n' "${NIGHTSHIFT_HOME:-}"
 exit "${CODEX_EXIT_STATUS:-0}"
 EOF
 chmod +x "$TMP_ROOT/bin/codex"
@@ -72,6 +74,8 @@ if invalid=$(PATH="$TMP_ROOT/bin:$PATH" "$FACTORY" gh:1 --project "$TMP_ROOT/inv
 case "$invalid" in *'ARGS='*) fail 'invalid configuration invoked provider';; esac
 configured=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$TMP_ROOT" --branch none 2>&1)
 assert_contains "$configured" "ROUTING_FILE=$TMP_ROOT/routing.json"
+assert_contains "$configured" "RUNTIME_HOME=$REPO_DIR"
+assert_contains "$configured" "STATE_HOME=$TMP_ROOT/home/.nightshift"
 
 subscription=$(PATH="$TMP_ROOT/bin:$PATH" HOME="$TMP_ROOT/home" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" OPENAI_API_KEY=secret "$FACTORY" gh:1 --branch none 2>&1)
 assert_contains "$subscription" 'authentication: ChatGPT subscription'
@@ -146,7 +150,7 @@ git -C "$TMP_ROOT" -c user.name=Test -c user.email=test@example.invalid commit -
 mkdir -p "$TMP_ROOT/.nightshift"
 printf '%s\n' '{"tickets":["gh:1"],"statuses":{"gh:1":{"status":"pending"}}}' > "$TMP_ROOT/.nightshift/batch-20260906-1323.json"
 cp "$REPO_DIR/nightshift.toml" "$TMP_ROOT/.nightshift.toml"
-claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
+claude_output=$(env -u NIGHTSHIFT_PIPELINE_STAGE -u NIGHTSHIFT_PIPELINE_TASK -u NIGHTSHIFT_STAGE_HANDOFF -u NIGHTSHIFT_STAGE_RECEIPT PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
 assert_contains "$claude_output" '--print --output-format stream-json --verbose --disallowedTools Agent,Task --dangerously-skip-permissions --model sonnet'
 assert_contains "$claude_output" '/nightshift-batch --resume batch-20260906-1323.json --branch auto --push --pr'
@@ -173,7 +177,8 @@ assert_contains "$policy_output" 'CLAUDE_ARGS='
 assert_contains "$policy_output" 'Current provider policy: claude-only'
 assert_contains "$policy_output" 'fresh Claude session under Claude-only policy'
 assert_contains "$policy_output" 'apply them within the resolved provider policy'
-assert_contains "$policy_output" 'Keep required manual acceptance pending'
+assert_contains "$policy_output" 'Generic workflow guidance is not authorization to create a manual case'
+assert_contains "$policy_output" 'Automated installed/live acceptance must be executed; do not convert it to human sign-off'
 case "$policy_output" in *'does not permit same-provider self-approval'*) fail 'contradictory reviewer policy';; esac
 for selected in codex local; do
   if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none --provider "$selected" --model fixture --provider-policy standard 2>&1); then

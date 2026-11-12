@@ -7,13 +7,17 @@ export NIGHTSHIFT_ROUTING_FILE
 ROLE=${1:-} RISK=${2:-standard} ATTEMPT=${3:-1} ADV=${4:-false} MODE=${5:-auto}
 case "$MODE" in auto|explicit) ;; *) exit 64;; esac
 case "$RISK" in low|standard|high) ;; *) echo 'invalid risk' >&2; exit 64;; esac
-case "$ATTEMPT" in 1|2|3) ;; *) echo 'attempt must be 1..3' >&2; exit 64;; esac
+[[ "$ATTEMPT" =~ ^[1-9][0-9]*$ ]] || { echo 'attempt must be a positive integer' >&2; exit 64; }
 case "$ADV" in true|false) ;; *) exit 64;; esac
 START=1
 [ "$RISK" != high ] || START=3
 if [ "$ROLE" = nightshift-code-fact-extractor ] && [ "$RISK" = low ] && [ "$ADV" = false ]; then START=0; fi
-GEAR=$((START + ATTEMPT - 1))
-[ "$GEAR" -le 4 ] || GEAR=4
+GEAR=4
+# Saturate routing capacity without restricting the recorded attempt count.
+if [[ "$ATTEMPT" =~ ^[1-4]$ ]]; then
+  GEAR=$((START + ATTEMPT - 1))
+  [ "$GEAR" -le 4 ] || GEAR=4
+fi
 select_route() {
 SELECTED=$(jq -e -c --arg role "$ROLE" --argjson gear "$GEAR" --arg risk "$RISK" \
   --argjson attempt "$ATTEMPT" --arg model "${NIGHTSHIFT_LOCAL_MODEL:-qwen2.5-coder:14b}" '

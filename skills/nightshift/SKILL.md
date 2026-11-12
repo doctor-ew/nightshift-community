@@ -82,11 +82,11 @@ only confirmation points are the ones specified in `AGENTS.md`.
 
 An evidence gate failing is a repair signal, not a request for human approval.
 For implementation, review, drift, QA, or CI failures, identify the smallest
-in-scope repair, apply it, and rerun the affected gate. Use a maximum of three
-repair attempts per gate and preserve evidence from every attempt in the task
-tracker. After the limit, stop that ticket with a concrete failure receipt:
-failed gate, commands run, relevant output, changed files, and the next
-operator action. Continue later tickets in a batch.
+in-scope repair, apply it, and rerun the affected gate. Continue without a default
+attempt or work-time ceiling, preserving every attempt in the task tracker. Honor
+explicit operator limits. Stop only for a concrete unresolved boundary, retaining
+the failed gate, commands, relevant output, changed files and next eligible action.
+Continue independent tickets in a batch.
 
 Do not autonomously broaden the specification to make a gate pass. An ambiguous
 or internally contradictory ticket/spec is a valid terminal failure receipt;

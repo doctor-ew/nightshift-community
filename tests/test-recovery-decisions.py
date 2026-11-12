@@ -12,6 +12,14 @@ legacy=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy)
 m=legacy.m
 
 class Decisions(legacy.RecoveryTest):
+    def test_explicit_transport_timeout_is_not_clamped(self):
+        from types import SimpleNamespace
+        adapter=m.load('recovery-decisions')
+        cfg=dict(enabled=True,model='synthetic-pinned-1',key_env='SYNTHETIC_TIMEOUT_KEY',timeout_seconds=120,max_bytes=adapter.engine.MAX_BYTES)
+        efficiency=SimpleNamespace(config=lambda args:{'jev':cfg})
+        with patch.object(adapter,'load',return_value=efficiency),patch.dict(os.environ,{'SYNTHETIC_TIMEOUT_KEY':'fixture-only'}):
+            self.assertEqual(adapter.configuration(self.project)['timeout_seconds'],120)
+
     def test_assertions_in_check_dependency_are_reviewable(self):
         (self.target/'assertions.py').write_text("from pathlib import Path\nassert Path('source.txt').read_text() == 'fixed\\n'\n")
         (self.target/'evals/unit/test-source.sh').write_text('#!/bin/sh\nset -eu\npython3 assertions.py\necho PASS\n')

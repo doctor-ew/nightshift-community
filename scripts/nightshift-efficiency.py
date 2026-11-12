@@ -73,7 +73,8 @@ def config(args):
             if key in ('enabled', 'allow_loopback'):
                 valid = type(value) is bool
             elif key == 'timeout_seconds':
-                valid = type(value) in (int, float) and math.isfinite(value) and 0 < value <= 3600
+                valid = ((section == 'exec' and value is None) or
+                         (type(value) in (int, float) and math.isfinite(value) and value > 0))
             elif key == 'max_bytes':
                 valid = type(value) is int and 1024 <= value <= 67108864
             else:
@@ -174,10 +175,11 @@ def capture(argv, streams, timeout, limit, stdin=None, env=None):
             os.set_blocking(source.fileno(), False)
             sel.register(source, selectors.EVENT_READ, target)
         while sel.get_map() or proc.poll() is None:
-            if time.monotonic() - started >= timeout:
+            if timeout is not None and time.monotonic() - started >= timeout:
                 reason, wrapper_code = 'TIMEOUT', 124
                 break
-            for key, _ in sel.select(min(0.05, max(0, timeout - (time.monotonic() - started)))):
+            wait = min(0.05, max(0, timeout - (time.monotonic() - started))) if timeout is not None else 0.05
+            for key, _ in sel.select(wait):
                 data = os.read(key.fileobj.fileno(), min(65536, limit - total + 1))
                 if not data:
                     sel.unregister(key.fileobj)

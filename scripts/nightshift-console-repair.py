@@ -106,8 +106,8 @@ def worker(project, task, provider, evidence):
             cached = recovery.result(name)
             if cached is not None:
                 return cached
-            remaining = deadline - time.time()
-            if remaining <= 0: raise TimeoutError('Repair time budget exhausted')
+            remaining = deadline - time.time() if deadline is not None else None
+            if remaining is not None and remaining <= 0: raise TimeoutError('Repair time budget exhausted')
             attempt = sum(a['stage'] == name for a in recovery.state['attempts']) + 1
             inp, out = evidence / (name + '-' + str(attempt) + '.md'), evidence / (name + '-' + str(attempt) + '.json')
             inp.write_text(text)
@@ -117,7 +117,7 @@ def worker(project, task, provider, evidence):
             process = subprocess.Popen(argv, cwd=target, env=env, start_new_session=True)
             active.append(process)
             try:
-                code = process.wait(timeout=min(600, remaining))
+                code = process.wait(timeout=remaining)
             except BaseException:
                 os.killpg(process.pid, signal.SIGTERM)
                 try: process.wait(timeout=5)
@@ -183,8 +183,9 @@ def worker(project, task, provider, evidence):
         if settings[key]: argv += ['--' + key, settings[key]]
     for key in ('push', 'pr'):
         if settings[key]: argv += ['--' + key]
-    remaining = recovery.state['deadline_at'] - time.time()
-    if remaining <= 0:
+    deadline = recovery.state['deadline_at']
+    remaining = deadline - time.time() if deadline is not None else None
+    if remaining is not None and remaining <= 0:
         raise TimeoutError('Recovery deadline exhausted before pipeline continuation')
     process = subprocess.Popen(argv, cwd=project, start_new_session=True)
     active.append(process)

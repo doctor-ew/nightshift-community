@@ -191,6 +191,7 @@ class PipelineTest(unittest.TestCase):
    settings=dict(ref='gh:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
    decisions=m.load('console-decisions');q=decisions.request(p,'sample',dict(question='Reviewer?',reason='Policy',options=[],decision_key='reviewer'))
    decisions.respond(p,'sample',q['sha256'],'','Separate Claude; retain existing draft.')
+   question_count=len(decisions.read(decisions.location(p,'sample'))['requests'])
    ledger=m.load('ticket-budget');ledger.update(p,'sample','reserve','existing',max_calls=10);ledger.update(p,'sample','finish','existing',outcome='failed')
    before=ledger.ledger_path(p,'sample').read_bytes();calls=[]
    def run(stage,handoff,receipt):
@@ -216,7 +217,7 @@ class PipelineTest(unittest.TestCase):
     self.assertEqual(ledger.ledger_path(p,'sample').read_bytes(),before)
     repeated=m.Pipeline(p,'sample',settings,run);self.assertEqual(repeated.run(),1)
     self.assertEqual(len(calls),6)
-    self.assertEqual(len(decisions.read(decisions.location(p,'sample'))['requests']),1)
+    self.assertEqual(len(decisions.read(decisions.location(p,'sample'))['requests']),question_count)
     self.assertTrue(all(a['route']['provider']=='claude' for a in repeated.state['attempts']))
     # A changed implementation invalidates relevant reviews, not the existing draft.
     (p/'fixture_source_sample.py').write_text('answer = 43\n')
@@ -248,7 +249,7 @@ receipt.write_text(json.dumps(dict(version=1,task='sample',stage=stage,status='p
 ''');stub.chmod(0o755)
    mex=binary/'mex';mex.write_text('#!/bin/sh\nexit 1\n');mex.chmod(0o755)
    settings=dict(ref='gh:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
-   env=dict(PATH=str(binary)+os.pathsep+os.environ['PATH'],HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json'),NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',NIGHTSHIFT_TICKET_JSON=json.dumps(dict(source='github',repository='fixture/repo',source_id='sample')))
+   env=dict(PATH=str(binary)+os.pathsep+os.environ['PATH'],HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json'),NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',NIGHTSHIFT_TICKET_JSON=json.dumps(dict(source='github',repository='fixture/repo',source_id='sample')),NIGHTSHIFT_BUDGET_TASK='sample',NIGHTSHIFT_BUDGET_PROJECT=str(p))
    with patch.dict(os.environ,env,clear=False):
     first=m.Pipeline(p,'sample',settings);self.assertEqual(first.run(),1)
     self.assertEqual(first.state['next_action'],'review',json.dumps(first.state)+'\n'+''.join(x.read_text() for x in first.directory.glob('*.log')))
@@ -283,6 +284,43 @@ receipt.write_text(json.dumps(dict(version=1,task='sample',stage=stage,status='p
     subprocess.run(['git','-C',str(p),'add','unrelated.txt'],check=True)
     with self.assertRaisesRegex(ValueError,'publication_out_of_scope_changes'):controller.publish()
     self.assertEqual(subprocess.check_output(['git','-C',str(p),'diff','--cached','--name-only'],text=True).strip(),'unrelated.txt')
+
+ def test_product_failure_repairs_classification_and_retains_unchanged_failure(self):
+  for repaired in (True,False):
+   with self.subTest(repaired=repaired),tempfile.TemporaryDirectory() as tmp:
+    p=Path(tmp).resolve()/'project';f.prepare(ROOT,p,task='sample',final=True)
+    scenario=p/'docs/sample/behavior-scenarios.json';reviewed=scenario.read_bytes()
+    unreviewed=json.loads(reviewed);unreviewed['applicability']['review']=None
+    for case in unreviewed['cases']:case['applicability']['review']=None
+    scenario.write_text(json.dumps(unreviewed))
+    settings=dict(ref='gh:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
+    calls=[];failed=[]
+    def run(stage,handoff,receipt):
+     calls.append(stage)
+     if stage=='product' and (calls.count(stage)==1 or not repaired):
+      value=dict(version=1,task='sample',stage=stage,status='fail',findings=[dict(id='classification-review',target='behavior-scenarios.json',problem='Independent classification review is missing.')],checks=[],evidence=[])
+      receipt.write_text(json.dumps(value));failed.append((receipt,receipt.read_bytes()));return 0
+     if stage=='product':
+      self.assertEqual(json.loads(handoff.read_text())['findings'][0]['id'],'classification-review')
+      self.assertNotEqual(scenario.read_bytes(),reviewed)
+      scenario.write_bytes(reviewed)
+     log=p/'docs/sample'/(stage+'-check.log')
+     result=subprocess.run(['python3','tests/test_fixture_sample.py'],cwd=p,capture_output=True,text=True)
+     self.assertEqual(result.returncode,0);log.write_text(result.stdout+result.stderr)
+     receipt.write_text(json.dumps(dict(version=1,task='sample',stage=stage,status='pass',findings=[],checks=[dict(command='python3 tests/test_fixture_sample.py',exit_code=0)],evidence=[dict(path=str(log.relative_to(p)),sha256=m.sha(log))])))
+     return 0
+    with patch.dict(os.environ,{'NIGHTSHIFT_ROUTING_FILE':str(ROOT/'routing.json')},clear=False),patch.object(m.Pipeline,'import_draft'):
+     controller=m.Pipeline(p,'sample',settings,run)
+     self.assertEqual(controller.run(),0 if repaired else 1)
+     self.assertEqual(calls,['product','product',*m.STAGES[1:]] if repaired else ['product','product'])
+     self.assertEqual(controller.state['status'],'complete' if repaired else 'blocked')
+     self.assertEqual(controller.state['next_action'],'none' if repaired else 'repair_unchanged_product')
+     self.assertEqual(controller.state['attempts'][1]['repair_of'],controller.state['attempts'][0]['receipt'])
+     self.assertEqual(controller.state['retry_budgets']['product']['substantive_failures'],1 if repaired else 2)
+     self.assertTrue(all(path.read_bytes()==raw for path,raw in failed))
+     resumed=m.Pipeline(p,'sample',settings,run)
+     self.assertEqual(resumed.run(),0 if repaired else 1)
+     self.assertEqual(len(calls),7 if repaired else 2)
 
  def test_semantic_finding_targets_repair_without_repeating_unchanged_review(self):
   with tempfile.TemporaryDirectory() as tmp:

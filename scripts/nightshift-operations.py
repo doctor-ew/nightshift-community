@@ -78,8 +78,8 @@ def safe(project, name):
 
 def limits(value):
     exact(value, 'calls seconds wall_seconds')
-    for key, maximum in [('calls', 64), ('seconds', 3600), ('wall_seconds', 3600)]:
-        if type(value[key]) not in (int, float) or not math.isfinite(value[key]) or not 0 < value[key] <= maximum:
+    for key in ('calls', 'seconds', 'wall_seconds'):
+        if type(value[key]) not in (int, float) or not math.isfinite(value[key]) or value[key] <= 0:
             raise ValueError('invalid_allowance')
     if type(value['calls']) is not int:
         raise ValueError('invalid_call_limit')
@@ -441,16 +441,6 @@ class Operations:
             blockers.append('unfinished_operation:resume_existing_request')
         if any(a['status'] == 'failed' and a['signature'] == signature and not transport_failure(a) for a in prior):
             blockers.append('unchanged_failure_requires_repair')
-        cap_prior = prior
-        implementation = self.state['results'].get('implement', {})
-        if operation in ('verify', 'review') and implementation.get('external') and self.valid('adopt', p, context):
-            # Explicit adoption scopes verification/review to changed external work;
-            # historical failures and identical-failure guards remain intact.
-            key = 'implementation' if operation == 'review' else 'contract'
-            adopted = implementation['digest'] if operation == 'review' else self.state['results']['adopt']['digest']
-            cap_prior = [a for a in prior if a.get('prepared', {}).get('assessment', {}).get('dependencies', {}).get(key) == adopted]
-        if sum(a['status'] == 'failed' for a in cap_prior) >= 3:
-            blockers.append('repair_limit_exhausted')
         current = self.valid(operation, p, context)
         result = dict(version=VERSION, operation=operation, status='current' if current else 'blocked' if blockers else 'ready', blockers=blockers,
             binding=digest(dict(dependencies=deps, source=context['source'] if operation=='implement' else {k:context['artifacts'][k] for k in ('spec','scenarios')} if operation=='groom-spec' else None, mode=mode)),

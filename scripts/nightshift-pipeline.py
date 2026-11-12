@@ -156,6 +156,7 @@ def nested_routing(plan, stage):
 def inputs(project, task, stage, state):
     docs=Path(project)/'docs'/task
     value=dict(command_sha256=sha(HERE.parent/'commands'/('nightshift-'+stage+'.md')),runtime=runtime_digest(),policy=stage_policy(state['plan'],stage),decisions=state['decisions'],ref=state.get('request'),request_sha256=state.get('request_sha256'))
+    value['stage_routing']=state.get('stage_routing',dict(gear='auto',risk='standard'))
     value['architecture']=load('architecture').resolve(project)
     value['architecture_checker']=sha(HERE/'nightshift-architecture.py')
     value['nested_routing'] = recovery.digest(nested_routing(state['plan'], stage))
@@ -333,9 +334,32 @@ def retain_diagnostic(receipt, task, stage, project, reason):
     return dict(path=str(target),sha256=sha(target),label=record['label'],validation_error=record.get('validation_error'),reported_findings=record['reported_findings'])
 
 
+def retained_stage_routing(project, task, settings, preserve_legacy=False):
+    """Pin explicit invocation choices and retain them across implicit resumes."""
+    root(project,task)
+    console=load('console-actions')
+    path=console.directory(project)/(task+'.json')
+    previous={}
+    if path.exists():
+        record=console.read(path)
+        if record.get('task')!=task:raise ValueError('pipeline_identity_changed')
+        previous=record['settings']
+        console.validate(task,previous)
+    result=dict(settings)
+    for name,default,allowed in (('gear','auto',('auto','0','1','2','3','4')),
+                                 ('risk','standard',('low','standard','high'))):
+        explicit=result.pop(name+'_explicit',name in result)
+        if type(explicit) is not bool:raise ValueError('invalid_explicit_'+name)
+        value=result.get(name,default) if explicit else previous.get(name,result.get(name,default))
+        if not isinstance(value,str) or value not in allowed:raise ValueError('invalid_saved_'+name)
+        if not preserve_legacy or name in settings or name in previous:
+            result[name]=value
+    return result
+
+
 class Pipeline:
     def __init__(self, project, task, settings, runner=None):
-        self.project=Path(project).resolve();self.task=task;self.settings=settings;self.runner=runner or self.dispatch
+        self.project=Path(project).resolve();self.task=task;self.settings=retained_stage_routing(project,task,settings);self.runner=runner or self.dispatch
         self.directory=root(project,task);self.directory.mkdir(parents=True,exist_ok=True)
         self.path=self.directory/'state.json'
         self.state=snapshot(project,task) or dict(version=1,task=task,worktree=str(self.project),completed={},attempts=[],findings=[],history=[],next_action='product',status='pending',created_at=time.time())
@@ -415,6 +439,7 @@ class Pipeline:
         self.state['decisions']=[dict(sha256=d['sha256'],question=d['question'],response=d['response']) for d in decisions]
         self.state['architecture']=load('architecture').resolve(self.project)
         self.state['beads']=load('architecture').mirror(self.project,self.state['architecture'],self.state.get('beads',{}),dict(external_ref=self.settings['ref']+'#nightshift-architecture-links',title='Architecture links for '+self.task,body='Ticket: '+self.settings['ref'],source='nightshift',source_id=self.task))
+        self.state['stage_routing']={name:self.settings[name] for name in ('gear','risk')}
         self.state['plan']=selected
         self.state['request']=self.settings['ref']
         request=Path(self.settings['ref'].removeprefix('spec:'))
@@ -473,7 +498,7 @@ class Pipeline:
         # Product needs source identity before any retained contract exists.
         # Later stages keep the canonical task key and all existing ownership.
         reference=self.settings['ref'] if stage=='product' else self.task
-        argv=['bash',str(HERE/'nightshift-factory.sh'),reference,'--project',str(self.project),'--branch','none','--provider',route['provider'],'--model',route['model'],'--provider-policy',self.state['plan']['policy'],'--auth',self.settings['auth'],'--dashboard','off']
+        argv=['bash',str(HERE/'nightshift-factory.sh'),reference,'--project',str(self.project),'--branch','none','--provider',route['provider'],'--model',route['model'],'--provider-policy',self.state['plan']['policy'],'--auth',self.settings['auth'],'--gear',self.settings['gear'],'--risk',self.settings['risk'],'--dashboard','off']
         env=dict(os.environ,NIGHTSHIFT_PIPELINE_STAGE=stage,NIGHTSHIFT_PIPELINE_TASK=self.task,NIGHTSHIFT_PIPELINE_TICKET_JSON=os.environ.get('NIGHTSHIFT_TICKET_JSON',''),NIGHTSHIFT_STAGE_RECEIPT=str(worker_receipt),NIGHTSHIFT_STAGE_HANDOFF=str(handoff),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_OUTPUT_CHILD='1',NIGHTSHIFT_ROUTING_FILE=self.state['plan']['routing_path'],NIGHTSHIFT_BUDGET_TASK=os.environ.get('NIGHTSHIFT_BUDGET_TASK',self.task),NIGHTSHIFT_BUDGET_PROJECT=os.environ.get('NIGHTSHIFT_BUDGET_PROJECT',str(self.project)))
         # Existing ticket admission owns the deadline; no replacement allowance.
         budget=load('ticket-budget').snapshot(self.project,self.task)
@@ -564,7 +589,20 @@ class Pipeline:
                         recorded = self.accept_classification(reviewer)
                 signature=inputs(self.project,self.task,stage,self.state)
                 current_source=source(self.project,self.task)
-                if not recorded and any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
+                docs=self.project/'docs'/self.task
+                # Raw classification attestations can change without changing the
+                # authored contract; they still constitute substantive repair work.
+                repair_basis=recovery.digest(dict(inputs=signature,source=current_source,
+                    artifacts={name:sha(docs/name) if (docs/name).is_file() else None
+                               for name in ('SPEC.md','behavior-scenarios.json')}))
+                previous=next((a for a in reversed(self.state['attempts']) if a['stage']==stage),None)
+                repair_of=None
+                if (stage not in REVIEW and previous and previous.get('reason')=='stage_failed'
+                        and self.state.get('finding_stage')==stage and self.state['findings']):
+                    if previous.get('repair_of') and previous.get('repair_basis')==repair_basis:
+                        self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
+                    repair_of=previous['receipt']
+                if not recorded and not repair_of and any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
                     self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
                 if stage=='implement':
                     result=proof(self.project,self.task,'development')
@@ -575,6 +613,7 @@ class Pipeline:
                 bundle=load('handoff').build(self.project,self.task,stage,self.state,self.task+' '+stage+' '+ ' '.join(f['problem'] for f in self.state['findings']))
                 recovery.atomic(handoff,bundle)
                 attempt=dict(stage=stage,receipt=str(receipt),input_sha256=inputs(self.project,self.task,stage,self.state),status='running',route=self.state['plan']['stages'][stage],started_at=time.time())
+                if repair_of:attempt.update(repair_of=repair_of,repair_basis=repair_basis)
                 self.state['attempts'].append(attempt);self.state['status']='running';self.save()
                 retry.account(budget_path,str(receipt),'pending')
                 value=None
@@ -612,8 +651,8 @@ class Pipeline:
                     self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
                     self.state['findings']=(value or {}).get('findings',[]) or [dict(id=stage+'-evidence',target=str(receipt),problem=str(error))]
                     self.state.update(status='blocked',next_action=stage,finding_stage=stage);self.save()
-                    if str(error)=='stage_failed' and stage in REVIEW and self.state['findings']:
-                        repair='product' if stage=='adversarial' else 'implement'
+                    if str(error)=='stage_failed' and self.state['findings']:
+                        repair=('product' if stage=='adversarial' else 'implement') if stage in REVIEW else stage
                         self.state['completed'].pop(repair,None)
                         self.state.update(status='repairing',next_action=repair);self.save();continue
                     return 1
@@ -683,7 +722,111 @@ def continuation_routes(project, target):
             break
     settings = dict(provider=provider, model=model, policy=mode)
     routes(project, settings)
-    routes(target, settings)
+    return routes(target, settings)
+
+
+
+def inventory_routes(project, task=None):
+    """Resolve the next dispatch against saved task overrides and its target."""
+    target = Path(project)
+    state = snapshot(project, task) if task is not None else None
+    if state is not None:
+        target = Path(state['worktree']).resolve(strict=True)
+        if state.get('task') != task or root(target, task) != root(project, task):
+            raise ValueError('pipeline_identity_changed')
+    if task is not None:
+        console = load('console-actions')
+        invocation = console.directory(project)/(task+'.json')
+        if invocation.exists():
+            record = console.read(invocation)
+            if record.get('task') != task:raise ValueError('pipeline_identity_changed')
+            console.validate(task, record['settings'])
+            result = routes(target, record['settings'])
+            scenarios = target/'docs'/task/'behavior-scenarios.json'
+            if scenarios.is_file():
+                author = read(scenarios).get('author', {})
+                if author.get('provider') not in ('codex','claude','local') or not author.get('author_id'):
+                    raise ValueError('existing_draft_author_missing')
+                result['stages']['adversarial'] = load('provider-policy').select_route(
+                    read(result['routing_path']), 'nightshift-code-fact-extractor', 1,
+                    result['policy'], author['provider'], True)
+            result['origin'] = 'saved-task-invocation'
+            return result
+    result = continuation_routes(project, target)
+    result['origin'] = 'current-project-configuration'
+    return result
+
+
+def inspect_recovery(project, task, launcher):
+    """Inspect retained authority and evidence without preparing or dispatching."""
+    import shlex
+    root(project, task)
+    result = dict(task=task, status='unknown', next_action='recover_saved_invocation',
+                  resume_command=None)
+    console = load('console-actions')
+    invocation = console.directory(project)/(task+'.json')
+    record = None
+    if invocation.exists():
+        record = console.read(invocation)
+        if record.get('task') != task:raise ValueError('pipeline_identity_changed')
+        settings = retained_stage_routing(project, task, record['settings'])
+        console.validate(task, settings)
+        home = Path(os.environ.get('NIGHTSHIFT_HOME', str(Path.home()/'.nightshift'))).resolve()
+        argv = ['env', 'NIGHTSHIFT_SYNC_CHECK=off', 'NIGHTSHIFT_HOME='+str(home),
+                launcher, settings['ref'], '--project', str(project),
+                '--branch', settings['branch'], '--provider', settings['provider'],
+                '--provider-policy', settings['policy'], '--auth', 'subscription',
+                '--gear', settings['gear'], '--risk', settings['risk']]
+        for key in ('model', 'base'):
+            if settings[key]:argv += ['--'+key, settings[key]]
+        for key in ('push', 'pr'):
+            if settings[key]:argv += ['--'+key]
+        if record.get('review_spec'):argv += ['--review-spec']
+        result['resume_command'] = shlex.join(argv)
+        if settings['auth'] == 'api':
+            result['api_opt_in_required'] = True
+    state = snapshot(project, task)
+    if state is None:
+        if record is not None:
+            draft = (Path(project)/'docs'/task/'SPEC.md').is_file()
+            result.update(status='draft' if draft else 'pending',
+                          next_action='validate_existing_draft' if draft else 'product')
+        return result
+    if result['resume_command'] is None and isinstance(state.get('request'), str) and state['request']:
+        # A retained source can survive a missing legacy console record. No saved
+        # API-billing or publication authority is inferred from that source.
+        result['resume_command'] = shlex.join([launcher, state['request'], '--project', str(project), '--auth', 'subscription'])
+        result['invocation_provenance'] = 'retained-source-only'
+    target = Path(state['worktree']).resolve(strict=True)
+    if state.get('task') != task or root(target, task) != root(project, task):
+        raise ValueError('pipeline_identity_changed')
+    result.update(status=state['status'], next_action=state['next_action'])
+    completed = state['completed']
+    for stage in STAGES:
+        row = completed.get(stage)
+        if row is None:
+            if state['status'] == 'complete':
+                result.update(status='stale', next_action=stage)
+                return result
+            continue
+        try:
+            if sha(row['receipt']) != row['sha256'] or inputs(target, task, stage, state) != row['input_sha256']:
+                raise ValueError('stale_stage_evidence')
+            if validate_receipt(row['receipt'], task, stage, target)['status'] != 'pass':
+                raise ValueError('stage_not_passed')
+            if row.get('recovery_binding'):
+                load('controller-recovery').validate_adopted(project, task, state, row)
+        except (OSError, ValueError, KeyError):
+            result.update(status='stale', next_action=stage)
+            return result
+    if result['status'] == 'complete':
+        for gate in ('development', 'final'):
+            outcome = proof(target, task, gate)  # Canonical gate is read-only.
+            if outcome.get('outcome') != 'pass':
+                result.update(status='blocked',
+                              next_action=outcome.get('next_action') or 'repair_'+gate+'_evidence')
+                break
+    return result
 
 
 def continuation_preflight(project, task):
@@ -752,7 +895,7 @@ def main():
     if not args.continuation_preflight and not args.settings:parser.error('--settings is required')
     try:
         if args.continuation_preflight:return continuation_preflight(args.project,args.task)
-        settings=json.loads(args.settings)
+        settings=retained_stage_routing(args.project,args.task,json.loads(args.settings),preserve_legacy=True)
         if args.review_spec and settings['branch'] != 'auto':
             raise ValueError('Spec review requires automatic ticket branching')
         if settings['branch']=='auto':

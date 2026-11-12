@@ -39,6 +39,24 @@ entrypoints are no longer installed. Historical run evidence remains readable.
 
 ---
 
+## Runtime identity and evidence
+
+Before a live run, use `nightshift inventory --project DIR` to record local
+launcher identity, checkout revision, saved install channel and effective stage
+routing. Add `--task KEY` to inspect retained recovery state and its resume command.
+Inventory does not fetch updates, admit a ticket, invoke a provider or certify a run.
+Missing PATH runtime identity or saved channel is unknown. Keep inventory output
+private when it contains consumer paths or source references.
+
+A source fix changes a checkout. A temporary installation isolates a pinned
+candidate without replacing the default installation. An activated runtime is the
+launcher selected for execution; a checkout revision alone does not prove
+activation. Certified results require current, exact-revision live stage receipts,
+development and final proof, and independent gates. Source checks, draft specs and
+incomplete or mismatched live receipts do not establish completion. Historical
+receipts retain their original evidence boundary. Inventory always reports
+`certification="not-established"`; the controller owns live acceptance.
+
 ## Why
 
 Spec-driven workflows fall apart for two reasons: ticket sources that don't match the spec
@@ -1058,8 +1076,8 @@ without a model call, only for one JSON artifact still matching its pinned
 original snapshot. It refuses later edits and rechecks the repaired result.
 
 Resolved single-ticket factory runs and role dispatchers share a persistent
-common-Git budget (default 64 provider-process launches and 3600 aggregate active
-seconds). Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
+common-Git accounting ledger with no default provider-launch or aggregate active-time
+ceiling. Set `NIGHTSHIFT_TICKET_MAX_CALLS` and
 `NIGHTSHIFT_TICKET_MAX_ACTIVE_SECONDS` before the first instrumented launch to
 choose limits; later environment changes cannot expand them or reset usage.
 Child dispatches inherit `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`.

@@ -78,7 +78,7 @@ class Diagnostics(unittest.TestCase):
     controller.runner=controller.dispatch
     class Process:
      def wait(inner,timeout):
-      (project/'docs/123/.nightshift-adversarial-1.json').write_text('['*100000+']'*100000 if raw_worker=='deep' else '[]');return code
+      (project/'docs/123/.nightshift-adversarial-1.json').write_text('['*100000 if raw_worker=='malformed-deep' else '['*100000+']'*100000 if raw_worker=='deep' else '[]');return code
     real_popen=m.subprocess.Popen
     def popen(argv,*args,**kwargs):
      if len(argv)>1 and str(argv[1]).endswith('nightshift-factory.sh'):return Process()
@@ -87,8 +87,11 @@ class Diagnostics(unittest.TestCase):
    else:result=controller.run()
   self.assertEqual(result,1);attempt=controller.state['attempts'][-1]
   self.assertEqual(attempt['category'],'transport' if code else 'schema')
-  self.assertEqual(attempt['reason'],'worker_exit_'+str(code) if code else 'stage_receipt.json:invalid_json' if raw_worker=='deep' else 'stage_receipt.root:expected_object' if raw_worker else 'stage_receipt.task:expected_string')
-  self.assertEqual(attempt['diagnostic']['validation_error'],'stage_receipt.json:invalid_json' if raw_worker=='deep' else 'stage_receipt.root:expected_object' if raw_worker else 'stage_receipt.task:expected_string')
+  # JSON parsers may reject deep valid arrays during decoding or accept them
+  # before receipt root validation. Both must retain a terminal schema failure.
+  reasons={'stage_receipt.json:invalid_json','stage_receipt.root:expected_object'} if raw_worker=='deep' else {'stage_receipt.json:invalid_json'} if raw_worker=='malformed-deep' else {'stage_receipt.root:expected_object'} if raw_worker else {'stage_receipt.task:expected_string'}
+  self.assertIn(attempt['diagnostic']['validation_error'],reasons)
+  self.assertEqual(attempt['reason'],'worker_exit_'+str(code) if code else attempt['diagnostic']['validation_error'])
   self.assertEqual(controller.state['retry_budgets']['adversarial']['infrastructure_failures'],1)
   self.assertEqual(controller.state['retry_budgets']['adversarial']['substantive_failures'],0)
   self.assertEqual(ledger.ledger_path(project,'123').read_bytes(),before)
@@ -101,6 +104,7 @@ class Diagnostics(unittest.TestCase):
  def test_actual_dispatch_nonzero_invalid_root_does_not_become_schema_category(self):self.pipeline_case(23,True)
  def test_reaped_child_schema_error_is_not_replaced_by_cleanup_error(self):self.pipeline_case(0,True)
  def test_deep_json_retains_schema_failure_instead_of_pending_attempt(self):self.pipeline_case(0,'deep')
+ def test_malformed_deep_json_retains_parse_failure(self):self.pipeline_case(0,'malformed-deep')
  def test_malformed_existing_diagnostic_is_not_trusted(self):
   self.path.with_suffix('.diagnostic.json').write_text('{}')
   with self.assertRaisesRegex(ValueError,'invalid_diagnostic_record'):m.retain_diagnostic(self.path,'123','product',self.root,'synthetic')

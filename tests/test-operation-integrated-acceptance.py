@@ -32,9 +32,9 @@ class IntegratedAcceptance(unittest.TestCase):
         grant = self.controller.authorize([operation], assessed['binding'], 'synthetic-reviewer', request, attestation)
         return self.controller.execute(grant['id'], operation, request + '-run')
 
-    def test_exhaustion_restart_external_adoption_and_replay(self):
+    def test_repair_history_restart_external_adoption_and_replay(self):
         self.run_operation('groom-rules')
-        for index in range(3):
+        for index in range(4):
             self.restart()
             (self.project/'spec.md').write_text('Return two. Clarification ' + str(index) + '\n')
             self.worker.fail = False
@@ -44,7 +44,10 @@ class IntegratedAcceptance(unittest.TestCase):
         retained_attempts = json.loads(json.dumps(self.controller.state['attempts']))
         retained_draft = (self.project/'spec.md').read_bytes()
         self.restart()
-        self.assertIn('repair_limit_exhausted', self.controller.assess('groom-adversarial')['blockers'])
+        assessed = self.controller.assess('groom-adversarial')
+        self.assertNotIn('repair_limit_exhausted', assessed['blockers'])
+        self.assertIn('unchanged_failure_requires_repair', assessed['blockers'])
+        self.assertEqual(len([attempt for attempt in retained_attempts if attempt['operation'] == 'groom-adversarial']), 4)
         (self.project/'app.py').write_text('def answer(): return 2 # externally implemented\n')
         self.worker.fail = False
         assessed = self.controller.assess('adopt')

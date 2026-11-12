@@ -28,13 +28,13 @@ structural grounding.
 ## Step 1 — Parse argument and resolve paths
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
+STAGE_ARGS=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 TASK=$(jq -r '.arguments' <<< "$STAGE_ARGS")
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 CITATION="${TASK_DIR}/${TASK}-citations.jsonl"
 
@@ -137,7 +137,7 @@ status alone does not decide the category.
 Finalization recipe (`REPORT` is the just-evaluated requested output path):
 
 ```bash
-python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-retry-budget.py" \
+python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-retry-budget.py" \
   --state "$(jq -er '.state_path' "$REPORT.retry.json")" \
   --attempt-id "$(jq -er '.attempt_id' "$REPORT.retry.json")" \
   --category "$EVALUATION_CATEGORY"
@@ -181,7 +181,7 @@ actual author receipt.
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
+if bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-sources.in.md" \
   --out "docs/$TASK/adversarial-sources.out.json"; then
@@ -285,7 +285,7 @@ extractor inspected" which can only be observed post-hoc.
 ### 6a — Build file_targets + partition claims
 
 ```bash
-SCRIPT="${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-claim-cache.sh"
+SCRIPT="${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-claim-cache.sh"
 SHARED_CACHE="${TASK_DIR}/.claim-cache.jsonl"
 HEAD_SHA=$(git rev-parse HEAD)
 
@@ -318,7 +318,7 @@ and evidence requirements. Dispatch once with the same actual author provenance:
 
 ```bash
 AUTHOR_PROVIDER=$(cat "docs/$TASK/spec-author-provider.txt")
-if bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-dispatch-bounded.sh" \
+if bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-dispatch-bounded.sh" \
   nightshift-code-fact-extractor --gear "${GEAR:-${NIGHTSHIFT_GEAR:-auto}}" --auth "${STAGE_AUTH:-subscription}" --risk "${NIGHTSHIFT_RISK:-standard}" --attempt "${GATE_ATTEMPT:-1}" --adversarial \
   --author-provider "$AUTHOR_PROVIDER" --in "docs/$TASK/adversarial-claims.in.md" \
   --out "docs/$TASK/adversarial-claims.out.json"; then
@@ -524,8 +524,8 @@ Now that the spec is APPROVED and the citation file is final, produce the two re
 derivatives the downstream stages consume so they pay for the contract, not the rationale:
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-spec-digest.sh" "$TASK"
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-citations-trim.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-spec-digest.sh" "$TASK"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-citations-trim.sh" "$TASK"
 ```
 
 - `nightshift-spec-digest.sh` writes `docs/<task-key>/SPEC-DIGEST.md` — only the Acceptance Criteria

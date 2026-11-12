@@ -27,7 +27,18 @@ class ControllerParity(unittest.TestCase):
                 return 0
             handoff = m.load('handoff'); original_load = m.load
             with patch.object(handoff, 'graph', return_value=dict(status='unavailable', reason='synthetic-no-graph', records=[])), patch.object(m, 'load', side_effect=lambda name: handoff if name == 'handoff' else original_load(name)), patch.dict('os.environ', NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json')), patch.object(m, 'proof', side_effect=lambda project, task, gate: development if gate == 'development' else dict(outcome='unknown', reason='proof_state_unavailable')):
-                controller = m.Pipeline(project, 'sample', settings, worker); controller.run()
+                controller = m.Pipeline(project, 'sample', settings, worker)
+                # A permanently failing synthetic proof needs an explicit fixture allowance.
+                retry_path = controller.directory/'adversarial-budget.json'
+                retry_path.parent.mkdir(parents=True,exist_ok=True)
+                retry_path.write_text(json.dumps(dict(version=1,infrastructure_failures=0,
+                    substantive_failures=0,total=0,limits=dict(infrastructure=3,substantive=3,total=3),
+                    limit_origin='operator',attempts={},next_action='continue')))
+                controller.run()
+                retained = retry_path.read_bytes(); prior_calls = list(calls)
+                self.assertEqual(m.Pipeline(project,'sample',settings,worker).run(),1)
+                self.assertEqual(retry_path.read_bytes(),retained)
+                self.assertEqual(calls,prior_calls)
             return calls, controller.state
 
     def test_unsealed_proof_allows_adversarial_and_implementation_entry(self):
@@ -39,6 +50,10 @@ class ControllerParity(unittest.TestCase):
         calls, state = self.stage_run(dict(outcome='fail', reason='red_not_observed'))
         self.assertNotIn('implement', calls)
         self.assertEqual(state['findings'][0]['id'], 'development-proof')
+        self.assertEqual(calls,['adversarial']*3)
+        self.assertEqual(state['next_action'],'inspect_exhausted_or_interrupted_adversarial')
+        self.assertEqual(state['retry_budgets']['adversarial']['total'],3)
+        self.assertEqual(state['retry_budgets']['adversarial']['next_action'],'stop')
 
     def test_later_route_change_does_not_invalidate_product(self):
         route = dict(provider='codex', model='synthetic')

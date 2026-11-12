@@ -37,7 +37,7 @@ def configuration(target):
     if not cfg['enabled'] or re.search(r'(^|[-/:])latest($|[-/:])',cfg['model'],re.I):
         raise ValueError('decision_requires_enabled_pinned_model')
     if not os.environ.get(cfg['key_env']):raise ValueError('decision_credentials_missing')
-    cfg=dict(cfg,timeout_seconds=min(20,cfg['timeout_seconds']),max_bytes=min(engine.MAX_BYTES,cfg['max_bytes']))
+    cfg=dict(cfg,max_bytes=min(engine.MAX_BYTES,cfg['max_bytes']))
     return cfg
 
 
@@ -69,18 +69,11 @@ def observation_view(text):
     return '\n'.join(out)
 
 
-# Upper bounds on what a plan may request. The per-run allowance itself is the
-# plan's limits, which the operator approves through the assessment binding.
-# Reviewer calls run sequentially (~30 s each measured with Claude Haiku), so
-# the former 600 s bound could not fit a 31-question plan in one session.
-MAX_ALLOWANCE_SECONDS=3600
-MAX_PROVIDER_CALLS=64
+# The operator-approved plan supplies its allowance; no fixed upper ceiling applies.
 
 
 def validate_limits(limits):
     if not isinstance(limits,dict) or set(limits)!={'wall_seconds','active_seconds','provider_calls'} or any(type(v) is not int or v<=0 for v in limits.values()):
-        raise ValueError('recovery_decision_limits_invalid')
-    if limits['wall_seconds']>MAX_ALLOWANCE_SECONDS or limits['active_seconds']>MAX_ALLOWANCE_SECONDS or limits['provider_calls']>MAX_PROVIDER_CALLS:
         raise ValueError('recovery_decision_limits_invalid')
     return limits
 

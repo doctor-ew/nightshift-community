@@ -73,12 +73,23 @@ def prepare(root, project, task='fixture', final=False, require_gate=True, manua
                           'counterexamples':['An answer value of 0'],'visibility':'public'}], 'heldout':None}
     if manual:
         document['ac_ids'].append('AC-2')
+        import importlib.util
+        decision_spec = importlib.util.spec_from_file_location('manual_decision_fixture', root/'scripts/nightshift-console-decisions.py')
+        decisions = importlib.util.module_from_spec(decision_spec); decision_spec.loader.exec_module(decisions)
+        request = decisions.request(project, task, {
+            'question': 'Who verifies external inbox delivery?',
+            'reason': 'Synthetic operator-owned external acceptance fixture.', 'options': []})
+        answered = decisions.respond(project, task, request['sha256'], '',
+                                      'I will manually inspect the delivered test email in my inbox.')
+        authorization = {'kind':'operator_decision', 'decision_sha256':request['sha256'],
+                         'response_sha256':hashlib.sha256(canonical(answered['response'])).hexdigest(),
+                         'quote':answered['response']['answer']}
         case = copy.deepcopy(document['cases'][0])
         case.update(id='manual-delivery', ac_ids=['AC-2'],
                     applicability={'kind':'manual','rationale':'Operator checks external delivery',
                                    'risks':[], 'review':None},
                     manual_acceptance={'owner':'fixture-operator',
-                                       'authorization':'Operator explicitly retained inbox verification',
+                                       'authorization':authorization,
                                        'procedure':'Inspect the delivered test email in the inbox'})
         document['cases'].append(case)
         spec.write_text(spec.read_text().replace('1. AC-1: answer equals 42.',

@@ -39,7 +39,8 @@ if [ -z "$BUDGET" ]; then
     in_section && $1 ~ "^[[:space:]]*" gate "[[:space:]]*$" { gsub(/[[:space:]]/, "", $2); print $2; exit }
   ' "$MANIFEST")
 fi
-[[ "$BUDGET" =~ ^[1-9][0-9]*$ ]] || { echo "invalid repair budget: $BUDGET" >&2; exit 64; }
+BUDGET=${BUDGET:-0}
+[[ "$BUDGET" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "invalid repair budget: $BUDGET" >&2; exit 64; }
 
 mkdir -p "$(dirname "$RECEIPT")"
 ATTEMPTS_FILE=$(mktemp "${TMPDIR:-/tmp}/nightshift-controller.XXXXXX")
@@ -86,8 +87,10 @@ run_isolated() {
   "$POLICY" check --action worktree-command --worktree "$WORKTREE" --log "$POLICY_LOG" --command "$1" &&
     bash "$ISOLATE" "${ISOLATION_ARGS[@]}" -- bash -c "$1"
 }
-# Positive repair budgets remain caps on gate attempts, not counts of extra retries.
-for attempt in $(seq 1 "$BUDGET"); do
+# Explicit positive budgets cap attempts; zero has no attempt ceiling.
+attempt=0
+while [ "$BUDGET" -eq 0 ] || [ "$attempt" -lt "$BUDGET" ]; do
+  attempt=$((attempt + 1))
   LOG=$(mktemp "${TMPDIR:-/tmp}/nightshift-gate.XXXXXX")
   if run_isolated "$ATTEMPT" >"$LOG" 2>&1; then
     RC=0
@@ -101,7 +104,8 @@ for attempt in $(seq 1 "$BUDGET"); do
     '{attempt:$attempt,command:$command,invocation:"isolation",worker_execution:(if $exit_code == 0 then "confirmed" else "unknown" end),exit_code:$exit_code,output:$output}' >> "$ATTEMPTS_FILE"
   rm -f "$LOG"
   [ "$RC" -eq 0 ] && break
-  if [ "$attempt" -lt "$BUDGET" ] && [ -n "$REPAIR" ]; then
+  [ -n "$REPAIR" ] || break
+  if [ "$BUDGET" -eq 0 ] || [ "$attempt" -lt "$BUDGET" ]; then
     REPAIR_LOG=$(mktemp "${TMPDIR:-/tmp}/nightshift-repair.XXXXXX")
     if run_isolated "$REPAIR" >"$REPAIR_LOG" 2>&1; then REPAIR_RC=0; else REPAIR_RC=$?; fi
     jq -cn --argjson attempt "$attempt" --arg command "$REPAIR" --argjson exit_code "$REPAIR_RC" --arg output "$(tail -c 8192 "$REPAIR_LOG")" \

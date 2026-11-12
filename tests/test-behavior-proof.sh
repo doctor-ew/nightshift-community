@@ -37,12 +37,38 @@ class BehaviorProofDuration(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('proof_duration',ROOT/'scripts/nightshift-behavior-proof.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         self.assertEqual(module.DEFAULTS['timeout_seconds'],0)
+        self.assertTrue(all(module.DEFAULTS[key] is None for key in ('development_calls', 'final_calls', 'repairs', 'infrastructure_failures')))
         with tempfile.TemporaryDirectory() as cwd:
             result=module.bounded_process([sys.executable,'-c',"import time;time.sleep(.2);print('done')"],cwd,os.environ,0,1024)
             self.assertEqual(result['reason'],None)
             self.assertEqual(result['returncode'],0)
             result=module.bounded_process([sys.executable,'-c',"print('x'*2048)"],cwd,os.environ,0,1024)
             self.assertEqual(result['reason'],'runtime_output_limit')
+
+class BehaviorProofUnboundedAccounting(unittest.TestCase):
+    def test_unlimited_defaults_cross_old_call_and_infrastructure_cutoffs(self):
+        spec=importlib.util.spec_from_file_location('proof_unlimited',ROOT/'scripts/nightshift-behavior-proof.py')
+        proof=importlib.util.module_from_spec(spec);spec.loader.exec_module(proof)
+        spec=importlib.util.spec_from_file_location('retry_unlimited',ROOT/'scripts/nightshift-retry-budget.py')
+        retry=importlib.util.module_from_spec(spec);spec.loader.exec_module(retry)
+        state={}
+        for gate in ('development','final'):
+            for index in range(12):
+                attempt=gate+str(index)
+                retry.proof_account(state, proof.DEFAULTS, 'reserve', attempt, gate)
+                retry.proof_account(state, proof.DEFAULTS, 'launch', attempt, gate)
+                retry.proof_account(state, proof.DEFAULTS, 'finalize', attempt, gate, 'unknown')
+        retry.proof_validate(state)
+        self.assertEqual(state['budget']['infrastructure_failures'],24)
+        explicit=dict(proof.DEFAULTS, final_calls=12)
+        # Independently configured ceilings are still enforced.
+        limited={}
+        for index in range(12):
+            retry.proof_account(limited, explicit, 'reserve', str(index), 'final')
+            retry.proof_account(limited, explicit, 'launch', str(index), 'final')
+            retry.proof_account(limited, explicit, 'finalize', str(index), 'final', 'fail')
+        with self.assertRaisesRegex(ValueError,'calls exhausted'):
+            retry.proof_admit(limited,explicit,'final')
 
 class BehaviorProofSchema(unittest.TestCase):
     def setUp(self):
@@ -87,13 +113,13 @@ class BehaviorProofSchema(unittest.TestCase):
         self.document['cases'][0]['applicability']['risks']=['prompt_behavior'];self.write()
         self.assertNotEqual(self.invoke('validate','--scenarios',str(self.scenarios)).returncode,0)
 
-    def test_config_defaults_and_finite_bounds(self):
+    def test_config_unlimited_defaults_and_explicit_limits(self):
         result=self.invoke('validate','--config-only',task=False);self.assertEqual(result.returncode,0,result.stdout)
         config=self.base/'.nightshift.toml'
-        for value in ('development_calls = 65', 'development_calls = 128', 'final_calls = 128'):
+        for value in ('development_calls = 65', 'development_calls = 129', 'final_calls = 1000', 'repairs = 1000', 'infrastructure_failures = 1000', 'timeout_seconds = 10000'):
             config.write_text('[behavior_proof]\n'+value+'\n')
             self.assertEqual(self.invoke('validate','--config-only',task=False).returncode,0)
-        for value in ('development_calls = true','development_calls = 0','development_calls = 129','final_calls = 129','repairs = 65','infrastructure_failures = 3','timeout_seconds = 121','output_bytes = 1048577','force_prompt = 1','unknown = 1','version = 2'):
+        for value in ('development_calls = true','development_calls = 0','repairs = -1','infrastructure_failures = -1','timeout_seconds = -1','output_bytes = 1048577','force_prompt = 1','unknown = 1','version = 2'):
             with self.subTest(value=value):
                 config.write_text('[behavior_proof]\n'+value+'\n')
                 self.assertEqual(self.invoke('validate','--config-only',task=False).returncode,64)

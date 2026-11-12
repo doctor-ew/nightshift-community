@@ -1,0 +1,35 @@
+{
+  "artifacts": {
+    "branch": "",
+    "diff": "",
+    "model": "sonnet",
+    "provider": "claude"
+  },
+  "attempts": 7,
+  "reason": "Design review only. All nine public cases give observable positive and negative coverage for their acceptance criteria. Each has forbidden behavior and counterexamples that separate the intended result from a plausible wrong one. C-7 now separates ordinary and required modes across unset, empty, \"0\" and \"1\". Ordinary mode without a record gives exactly one labelled skip that never certifies. Required mode without a record fails the required-file assertion with no skip. Required mode with the real record runs every live-receipt assertion with zero skips. The runner rejects a missing mode selection and any skipped C-7 result. Candidate-revision binding, missing-stage and synthetic-provider rejections are preserved. No product requirement is waived.",
+  "results": {
+    "decision": "approve",
+    "scenario_ids": [
+      "C-1",
+      "C-2",
+      "C-3",
+      "C-4",
+      "C-5",
+      "C-6",
+      "C-7",
+      "C-8",
+      "C-9"
+    ],
+    "findings": [],
+    "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81"
+  },
+  "rules_fired": [
+    "required-positive-negative-coverage",
+    "observable-assertions",
+    "mode-separation-boundaries",
+    "installed-acceptance-not-source-tests",
+    "no-execution-claim",
+    "route_gear:1"
+  ],
+  "status": "SUCCESS"
+}

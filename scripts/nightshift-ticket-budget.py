@@ -39,10 +39,10 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
             state = dict(version=1, task=task, coverage='instrumented-dispatches-only', historical_usage='unknown',
                          started_at=now, deadline_at=now + max_wall_seconds if max_wall_seconds is not None else None,
                          max_wall_seconds=max_wall_seconds,
-                         wall_clock='bounded' if max_wall_seconds is not None else 'none', max_calls=max_calls if max_calls is not None else 64,
-                         max_active_seconds=max_seconds if max_seconds is not None else 3600, reservations={})
+                         wall_clock='bounded' if max_wall_seconds is not None else 'none', max_calls=max_calls,
+                         max_active_seconds=max_seconds, reservations={})
         for name, requested in [('max_calls', max_calls), ('max_active_seconds', max_seconds)]:
-            if type(state[name]) is not int or state[name] <= 0:
+            if state[name] is not None and (type(state[name]) is not int or state[name] <= 0):
                 raise ValueError('budget limits must be positive integers')
             if requested is not None and requested != state[name]:
                 raise ValueError('budget limits are pinned; changing environment cannot reset or expand them')
@@ -62,13 +62,13 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
             wall_open = (now < state['deadline_at'] if state.get('deadline_at') is not None
                          else state.get('wall_clock') == 'none')
             if ((expected_revision is not None or state.get('wall_clock') == 'none')
-                    and wall_open and elapsed() < state['max_active_seconds']):
+                    and wall_open and (state['max_active_seconds'] is None or elapsed() < state['max_active_seconds'])):
                 raise ValueError('Time remains; use Resume without granting a new allowance')
-            if type(continuation_seconds) is not int or not 1 <= continuation_seconds <= 600:
-                raise ValueError('explicit continuation must be between 1 and 600 seconds')
+            if type(continuation_seconds) is not int or continuation_seconds <= 0:
+                raise ValueError('explicit continuation must be a positive number of seconds')
             if any('finished_at' not in r for r in reservations.values()):
                 raise ValueError('cannot continue while reservations are unfinished')
-            if len(reservations) >= state['max_calls']:
+            if (state['max_calls'] is not None and len(reservations) >= state['max_calls']):
                 raise ValueError('call budget exhausted; continuation cannot add calls')
             state.setdefault('continuations', []).append(dict(at=now, seconds=continuation_seconds,
                 previous_deadline_at=state.get('deadline_at'), previous_max_active_seconds=state['max_active_seconds'],
@@ -86,9 +86,9 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
                 allowed, reason = False, 'invocation_already_reserved'
             elif state.get('deadline_at') is not None and now >= state['deadline_at']:
                 allowed, reason = False, 'ticket_wall_time_budget_exhausted'
-            elif len(reservations) >= state['max_calls']:
+            elif (state['max_calls'] is not None and len(reservations) >= state['max_calls']):
                 allowed, reason = False, 'ticket_call_budget_exhausted'
-            elif elapsed() >= state['max_active_seconds']:
+            elif (state['max_active_seconds'] is not None and elapsed() >= state['max_active_seconds']):
                 allowed, reason = False, 'ticket_active_time_budget_exhausted'
             else:
                 reservations[invocation] = dict(started_at=now, outcome='reserved')
@@ -100,7 +100,7 @@ def update(project, task, operation, invocation='', max_calls=None, max_seconds=
         elif operation == 'check':
             if state.get('deadline_at') is not None and now >= state['deadline_at']:
                 allowed, reason = False, 'ticket_wall_time_budget_exhausted'
-            elif elapsed() >= state['max_active_seconds']:
+            elif (state['max_active_seconds'] is not None and elapsed() >= state['max_active_seconds']):
                 allowed, reason = False, 'ticket_active_time_budget_exhausted'
         else:
             raise ValueError('unsupported operation')
@@ -135,7 +135,8 @@ def snapshot(project, task, now=None):
     reservations = state['reservations']
     active = sum(max(0, r.get('finished_at', now) - r['started_at']) for r in reservations.values())
     deadline = state.get('deadline_at')
-    remaining = max(0, state['max_active_seconds'] - active)
+    remaining = (max(0, state['max_active_seconds'] - active)
+                 if state['max_active_seconds'] is not None else None)
     wall_remaining = max(0, deadline - now) if deadline is not None else None
     return dict(revision=hashlib.sha256(content).hexdigest(),
                 unfinished=sum(1 for r in reservations.values() if 'finished_at' not in r),
@@ -143,7 +144,7 @@ def snapshot(project, task, now=None):
                 calls_reserved=len(reservations), max_calls=state['max_calls'],
                 active_seconds=active, active_seconds_remaining=remaining,
                 wall_seconds_remaining=wall_remaining, wall_clock=state.get('wall_clock'),
-                exhausted=remaining <= 0 or len(reservations) >= state['max_calls']
+                exhausted=(remaining is not None and remaining <= 0) or (state['max_calls'] is not None and len(reservations) >= state['max_calls'])
                           or wall_remaining == 0,
                 coverage=state['coverage'], historical_usage=state['historical_usage'])
 

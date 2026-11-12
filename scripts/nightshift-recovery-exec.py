@@ -9,7 +9,7 @@ import time
 
 
 def run(parent, seconds, output, argv):
-    deadline=time.monotonic()+seconds
+    deadline=time.monotonic()+seconds if seconds is not None else None
     child=None
     stopping=False
     def stop(_signum, _frame):
@@ -17,10 +17,10 @@ def run(parent, seconds, output, argv):
         stopping=True
     signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
     try:
-        if stopping or os.getppid()!=parent or time.monotonic()>=deadline:return 124
+        if stopping or os.getppid()!=parent or (deadline is not None and time.monotonic()>=deadline):return 124
         child=subprocess.Popen(argv,stdin=subprocess.DEVNULL,start_new_session=True)
         while child.poll() is None:
-            if stopping or os.getppid()!=parent or time.monotonic()>=deadline or Path(output).stat().st_size>2_000_000:
+            if stopping or os.getppid()!=parent or (deadline is not None and time.monotonic()>=deadline) or Path(output).stat().st_size>2_000_000:
                 return 124
             time.sleep(.05)
         return child.returncode
@@ -36,4 +36,4 @@ def run(parent, seconds, output, argv):
 
 
 if __name__=='__main__':
-    raise SystemExit(run(int(sys.argv[1]),float(sys.argv[2]),sys.argv[3],sys.argv[4:]))
+    raise SystemExit(run(int(sys.argv[1]),None if sys.argv[2]=='None' else float(sys.argv[2]),sys.argv[3],sys.argv[4:]))

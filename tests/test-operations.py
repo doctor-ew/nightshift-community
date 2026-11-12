@@ -56,6 +56,15 @@ class Operations(unittest.TestCase):
         g=self.grant(m.RECIPES['factory']);r=self.c.chain(g);self.assertEqual(r['view']['status'],'pending_manual_acceptance',r);return g
     def modify_plan(self):
         (self.root/'docs/demo/operations.json').write_text(json.dumps(self.plan))
+    def test_operator_limits_have_no_arbitrary_upper_ceiling(self):
+        large=dict(calls=128,seconds=7200,wall_seconds=7200)
+        self.assertEqual(m.limits(large),large)
+        for bad in (dict(large,calls=0),dict(large,seconds=float('inf')),dict(large,calls=True)):
+            with self.subTest(bad=bad),self.assertRaises(ValueError):m.limits(bad)
+        self.plan['limits']['groom-spec']=large
+        self.plan['aggregate']=dict(calls=256,seconds=14400,wall_seconds=14400)
+        self.modify_plan()
+        self.assertEqual(self.run_op('groom-spec')['status'],'passed')
     def test_checkpoint_rejects_changed_dependencies(self):
         def stop(a):raise KeyboardInterrupt()
         self.c.finalize=stop;g=self.grant(['groom-spec'])
@@ -143,9 +152,9 @@ class Operations(unittest.TestCase):
             head=subprocess.check_output(['git','-C',str(self.root),'rev-parse','HEAD'],text=True).strip()
             self.assertEqual(subprocess.check_output(['git','--git-dir',remote,'rev-parse','refs/heads/synthetic-publication'],text=True).strip(),head)
             self.assertEqual(self.c.execute(g,'publish','publish')['status'],'passed')
-    def test_classification_exhaustion_can_adopt_external_without_implementation(self):
+    def test_classification_repairs_can_continue_and_adopt_external_without_implementation(self):
         self.run_op('groom-rules')
-        for i in range(3):
+        for i in range(4):
             (self.root/'spec.md').write_text('Return two. Clarification '+str(i)+'\n')
             self.worker.fail=False;self.run_op('groom-spec');self.worker.fail=True
             self.assertEqual(self.run_op('groom-adversarial')['status'],'failed')
@@ -155,7 +164,8 @@ class Operations(unittest.TestCase):
         result=self.c.chain(g);self.assertEqual(result['view']['status'],'pending_manual_acceptance',result)
         self.assertEqual((self.root/'spec.md').read_bytes(),draft)
         self.assertEqual(sum(op=='implement' for op,b in self.worker.calls),0)
-        self.assertIn('repair_limit_exhausted',self.c.assess('groom-adversarial')['blockers'])
+        self.assertNotIn('repair_limit_exhausted',self.c.assess('groom-adversarial')['blockers'])
+        self.assertIn('unchanged_failure_requires_repair',self.c.assess('groom-adversarial')['blockers'])
     def test_accepted_architecture_is_checked_by_verifier(self):
         m.load('architecture').accept(self.root,dict(id='no-forbidden',decision='Do not use forbidden marker',operator='synthetic',upstream='https://example.invalid/issues/1',scope=['app.py'],reference='app.py',constraints=[dict(kind='forbidden_literal',value='FORBIDDEN')]))
         self.groom();self.run_op('implement')

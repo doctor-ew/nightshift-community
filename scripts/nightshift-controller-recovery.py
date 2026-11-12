@@ -33,7 +33,7 @@ def load(name):
 
 p = load('pipeline')
 digest = p.recovery.digest
-LIMITS = dict(wall_seconds=600, active_seconds=600, provider_calls=4)
+LIMITS = dict(wall_seconds=None, active_seconds=None, provider_calls=None)
 # No fixed number of recovery sessions: each one requires the operator's explicit
 # authorization of its binding and limits, and later sessions reuse identical
 # answers, so a count limit adds no protection. Every session is retained.
@@ -208,7 +208,7 @@ def assessment(project, task, verify=False):
                   decisions=value['decision_readiness'],
                   message='Read-only recovery assessment. No allowance granted or provider invoked.')
     if verify:
-        result['verification'] = verify_checks(value, timeout=600)
+        result['verification'] = verify_checks(value, timeout=value['limits']['wall_seconds'])
         current_binding(project,task,binding)
         if result['verification']['status']=='pass' and value['decision_readiness']['status']=='ready':
             adapter=load('recovery-decisions')
@@ -277,12 +277,12 @@ def estimate_run(value, state, verification):
     observed={kind:dict(samples=len(v),median=round(sorted(v)[len(v)//2],3),maximum=round(max(v),3)) for kind,v in sorted(durations.items())}
     expected=len(fresh)+sum(planned.values());maximum=2*len(fresh)
     slowest=max((row['maximum'] for row in observed.values()),default=None)
-    seconds=None if slowest is None else min(adapter.MAX_ALLOWANCE_SECONDS,math.ceil(slowest*maximum))
+    seconds=None if slowest is None else math.ceil(slowest*maximum)
     return dict(mode=mode,unique_questions=len(questions),gate_evaluations=evaluations,cache_reuses=evaluations-len(questions),
                 provider_calls=dict(expected=expected,maximum=maximum,planned_escalations=planned,reusable_answers=len(reused)),
                 estimated_input_tokens=tokens,token_budget=dict(request=engine.REQUEST_TOKEN_BUDGET,state_question=engine.STATE_QUESTION_TOKEN_BUDGET),
                 observed_call_seconds=observed,
-                proposed_limits=dict(provider_calls=min(adapter.MAX_PROVIDER_CALLS,maximum),wall_seconds=seconds,active_seconds=seconds),
+                proposed_limits=dict(provider_calls=maximum,wall_seconds=seconds,active_seconds=seconds),
                 basis='Counts from the actual packets, excluding answers reusable from earlier authorized sessions; maximum allows one escalation or re-ask per fresh question; seconds = slowest observed call on this ticket x maximum calls (unknown without observations). A proposal for operator approval; nothing is applied.')
 
 
@@ -290,6 +290,21 @@ def clean_environment():
     # Tests execute copied source; never inherit target paths, secrets or a parent budget.
     keep = ('PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'SYSTEMROOT')
     return {key:os.environ[key] for key in keep if key in os.environ}
+
+
+def allowance_remaining(budget, active=0):
+    remaining = []
+    if budget.get('deadline_at') is not None:
+        remaining.append(budget['deadline_at'] - time.time())
+    if budget.get('active_seconds') is not None:
+        remaining.append(budget['active_seconds'] - budget['active_used'] - active)
+    return min(remaining) if remaining else None
+
+
+def allowance_exhausted(budget, active=0, calls=False):
+    remaining = allowance_remaining(budget, active)
+    return ((remaining is not None and remaining <= 0) or
+            (calls and budget.get('provider_calls') is not None and budget['calls_used'] >= budget['provider_calls']))
 
 
 def bounded(argv, cwd, env, timeout, output, cancellation=None, ownership=None):
@@ -309,7 +324,7 @@ def bounded(argv, cwd, env, timeout, output, cancellation=None, ownership=None):
                 if any(path.exists() for path in cancellation_paths):
                     cancelled=True
                     raise ValueError('operation_cancelled:owned_execution_stopping')
-                if time.monotonic() - started >= timeout or output.stat().st_size > 2_000_000:
+                if (timeout is not None and time.monotonic() - started >= timeout) or output.stat().st_size > 2_000_000:
                     raise ValueError('recovery_execution_bound_exceeded')
                 time.sleep(.05)
             return child.returncode
@@ -366,11 +381,11 @@ def verify_checks(value, timeout):
             subprocess.run(argv, cwd=copied, env=env, check=True, capture_output=True, timeout=30)
         proofs = []
         for artifact in value.get('generated', []):
-            remaining = timeout - (time.monotonic() - started)
-            if remaining <= 0: raise ValueError('recovery_allowance_exhausted')
+            remaining = timeout - (time.monotonic() - started) if timeout is not None else None
+            if remaining is not None and remaining <= 0: raise ValueError('recovery_allowance_exhausted')
             produced = copied / artifact['path']; produced.unlink()
             output = base / 'generate.log'
-            code = bounded(artifact['argv'], copied, env, min(120, remaining), output)
+            code = bounded(artifact['argv'], copied, env, remaining, output)
             tracked = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=copied, env=env, capture_output=True, text=True, timeout=30)
             reproduced = (code == 0 and produced.is_file() and not produced.is_symlink()
                           and p.sha(produced) == value['workspace']['files'][artifact['path']] and tracked.returncode == 0 and tracked.stdout == '')
@@ -379,10 +394,10 @@ def verify_checks(value, timeout):
             if not reproduced: break
         for check in value['checks']:
             if any(not proof['reproduced'] for proof in proofs): break
-            remaining = timeout - (time.monotonic() - started)
-            if remaining <= 0: raise ValueError('recovery_allowance_exhausted')
+            remaining = timeout - (time.monotonic() - started) if timeout is not None else None
+            if remaining is not None and remaining <= 0: raise ValueError('recovery_allowance_exhausted')
             output = base / 'check.log'
-            code = bounded(check['argv'], copied, env, min(120, remaining), output)
+            code = bounded(check['argv'], copied, env, remaining, output)
             results.append(dict(id=check['id'], argv=check['argv'], exit_code=code,
                                 output=output.read_text(errors='replace'), output_sha256=p.sha(output)))
             if sum(len(r['output'].encode()) for r in results)>500_000: raise ValueError('recovery_test_output_limit')
@@ -516,12 +531,12 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     packets=adapter.packets(value,checks,stage)
     settings=value['decision_readiness']['settings'];budget=session['allowance']
     def remaining():
-        return min(budget['deadline_at']-time.time(),budget['active_seconds']-budget['active_used']-(time.time()-step['started_at']))
+        return allowance_remaining(budget, time.time()-step['started_at'])
     def reserve(kind,request_id,request_bytes):
         if kind in ('exception','shadow'):
             envelope=dict(packet=packet,packet_sha256=decision.digest(packet),reviewer_id='decision-review-'+'0'*32,mode=kind)
             request_bytes=len(json.dumps(envelope,sort_keys=True).encode())
-        if remaining()<=0 or budget['calls_used']>=budget['provider_calls']:raise ValueError('recovery_allowance_exhausted')
+        if allowance_exhausted(budget, time.time()-step['started_at'], calls=True):raise ValueError('recovery_allowance_exhausted')
         calls=session.setdefault('decision_calls',{})
         if request_id in calls:raise ValueError('decision_duplicate_reservation')
         budget['calls_used']+=1
@@ -531,20 +546,21 @@ def compact_verdict(value,stage,checks,session,directory,save,step,transport=Non
     def finish(request_id,outcome):
         session['decision_calls'][request_id].update(status=outcome,finished_at=time.time())
         save()
-        if remaining()<=0:raise ValueError('recovery_allowance_exhausted')
+        if allowance_exhausted(budget, time.time()-step['started_at']):raise ValueError('recovery_allowance_exhausted')
     def invoke_jev(cfg,key,body):
-        actual=dict(cfg,timeout_seconds=max(.001,min(cfg['timeout_seconds'],remaining())))
+        left=remaining()
+        actual=dict(cfg,timeout_seconds=max(.001,min(cfg['timeout_seconds'],left)) if left is not None else cfg['timeout_seconds'])
         return (transport or load('efficiency').bounded_request)(actual,key,body)
     def escalate(packet,primary,mode):
         output=directory/('decision-'+decision.digest(packet)+'.review.json')
-        return (escalator or compact_review)(value,packet,mode,output,max(.001,min(120,remaining())))
+        return (escalator or compact_review)(value,packet,mode,output,remaining())
     semantic_mode=value['decision_readiness'].get('semantic_mode','jev')
     if semantic_mode=='independent':
         def independent_review(packet,reviewer_id,missing_roles=None):
             # A re-ask writes beside, never over, the retained first report.
             output=directory/('decision-'+decision.digest(packet)+('.reask' if missing_roles else '')+'.review.json')
             extra=dict(missing_roles=missing_roles) if missing_roles else {}
-            return (escalator or compact_review)(value,packet,'independent',output,max(.001,min(120,remaining())),reviewer_id=reviewer_id,**extra)
+            return (escalator or compact_review)(value,packet,'independent',output,remaining(),reviewer_id=reviewer_id,**extra)
         evaluator=decision.IndependentEngine(directory/'decisions',session['binding'],settings,reserve,finish,independent_review,
                                              prior=reusable_sessions(value,session,directory.parent))
     else:
@@ -750,7 +766,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                                  reason='controller_process_ended',closed_at=time.time(),superseded_by=expected)
             now = time.time()
             session = dict(binding=expected, operator=operator, authorized_at=now, evidence=value,
-                allowance=dict(value['limits'], started_at=now, deadline_at=now+value['limits']['wall_seconds'], active_used=0, calls_used=0),
+                allowance=dict(value['limits'], started_at=now, deadline_at=now+value['limits']['wall_seconds'] if value['limits']['wall_seconds'] is not None else None, active_used=0, calls_used=0),
                 decision_mode='compact' if compact else 'legacy_fixture', semantic_mode=value['decision_readiness'].get('semantic_mode','jev'),
                 steps={}, status='running', next_action='verify')
             sessions[expected] = session
@@ -776,7 +792,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
             if session.get('paused_at'):
                 # Time waiting for the operator is not run time; the extension is recorded.
                 pause=time.time()-session.pop('paused_at')
-                session['allowance']['deadline_at']+=pause
+                if session['allowance']['deadline_at'] is not None:session['allowance']['deadline_at']+=pause
                 session['allowance'].setdefault('operator_pauses',[]).append(round(pause,3))
                 session['status']='running'; save()
             for stage in ('verify',) + GATES:
@@ -785,7 +801,9 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                     session.setdefault('operator_waits',[]).append(dict(stage=stage,step=old)); session['steps'].pop(stage); old=None
                 if old:
                     if old['status'] != 'pass': raise ValueError('recovery_unfinished_step:' + stage)
-                    if old['finished_at']>session['allowance']['deadline_at'] or session['allowance']['active_used']>session['allowance']['active_seconds']:
+                    retained=session['allowance']
+                    if ((retained['deadline_at'] is not None and old['finished_at']>retained['deadline_at']) or
+                            (retained['active_seconds'] is not None and retained['active_used']>retained['active_seconds'])):
                         raise ValueError('recovery_allowance_exhausted')
                     if p.sha(old['receipt']) != old['sha256']: raise ValueError('recovery_receipt_changed')
                     if stage!='verify' and not old.get('adopted'):
@@ -794,8 +812,8 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                     continue
                 value = current_binding(project, task, expected)
                 budget = session['allowance']
-                remaining = min(budget['deadline_at']-time.time(), budget['active_seconds']-budget['active_used'])
-                if remaining <= 0 or (stage!='verify' and not compact and budget['calls_used']>=budget['provider_calls']):
+                remaining = allowance_remaining(budget)
+                if allowance_exhausted(budget, calls=stage!='verify' and not compact):
                     raise ValueError('recovery_allowance_exhausted')
                 if stage != 'verify' and not compact: budget['calls_used'] += 1
                 reviewer_id = 'recovery-review-' + uuid.uuid4().hex
@@ -813,7 +831,7 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                         if architecture['status']!='pass': raise ValueError('recovery_architecture_failure')
                     else:
                         checks=p.read(session_dir/'verify.json')
-                        report=(compact_verdict(value,stage,checks,session,session_dir,save,step) if compact else runner(value,stage,checks,reviewer_id,output,min(120,remaining)))
+                        report=(compact_verdict(value,stage,checks,session,session_dir,save,step) if compact else runner(value,stage,checks,reviewer_id,output,remaining))
                         if not output.exists(): p.recovery.atomic(output,report)
                         validate_review(report,value,stage,checks,reviewer_id)
                     current_binding(project,task,expected)
@@ -826,7 +844,8 @@ def operate(project, task, operation='assess', expected='', operator='', runner=
                 finally:
                     budget['active_used'] += time.time()-step['started_at']
                     save()
-                if budget['active_used']>budget['active_seconds'] or time.time()>budget['deadline_at']:
+                if ((budget['active_seconds'] is not None and budget['active_used']>budget['active_seconds']) or
+                        (budget['deadline_at'] is not None and time.time()>budget['deadline_at'])):
                     raise ValueError('recovery_allowance_exhausted')
                 if stage!='verify':
                     adopt(state,session,stage,directory)

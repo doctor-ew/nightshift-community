@@ -48,7 +48,11 @@ jq -e '.status == "complete" and .repair_budget == 2 and (.attempts | length) ==
 if "$CONTROLLER" run --ticket DP-2 --gate review --provider local --worktree "$TMP_ROOT/worktree" --receipt "$TMP_ROOT/failure.json" --budget 2 --attempt-command 'false'; then
   fail 'exhausted gate unexpectedly passed'
 fi
-jq -e '(.status == "failed") and ((.attempts | length) == 2) and (.next_action | contains("smallest in-scope"))' "$TMP_ROOT/failure.json" >/dev/null || fail 'failure receipt is incomplete'
+jq -e '(.status == "failed") and ((.attempts | length) == 1) and (.next_action | contains("smallest in-scope"))' "$TMP_ROOT/failure.json" >/dev/null || fail 'failure receipt is incomplete'
+
+# No configured ceiling: repairs can converge beyond the old three-attempt cap.
+"$CONTROLLER" run --ticket DP-unlimited --gate implement --provider codex --worktree "$TMP_ROOT/worktree" --receipt "$TMP_ROOT/unlimited.json" --budget 0 --attempt-command 'test "$(cat count 2>/dev/null || echo 0)" -ge 4' --repair-command 'n=$(cat count 2>/dev/null || echo 0); echo $((n+1)) > count'
+jq -e '.status == "complete" and .repair_budget == 0 and ([.attempts[] | select(has("attempt"))] | length) == 5' "$TMP_ROOT/unlimited.json" >/dev/null || fail 'default ceiling remains'
 
 # Every supported terminal failure retains command/output and never exceeds the cap.
 for terminal in blocked needs-decision failed; do

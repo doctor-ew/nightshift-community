@@ -36,7 +36,10 @@ if os.environ.get('SYNTHETIC_REPAIR') and packet['operation']=='implement' and p
 control=os.environ.get('SYNTHETIC_FAILURE_CONTROL')
 if control and Path(control).exists():
  if packet['operation']=='review':
-  value.update(status='FAIL',reason='Synthetic review finding');value['results'].update(decision='repair',findings=['Synthetic review finding'])
+  count=Path(control).read_text().strip()
+  if not count.isdecimal() or int(count)>0:
+   if count.isdecimal():Path(control).write_text(str(int(count)-1))
+   value.update(status='FAIL',reason='Synthetic review finding');value['results'].update(decision='repair',findings=['Synthetic review finding'])
  if packet['operation']=='implement' and packet['findings']:
   import difflib
   before=packet['artifacts']['app.py'];after=before+'# synthetic repair\\n'
@@ -120,16 +123,24 @@ class Interfaces(unittest.TestCase):
                 requests=[json.loads(row) for row in calls], usage=result['view']['usage'],
                 decisions=result['supervisor']['decisions'], provider_token_usage=None, billed_cost=None, live_certification=False),indent=2)+'\n')
 
-    def test_real_launcher_review_failure_enters_bounded_repair(self):
-        control=self.root/'.synthetic-review-failure';control.write_text('synthetic')
+    def test_real_launcher_review_repairs_continue_past_three_failures(self):
+        control=self.root/'.nightshift-fixture-bin/review-failure';control.write_text('4')
+        plan_path=self.root/'docs/demo/operations.json'
+        plan=json.loads(plan_path.read_text())
+        for limit in plan['limits'].values():limit['calls']=8
+        plan['aggregate']['calls']=40
+        plan_path.write_text(json.dumps(plan))
         self.env['SYNTHETIC_FAILURE_CONTROL']=str(control)
         _,a=self.cli('assess','demo','groom-spec')
         _,g=self.cli('authorize','demo','--recipe','factory','--binding',a['binding'],'--operator','synthetic','--request','review-failure','--attestation','{"bounded_repair":true}')
         code,result=self.cli('supervise','demo','--grant',g['id'])
-        self.assertEqual(code,1,result);self.assertEqual(result['supervisor']['reason'],'repair_limit_exhausted')
+        self.assertEqual(code,0,result)
+        self.assertEqual(result['view']['status'],'pending_manual_acceptance')
+        self.assertEqual(control.read_text(),'0')
         rows=[json.loads(line) for line in (self.root/'.synthetic-calls.jsonl').read_text().splitlines()]
-        self.assertEqual(sum(row['operation']=='review' for row in rows),3)
-        self.assertEqual(sum(row['operation']=='implement' for row in rows),3)
+        self.assertEqual(sum(row['operation']=='review' for row in rows),5)
+        self.assertEqual(sum(row['operation']=='implement' for row in rows),5)
+        self.assertEqual(len(result['supervisor']['decisions']),4)
         self.assertTrue(all(row['category']=='substantive' for row in result['supervisor']['decisions']))
 
     def test_killed_controller_retains_unknown_call_without_redispatch(self):

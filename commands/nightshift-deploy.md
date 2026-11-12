@@ -18,12 +18,12 @@ shape is borrowed; the implementation is local.
 ## Step 1 — Parse arguments and verify preconditions
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
 TASK=$(echo "$ARGUMENTS" | awk '{print $1}')
 ENV=$(echo "$ARGUMENTS" | awk '{print $2}')   # optional: dev|staging|prod (default: configured default)
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK" --create)
 SPEC="${PROJECT}/docs/${TASK}/SPEC.md"
 PREFLIGHT="${PROJECT}/docs/${TASK}/PREFLIGHT.md"
 DEPLOY_LOG="${PROJECT}/docs/${TASK}/DEPLOY.md"
@@ -44,7 +44,7 @@ Look for deploy config in this order:
 1. `${PROJECT}/.nightshift/deploy.json` — explicit Nightshift config (preferred)
 2. `${PROJECT}/.claude/deploy.json` — legacy compatibility reader; migrate its contents to `.nightshift/deploy.json` when found
 3. Resolved project conventions (`docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`)) — read applicable
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`)) — read applicable
    deployment instructions, with documented legacy fallback and conflict handling
 4. Heuristic detection: `vercel.json`, `fly.toml`, `netlify.toml`, `.github/workflows/deploy*`, `Dockerfile`
 
@@ -96,7 +96,7 @@ with a one-line summary lifted from the bead title.
 ```bash
 BD_ID=$([ -f "${PROJECT}/docs/${TASK}/.bd-id" ] && cat "${PROJECT}/docs/${TASK}/.bd-id" || echo "")
 if [ -n "$BD_ID" ]; then
-  TITLE=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has bd \
+  TITLE=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-capability.sh" --has bd \
             && bd show "$BD_ID" --json 2>/dev/null | jq -r '.title' || true)
 else
   TITLE="$TASK"  # fallback to the task key itself
@@ -160,24 +160,15 @@ PR_URL=$(gh pr view --json url -q .url 2>/dev/null)
 echo "PR: $PR_URL"
 echo "Polling CI..."
 
-# Poll every 30s up to 30 min
-for i in $(seq 1 60); do
-  STATE=$(gh pr checks --json bucket -q '[.[].bucket] | unique | sort | .[]' 2>/dev/null || echo "unknown")
-  case "$STATE" in
-    *failure*|*error*|*cancelled*)
-      echo "CI_FAILED: $STATE"
-      exit 1
-      ;;
-    "pass"|"success")
-      echo "CI_PASSED"
-      break
-      ;;
-  esac
-  sleep 30
-done
+# Watch until CI finishes; there is no default total wait deadline.
+if gh pr checks --watch --interval 30; then
+  echo "CI_PASSED"
+else
+  echo "CI_FAILED — retain the actual failed checks, repair within scope, and retry. Do not merge."
+fi
 ```
 
-If timeout: `"CI_TIMEOUT — surface to engineer, do not auto-merge."` and stop.
+There is no default polling deadline. An explicit operator deadline or a concrete external failure is recorded with the unfinished result. A failed CI gate remains repair work; do not merge until all required checks pass.
 
 ---
 
@@ -238,7 +229,7 @@ browser against the **live** deploy. Run the `@smoke`-tagged Playwright subset p
 `$DEPLOY_URL`. Zero-cost when the project has no Playwright (`PW_SKIPPED` → treated as pass).
 
 ```bash
-SMOKE=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-pw.sh" "$TASK" --run --grep "@smoke" --url "$DEPLOY_URL" \
+SMOKE=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-pw.sh" "$TASK" --run --grep "@smoke" --url "$DEPLOY_URL" \
   --label smoke --out "${PROJECT}/docs/${TASK}/SMOKE-output.log")
 echo "$SMOKE"
 SMOKE_VERDICT=$(echo "$SMOKE" | grep -oE 'PW_(PASS|FAIL|SKIPPED)' | head -1)

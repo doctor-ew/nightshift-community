@@ -39,12 +39,6 @@
         "exit_code": 1,
         "invocation": "isolation",
         "worker_execution": "unknown"
-      },
-      {
-        "attempt": 2,
-        "exit_code": 1,
-        "invocation": "isolation",
-        "worker_execution": "unknown"
       }
     ],
     "gate": "review",
@@ -54,18 +48,11 @@
         "action": "worktree-command",
         "decision": "allow",
         "reason": "normal command inside assigned worktree is unattended"
-      },
-      {
-        "action": "worktree-command",
-        "decision": "allow",
-        "reason": "normal command inside assigned worktree is unattended"
       }
     ],
     "repair_budget": 2,
     "status": "failed",
     "tool_order": [
-      "policy_check",
-      "isolation_run",
       "policy_check",
       "isolation_run"
     ]
@@ -86,12 +73,6 @@
         "exit_code": 1,
         "invocation": "isolation",
         "worker_execution": "unknown"
-      },
-      {
-        "attempt": 2,
-        "exit_code": 1,
-        "invocation": "isolation",
-        "worker_execution": "unknown"
       }
     ],
     "gate": "review",
@@ -101,18 +82,11 @@
         "action": "worktree-command",
         "decision": "allow",
         "reason": "normal command inside assigned worktree is unattended"
-      },
-      {
-        "action": "worktree-command",
-        "decision": "allow",
-        "reason": "normal command inside assigned worktree is unattended"
       }
     ],
     "repair_budget": 2,
     "status": "needs-decision",
     "tool_order": [
-      "policy_check",
-      "isolation_run",
       "policy_check",
       "isolation_run"
     ]

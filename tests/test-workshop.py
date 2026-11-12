@@ -26,11 +26,15 @@ if system.startswith('Return {'): value={'ready':True}
 elif 'Specify a small' in system: value={'title':'Coach','scope':'standalone_prompt','requirements':[{'id':'AC-1','criterion':'Coach respectfully'}],'exclusions':['applications']}
 elif 'Independently author' in system:
  value={'cases':[dict(slot,input='Scenario '+str(i),expected='Respectful response') for i,slot in enumerate(json.loads(payload)['slots'])]}
-elif 'Implement only' in system: value={'lines':['Coach respectfully. '+str(i) for i in range(20)]}
+elif 'Implement only' in system:
+ repair=json.loads(payload).get('repair',{})
+ prior=repair.get('previous_prompt','')
+ n=int(prior.split('revision ')[-1].split('.')[0])+1 if 'revision ' in prior else 0
+ value={'lines':['Coach respectfully revision '+str(n)+'. '+str(i) for i in range(20)]}
 elif 'Grade observed' in system:
- value={'assessments':[dict(case=o['case'],requirement=r['id'],verdict='unresolved' if mode=='unresolved' else 'fail' if mode=='reject' else 'pass',quote=o['response'][:80],reason='Observed') for o in json.loads(payload)['observations'] for r in json.loads(payload)['spec']['requirements']]}
+ value={'assessments':[dict(case=o['case'],requirement=r['id'],verdict='unresolved' if mode=='unresolved' else 'fail' if mode=='reject' and 'revision 3.' not in json.loads(payload)['observations'][0]['response'] else 'pass',quote=o['response'][:80],reason='Observed') for o in json.loads(payload)['observations'] for r in json.loads(payload)['spec']['requirements']]}
 elif 'independent reviewer' in system: value={'evidence_audit':'No source claims in this fixture.','approved':True,'oracle_valid':not ((mode=='invalid-oracle' and 'implemented prompt' in system) or (mode=='invalid-scenarios' and 'proposed scenarios' in system)),'issues':[]}
-else: value='What would you like to explore?'
+else: value='What would you like to explore? '+('revision '+system.split('revision ')[1].split('.')[0]+'.' if 'revision ' in system else '')
 if 'independent reviewer' in system and 'Review the implemented prompt' in system:
  value.pop('evidence_audit',None)
  value['assessments']=[dict(case=o['case'],requirement=r['id'],verdict='pass',quote=o['response'][:80],reason='Observed') for o in json.loads(payload)['observations'] for r in json.loads(payload)['spec']['requirements']]
@@ -89,6 +93,7 @@ class WorkshopTest(unittest.TestCase):
             c=json.loads(line);a=c['args'];self.assertEqual(a[a.index('--tools')+1],'')
             self.assertEqual(a[a.index('--setting-sources')+1],'');self.assertNotIn(str(self.project),c['cwd'])
             self.assertIn('--safe-mode',a);self.assertIn('--no-session-persistence',a);self.assertFalse(c['api'])
+            self.assertNotIn('--max-budget-usd',a)
         (Path(s['worktree'])/'prompts/workshop-agent.md').write_text('tampered')
         self.run_workshop(status=1);self.assertEqual(self.state()['status'],'failed')
 
@@ -124,9 +129,9 @@ class WorkshopTest(unittest.TestCase):
         self.assertEqual(self.state()['status'],'budget_exhausted');self.assertEqual(len(self.state()['calls']),4)
         self.run_workshop(status=1);self.assertEqual(len(self.state()['calls']),4)
 
-    def test_one_repair_retains_evidence(self):
-        self.env['FIXTURE_MODE']='reject';self.run_workshop();self.approve(status=1)
-        s=self.state();self.assertEqual(s['repairs'],1);self.assertEqual(len(s['calls']),28)
+    def test_repeated_repairs_have_no_default_attempt_or_call_cutoff(self):
+        self.env['FIXTURE_MODE']='reject';self.run_workshop();self.approve()
+        s=self.state();self.assertEqual(s['repairs'],3);self.assertEqual(len(s['calls']),50)
         evidence=Path(s['worktree'])/'docs'/s['task'];self.assertTrue((evidence/'EVALUATION-0.json').exists());self.assertTrue((evidence/'EVALUATION-1.json').exists())
 
     def test_invalid_oracle_stops_without_repair(self):
@@ -229,6 +234,7 @@ class WorkshopTest(unittest.TestCase):
         self.assertEqual(agent['verification_status'],'unresolved')
 
     def test_missing_receipt_is_charged_and_terminal(self):
+        self.limits('call_usd = 0.25')
         self.env['FIXTURE_MODE']='no-receipt';self.run_workshop(status=1)
         self.assertEqual(self.state()['cost_usd'],.25);self.run_workshop(status=1)
         self.assertEqual(len(self.log.read_text().splitlines()),1)
@@ -247,6 +253,7 @@ class WorkshopTest(unittest.TestCase):
         self.assertFalse(self.log.exists())
 
     def test_reported_cost_overrun_stops_and_retains_receipt(self):
+        self.limits('cost_usd = 2.0')
         self.env['FIXTURE_MODE']='overcost';self.run_workshop(status=1)
         self.assertEqual(self.state()['status'],'budget_exhausted')
         self.assertEqual(self.state()['cost_usd'],3)

@@ -3,7 +3,6 @@ name: nightshift-code-fact-extractor
 description: "Verifies that technical identifiers cited in a spec actually exist in the codebase. Given a list of names (field names, return codes, enum values, method names, function names, class names, file paths), searches exhaustively and returns a verification manifest — VERIFIED with source location and context, or NOT FOUND. Invoked by /nightshift-product before drafting and by /nightshift-adversarial for claim verification, to prevent hallucination."
 tools: Bash, Read, Glob, Grep
 disallowedTools: Edit, Write, NotebookEdit
-maxTurns: 30
 ---
 
 <!-- nightshift role prompt. Runtime-neutral: no `model:` key.
@@ -38,7 +37,7 @@ Verify these identifiers in /path/to/repo:
 Before searching any identifier, capture the extraction timestamp and current commit SHA:
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-extractor-meta.sh"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-extractor-meta.sh"
 ```
 
 Read `EXTRACTED_AT:` and `COMMIT_SHA:` from the output and put both in the report header.
@@ -47,7 +46,7 @@ Run this process for **every** identifier. Do not skip any.
 
 ### Tier 0 — Code graph (optional, when available)
 
-If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, start with
+If `bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, start with
 `mex graph query where-defined <symbol>` or `mex impact <symbol|file>`. Treat mex output as
 already-read source — do not re-open files it already returned. Fall back to Tiers 1–3 for
 anything mex does not answer. When mex is absent this tier is a no-op; skip it silently.

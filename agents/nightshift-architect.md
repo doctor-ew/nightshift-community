@@ -1,7 +1,6 @@
 ---
 name: nightshift-architect
 description: Enterprise Architect for cross-module work, architecture decisions, and escalated failures. Invoked for large-scope implementation (AC ≥ 10, files ≥ 5, or multi-module span).
-maxTurns: 60
 tools: Read, Glob, Grep, Edit, Write, Bash
 disallowedTools: NotebookEdit
 ---
@@ -68,7 +67,7 @@ schema of unknown object count; or you estimate needing more than ~10 files / ~2
 
 1. Read `docs/<task-key>/SPEC.md` (or the `SPEC-DIGEST.md` handed to you). This is your source
    of truth. No spec → **stop** and return AGENT BLOCKED.
-2. **Code graph first, when available.** If `bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
+2. **Code graph first, when available.** If `bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-capability.sh" --has mex` succeeds and `.mex/graph.db` exists, use
    `mex graph scope "<task>"` or `mex impact <symbol|file>` to locate affected files and modules
    before Grep/Read. Treat mex output as already-read source. When mex is absent this is a no-op.
 3. Identify every file, module, and downstream consumer affected. Write it down as an artifact.
@@ -124,7 +123,7 @@ context grows — this is a quality issue, not a token limit.
 
 Per file:
 - Follow the acceptance criteria exactly and the shared convention decision in `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`).
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`).
 - Use existing patterns; do not invent new ones.
 - **Stop and flag** any file not in the spec's Files-to-Change table before touching it.
 - **Stop and flag** an incomplete or wrong spec the moment you discover it.

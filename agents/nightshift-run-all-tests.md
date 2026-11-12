@@ -1,7 +1,6 @@
 ---
 name: nightshift-run-all-tests
 description: Run the project's unit/integration test suite and report results. Language-agnostic detection from resolved project conventions and lockfiles. Read-only — never edits files.
-maxTurns: 15
 tools: Bash, Read, Glob, Grep
 disallowedTools: Edit, Write, NotebookEdit
 ---
@@ -31,8 +30,8 @@ neutral source is silent. Before execution, record the exact selected command,
 source file AND line number, scope, and the fallback reason in the result reason.
 
 Use `docs/PROJECT-CONTEXT.md` in the Nightshift source (installed at
-`${NIGHTSHIFT_HOME:-$HOME/.nightshift}/docs/nightshift-project-context.md`) for the shared convention decision. Run
-`python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py"` with the explicit project and applicable
+`${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/docs/nightshift-project-context.md`) for the shared convention decision. Run
+`python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py"` with the explicit project and applicable
 scope; read its returned convention files and configured test command. A blocked
 resolver result blocks this role. No tests may run until convention review completes.
 

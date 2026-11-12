@@ -23,6 +23,7 @@ class Checkpoints(unittest.TestCase):
             out=evidence/'proposal.json';out.write_text(json.dumps({'status':'SUCCESS'}))
             r.reserve('proposal',out);r.finish('proposal',out,True)
             deadline=r.state['deadline_at']
+            self.assertIsNone(deadline)
             resumed=m.Recovery(p,'42',p,{'policy':'claude-only'},evidence)
             self.assertEqual(resumed.result('proposal'),{'status':'SUCCESS'})
             out.write_text('{}')
@@ -33,12 +34,13 @@ class Checkpoints(unittest.TestCase):
             self.assertEqual(changed.state['deadline_at'],deadline)
             self.assertEqual(len(changed.state['history']),1)
             self.assertEqual(len(changed.state['attempts']),1)
-            for _ in range(2):
+            for _ in range(5):
                 changed.reserve('proposal',out);changed.finish('proposal',out,False,'failed check')
-            with self.assertRaisesRegex(ValueError,'budget exhausted'):changed.reserve('proposal',out)
+            changed.reserve('proposal',out)
+            changed.finish('proposal',out,False,'failed check')
             changed.state['deadline_at']=time.time()-1;changed.save()
             expired=m.Recovery(p,'42',p,{'policy':'claude-only'},evidence)
             with self.assertRaisesRegex(ValueError,'deadline exhausted'):expired.reserve('review',out)
-            self.assertEqual(len(expired.state['attempts']),3)
+            self.assertEqual(len(expired.state['attempts']),7)
 
 if __name__ == '__main__':unittest.main()

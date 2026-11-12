@@ -35,7 +35,7 @@ class SetupUX(unittest.TestCase):
             self.assertEqual(data['ticket_source']['provider'], 'spec')
             self.assertEqual(data['runtime']['provider'], 'claude')
             self.assertEqual(data['runtime']['auth'], 'subscription')
-            self.assertEqual(data['repair_budgets']['implement'], 3)
+            self.assertEqual(data['repair_budgets']['implement'], 0)
             self.assertTrue(data['policy']['require_production_confirmation'])
             self.assertTrue((path / 'routing.json').exists())
 

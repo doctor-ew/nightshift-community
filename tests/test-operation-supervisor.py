@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Synthetic bounded repair over independently callable operations."""
 import importlib.util
+import copy
+import difflib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -51,6 +54,77 @@ class Supervisor(unittest.TestCase):
         (self.root/'app.py').write_text('def answer(): return 3\n')
         self.assertEqual(s.run(restarted, g)['status'], 'blocked')
         self.assertEqual(original.calls, calls)
+
+    def test_four_failed_reviews_can_repair_within_explicit_authority(self):
+        plan_path=self.root/'docs/demo/operations.json'
+        plan=json.loads(plan_path.read_text())
+        plan['limits']['implement']['calls']=10
+        plan['limits']['review']['calls']=10
+        plan['aggregate']['calls']=40
+        plan_path.write_text(json.dumps(plan))
+        original=self.worker
+        reviews=0
+        def worker(operation,packet,route,output,seconds):
+            nonlocal reviews
+            original.fail=False
+            original.patch=''
+            if operation=='review':
+                reviews+=1
+                original.fail=reviews<=4
+            if operation=='implement' and packet['findings']:
+                before=packet['artifacts']['app.py']
+                after=before+'# diagnosed repair '+str(reviews)+'\n'
+                original.patch=''.join(difflib.unified_diff(before.splitlines(True),after.splitlines(True),fromfile='a/app.py',tofile='b/app.py'))
+            return original(operation,packet,route,output,seconds)
+        self.c.worker=worker
+        result=s.run(self.c,self.grant())
+        self.assertEqual(result['status'],'passed',result)
+        self.assertEqual(reviews,5)
+        self.assertEqual(sum(a['operation']=='review' and a['status']=='failed' for a in self.c.state['attempts']),4)
+
+    def test_retained_transitions_have_no_default_cutoff_but_explicit_calls_apply(self):
+        operations = f.m.RECIPES['groom']
+        for cap in (2, 1):
+            with self.subTest(explicit_call_cap=cap), tempfile.TemporaryDirectory() as tmp:
+                project = Path(tmp)
+                plan = f.fixture(project)
+                plan['aggregate']['calls'] = cap
+                (project/'docs/demo/operations.json').write_text(json.dumps(plan))
+                worker = f.Worker()
+                controller = f.m.Operations(project, 'demo', worker)
+                assessed = controller.assess(operations[0])
+                grant = controller.authorize(operations, assessed['binding'], 'synthetic',
+                    'many-transitions', {'bounded_repair':True})['id']
+                steps = []
+                # Every retained step comes from an actual authorized executor
+                # result. Current-result reuse charges no additional provider call.
+                for index in range(65):
+                    request = 'retained-transition-' + str(index)
+                    result = controller.execute(grant, 'groom-spec', request, True)
+                    self.assertIn(result['status'], ('passed', 'reused'))
+                    if result['status'] == 'passed':
+                        controller.retry_account(result, 'success')
+                    steps.append(dict(operation='groom-spec', request=request,
+                                      completed=True, status=result['status']))
+                retained = copy.deepcopy(steps)
+                controller.state.setdefault('supervisors', {})[grant] = dict(
+                    version=1, grant=grant, trigger=None, steps=steps, decisions=[],
+                    queue=operations[1:], status='running')
+                controller.save()
+                resumed = f.m.Operations(project, 'demo', worker)
+                result = s.run(resumed, grant)
+                self.assertEqual(result['supervisor']['steps'][:65], retained)
+                self.assertEqual(worker.calls[0][0], 'groom-spec')
+                self.assertEqual(result['supervisor']['steps'][65]['operation'], 'groom-rules')
+                self.assertEqual(result['supervisor']['steps'][65]['status'], 'passed')
+                self.assertEqual(resumed.usage(grant)['calls'], cap)
+                if cap == 2:
+                    self.assertEqual(result['status'], 'passed', result)
+                    self.assertEqual(len(result['supervisor']['steps']), 65 + len(operations) - 1)
+                else:
+                    self.assertEqual(result['status'], 'blocked', result)
+                    self.assertEqual(resumed.state['attempts'][-1]['reason'], 'provider_call_limit_exhausted')
+                    self.assertEqual([op for op, _ in worker.calls], ['groom-spec'])
 
     def test_unchanged_repair_stops_before_repeated_judgment(self):
         (self.root/'app.py').write_text('def answer(): return 1\n')

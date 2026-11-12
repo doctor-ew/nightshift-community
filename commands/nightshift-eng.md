@@ -29,11 +29,11 @@ to correct metadata or repeat already verified source claims.
 On a recurring finding, change the repair author/provider and require a targeted
 regression before re-review. Keep reviewer independence. A check receipt proves
 only the stated regression, never product acceptance or behavioral proof.
-Do not interpret broad completion authorization as permission to keep extending
-exhausted repair allowances. Preserve the failure and publish a concrete recovery
-decision through the portal when the remaining action requires a user choice.
+Continue scoped repairs without an automatic attempt cutoff. Honor limits explicitly
+set by the operator, retain every failed attempt, and publish a concrete recovery
+decision through the portal only when the remaining action requires a user choice.
 Propagate the launcher's `NIGHTSHIFT_BUDGET_TASK` and `NIGHTSHIFT_BUDGET_PROJECT`
-unchanged to child dispatches; never change identity to evade a shared allowance.
+unchanged to child dispatches; never change identity to evade an explicit shared allowance.
 
 Local evidence checkpoints and TDD lock commits are authorized during the run.
 After verification, push only when push=true, and open a PR only when pr=true. Do not invoke the deploy
@@ -187,10 +187,10 @@ Run `--check` first to audit what's missing without making changes.
 ## Step 1 — Resolve task key
 
 ```bash
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 PROJECT="$NIGHTSHIFT_PROJECT_DIR"
-STAGE_ARGS=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
+STAGE_ARGS=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-stage-args.py" "$ARGUMENTS") || exit $?
 STAGE_AUTH=$(jq -r '.auth' <<< "$STAGE_ARGS")
 ARG=$(jq -r '.arguments' <<< "$STAGE_ARGS")
 FROM_STAGE=""; ABANDON=0; REF=""; BASE_ARGS=()
@@ -222,7 +222,7 @@ fi
 if echo "$REF" | grep -qE '^(gh|jira|monday|notion|bd|spec):'; then
   ROUTE_FRESH=1
   # Read-only normalized ticket lookup; do not mirror or write product artifacts yet.
-  TICKET_JSON=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-ticket-source.sh" "$REF") || exit 1
+  TICKET_JSON=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-ticket-source.sh" "$REF") || exit 1
   TASK_KEY=$(printf '%s\n' "$TICKET_JSON" | jq -er '.source_id | select(. != null) | tostring') || exit 1
 
 # (2) Bare ref that matches an existing task folder → resume by task key
@@ -259,15 +259,15 @@ its exact value in `BASE_REF` / `BASE_ARGS`. A prerequisite branch must be passe
 unchanged; never substitute main. Resolve the stable upstream task key read-only first.
 
 ```bash
-WORKTREE_RECEIPT=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" prepare "$TASK_KEY" \
+WORKTREE_RECEIPT=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-worktree.sh" prepare "$TASK_KEY" \
   --project "$PROJECT" "${BASE_ARGS[@]}") || exit 1
 PROJECT=$(printf '%s\n' "$WORKTREE_RECEIPT" | jq -er '.worktree') || exit 1
 cd "$PROJECT" || exit 1
-PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
+PROJECT_CONTEXT=$(python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-project-context.py" --project "$PROJECT" --shell) || exit $?
 eval "$PROJECT_CONTEXT"
 export NIGHTSHIFT_PREPARED_TASK="$TASK_KEY"
 export NIGHTSHIFT_WORKTREE_RECEIPT="$WORKTREE_RECEIPT"
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 DOCS_DIR="$PROJECT/docs"
 ```
 
@@ -309,7 +309,7 @@ if [ "$ABANDON" = "1" ]; then
   done
 
   # 2. Retire matching ownership, retaining the worktree and every file.
-  bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
+  bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
 
   # 3. Release the Stop hook: rewrite any ⏳ in-progress row to 🚫 abandoned.
   if [ -f "$TRACKER" ]; then
@@ -370,7 +370,7 @@ ceiling across resumes. Other stages retain their existing budgets. Never reset
 or delete budget evidence to resume a failed gate.
 
 ```bash
-TASK_DIR=$(bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
+TASK_DIR=$(bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-state-dir.sh" --project "$PROJECT" --task "$TASK_KEY" --create)
 TRACKER="${TASK_DIR}/${TASK_KEY}.md"
 SPEC="${PROJECT}/docs/${TASK_KEY}/SPEC.md"
 BD_ID_FILE="${PROJECT}/docs/${TASK_KEY}/.bd-id"
@@ -383,7 +383,7 @@ fi
 echo "BD_ID:   $BD_ID  (used for bd note/close calls)"
 
 # Crash recovery — surface orphaned state from a prior killed session.
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-crash-check.sh"
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-crash-check.sh"
 ```
 
 Crash reports are diagnostic. Preserve leases and scopes on interruption; never unconditionally
@@ -471,7 +471,7 @@ the pipeline — nightshift-eng uses `/nightshift-implement` for the TDD locks.)
 Activate from the actual Files to Change table through the checkout-local lease helper:
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-scope-activate.sh" "$TASK_KEY" \
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-scope-activate.sh" "$TASK_KEY" \
   --project "$PROJECT" --spec "$SPEC" || exit 1
 ```
 
@@ -489,7 +489,7 @@ inherited by the stage, which takes its non-interactive path and returns the JSO
 contract; read `status` to decide the branch below instead of interpreting prose.
 
 If `/nightshift-implement` fails or is interrupted (`status:"FAIL"`, or a `## AGENT BLOCKED`): the
-lease and scope remain for safe reconciliation. Mark blocked and stop after the existing repair budget.
+lease and scope remain for safe reconciliation. Mark blocked only when a concrete unresolved dependency or explicit operator limit prevents repair.
 
 ```bash
 sed -i '' "s|^⏳ /nightshift-implement.*|❌ /nightshift-implement — build [FAILED]|" "$TRACKER"
@@ -593,7 +593,7 @@ After QA reports APPROVE, independently require the final read-only gate before
 marking the stage complete:
 
 ```bash
-python3 "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-behavior-proof.py" \
+python3 "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-behavior-proof.py" \
   gate --project "$PROJECT" --task "$TASK_KEY" --gate final || exit $?
 ```
 
@@ -664,7 +664,7 @@ sed -i '' "s|^⏳ /nightshift-deploy.*|✅ /nightshift-deploy — ship (complete
 ## Step 10 — Retain completion and final summary
 
 ```bash
-bash "${NIGHTSHIFT_HOME:-$HOME/.nightshift}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
+bash "${NIGHTSHIFT_RUNTIME_HOME:-${NIGHTSHIFT_HOME:-$HOME/.nightshift}}/scripts/nightshift-worktree.sh" finish "$TASK_KEY" --project "$PROJECT" || exit 1
 ```
 
 Finish retires only matching lease/scope metadata and retains all worktree files, commits,
@@ -724,7 +724,7 @@ after a user correction, capture a reusable prevention rule in the same tracker.
 Before completion, inspect the diff, prove changed behavior through appropriate
 checks and assess the evidence against acceptance criteria. Prefer root-cause
 repairs and minimal changes; reconsider complex fixes before presenting them.
-Resolve actionable failures autonomously within the existing repair limits.
+Resolve actionable failures autonomously, retaining evidence and honoring explicit operator limits.
 
 Elapsed time is telemetry, not a completion gate. Model work has no default
 elapsed-time deadline; explicit operator limits, bounded availability probes,

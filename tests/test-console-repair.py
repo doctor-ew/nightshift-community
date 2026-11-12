@@ -18,6 +18,19 @@ class RepairTests(unittest.TestCase):
         self.patch='diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-before\n+after\n'
     def tearDown(self):self.temp.cleanup()
     def git(self,*args):return subprocess.check_output(['git','-C',str(self.p),*args],text=True)
+    def test_repair_counts_are_telemetry_unless_operator_sets_limit(self):
+        spec=importlib.util.spec_from_file_location('actions',ROOT/'scripts/nightshift-console-actions.py')
+        actions=importlib.util.module_from_spec(spec);spec.loader.exec_module(actions)
+        state=self.p/'repair-state';state.mkdir()
+        path=state/'42.repair-budget.json'
+        path.write_text(json.dumps(dict(attempts=12,limit=3)))
+        _,budget=actions.repair_budget(state,'42')
+        self.assertEqual(budget['attempts'],12)
+        budget.update(limit_origin='operator',limit=12)
+        path.write_text(json.dumps(budget))
+        with self.assertRaisesRegex(ValueError,'Explicit repair budget exhausted'):
+            actions.repair_budget(state,'42')
+
     def test_patch_is_checked_without_mutation(self):
         self.assertEqual(m.checked_patch(self.p,self.patch),['file.txt'])
         self.assertEqual((self.p/'file.txt').read_text(),'before\n')
@@ -188,6 +201,7 @@ out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','
             os.environ.pop('NIGHTSHIFT_ROUTING_FILE', None)
             os.environ.update(ORDER=str(self.p/'.nightshift/order'),PATCH=repair_patch,FAIL_PHASE='verification')
             decisions=m._recovery.load('console-decisions')
+            retained_decisions=json.loads(json.dumps(decisions.read(decisions.location(self.p,'42'))['requests']))
             question=dict(question='Use a separate Claude reviewer?',reason='Restricted policy',options=[],decision_key='review-policy')
             q=decisions.request(self.p,'42',question)
             decisions.respond(self.p,'42',q['sha256'],'','Claude-only; use a fresh reviewer. Preserve the draft and continue.')
@@ -221,7 +235,10 @@ out.write_text(json.dumps({'status':'SUCCESS','artifacts':{'provider':'claude','
             self.assertEqual(continued['next_action'],'operator_verify_manual_acceptance')
             self.assertEqual(budget.ledger_path(self.p,'42').read_bytes(),budget_bytes)
             self.assertIsNotNone(decisions.request(self.p,'42',dict(question,reason='Asked again after resume'))['response'])
-            self.assertEqual(len(decisions.read(decisions.location(self.p,'42'))['requests']),1)
+            rows=decisions.read(decisions.location(self.p,'42'))['requests']
+            self.assertEqual(len(rows),len(retained_decisions)+1)
+            self.assertEqual(rows[:len(retained_decisions)],retained_decisions)
+            self.assertEqual(sum(row.get('decision_key')=='review-policy' for row in rows),1)
             current=m.actions.state(self.p,'42')
             self.assertFalse(current['finished'])
             self.assertFalse(m.actions.action(self.p,'42',current['sha256'],'resume')['launched'])

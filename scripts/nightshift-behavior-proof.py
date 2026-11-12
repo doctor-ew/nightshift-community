@@ -33,8 +33,8 @@ MULTITURN_PROFILE = 'claude-subscription-multiturn-text-v1'
 RISKS = {'deterministic_logic', 'prompt_behavior', 'agent_behavior', 'runtime_interaction', 'safety_sensitive'}
 MODEL_RISKS = {'prompt_behavior', 'agent_behavior', 'runtime_interaction'}
 KINDS = {'prototype', 'deterministic', 'not_applicable', 'manual'}
-DEFAULTS = dict(version=1, development_calls=8, final_calls=2, repairs=2,
-                infrastructure_failures=2, timeout_seconds=0,
+DEFAULTS = dict(version=1, development_calls=None, final_calls=None, repairs=None,
+                infrastructure_failures=None, timeout_seconds=0,
                 output_bytes=1048576, force_prompt=False)
 ENGINE = Path(__file__).resolve(strict=True)
 HERE = ENGINE.parent
@@ -465,6 +465,50 @@ def evaluations_current(proof, observation, attempts, case):
     return True
 
 
+def manual_authorization(authorization, project, task):
+    """Resolve a manual obligation against an actual retained operator response."""
+    if isinstance(authorization, str):
+        raise Invalid('manual_authorization_reconciliation_required')
+    exact(authorization, ('kind', 'decision_sha256', 'response_sha256', 'quote'))
+    if authorization['kind'] != 'operator_decision':
+        raise Invalid('manual_authorization_kind')
+    hash_string(authorization['decision_sha256']); hash_string(authorization['response_sha256'])
+    text(authorization['quote'])
+    if project is None:
+        raise Invalid('manual_authorization_project_required')
+    try:
+        common = subprocess.check_output(['git', '-C', str(project), 'rev-parse', '--git-common-dir'],
+                                         text=True, stderr=subprocess.PIPE).strip()
+        common = (Path(project) / common).resolve()
+        record = common / 'nightshift' / 'console' / (task + '.decisions.json')
+        if record.resolve() != record.absolute():
+            raise Invalid('manual_authorization_unsafe_record')
+        decisions = parse_json(bounded(record))
+        if (not isinstance(decisions, dict) or decisions.get('version') != 1
+                or not isinstance(decisions.get('requests'), list)
+                or not all(isinstance(item, dict) for item in decisions['requests'])):
+            raise Invalid('manual_authorization_record')
+        requests = decisions['requests']
+        matches = [item for item in requests if item.get('sha256') == authorization['decision_sha256']]
+        if len(matches) != 1 or matches[0].get('task') != task:
+            raise Invalid('manual_authorization_decision_missing')
+        if any(item.get('supersedes') == authorization['decision_sha256'] for item in requests):
+            raise Invalid('manual_authorization_superseded')
+        response = matches[0].get('response')
+        if (not isinstance(response, dict) or response.get('source') != 'authenticated-local-portal'
+                or digest(response) != authorization['response_sha256']):
+            raise Invalid('manual_authorization_response_mismatch')
+        # A selected option is authority only after the operator actually selects it.
+        sources = [response.get('answer', '')]
+        selected = response.get('selected')
+        if isinstance(selected, dict) and response.get('choice') == selected.get('id'):
+            sources += [selected.get('label', ''), selected.get('description', '')]
+        if not any(isinstance(value, str) and authorization['quote'] in value for value in sources):
+            raise Invalid('manual_authorization_quote_mismatch')
+    except (OSError, subprocess.SubprocessError):
+        raise Invalid('manual_authorization_record_unavailable') from None
+
+
 def validate_doc(doc, project=None, task=None, private=False):
     exact(doc, ('version', 'task', 'ac_ids', 'author', 'applicability', 'runtime', 'prototype_files', 'cases', 'heldout'))
     if type(doc['version']) is not int or doc['version'] != 1:
@@ -506,8 +550,8 @@ def validate_doc(doc, project=None, task=None, private=False):
         if kind == 'manual':
             acceptance = case.get('manual_acceptance')
             exact(acceptance, ('owner', 'authorization', 'procedure'))
-            for value in acceptance.values():
-                text(value)
+            text(acceptance['owner']); text(acceptance['procedure'])
+            manual_authorization(acceptance['authorization'], project, doc['task'])
             if not case['required'] or case['expected'] or case['prohibited']:
                 raise Invalid('manual_acceptance_contract')
         elif 'manual_acceptance' in case:
@@ -613,9 +657,13 @@ def config(project):
             raise Invalid('config_keys')
         values.update(section)
     integer(values['version'], 1, 1)
-    for key, low, high in (('development_calls', 1, 128), ('final_calls', 1, 128), ('repairs', 0, 64),
-                           ('infrastructure_failures', 0, 2), ('timeout_seconds', 0, 120), ('output_bytes', 1, MAX_JSON)):
-        integer(values[key], low, high)
+    for key, low in (('development_calls', 1), ('final_calls', 1), ('repairs', 0),
+                     ('infrastructure_failures', 0)):
+        if values[key] is not None and (type(values[key]) is not int or values[key] < low):
+            raise Invalid('config_' + key)
+    if type(values['timeout_seconds']) is not int or values['timeout_seconds'] < 0:
+        raise Invalid('config_timeout_seconds')
+    integer(values['output_bytes'], 1, MAX_JSON)
     if type(values['force_prompt']) is not bool:
         raise Invalid('config_force_prompt')
     return values
@@ -900,7 +948,7 @@ class Proof:
                 raise Blocked('policy_amendment_stale')
             changed = {key for key in previous if previous[key] != self.policy[key]}
             if (not changed or changed - {'repairs', 'development_calls', 'final_calls'}
-                    or any(self.policy[key] < previous[key] for key in changed)):
+                    or any(previous[key] is None or (self.policy[key] is not None and self.policy[key] < previous[key]) for key in changed)):
                 raise Blocked('policy_amendment_not_bounded_extension')
             record = {'evidence': value, 'evidence_sha256': digest(value), 'previous_policy': previous,
                       'counters': self.counters(state), 'timestamp': utc()}
@@ -1140,7 +1188,7 @@ class Proof:
             if any(obs['gate'] == 'final' and obs['outcome'] == 'fail' and failure_bound(obs, seal) for obs in failure_observations(state)):
                 raise Blocked('heldout_replacement_required')
             budget = retry.proof_budget(state, self.policy)
-            if budget['repairs'] >= self.policy['repairs']:
+            if self.policy['repairs'] is not None and budget['repairs'] >= self.policy['repairs']:
                 raise Blocked('prototype_repairs_exhausted')
             budget['repairs'] += 1
             seal['revisions'].append({'previous': seal['current_prompt'], 'current': current_prompt,
