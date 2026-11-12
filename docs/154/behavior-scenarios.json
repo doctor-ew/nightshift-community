@@ -24,10 +24,10 @@
     ],
     "review": {
       "reviewer_provider": "claude",
-      "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+      "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
       "decision": "approve",
       "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-      "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+      "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
     }
   },
   "runtime": null,
@@ -47,10 +47,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "candidate provenance",
@@ -80,10 +80,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "fresh qualified GitHub request",
@@ -114,10 +114,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "validated controller worker",
@@ -148,10 +148,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "malformed and valid receipts",
@@ -182,10 +182,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "recorded scoped authorization",
@@ -216,10 +216,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "failed review and interrupted repair",
@@ -251,10 +251,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "isolated installed candidate",
@@ -285,10 +285,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "public documentation candidate",
@@ -318,10 +318,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
           "decision": "approve",
           "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "22227ee4ab5937aa21ca42916c5e0d6dd612a3f24b7ca84d091c68e9b7004cc1"
+          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
         }
       },
       "given": "Three retained fixtures: draft spec only; failed independent review; host-rejected action. A separate completed-build fixture has actual passing stage and final proof receipts.",
