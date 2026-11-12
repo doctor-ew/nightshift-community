@@ -150,7 +150,7 @@ git -C "$TMP_ROOT" -c user.name=Test -c user.email=test@example.invalid commit -
 mkdir -p "$TMP_ROOT/.nightshift"
 printf '%s\n' '{"tickets":["gh:1"],"statuses":{"gh:1":{"status":"pending"}}}' > "$TMP_ROOT/.nightshift/batch-20260906-1323.json"
 cp "$REPO_DIR/nightshift.toml" "$TMP_ROOT/.nightshift.toml"
-claude_output=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
+claude_output=$(env -u NIGHTSHIFT_PIPELINE_STAGE -u NIGHTSHIFT_PIPELINE_TASK -u NIGHTSHIFT_STAGE_HANDOFF -u NIGHTSHIFT_STAGE_RECEIPT PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" ANTHROPIC_API_KEY=secret "$FACTORY" batch --resume batch-20260906-1323.json --provider claude --model sonnet --auth subscription --project "$TMP_ROOT" --push --pr 2>&1)
 assert_contains "$claude_output" "CLAUDE_CWD=$(cd "$TMP_ROOT" && pwd)"
 assert_contains "$claude_output" '--print --output-format stream-json --verbose --disallowedTools Agent,Task --dangerously-skip-permissions --model sonnet'
 assert_contains "$claude_output" '/nightshift-batch --resume batch-20260906-1323.json --branch auto --push --pr'

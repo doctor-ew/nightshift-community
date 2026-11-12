@@ -249,7 +249,7 @@ receipt.write_text(json.dumps(dict(version=1,task='sample',stage=stage,status='p
 ''');stub.chmod(0o755)
    mex=binary/'mex';mex.write_text('#!/bin/sh\nexit 1\n');mex.chmod(0o755)
    settings=dict(ref='gh:sample',provider='claude',model='fixture',policy='claude-only',auth='subscription',branch='none',base='',push=False,pr=False)
-   env=dict(PATH=str(binary)+os.pathsep+os.environ['PATH'],HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json'),NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',NIGHTSHIFT_TICKET_JSON=json.dumps(dict(source='github',repository='fixture/repo',source_id='sample')))
+   env=dict(PATH=str(binary)+os.pathsep+os.environ['PATH'],HOME=str(home),NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_ROUTING_FILE=str(ROOT/'routing.json'),NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_DASHBOARD='off',NIGHTSHIFT_OUTPUT='verbose',NIGHTSHIFT_TICKET_JSON=json.dumps(dict(source='github',repository='fixture/repo',source_id='sample')),NIGHTSHIFT_BUDGET_TASK='sample',NIGHTSHIFT_BUDGET_PROJECT=str(p))
    with patch.dict(os.environ,env,clear=False):
     first=m.Pipeline(p,'sample',settings);self.assertEqual(first.run(),1)
     self.assertEqual(first.state['next_action'],'review',json.dumps(first.state)+'\n'+''.join(x.read_text() for x in first.directory.glob('*.log')))

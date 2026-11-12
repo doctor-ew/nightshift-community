@@ -161,5 +161,111 @@ class ReleaseInputs(unittest.TestCase):
         self.assertEqual(launch.call_args.args[0][-1], "gh:154")
 
 
+
+class InstalledAcceptance(unittest.TestCase):
+    def test_selected_runtime_inventory_is_distinct_from_path_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            project = base / 'consumer'; project.mkdir()
+            home = base / 'saved-state'; home.mkdir()
+            older = base / 'older-bin'; older.mkdir()
+            executable = older / 'nightshift'
+            executable.write_text('#!/bin/sh\nexit 99\n'); executable.chmod(0o755)
+            (home / 'updates.json').write_text(json.dumps({'source': updater.COMMUNITY, 'channel': 'branch:fixture'}))
+            (project / 'routing.json').write_bytes((ROOT / 'routing.json').read_bytes())
+            (project / '.nightshift.toml').write_text('[providers]\nrouting_file = "routing.json"\n[runtime]\nprovider = "codex"\nmodel = "fixture-author"\n')
+            environment = {key: value for key, value in os.environ.items()
+                           if not key.startswith('NIGHTSHIFT_') and key != 'CLAUDE_PROJECT_DIR'}
+            environment.update(NIGHTSHIFT_HOME=str(home), NIGHTSHIFT_SYNC_CHECK='off',
+                               NIGHTSHIFT_UPDATE_GUARD='1', NIGHTSHIFT_DASHBOARD='off',
+                               NIGHTSHIFT_OUTPUT='verbose', PATH=str(older)+os.pathsep+os.environ['PATH'])
+            result = subprocess.run(['bash', str(ROOT / 'scripts/nightshift-factory.sh'), 'inventory',
+                                     '--project', str(project)], env=environment, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, 'AC-1: read-only inventory is missing: '+result.stderr[-1200:])
+            report = json.loads(result.stdout)
+            self.assertEqual(Path(report['invoked_executable']).resolve(), ROOT / 'scripts/nightshift-factory.sh')
+            self.assertEqual(Path(report['path_executable']).resolve(), executable)
+            self.assertNotEqual(report['invoked_executable'], report['path_executable'])
+            self.assertEqual(Path(report['resolved_source_checkout']).resolve(), ROOT)
+            self.assertEqual(report['revision'], subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip())
+            self.assertEqual(report['install_channel'], 'branch:fixture')
+            self.assertEqual(report['effective_stage_runtime']['product']['provider'], 'codex')
+            self.assertEqual(report['effective_stage_runtime']['product']['model'], 'fixture-author')
+            self.assertNotEqual(report['effective_stage_runtime']['adversarial']['provider'], 'codex')
+            self.assertEqual(report['certification'], 'not-established')
+
+    def test_draft_and_forged_completion_expose_recovery_without_false_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary) / 'consumer'; project.mkdir()
+            subprocess.run(['git','-C',str(project),'init','-q'],check=True)
+            (project/'routing.json').write_bytes((ROOT/'routing.json').read_bytes())
+            (project/'.nightshift.toml').write_text('[providers]\nrouting_file = "routing.json"\n[runtime]\nprovider = "codex"\nmodel = "fixture-author"\n')
+            directory=project/'.git/nightshift/pipeline/154'; directory.mkdir(parents=True)
+            state={'version':1,'task':'154','worktree':str(project),'status':'blocked','next_action':'product',
+                   'request':'gh:doctor-ew/nightshift-community#154','completed':{},'findings':[],'attempts':[],'history':[]}
+            environment={k:v for k,v in os.environ.items() if not k.startswith('NIGHTSHIFT_') and k!='CLAUDE_PROJECT_DIR'}
+            home=project/'saved-state';home.mkdir()
+            environment.update(NIGHTSHIFT_HOME=str(home),NIGHTSHIFT_UPDATE_GUARD='1',NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_OUTPUT='verbose')
+            for status in ('blocked','complete'):
+                with self.subTest(recorded_status=status):
+                    state['status']=status
+                    (directory/'state.json').write_text(json.dumps(state))
+                    result=subprocess.run(['bash',str(ROOT/'scripts/nightshift-factory.sh'),'inventory','--project',str(project),'--task','154'],env=environment,capture_output=True,text=True)
+                    self.assertEqual(result.returncode,0,'AC-9: inspection must not dispatch or require a source run: '+result.stderr[-500:])
+                    recovery=json.loads(result.stdout)['recovery']
+                    self.assertNotEqual(recovery['status'],'complete','AC-9: empty completion claim cannot pass')
+                    self.assertTrue(recovery['next_action'])
+                    self.assertIn(state['request'],recovery['resume_command'])
+                    self.assertIn(str(project),recovery['resume_command'])
+                    self.assertIn(str(ROOT/'scripts/nightshift-factory.sh'),recovery['resume_command'])
+
+    def test_public_claims_distinguish_certification_boundaries(self):
+        for name in ('README.md', 'slides/saturday.md', 'slides/tuesday.md'):
+            with self.subTest(path=name):
+                content = (ROOT / name).read_text()
+                lower = content.lower()
+                for category in ('source', 'temporary', 'activat', 'certif'):
+                    self.assertIn(category, lower, 'AC-8: missing provenance category in '+name)
+                self.assertNotIn(str(Path.home()), content, 'AC-8: personal checkout path in public content')
+                self.assertNotIn('NIGHTSHIFT_PRIVATE_CONSUMER_SENTINEL_154', content)
+
+    def test_actual_isolated_installed_six_stage_run_and_repeat(self):
+        record = ROOT / '.nightshift/154-live-acceptance.json'
+        self.assertTrue(record.is_file(), 'AC-7: actual isolated installed acceptance has not run')
+        evidence = json.loads(record.read_text())
+        self.assertEqual(evidence['version'], 1)
+        candidate = Path(evidence['source_checkout']).resolve(strict=True)
+        revision = subprocess.check_output(['git','-C',str(candidate),'rev-parse','HEAD'],text=True).strip()
+        self.assertEqual(revision, evidence['candidate_revision'])
+        self.assertEqual(Path(evidence['installed_executable']).resolve(), candidate / 'scripts/nightshift-factory.sh')
+        for relative in ('scripts/nightshift-factory.sh','scripts/nightshift-update.py','scripts/nightshift-pipeline.py'):
+            self.assertEqual((candidate / relative).read_bytes(), (ROOT / relative).read_bytes())
+        module_spec = importlib.util.spec_from_file_location('installed_acceptance_pipeline', candidate / 'scripts/nightshift-pipeline.py')
+        pipeline = importlib.util.module_from_spec(module_spec); module_spec.loader.exec_module(pipeline)
+        project = Path(evidence['consumer_project']).resolve(strict=True)
+        state = pipeline.snapshot(project, evidence['task'])
+        self.assertEqual(state['status'], 'complete')
+        self.assertEqual(set(state['completed']), set(pipeline.STAGES))
+        target = Path(state['worktree'])
+        for stage, item in state['completed'].items():
+            self.assertEqual(pipeline.sha(item['receipt']), item['sha256'])
+            self.assertEqual(item['input_sha256'], pipeline.inputs(target,evidence['task'],stage,state))
+            self.assertEqual(pipeline.validate_receipt(item['receipt'],evidence['task'],stage,target)['status'],'pass')
+        for gate in ('development','final'):
+            self.assertEqual(pipeline.proof(target,evidence['task'],gate)['outcome'],'pass')
+        environment={k:v for k,v in os.environ.items() if not k.startswith('NIGHTSHIFT_') and k!='CLAUDE_PROJECT_DIR'}
+        environment.update(NIGHTSHIFT_HOME=evidence['runtime_home'],NIGHTSHIFT_SYNC_CHECK='off',NIGHTSHIFT_UPDATE_GUARD='1')
+        inspected=subprocess.run([evidence['installed_executable'],'inventory','--project',str(project),'--task',evidence['task']],env=environment,capture_output=True,text=True)
+        self.assertEqual(inspected.returncode,0,inspected.stderr[-1000:])
+        self.assertEqual(json.loads(inspected.stdout)['recovery']['status'],'complete')
+        self.assertEqual(evidence['repeat']['exit_code'],0)
+        self.assertEqual(evidence['repeat']['before_receipts'],evidence['repeat']['after_receipts'])
+        self.assertEqual(evidence['repeat']['before_reservations'],evidence['repeat']['after_reservations'])
+        self.assertTrue(evidence['repeat']['before_reservations'])
+        self.assertEqual({item['provider'] for item in evidence['providers']}, {'codex','claude'})
+        import hashlib
+        for item in evidence['providers']:
+            self.assertEqual(hashlib.sha256(Path(item['executable']).resolve(strict=True).read_bytes()).hexdigest(),item['sha256'])
+
 if __name__ == "__main__":
     unittest.main()
