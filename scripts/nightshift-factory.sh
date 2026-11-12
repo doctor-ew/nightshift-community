@@ -85,6 +85,8 @@ REVIEW_SPEC=false
 RETRY_REVIEW=false
 AUTH_MODE=""
 AUTH_EXPLICIT=false
+GEAR_EXPLICIT=false
+RISK_EXPLICIT=false
 PROVIDER_POLICY_OPTION=""
 NIGHTSHIFT_HOME_DIR="${NIGHTSHIFT_HOME:-${HOME}/.nightshift}"
 AUTH_CONFIG="${NIGHTSHIFT_HOME_DIR}/config"
@@ -151,8 +153,8 @@ while [ "$#" -gt 0 ]; do
     --provider-policy) shift; PROVIDER_POLICY_OPTION="${1:-}" ;;
     --provider) shift; PROVIDER="${1:-}" ;;
     --model) shift; MODEL="${1:-}" ;;
-    --gear) shift; export NIGHTSHIFT_GEAR="${1:-}" ;;
-    --risk) shift; export NIGHTSHIFT_RISK="${1:-}" ;;
+    --gear) shift; export NIGHTSHIFT_GEAR="${1:-}"; GEAR_EXPLICIT=true ;;
+    --risk) shift; export NIGHTSHIFT_RISK="${1:-}"; RISK_EXPLICIT=true ;;
     --dashboard) shift; DASHBOARD="${1:-}" ;;
     --dashboard-browser) shift; DASHBOARD_BROWSER="${1:-}" ;;
     --auth) shift; AUTH_MODE="${1:-}"; AUTH_EXPLICIT=true ;;
@@ -543,8 +545,10 @@ if [ "$MODE" = eng ] && [ -z "${NIGHTSHIFT_PIPELINE_STAGE:-}" ]; then
   PIPELINE_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
   PIPELINE_SETTINGS=$(jq -cn --arg ref "$REF" --arg provider "$PROVIDER" --arg model "$MODEL" \
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
+    --arg gear "${NIGHTSHIFT_GEAR:-auto}" --arg risk "${NIGHTSHIFT_RISK:-standard}" \
+    --argjson gear_explicit "$GEAR_EXPLICIT" --argjson risk_explicit "$RISK_EXPLICIT" \
     --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
-    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
+    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr,gear:$gear,risk:$risk,gear_explicit:$gear_explicit,risk_explicit:$risk_explicit}')
   PIPELINE_ARGS=(--project "$PROJECT" --task "$PIPELINE_TASK" --settings "$PIPELINE_SETTINGS")
   [ "$REVIEW_SPEC" = false ] || PIPELINE_ARGS+=(--review-spec)
   exec python3 "$SCRIPT_DIR/nightshift-pipeline.py" "${PIPELINE_ARGS[@]}"
@@ -714,8 +718,10 @@ if [ "$ADVISORY" = false ] && [ "$MODE" = eng ] && [ "$BRANCH" = auto ] && [ -n 
   CONSOLE_TASK=$(jq -r .source_id <<< "$NIGHTSHIFT_TICKET_JSON")
   CONSOLE_SETTINGS=$(jq -cn --arg ref "$REF" --arg provider "$PROVIDER" --arg model "$MODEL" \
     --arg policy "$PROVIDER_POLICY" --arg auth "$AUTH_MODE" --arg branch "$BRANCH" --arg base "$BASE_REF" \
+    --arg gear "${NIGHTSHIFT_GEAR:-auto}" --arg risk "${NIGHTSHIFT_RISK:-standard}" \
+    --argjson gear_explicit "$GEAR_EXPLICIT" --argjson risk_explicit "$RISK_EXPLICIT" \
     --argjson push "$PUSH" --argjson pr "$OPEN_PR" \
-    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr}')
+    '{ref:$ref,provider:$provider,model:$model,policy:$policy,auth:$auth,branch:$branch,base:$base,push:$push,pr:$pr,gear:$gear,risk:$risk,gear_explicit:$gear_explicit,risk_explicit:$risk_explicit}')
   CONSOLE_ARGS=(--project "$PROJECT" --task "$CONSOLE_TASK" --settings "$CONSOLE_SETTINGS")
   [ "$REVIEW_SPEC" = false ] || CONSOLE_ARGS+=(--review-spec)
   python3 "$SCRIPT_DIR/nightshift-console-actions.py" "${CONSOLE_ARGS[@]}" || exit $?

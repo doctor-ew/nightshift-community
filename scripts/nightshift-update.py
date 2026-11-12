@@ -161,8 +161,9 @@ def inventory(project, invoked, task=None):
     spec.loader.exec_module(pipeline)
     project = project.resolve(strict=True)
     try:
-        configured = pipeline.continuation_routes(project, project)
+        configured = pipeline.inventory_routes(project, task)
         result['effective_stage_runtime'] = configured['stages']
+        result['runtime_origin'] = configured['origin']
         result['provider_policy'] = configured['policy']
         result['routing_path'] = configured['routing_path']
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

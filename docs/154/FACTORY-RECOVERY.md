@@ -4,11 +4,11 @@ The first Product attempt wrote a spec and scenarios, then returned a failed rec
 
 ## Manual requirement origin
 
-The stage prompt in `scripts/nightshift-factory.sh` unconditionally instructed the worker: “Keep required manual acceptance pending while completing automated work.”
+Commit `ff51b48` introduced the stage prompt in `scripts/nightshift-factory.sh`, which unconditionally instructed the worker: “Keep required manual acceptance pending while completing automated work.”
 
 The retained Product command created required case C-7 as manual and supplied this authorization: “Issue 154 requires isolated installed end-to-end acceptance; current task explicitly says to keep required manual acceptance pending.” The Product handoff contained no operator decisions requiring manual acceptance. The public issue requires an isolated live run; it does not assign that acceptance to a human-only procedure.
 
-The scenario validator in `scripts/nightshift-behavior-proof.py` accepted any nonempty owner, authorization and procedure strings. It did not establish the authorization's origin. `tests/test-factory-auth.sh` explicitly asserted the unconditional launcher wording.
+The manual-acceptance contract introduced in commit `df3d032` in `scripts/nightshift-behavior-proof.py` accepted any nonempty owner, authorization and procedure strings. It did not establish the authorization's origin. `tests/test-factory-auth.sh` explicitly asserted the unconditional launcher wording.
 
 This is a concrete instruction-to-artifact propagation and validation defect. The conditional instruction in `commands/nightshift-spec.md`—manual cases apply when the operator explicitly owns an external check—was not enforced by that free-text contract.
 
