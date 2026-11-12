@@ -564,7 +564,20 @@ class Pipeline:
                         recorded = self.accept_classification(reviewer)
                 signature=inputs(self.project,self.task,stage,self.state)
                 current_source=source(self.project,self.task)
-                if not recorded and any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
+                docs=self.project/'docs'/self.task
+                # Raw classification attestations can change without changing the
+                # authored contract; they still constitute substantive repair work.
+                repair_basis=recovery.digest(dict(inputs=signature,source=current_source,
+                    artifacts={name:sha(docs/name) if (docs/name).is_file() else None
+                               for name in ('SPEC.md','behavior-scenarios.json')}))
+                previous=next((a for a in reversed(self.state['attempts']) if a['stage']==stage),None)
+                repair_of=None
+                if (stage not in REVIEW and previous and previous.get('reason')=='stage_failed'
+                        and self.state.get('finding_stage')==stage and self.state['findings']):
+                    if previous.get('repair_of') and previous.get('repair_basis')==repair_basis:
+                        self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
+                    repair_of=previous['receipt']
+                if not recorded and not repair_of and any(a['stage']==stage and a.get('reason')=='stage_failed' and a['input_sha256']==signature and a.get('source_sha256',current_source)==current_source for a in self.state['attempts']):
                     self.state.update(status='blocked',next_action='repair_unchanged_'+stage);self.save();return 1
                 if stage=='implement':
                     result=proof(self.project,self.task,'development')
@@ -575,6 +588,7 @@ class Pipeline:
                 bundle=load('handoff').build(self.project,self.task,stage,self.state,self.task+' '+stage+' '+ ' '.join(f['problem'] for f in self.state['findings']))
                 recovery.atomic(handoff,bundle)
                 attempt=dict(stage=stage,receipt=str(receipt),input_sha256=inputs(self.project,self.task,stage,self.state),status='running',route=self.state['plan']['stages'][stage],started_at=time.time())
+                if repair_of:attempt.update(repair_of=repair_of,repair_basis=repair_basis)
                 self.state['attempts'].append(attempt);self.state['status']='running';self.save()
                 retry.account(budget_path,str(receipt),'pending')
                 value=None
@@ -612,8 +626,8 @@ class Pipeline:
                     self.state.setdefault('retry_budgets',{})[stage]=retry.account(budget_path,str(receipt),attempt['category'])
                     self.state['findings']=(value or {}).get('findings',[]) or [dict(id=stage+'-evidence',target=str(receipt),problem=str(error))]
                     self.state.update(status='blocked',next_action=stage,finding_stage=stage);self.save()
-                    if str(error)=='stage_failed' and stage in REVIEW and self.state['findings']:
-                        repair='product' if stage=='adversarial' else 'implement'
+                    if str(error)=='stage_failed' and self.state['findings']:
+                        repair=('product' if stage=='adversarial' else 'implement') if stage in REVIEW else stage
                         self.state['completed'].pop(repair,None)
                         self.state.update(status='repairing',next_action=repair);self.save();continue
                     return 1

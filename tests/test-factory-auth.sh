@@ -173,7 +173,8 @@ assert_contains "$policy_output" 'CLAUDE_ARGS='
 assert_contains "$policy_output" 'Current provider policy: claude-only'
 assert_contains "$policy_output" 'fresh Claude session under Claude-only policy'
 assert_contains "$policy_output" 'apply them within the resolved provider policy'
-assert_contains "$policy_output" 'Keep required manual acceptance pending'
+assert_contains "$policy_output" 'Generic workflow guidance is not authorization to create a manual case'
+assert_contains "$policy_output" 'Automated installed/live acceptance must be executed; do not convert it to human sign-off'
 case "$policy_output" in *'does not permit same-provider self-approval'*) fail 'contradictory reviewer policy';; esac
 for selected in codex local; do
   if blocked=$(PATH="$TMP_ROOT/bin:$PATH" NIGHTSHIFT_HOME="$TMP_ROOT/home/.nightshift" "$FACTORY" gh:1 --project "$policy_project" --branch none --provider "$selected" --model fixture --provider-policy standard 2>&1); then
