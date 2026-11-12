@@ -71,6 +71,8 @@ The behavioral helper reports version-1 scenarios and literal/JSON assertion ope
 | AC-8 | Documentation claim audit | Review public/private boundary |
 | AC-9 | Blocked consumer-state fixture | Concrete operator recovery |
 
+Ordinary source regression runs may explicitly skip live certification when no checkout-local live record exists. Such a skip never satisfies AC-7. The required task verification command selects forced certification, rejects missing selection and any skipped live case, and requires the real current installed record. Mode boundary checks cover unset, empty, "0" and "1" values, required missing-record failure, and required real-record success.
+
 ## Model Router
 
 **Decision:** nightshift-architect. This scope spans multiple runtime modules and a shared controller contract. Provider/model selection is resolved by configured routing at dispatch.

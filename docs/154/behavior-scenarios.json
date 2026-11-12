@@ -24,10 +24,10 @@
     ],
     "review": {
       "reviewer_provider": "claude",
-      "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+      "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
       "decision": "approve",
-      "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-      "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+      "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+      "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
     }
   },
   "runtime": null,
@@ -47,10 +47,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "candidate provenance",
@@ -80,10 +80,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "fresh qualified GitHub request",
@@ -114,10 +114,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "validated controller worker",
@@ -148,10 +148,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "malformed and valid receipts",
@@ -182,10 +182,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "recorded scoped authorization",
@@ -216,10 +216,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "failed review and interrupted repair",
@@ -251,15 +251,15 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
-      "given": "isolated installed candidate",
-      "when": "Install an exact candidate in a disposable runtime and run a fresh ticket through the six-stage factory with real configured providers",
-      "then": "Retain candidate executable/revision inventory and matching Product, Adversarial, RED/GREEN Implementation, Review, Drift and QA receipts plus required proof. Verify the live records are bound to that inventory. No operator-owned manual case is manufactured.",
+      "given": "An ordinary source checkout without a private live record, and an exact-revision isolated installed candidate with retained real-provider receipts.",
+      "when": "Install an exact candidate in a disposable runtime and run a fresh ticket through the six-stage factory with real configured providers; separately exercise ordinary and required-certification execution modes with the mode variable unset, empty, \"0\" and \"1\".",
+      "then": "Retain candidate executable/revision inventory and matching Product, Adversarial, RED/GREEN Implementation, Review, Drift and QA receipts plus required proof. Verify the live records are bound to that inventory. No operator-owned manual case is manufactured. Ordinary mode without the record reports exactly one explicit skip stating that no live certification ran; this never satisfies AC-7. Required mode (NIGHTSHIFT_REQUIRE_INSTALLED_ACCEPTANCE=\"1\") without the record fails the AC-7 required-file assertion with no skip. Required mode with the real record runs every existing live-receipt assertion with zero skips. The task certification runner rejects a missing required-mode selection and any skipped C-7 result, even when other source tests pass.",
       "forbidden": "Source tests stand in for installed acceptance",
       "input": null,
       "expected": [],
@@ -267,7 +267,12 @@
       "counterexamples": [
         "A required stage is missing: reject.",
         "A receipt is bound to another candidate revision: reject.",
-        "Synthetic providers or source-only test output are offered as live acceptance: reject."
+        "Synthetic providers or source-only test output are offered as live acceptance: reject.",
+        "Unset, empty or \"0\" mode and no record: exactly one labelled ordinary-suite skip, never certification.",
+        "Mode \"1\" and no record: fail on the required-file assertion, not skip.",
+        "Mode \"1\" and the actual record: validate all stage, proof, revision, provider and repeat assertions; no skip.",
+        "The required runner is invoked without the mode selection: reject even if a record exists.",
+        "A test loader returns a skipped C-7 result: required runner rejects it rather than accepting the successful ordinary-suite exit."
       ],
       "visibility": "public"
     },
@@ -285,10 +290,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "public documentation candidate",
@@ -318,10 +323,10 @@
         ],
         "review": {
           "reviewer_provider": "claude",
-          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433",
+          "reviewer_author_id": "nightshift-behavior-reviewer:sonnet:e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48",
           "decision": "approve",
-          "reviewed_input_sha256": "3d81d51e23a166aa32cd33e284a636507e0ea803056e5f050b002ef1cbd147ac",
-          "evidence_sha256": "e9efb9d17ed1d8a7bedaf7a308f8d5ef8e4e9d099b2471c9e7e8a43d45ff1433"
+          "reviewed_input_sha256": "f40f5c5108a4ecffd97caf038453ec2b8837a48347c64894faba4b2fcac55c81",
+          "evidence_sha256": "e602291cee39b7215eac0f60b0eb5f0d0ed1554e0fc8a9430ecb6385dda67f48"
         }
       },
       "given": "Three retained fixtures: draft spec only; failed independent review; host-rejected action. A separate completed-build fixture has actual passing stage and final proof receipts.",
